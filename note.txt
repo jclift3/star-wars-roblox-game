@@ -1,0 +1,8 @@
+1 - Customization on interior of spaceships
+2 - npc's of various types / styles with AI.  should be able to interact and have interesting interactions with dynamic conversations (probably powered by llms)
+3 - The name of the game isn't quite right.  We should come up with something else later.  The current name wouldn't attract many people.  We need something that is clean and will get people excited about the game
+4 - on coruscant we should see npc spaceships in the sky as that is a key component of the city.
+5 - Fast travel costs credits while normal spacetravel should be free or cost fuel possibly
+6 -  Do I need to enable the mesh / image apis as well?  I'd image this will be very important.  I may need to do some age verfication to get this api working
+7 - planet physics should update based on the planet so gravity should be higher on some planets, etc
+8 - Coruscant doesn't really have ground to walk around on more cities and buildings and spaceships are used for transport
