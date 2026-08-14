@@ -33,14 +33,19 @@ your blaster.
 active mission (`HudController.luau:260`), so a single tracked mission is not a
 concept the game has.
 
-### 1.2 Collect and Deliver objectives — **[gap]**
-`MissionService.report` handles `Reach` (`:347`) and `Kill` (`:408`). **Nothing
-in the codebase ever reports `Collect` or `Deliver`.** Both objective kinds are
-declared, authored into missions, and permanently unsatisfiable — so the story
-chain stalls at the first mission that uses one (`TatDustAndDroids`, objective 3).
+### 1.2 Collect and Deliver objectives — **[done]**
+`PickupService.luau` puts the items in the world: one shared, respawning pile per
+planet, placed at the objective's new `at` point of interest, taken with a
+`ProximityPrompt`. Its spawn table is derived from the missions rather than
+hand-written, so it cannot drift out of step with them.
 
-Build: world pickup parts that report `Collect`, and a proximity turn-in that
-reports `Deliver`.
+Delivery is handled in `MissionService.sweepPlayer` — standing at the destination
+carrying the goods. Items are deducted under a fresh inventory read, so two
+missions wanting the same crate cannot both be paid for it.
+
+`Items.luau` holds the six quest items (deliberately separate from `Weapons` and
+`Outfits`: these are carried and spent, not owned and equipped). `Missions.validate`
+now checks `at` and item ids, and `WaypointController` points at `Collect`.
 
 ### 1.3 Dialogue system — **[gap]**
 `StartDialogue` / `DialogueChoice` / `EndDialogue` remotes are declared
@@ -56,8 +61,9 @@ purpose beyond standing still.
 open the panel and hope. Needs a billboard prompt (or Roblox `ProximityPrompt`)
 over shop NPCs.
 
-> With 1.1 done, missions are reachable but most still cannot be *finished* —
-> 1.2 is now the blocker, not 1.1.
+> With 1.1 and 1.2 done, the Tatooine chain is completable end to end. The
+> remaining blocker is `TalkTo` (1.3), which gates every mission with a
+> quest-giver conversation in it.
 
 **Phase 1 exit criterion:** a new player can spawn, be pointed at a quest-giver,
 accept a mission, complete every objective kind, and turn it in for credits.
