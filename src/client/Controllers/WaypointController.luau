@@ -119,6 +119,11 @@ local function partForObjective(planetId: string, obj: Missions.ObjectiveDef): B
 	if kind == Missions.Objective.Deliver and obj.destination then
 		return poiPart(planetId, obj.destination)
 	end
+	-- Collect points at where PickupService puts the items, not at the item
+	-- itself: the pile moves as it is looted and respawned, the place does not.
+	if kind == Missions.Objective.Collect and obj.at then
+		return poiPart(planetId, obj.at)
+	end
 	if kind == Missions.Objective.Kill and obj.target then
 		local zone = zoneForArchetype(planetId, obj.target)
 		return if zone then zonePart(planetId, zone) else nil

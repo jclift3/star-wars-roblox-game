@@ -30,6 +30,7 @@ local Shared = game:GetService("ReplicatedStorage"):WaitForChild("Shared")
 local Types = require(Shared.Types)
 local Net = require(Shared.Core.Net)
 local Signal = require(Shared.Core.Signal)
+local Items = require(Shared.Config.Items)
 local Missions = require(Shared.Config.Missions)
 local ServiceLoader = require(Shared.Core.ServiceLoader)
 
@@ -311,6 +312,8 @@ local function sweepPlayer(player: Player, now: number)
 
 	local expired: { string } = {}
 	local reached: { string } = {}
+	--- Items handed over this sweep: { item, how many }.
+	local delivered: { { item: string, count: number } } = {}
 
 	for missionId, entry in profile.missions.active do
 		if not Missions.exists(missionId) then
@@ -327,15 +330,30 @@ local function sweepPlayer(player: Player, now: number)
 			continue
 		end
 		for index, obj in mission.objectives do
-			if obj.kind ~= Objective.Reach or not obj.target then
-				continue
-			end
 			if (entry.objectives[index] or 0) >= Missions.objectiveTarget(obj) then
 				continue
 			end
-			local part = poiPart(profile.currentPlanet, obj.target)
-			if part and (part.Position - position).Magnitude <= REACH_RADIUS then
-				table.insert(reached, obj.target)
+
+			if obj.kind == Objective.Reach and obj.target then
+				local part = poiPart(profile.currentPlanet, obj.target)
+				if part and (part.Position - position).Magnitude <= REACH_RADIUS then
+					table.insert(reached, obj.target)
+				end
+			elseif obj.kind == Objective.Deliver and obj.target and obj.destination then
+				--[[
+					Delivery is standing at the destination holding the goods.
+
+					Both halves are checked here rather than trusting the
+					Collect objective to have run: a player can be given the
+					item as a mission reward, or drop the mission and retake
+					it, and either way carrying it is what counts.
+				]]
+				local part = poiPart(profile.currentPlanet, obj.destination)
+				local carried = profile.inventory[obj.target] or 0
+				local needed = Missions.objectiveTarget(obj)
+				if part and carried >= needed and (part.Position - position).Magnitude <= REACH_RADIUS then
+					table.insert(delivered, { item = obj.target, count = needed })
+				end
 			end
 		end
 	end
@@ -345,6 +363,35 @@ local function sweepPlayer(player: Player, now: number)
 	end
 	for _, target in reached do
 		MissionService.report(player, Objective.Reach, target, 1)
+	end
+	for _, hand in delivered do
+		--[[
+			Spend first, credit second, and only credit what was actually
+			spent. Two missions can want the same item delivered to the same
+			place, and both were tested against the inventory as it stood at
+			the top of the sweep -- so the goods have to be taken under a
+			fresh read or the player hands over one crate and gets paid twice.
+		]]
+		local spent = 0
+		data().update(player, function(p: PlayerProfile)
+			local held = p.inventory[hand.item] or 0
+			spent = math.min(held, hand.count)
+			if spent <= 0 then
+				return
+			end
+			local left = held - spent
+			if left > 0 then
+				p.inventory[hand.item] = left
+			else
+				-- Cleared rather than left at zero, so a spent quest item
+				-- does not sit in the save forever as an empty stack.
+				p.inventory[hand.item] = nil
+			end
+		end)
+		if spent > 0 then
+			notify(player, `Delivered: {Items.nameOf(hand.item)} x{spent}`, "Reward")
+			MissionService.report(player, Objective.Deliver, hand.item, spent)
+		end
 	end
 end
 

@@ -22,6 +22,7 @@
 ]]
 
 local Factions = require(script.Parent.Factions)
+local Items = require(script.Parent.Items)
 local Planets = require(script.Parent.Planets)
 local NPCArchetypes = require(script.Parent.NPCArchetypes)
 local Weapons = require(script.Parent.Weapons)
@@ -52,6 +53,10 @@ export type ObjectiveDef = {
 	kind: string,
 	target: string?,
 	destination: string?,
+	-- Point of interest where this objective's work happens. Required for
+	-- Collect: it is where PickupService puts the items, and without it the
+	-- objective is a scavenger hunt across 3000 studs with no clue attached.
+	at: string?,
 	count: number?,
 	planet: string?,
 	description: string,
@@ -135,6 +140,7 @@ def({
 		{
 			kind = Objective.Collect,
 			target = "AstromechDroid",
+			at = "SandcrawlerWreck",
 			count = 1,
 			description = "Recover the astromech",
 		},
@@ -208,7 +214,13 @@ def({
 			description = "Find the courier's wreck",
 		},
 		{ kind = Objective.Kill, target = "TuskenRaider", count = 8, description = "Clear the Tusken camp" },
-		{ kind = Objective.Collect, target = "SpiceCrate", count = 3, description = "Recover the spice" },
+		{
+			kind = Objective.Collect,
+			target = "SpiceCrate",
+			at = "DuneSeaWreck",
+			count = 3,
+			description = "Recover the spice",
+		},
 		{
 			kind = Objective.Deliver,
 			target = "SpiceCrate",
@@ -435,6 +447,7 @@ def({
 		{
 			kind = Objective.Collect,
 			target = "PowerCoupling",
+			at = "NorthRavine",
 			count = 2,
 			description = "Salvage power couplings",
 		},
@@ -581,6 +594,7 @@ def({
 		{
 			kind = Objective.Collect,
 			target = "ResearchData",
+			at = "CloningLabs",
 			count = 1,
 			description = "Extract the research data",
 		},
@@ -612,7 +626,13 @@ def({
 			description = "Find the dealer in the Refugee Sector",
 		},
 		{ kind = Objective.Kill, target = "Smuggler", count = 5, description = "Deal with his hired help" },
-		{ kind = Objective.Collect, target = "CreditChit", count = 1, description = "Collect what he owes" },
+		{
+			kind = Objective.Collect,
+			target = "CreditChit",
+			at = "RefugeeSector",
+			count = 1,
+			description = "Collect what he owes",
+		},
 		{
 			kind = Objective.Deliver,
 			target = "CreditChit",
@@ -703,7 +723,13 @@ def({
 	giver = "CartelEnforcer",
 	minLevel = 28,
 	objectives = {
-		{ kind = Objective.Collect, target = "RawOre", count = 12, description = "Collect raw ore" },
+		{
+			kind = Objective.Collect,
+			target = "RawOre",
+			at = "MiningComplex",
+			count = 12,
+			description = "Collect raw ore",
+		},
 		{
 			kind = Objective.Kill,
 			target = "BattleDroid",
@@ -923,6 +949,28 @@ function Missions.validate(): { string }
 					problems,
 					`{id}: objective {i} delivers to unknown POI "{obj.destination}" on {m.planet}`
 				)
+			end
+			--[[
+				A Collect objective is the spawn table: PickupService reads
+				`at` to decide where the items go, so one without it puts
+				nothing in the world and can never be finished.
+			]]
+			if obj.kind == Objective.Collect then
+				if not obj.at then
+					table.insert(problems, `{id}: objective {i} collects but has no "at" point of interest`)
+				elseif not Planets.hasPOI(m.planet, obj.at) then
+					table.insert(
+						problems,
+						`{id}: objective {i} collects at unknown POI "{obj.at}" on {m.planet}`
+					)
+				end
+			end
+			if
+				(obj.kind == Objective.Collect or obj.kind == Objective.Deliver)
+				and obj.target
+				and not Items.exists(obj.target)
+			then
+				table.insert(problems, `{id}: objective {i} handles unknown item "{obj.target}"`)
 			end
 			if m.rewards.rep then
 				for factionId in m.rewards.rep do
