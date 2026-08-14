@@ -24,6 +24,7 @@ local Net = require(Shared.Core.Net)
 local Signal = require(Shared.Core.Signal)
 local Progression = require(Shared.Config.Progression)
 local Factions = require(Shared.Config.Factions)
+local Outfits = require(Shared.Config.Outfits)
 
 local ServiceLoader = require(Shared.Core.ServiceLoader)
 
@@ -59,7 +60,12 @@ function ProgressionService.getStats(player: Player): { [string]: number }
 		return cached
 	end
 	local profile = data().get(player)
-	local stats = Progression.computeStats(profile and profile.skills or {})
+	-- Worn gear stacks with skills. Anything that changes the equipped outfit
+	-- must call `invalidate`, or the player keeps the old armour's numbers.
+	local stats = Progression.computeStats(
+		profile and profile.skills or {},
+		Outfits.statsFor(profile and profile.equipped.outfit)
+	)
 	statCache[player] = stats
 	return stats
 end

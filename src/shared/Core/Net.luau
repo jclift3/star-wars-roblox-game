@@ -347,6 +347,9 @@ Net.Event = {
 	AcceptMission = "AcceptMission",
 	AbandonMission = "AbandonMission",
 	TrackMission = "TrackMission",
+	-- Shop / inventory
+	PurchaseItem = "PurchaseItem",
+	EquipOutfit = "EquipOutfit",
 	-- Dialogue
 	StartDialogue = "StartDialogue",
 	DialogueChoice = "DialogueChoice",
@@ -358,6 +361,7 @@ Net.Event = {
 Net.Function = {
 	GetProfile = "GetProfile",
 	GetMissionBoard = "GetMissionBoard",
+	GetInventory = "GetInventory",
 } :: { [string]: string }
 
 --[[

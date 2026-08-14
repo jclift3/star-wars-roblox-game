@@ -32,6 +32,8 @@ local Types = require(Shared.Types)
 local Net = require(Shared.Core.Net)
 local Signal = require(Shared.Core.Signal)
 local Planets = require(Shared.Config.Planets)
+local Costumes = require(Shared.Config.Costumes)
+local RigBuilder = require(Shared.Rig.RigBuilder)
 local ServiceLoader = require(Shared.Core.ServiceLoader)
 
 type PlayerProfile = Types.PlayerProfile
@@ -151,6 +153,57 @@ local function applyGravity(character: Model, planetGravity: number)
 end
 
 --------------------------------------------------------------------------------
+-- Appearance
+--------------------------------------------------------------------------------
+
+--[[
+	Dresses a player in their equipped outfit.
+
+	This is the same Costumes/RigBuilder path the NPCs use, welded onto the
+	character Roblox already loaded rather than onto a rig we build ourselves.
+	Reusing the loaded character keeps the default Animate script, the camera
+	and the control scripts intact -- swapping `player.Character` for a fresh
+	model throws all three away and has to reimplement them.
+
+	The stock avatar's hair, hats and clothing come off first, because a costume
+	layered over a baseball cap and a t-shirt reads as neither.
+]]
+-- Marks the parts this service welded on, so changing outfit can strip the old
+-- one without touching the body, the held weapon, or anything else bolted to
+-- the character by another system.
+local OUTFIT_PART = "OutfitPart"
+
+local function applyOutfit(character: Model, outfitName: string?)
+	local humanoid = character:FindFirstChildOfClass("Humanoid")
+	if humanoid and humanoid.RigType ~= Enum.HumanoidRigType.R15 then
+		-- Costumes are positioned against R15 limb names and sizes. On an R6
+		-- body every piece would silently fail to find its limb.
+		warn("[PlayerService] costumes need R15; set Avatar Type to R15 in Game Settings")
+		return
+	end
+
+	for _, item in character:GetChildren() do
+		local isStockAvatar = item:IsA("Accessory") or item:IsA("Clothing") or item:IsA("ShirtGraphic")
+		local isOldOutfit = item:IsA("BasePart") and item:GetAttribute(OUTFIT_PART) ~= nil
+		if isStockAvatar or isOldOutfit then
+			item:Destroy()
+		end
+	end
+
+	if not outfitName then
+		return
+	end
+	if not Costumes.exists(outfitName) then
+		warn(`[PlayerService] unknown outfit "{outfitName}"; leaving avatar as-is`)
+		return
+	end
+
+	for _, part in RigBuilder.attach(character, Costumes.get(outfitName)) do
+		part:SetAttribute(OUTFIT_PART, true)
+	end
+end
+
+--------------------------------------------------------------------------------
 -- Applying profile to body
 --------------------------------------------------------------------------------
 
@@ -170,6 +223,26 @@ local function applyStats(player: Player, character: Model)
 
 	local moveMult = stats.MoveSpeedMult or 1
 	humanoid.WalkSpeed = BASE_WALK_SPEED * moveMult * (if sprinting[player] then SPRINT_MULTIPLIER else 1)
+end
+
+--[[
+	Re-dresses a player in whatever their profile now says, with no respawn.
+
+	Called by ShopService when the equipped outfit changes. Reloading the
+	character would also work, but it would teleport the player back to a spawn
+	point and interrupt whatever they were doing -- a harsh punishment for
+	changing your shirt.
+]]
+function PlayerService.refreshOutfit(player: Player)
+	local character = player.Character
+	local profile = data().get(player)
+	if not character or not profile then
+		return
+	end
+	applyOutfit(character, profile.equipped.outfit)
+	-- Outfits carry stats, so speed and health have to be re-derived too.
+	progression().invalidate(player)
+	applyStats(player, character)
 end
 
 --- Health regen from the Combat Medic skill. Runs while the character lives.
@@ -212,6 +285,7 @@ local function onCharacterAdded(player: Player, character: Model)
 	-- anything else so the player never sees the wrong world.
 	character:PivotTo(spawnCFrameFor(profile.currentPlanet))
 
+	applyOutfit(character, profile.equipped.outfit)
 	applyStats(player, character)
 	applyGravity(character, planet.gravity)
 	startRegen(player, character)

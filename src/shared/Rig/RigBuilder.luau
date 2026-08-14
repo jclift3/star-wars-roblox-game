@@ -182,10 +182,18 @@ local function buildDescription(def: Species.SpeciesDef, tone: Color3, sizeMul: 
 	return d
 end
 
-local function applyCosmetics(rig: Model, specs: { CosmeticPart })
+--- Welds a list of cosmetics, returning the parts that were actually created.
+--- Specs targeting a limb this species does not have are skipped, so the
+--- result can be shorter than the input.
+local function applyCosmetics(rig: Model, specs: { CosmeticPart }): { BasePart }
+	local made: { BasePart } = {}
 	for _, spec in specs do
-		weldCosmetic(rig, spec)
+		local part = weldCosmetic(rig, spec)
+		if part then
+			table.insert(made, part)
+		end
 	end
+	return made
 end
 
 local function hideBody(rig: Model)
@@ -320,8 +328,10 @@ function RigBuilder.randomSizeVariant(): string
 end
 
 --- Welds extra cosmetics onto an already-built rig (equipment, rank insignia).
-function RigBuilder.attach(rig: Model, specs: { CosmeticPart })
-	applyCosmetics(rig, specs)
+--- Returns the created parts so callers that need to take them off again --
+--- changing outfit without respawning -- can find them without guessing names.
+function RigBuilder.attach(rig: Model, specs: { CosmeticPart }): { BasePart }
+	return applyCosmetics(rig, specs)
 end
 
 --- Warms the cache ahead of time so the first NPC of a type doesn't hitch.

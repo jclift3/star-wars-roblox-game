@@ -57,6 +57,19 @@ local function effects()
 	return ServiceLoader.get("EffectsController")
 end
 
+--[[
+	True while a full-screen panel has the player's attention. Clicking a Buy
+	button should not also put a bolt through the shopkeeper standing behind it.
+
+	Deliberately a `find` rather than a `get`: this runs on every click, and if
+	the inventory panel ever fails to load, the cost should be a shop you cannot
+	open -- not a game you cannot shoot in.
+]]
+local function uiHasFocus(): boolean
+	local inventory = ServiceLoader.find("InventoryController")
+	return inventory ~= nil and inventory.isOpen() == true
+end
+
 --- Where the crosshair is pointing, at most `range` studs away.
 local function aimPoint(range: number): Vector3
 	local camera = Workspace.CurrentCamera
@@ -142,6 +155,9 @@ function InputController.start()
 			input.UserInputType == Enum.UserInputType.MouseButton1
 			or input.UserInputType == Enum.UserInputType.Touch
 		then
+			if uiHasFocus() then
+				return
+			end
 			holdingFire = true
 			tryAttack()
 		elseif input.KeyCode == Enum.KeyCode.LeftShift or input.KeyCode == Enum.KeyCode.RightShift then

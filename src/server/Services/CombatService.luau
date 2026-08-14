@@ -150,6 +150,15 @@ function CombatService.applyDamage(target: Model, info: DamageInfo): number
 		return 0
 	end
 
+	-- Armour is applied here rather than at the weapon, because a bolt, a
+	-- sabre and a fall all have to respect it and only this function sees all
+	-- three. NPCs have no outfit stats, so this is a no-op for them.
+	local victim = Players:GetPlayerFromCharacter(target)
+	if victim then
+		local reduction = progression().getStats(victim).DamageReduction or 0
+		amount *= 1 - math.clamp(reduction, 0, 0.75)
+	end
+
 	local before = humanoid.Health
 	humanoid.Health = math.max(0, before - amount)
 	local dealt = before - humanoid.Health

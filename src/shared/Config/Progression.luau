@@ -266,6 +266,10 @@ Progression.baseStats = {
 	MoveSpeedMult = 1,
 	CreditMult = 1,
 	PriceMult = 1,
+	-- Fraction of incoming damage ignored. Comes from armour rather than
+	-- skills today, but lives here so there is one definition of what the
+	-- stat means and one place that clamps it.
+	DamageReduction = 0,
 	SliceTier = 0,
 	RepairMult = 1,
 }
@@ -276,8 +280,15 @@ Progression.baseStats = {
 	Multiplier stats (name ends in "Mult") accumulate additively around 1.0, so
 	three ranks of +6% is +18%, not 1.06^3. Additive stacking is easier for
 	players to reason about and keeps the numbers from running away at high rank.
+
+	`extra` folds in modifiers from outside the skill tree -- currently the
+	equipped outfit. It stacks the same additive way and is clamped by the same
+	rules below, so gear can never sidestep a cap that skills respect.
 ]]
-function Progression.computeStats(skills: { [string]: number }): { [string]: number }
+function Progression.computeStats(
+	skills: { [string]: number },
+	extra: { [string]: number }?
+): { [string]: number }
 	local stats = table.clone(Progression.baseStats)
 	for nodeId, rank in skills do
 		local def = nodes[nodeId]
@@ -287,10 +298,18 @@ function Progression.computeStats(skills: { [string]: number }): { [string]: num
 			stats[stat] = (stats[stat] or 0) + def.effect.perRank * clamped
 		end
 	end
+	if extra then
+		for stat, delta in extra do
+			stats[stat] = (stats[stat] or 0) + delta
+		end
+	end
 	-- Never let a cooldown or price multiplier reach zero or go negative.
 	stats.BlasterCooldownMult = math.max(0.25, stats.BlasterCooldownMult)
 	stats.FuelCostMult = math.max(0.2, stats.FuelCostMult)
 	stats.PriceMult = math.max(0.4, stats.PriceMult)
+	-- Armour must never make a player untouchable, however it is stacked.
+	stats.DamageReduction = math.clamp(stats.DamageReduction, 0, 0.75)
+	stats.MoveSpeedMult = math.max(0.5, stats.MoveSpeedMult)
 	return stats
 end
 

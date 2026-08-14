@@ -103,7 +103,10 @@ local function defaultProfile(): PlayerProfile
 		factionRep = rep,
 		homePlanet = Planets.STARTING_PLANET,
 		currentPlanet = Planets.STARTING_PLANET,
-		inventory = { StimPack = 2 },
+		-- The starting kit has to be *owned*, not merely equipped: every equip
+		-- path checks the inventory, so a weapon you begin holding but do not
+		-- own is one you can put down exactly once.
+		inventory = { StimPack = 2, DH17 = 1, Smuggler = 1 },
 		equipped = { weapon = "DH17", offhand = nil, outfit = "Smuggler" },
 		unlockedShips = { "Skiff" },
 		missions = {

@@ -19,6 +19,7 @@
 local Lighting = game:GetService("Lighting")
 local RunService = game:GetService("RunService")
 local TweenService = game:GetService("TweenService")
+local Workspace = game:GetService("Workspace")
 
 local Shared = game:GetService("ReplicatedStorage"):WaitForChild("Shared")
 local Planets = require(Shared.Config.Planets)
@@ -76,6 +77,86 @@ local TERRAIN_AIR: { [string]: { density: number, haze: number, glare: number } 
 
 local DEFAULT_AIR = { density = 0.3, haze = 1.2, glare = 0.15 }
 
+--------------------------------------------------------------------------------
+-- Companion sun
+--------------------------------------------------------------------------------
+
+-- Far enough to clear the tallest thing anyone can stand on, near enough that
+-- the planet's own haze still reddens it at dawn. The ground slab is only 3000
+-- studs across, so at this range the star would show *through* the horizon --
+-- hence the fade in `updateCompanion` rather than relying on occlusion.
+local COMPANION_DISTANCE = 2000
+
+local companionSun: Part? = nil
+local companionSpec: Planets.CompanionSun? = nil
+
+--[[
+	The rendered star, parented to the camera.
+
+	Parenting to the camera rather than Workspace means it is never replicated,
+	never saved, and never picked up by code that walks the world for things to
+	shoot, spawn on, or path around.
+]]
+local function ensureCompanion(): Part
+	local camera = Workspace.CurrentCamera
+	local existing = companionSun
+	if existing and existing.Parent == camera then
+		return existing
+	end
+	if existing then
+		existing:Destroy()
+	end
+
+	local p = Instance.new("Part")
+	p.Name = "CompanionSun"
+	p.Shape = Enum.PartType.Ball
+	p.Material = Enum.Material.Neon
+	p.Anchored = true
+	p.CanCollide = false
+	p.CanQuery = false
+	p.CanTouch = false
+	p.CastShadow = false
+	p.Locked = true
+	p.Parent = camera
+
+	companionSun = p
+	return p
+end
+
+--- Places the companion for this frame, or hides it if the planet has none.
+local function updateCompanion()
+	local spec = companionSpec
+	if not spec then
+		if companionSun then
+			companionSun:Destroy()
+			companionSun = nil
+		end
+		return
+	end
+
+	local camera = Workspace.CurrentCamera
+	if not camera then
+		return
+	end
+
+	-- GetSunDirection points at the primary. Rotating in that vector's own
+	-- frame keeps the offset fixed relative to the sun all day, so the pair
+	-- track across the sky together instead of drifting apart by noon.
+	local toSun = Lighting:GetSunDirection()
+	local basis = CFrame.lookAt(Vector3.zero, toSun)
+	local look = (basis * CFrame.Angles(math.rad(spec.pitch), math.rad(spec.yaw), 0)).LookVector
+
+	local part = ensureCompanion()
+	part.Color = spec.color
+	part.Size = Vector3.one * (2 * COMPANION_DISTANCE * math.tan(math.rad(spec.sizeDegrees) * 0.5))
+	part.CFrame = CFrame.new(camera.CFrame.Position + look * COMPANION_DISTANCE)
+
+	-- Sink it into the horizon over the last few degrees rather than blinking
+	-- it out, which is both prettier and hides the fact that the ground slab
+	-- is too small to occlude it.
+	part.Transparency = 1 - math.clamp((look.Y + 0.02) / 0.06, 0, 1)
+end
+
 --[[
 	Takes over an effect of this class, or makes one.
 
@@ -125,6 +206,8 @@ local function apply(planetId: string, instant: boolean)
 
 	-- Handed to the clock loop rather than tweened here; see the note by the
 	-- declarations above.
+	companionSpec = planet.companionSun
+
 	dayAmbient = planet.ambientLight
 	dayOutdoor = planet.outdoorAmbient
 	if instant then
@@ -226,6 +309,8 @@ function AtmosphereController.start()
 
 		Lighting.Ambient = liveAmbient
 		Lighting.OutdoorAmbient = liveOutdoor
+
+		updateCompanion()
 	end)
 end
 

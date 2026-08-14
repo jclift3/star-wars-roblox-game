@@ -42,6 +42,22 @@ export type PointOfInterest = {
 	description: string,
 }
 
+--[[
+	An extra star in the sky.
+
+	Roblox's Lighting has exactly one real sun, driven by ClockTime, so a binary
+	system's second star has to be a rendered body rather than a light source.
+	`yaw` and `pitch` are its offset from the true sun in degrees -- which is
+	what gives it its own rise and set times rather than making it a decal
+	stapled to the first one.
+]]
+export type CompanionSun = {
+	yaw: number,
+	pitch: number,
+	sizeDegrees: number,
+	color: Color3,
+}
+
 export type PlanetDef = {
 	id: string,
 	displayName: string,
@@ -68,6 +84,7 @@ export type PlanetDef = {
 	-- lighting change often enough to notice in a single session.
 	dayLength: number,
 	windSpeed: number?,
+	companionSun: CompanionSun?,
 
 	-- Rules ---------------------------------------------------------------
 	-- Coruscant is a vertical city: there is no ground to walk on, only
@@ -117,6 +134,16 @@ def({
 	outdoorAmbient = Color3.fromRGB(160, 140, 108),
 	dayLength = 0.25,
 	windSpeed = 12,
+
+	-- Tatoo II. Trails the primary and sits a little lower, so it rises after
+	-- it and sets before it -- there is a stretch of every evening with one sun
+	-- left in the sky, which is the shot the whole planet is famous for.
+	companionSun = {
+		yaw = 6,
+		pitch = -3.5,
+		sizeDegrees = 2.4,
+		color = Color3.fromRGB(255, 188, 120),
+	},
 
 	hasWalkableGround = true,
 	controllingFaction = "Hutt",
