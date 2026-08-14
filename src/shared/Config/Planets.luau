@@ -35,11 +35,33 @@ export type SpawnRule = {
 	behavior: string?, -- overrides the archetype's default
 }
 
+--[[
+	A district of a planet, and how far out of town it sits.
+
+	`distance` is a multiple of the settlement radius: 0 is the middle of town,
+	1 its edge, and anything above that is wilderness. It exists because the
+	world builder used to derive a zone's ring from the order its first spawn
+	rule happened to be declared -- which put Tatooine's Wastes downtown and
+	its town out in the desert, and dropped twelve aggressive Tusken Raiders
+	on a level 1 player's spawn point.
+
+	Distance is also the difficulty dial. A player walks outward, so hostile
+	zones belong further out than the ones a starting mission sends them to.
+]]
+export type ZoneDef = {
+	id: string,
+	distance: number,
+}
+
 export type PointOfInterest = {
 	id: string,
 	displayName: string,
 	kind: string, -- "Spaceport" | "Cantina" | "Market" | "Base" | "Temple" | "Ruin" | "Outpost"
 	description: string,
+	-- The district this place stands in. Without it the point of interest is
+	-- dropped on an arbitrary circle with nothing around it, so a mission can
+	-- send you to a "Jawa crawler they live in still" that has no Jawas.
+	zone: string?,
 }
 
 --[[
@@ -100,6 +122,9 @@ export type PlanetDef = {
 	maxLevel: number,
 	lawLevel: number, -- 0 = lawless, 1 = patrolled; drives crime response
 
+	-- Declared centre-outward. Every `zone` named by a spawn rule or a point
+	-- of interest must appear here; Planets.validate says so.
+	zones: { ZoneDef },
 	spawns: { SpawnRule },
 	pointsOfInterest: { PointOfInterest },
 }
@@ -151,13 +176,25 @@ def({
 	maxLevel = 20,
 	lawLevel = 0.2,
 
+	zones = {
+		{ id = "Town", distance = 0 },
+		{ id = "Market", distance = 0.3 },
+		{ id = "Cantina", distance = 0.5 },
+		{ id = "Farmstead", distance = 1 },
+		{ id = "Wastes", distance = 1.3 },
+		{ id = "Palace", distance = 1.7 },
+		{ id = "DuneSea", distance = 2.1 },
+	},
 	spawns = {
 		{ archetype = "Jawa", count = 14, zone = "Wastes" },
 		{ archetype = "MoistureFarmer", count = 8, zone = "Farmstead" },
 		{ archetype = "Civilian", count = 22, zone = "Town" },
 		{ archetype = "Merchant", count = 5, zone = "Market" },
 		{ archetype = "Smuggler", count = 8, zone = "Cantina" },
-		{ archetype = "TuskenRaider", count = 12, zone = "Wastes" },
+		-- Out in the Dune Sea rather than sharing the Wastes with the Jawas.
+		-- Level 5-16 and aggressive at 180 studs, against a level 1 story
+		-- objective standing in the same sand, is not a difficulty curve.
+		{ archetype = "TuskenRaider", count = 12, zone = "DuneSea" },
 		{ archetype = "Stormtrooper", count = 10, zone = "Town" },
 		{ archetype = "CartelEnforcer", count = 6, zone = "Palace" },
 		{ archetype = "BountyHunter", count = 3, zone = "Cantina" },
@@ -168,36 +205,42 @@ def({
 			displayName = "Mos Eisley",
 			kind = "Spaceport",
 			description = "You will never find a more wretched hive. Watch your step and your credits.",
+			zone = "Town",
 		},
 		{
 			id = "ChalmunsCantina",
 			displayName = "Chalmun's Cantina",
 			kind = "Cantina",
 			description = "Music, smugglers, and a strict no-droids policy.",
+			zone = "Cantina",
 		},
 		{
 			id = "JabbasPalace",
 			displayName = "Jabba's Palace",
 			kind = "Base",
 			description = "Cartel headquarters. You get in by invitation or by force.",
+			zone = "Palace",
 		},
 		{
 			id = "LarsHomestead",
 			displayName = "Lars Homestead",
 			kind = "Outpost",
 			description = "A moisture farm on the edge of the Dune Sea.",
+			zone = "Farmstead",
 		},
 		{
 			id = "SandcrawlerWreck",
 			displayName = "Sandcrawler Wreck",
 			kind = "Ruin",
 			description = "A Jawa crawler that broke an axle and never moved again. They live in it still.",
+			zone = "Wastes",
 		},
 		{
 			id = "DuneSeaWreck",
 			displayName = "Dune Sea Wreck",
 			kind = "Ruin",
 			description = "Half a hull sticking out of the sand. Nobody agrees on what it used to be.",
+			zone = "DuneSea",
 		},
 	},
 })
@@ -232,6 +275,16 @@ def({
 	maxLevel = 50,
 	lawLevel = 1.0,
 
+	-- Distance is horizontal spread here; a vertical city snaps its zones to
+	-- whichever platforms the builder made, so the order matters more than
+	-- the numbers.
+	zones = {
+		{ id = "Plaza", distance = 0 },
+		{ id = "Market", distance = 0.35 },
+		{ id = "Skybridge", distance = 0.7 },
+		{ id = "Palace", distance = 1.1 },
+		{ id = "Underlevels", distance = 1.5 },
+	},
 	spawns = {
 		{ archetype = "Civilian", count = 40, zone = "Plaza" },
 		{ archetype = "ProtocolDroid", count = 12, zone = "Plaza" },
@@ -249,42 +302,49 @@ def({
 			displayName = "Imperial Palace",
 			kind = "Base",
 			description = "The seat of the Empire, built over the bones of the Jedi Temple.",
+			zone = "Palace",
 		},
 		{
 			id = "SenateDistrict",
 			displayName = "Senate District",
 			kind = "Market",
 			description = "Polished towers, patrolled skylanes, and very expensive shops.",
+			zone = "Market",
 		},
 		{
 			id = "Underlevels",
 			displayName = "The Underlevels",
 			kind = "Cantina",
 			description = "Level 1313. No sunlight, no patrols, no questions.",
+			zone = "Underlevels",
 		},
 		{
 			id = "CoruscantSpaceport",
 			displayName = "Skydock Seven",
 			kind = "Spaceport",
 			description = "Landing platform for anyone the Empire has cleared to land.",
+			zone = "Plaza",
 		},
 		{
 			id = "SkylaneAlpha",
 			displayName = "Skylane Alpha",
 			kind = "Outpost",
 			description = "The high commercial lane. Traffic moves fast and does not stop for you.",
+			zone = "Skybridge",
 		},
 		{
 			id = "SkylaneBeta",
 			displayName = "Skylane Beta",
 			kind = "Outpost",
 			description = "A mid-level freight lane threading between the towers.",
+			zone = "Skybridge",
 		},
 		{
 			id = "SkylaneGamma",
 			displayName = "Skylane Gamma",
 			kind = "Outpost",
 			description = "The low lane, close enough to the underlevels that patrols go in pairs.",
+			zone = "Underlevels",
 		},
 	},
 })
@@ -315,6 +375,12 @@ def({
 	maxLevel = 30,
 	lawLevel = 0.6,
 
+	zones = {
+		{ id = "Base", distance = 0 },
+		{ id = "Hangar", distance = 0.35 },
+		-- Imperials are out on the ice, not inside the base you spawn in.
+		{ id = "Surface", distance = 1.5 },
+	},
 	spawns = {
 		{ archetype = "RebelTrooper", count = 26, zone = "Base" },
 		{ archetype = "RebelPilot", count = 8, zone = "Hangar" },
@@ -329,24 +395,28 @@ def({
 			displayName = "Echo Base",
 			kind = "Base",
 			description = "Tunnels cut into the glacier. Cold, cramped, and the safest place for light-years.",
+			zone = "Base",
 		},
 		{
 			id = "EchoHangar",
 			displayName = "Echo Hangar",
 			kind = "Spaceport",
 			description = "Snowspeeders on standby and a permanent smell of hot metal.",
+			zone = "Hangar",
 		},
 		{
 			id = "WampaCaves",
 			displayName = "Wampa Caves",
 			kind = "Ruin",
 			description = "Do not go in alone. Do not go in armed only with a blaster.",
+			zone = "Surface",
 		},
 		{
 			id = "NorthRavine",
 			displayName = "North Ravine",
 			kind = "Outpost",
 			description = "A crevasse the perimeter sensors keep losing track of. Something keeps breaking them.",
+			zone = "Surface",
 		},
 	},
 })
@@ -377,6 +447,13 @@ def({
 	maxLevel = 35,
 	lawLevel = 0.8,
 
+	zones = {
+		{ id = "City", distance = 0 },
+		{ id = "Market", distance = 0.3 },
+		{ id = "Spaceport", distance = 0.7 },
+		-- Hidden means hidden: out past the falls, not off the main plaza.
+		{ id = "Temple", distance = 1.6 },
+	},
 	spawns = {
 		{ archetype = "Civilian", count = 28, zone = "City" },
 		{ archetype = "NabooGuard", count = 16, zone = "City" },
@@ -392,18 +469,21 @@ def({
 			displayName = "Theed",
 			kind = "Market",
 			description = "Waterfalls under the palace and a plaza that has seen two wars.",
+			zone = "City",
 		},
 		{
 			id = "HiddenTemple",
 			displayName = "The Hidden Temple",
 			kind = "Temple",
 			description = "What is left of the Order, and the only place to learn a saber form.",
+			zone = "Temple",
 		},
 		{
 			id = "TheedHangar",
 			displayName = "Theed Hangar",
 			kind = "Spaceport",
 			description = "Chrome N-1 starfighters kept flight-ready out of sheer stubbornness.",
+			zone = "Spaceport",
 		},
 	},
 })
@@ -437,6 +517,11 @@ def({
 	maxLevel = 40,
 	lawLevel = 0.5,
 
+	zones = {
+		{ id = "Platform", distance = 0 },
+		{ id = "Labs", distance = 0.5 },
+		{ id = "Barracks", distance = 0.9 },
+	},
 	spawns = {
 		{ archetype = "Scientist", count = 10, zone = "Labs" },
 		{ archetype = "CloneVeteran", count = 14, zone = "Barracks" },
@@ -451,12 +536,14 @@ def({
 			displayName = "Tipoca City",
 			kind = "Base",
 			description = "White corridors, endless windows, and rows of things best not asked about.",
+			zone = "Platform",
 		},
 		{
 			id = "CloningLabs",
 			displayName = "Cloning Facility",
 			kind = "Ruin",
 			description = "Officially decommissioned. The lights are still on.",
+			zone = "Labs",
 		},
 	},
 })
@@ -487,6 +574,10 @@ def({
 	maxLevel = 50,
 	lawLevel = 0.9,
 
+	zones = {
+		{ id = "Fortress", distance = 0 },
+		{ id = "Mines", distance = 1.2 },
+	},
 	spawns = {
 		{ archetype = "DeathTrooper", count = 16, zone = "Fortress" },
 		{ archetype = "RoyalGuard", count = 8, zone = "Fortress" },
@@ -502,12 +593,14 @@ def({
 			displayName = "The Fortress",
 			kind = "Base",
 			description = "Black stone over a lava flow. Whatever it was built to contain is still in there.",
+			zone = "Fortress",
 		},
 		{
 			id = "MiningComplex",
 			displayName = "Mining Complex",
 			kind = "Outpost",
 			description = "Cartel-run, Empire-taxed, and one bad shift from falling into the river.",
+			zone = "Mines",
 		},
 	},
 })
@@ -540,6 +633,12 @@ def({
 	maxLevel = 45,
 	lawLevel = 0.0, -- nobody is coming to help you
 
+	zones = {
+		{ id = "Promenade", distance = 0 },
+		{ id = "Market", distance = 0.35 },
+		{ id = "Docks", distance = 0.8 },
+		{ id = "Refuge", distance = 1.4 },
+	},
 	spawns = {
 		{ archetype = "Civilian", count = 26, zone = "Promenade" },
 		{ archetype = "Smuggler", count = 16, zone = "Docks" },
@@ -547,7 +646,10 @@ def({
 		{ archetype = "CartelEnforcer", count = 18, zone = "Promenade" },
 		{ archetype = "BountyHunter", count = 10, zone = "Docks" },
 		{ archetype = "ProtocolDroid", count = 6, zone = "Market" },
-		{ archetype = "Jawa", count = 6, zone = "Market" },
+		-- The refugee sector needs somebody living in it, or the mission that
+		-- sends you there is a walk to an empty marker.
+		{ archetype = "Jawa", count = 6, zone = "Refuge" },
+		{ archetype = "Civilian", count = 14, zone = "Refuge" },
 	},
 	pointsOfInterest = {
 		{
@@ -555,18 +657,21 @@ def({
 			displayName = "The Promenade",
 			kind = "Market",
 			description = "Neon over neon. Buy anything, and be bought if you are careless.",
+			zone = "Promenade",
 		},
 		{
 			id = "RefugeeSector",
 			displayName = "Refugee Sector",
 			kind = "Ruin",
 			description = "Where the moon puts the people it has finished with.",
+			zone = "Refuge",
 		},
 		{
 			id = "NarDocks",
 			displayName = "Docking Bay 41",
 			kind = "Spaceport",
 			description = "No manifests, no inspections, double the docking fee.",
+			zone = "Docks",
 		},
 	},
 })
@@ -597,6 +702,10 @@ def({
 	maxLevel = 40,
 	lawLevel = 0.7,
 
+	zones = {
+		{ id = "Camp", distance = 0 },
+		{ id = "Bunker", distance = 1.4 },
+	},
 	spawns = {
 		{ archetype = "Stormtrooper", count = 22, zone = "Bunker" },
 		{ archetype = "ImperialOfficer", count = 4, zone = "Bunker" },
@@ -610,12 +719,14 @@ def({
 			displayName = "Shield Generator Bunker",
 			kind = "Base",
 			description = "Concrete, blast doors, and far more guards than a forest needs.",
+			zone = "Bunker",
 		},
 		{
 			id = "RebelCamp",
 			displayName = "Strike Team Camp",
 			kind = "Outpost",
 			description = "Hidden under the roots. Cold rations and quiet voices.",
+			zone = "Camp",
 		},
 	},
 })
@@ -653,6 +764,69 @@ function Planets.hasPOI(planetId: string, poiId: string): boolean
 		end
 	end
 	return false
+end
+
+--- The point of interest itself, if `planetId` defines one called `poiId`.
+function Planets.getPOI(planetId: string, poiId: string): PointOfInterest?
+	local p = defs[planetId]
+	if not p then
+		return nil
+	end
+	for _, poi in p.pointsOfInterest do
+		if poi.id == poiId then
+			return poi
+		end
+	end
+	return nil
+end
+
+--- Whether `planetId` declares a district called `zoneId`.
+function Planets.hasZone(planetId: string, zoneId: string): boolean
+	local p = defs[planetId]
+	if not p then
+		return false
+	end
+	for _, zone in p.zones do
+		if zone.id == zoneId then
+			return true
+		end
+	end
+	return false
+end
+
+--[[
+	Cross-checks every planet against the ids it references.
+
+	Zone names are strings written in two places -- the spawn rules and the
+	points of interest -- and a typo in either used to produce a district that
+	silently did not exist, so its NPCs were placed nowhere in particular.
+]]
+function Planets.validate(): { string }
+	local problems = {}
+	for id, p in defs do
+		local seen: { [string]: boolean } = {}
+		for _, zone in p.zones do
+			if seen[zone.id] then
+				table.insert(problems, `{id}: duplicate zone "{zone.id}"`)
+			end
+			seen[zone.id] = true
+			if zone.distance < 0 then
+				table.insert(problems, `{id}: zone "{zone.id}" has negative distance`)
+			end
+		end
+		for _, rule in p.spawns do
+			if rule.zone and not seen[rule.zone] then
+				table.insert(problems, `{id}: spawn "{rule.archetype}" names undeclared zone "{rule.zone}"`)
+			end
+		end
+		for _, poi in p.pointsOfInterest do
+			if poi.zone and not seen[poi.zone] then
+				table.insert(problems, `{id}: POI "{poi.id}" names undeclared zone "{poi.zone}"`)
+			end
+		end
+	end
+	table.sort(problems)
+	return problems
 end
 
 --- Straight-line galaxy-map distance between two worlds.

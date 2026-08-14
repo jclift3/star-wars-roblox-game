@@ -565,13 +565,25 @@ end
 -- Markers
 --------------------------------------------------------------------------------
 
+-- How far a zone's three patrol points spread around its centre.
+local ZONE_SPREAD = 70
+
 --[[
 	Emits spawn, zone and POI markers.
 
-	Zones are placed on rings out from the centre: the first zone a planet
-	declares sits in the town, later ones progressively further out. Each gets
-	three parts, which NPCService reads as a patrol route -- so guards walk a
-	circuit without anyone hand-placing waypoints.
+	WHERE A ZONE GOES IS CONFIG, NOT LUCK
+	Each district's distance from the town centre is declared on the planet
+	(`Planets.ZoneDef`). It used to be derived from the order a zone's first
+	spawn rule happened to appear in the list, which put Tatooine's Wastes at
+	ring 0 -- downtown -- and its Town three rings out in the desert, and so
+	dropped twelve aggressive Tusken Raiders onto a level 1 spawn point.
+
+	Each zone gets three parts, which NPCService reads as a patrol route, so
+	guards walk a circuit without anyone hand-placing waypoints.
+
+	A point of interest is placed inside the district it belongs to, so that
+	"the Jawa crawler they live in still" has Jawas around it and the mission
+	that sends you there is a place rather than a coordinate.
 ]]
 local function buildMarkers(planet: Planets.PlanetDef, origin: Vector3, anchors: { Vector3 }, rng: Random)
 	local planetId = planet.id
@@ -585,36 +597,37 @@ local function buildMarkers(planet: Planets.PlanetDef, origin: Vector3, anchors:
 		marker(spawnFolder, `Spawn{i}`, spawnPoints[index] + Vector3.new(0, 4, 0), Vector3.new(8, 1, 8))
 	end
 
-	local zoneNames: { string } = {}
-	local seen: { [string]: boolean } = {}
-	for _, rule in planet.spawns do
-		local name = rule.zone or "Default"
-		if not seen[name] then
-			seen[name] = true
-			table.insert(zoneNames, name)
-		end
-	end
-
 	local zoneRoot = folder(planetId, folder("Zones", Workspace))
 	zoneRoot:ClearAllChildren()
 
-	for index, name in zoneNames do
-		local zone = folder(name, zoneRoot)
-		-- Ring 0 is the town centre; each later zone steps outward.
-		local ring = (index - 1) * 190
+	-- Kept so points of interest can be dropped into their district below.
+	local centres: { [string]: Vector3 } = {}
+	local count = math.max(1, #planet.zones)
+
+	for index, def in planet.zones do
+		-- Districts are fanned around the compass rather than stacked on one
+		-- bearing, so walking out of town in any direction finds something.
+		local angle = (index - 1) * (math.pi * 2 / count) + rng:NextNumber(-0.3, 0.3)
+		local radius = def.distance * SETTLEMENT_RADIUS
+		local centre = origin + Vector3.new(math.cos(angle) * radius, 0, math.sin(angle) * radius)
+
+		-- Vertical cities have no ground, so districts snap to a platform
+		-- instead of hanging in the air.
+		if not planet.hasWalkableGround and #anchors > 0 then
+			centre = anchors[math.min(index, #anchors)]
+		end
+		centres[def.id] = centre
+
+		local zone = folder(def.id, zoneRoot)
 		local baseAngle = rng:NextNumber(0, math.pi * 2)
-
 		for point = 1, 3 do
-			local angle = baseAngle + (point - 1) * (math.pi * 2 / 3)
-			local distance = if ring == 0 then rng:NextNumber(40, 120) else ring + rng:NextNumber(-40, 40)
-			local position = origin + Vector3.new(math.cos(angle) * distance, 0, math.sin(angle) * distance)
-
-			-- Vertical cities have no ground, so zones snap to the nearest
-			-- platform instead of hanging in the air.
+			local spokeAngle = baseAngle + (point - 1) * (math.pi * 2 / 3)
+			local spread = rng:NextNumber(ZONE_SPREAD * 0.4, ZONE_SPREAD)
+			local position = centre
+				+ Vector3.new(math.cos(spokeAngle) * spread, 0, math.sin(spokeAngle) * spread)
 			if not planet.hasWalkableGround and #anchors > 0 then
 				position = anchors[rng:NextInteger(1, #anchors)]
 			end
-
 			marker(zone, `Point{point}`, position + Vector3.new(0, 3, 0), Vector3.new(60, 1, 60))
 		end
 	end
@@ -623,10 +636,22 @@ local function buildMarkers(planet: Planets.PlanetDef, origin: Vector3, anchors:
 	poiRoot:ClearAllChildren()
 
 	for index, poi in planet.pointsOfInterest do
-		local angle = (index - 1) * (math.pi * 2 / math.max(1, #planet.pointsOfInterest))
-		local distance = SETTLEMENT_RADIUS * 0.55
-		local position = origin + Vector3.new(math.cos(angle) * distance, 0, math.sin(angle) * distance)
-		if not planet.hasWalkableGround and #anchors > 0 then
+		local position
+		local centre = if poi.zone then centres[poi.zone] else nil
+		if centre then
+			-- Just off the patrol ring, so the landmark is among its people
+			-- rather than sitting on top of one of their waypoints.
+			local angle = rng:NextNumber(0, math.pi * 2)
+			local offset = ZONE_SPREAD * 0.5
+			position = centre + Vector3.new(math.cos(angle) * offset, 0, math.sin(angle) * offset)
+		else
+			-- No district named: fall back to the old even circle. Honest
+			-- rather than wrong -- it is somewhere, just nowhere in particular.
+			local angle = (index - 1) * (math.pi * 2 / math.max(1, #planet.pointsOfInterest))
+			local distance = SETTLEMENT_RADIUS * 0.55
+			position = origin + Vector3.new(math.cos(angle) * distance, 0, math.sin(angle) * distance)
+		end
+		if not planet.hasWalkableGround and #anchors > 0 and not centre then
 			position = anchors[math.min(index, #anchors)]
 		end
 		marker(poiRoot, poi.id, position + Vector3.new(0, 3, 0), Vector3.new(40, 20, 40))
