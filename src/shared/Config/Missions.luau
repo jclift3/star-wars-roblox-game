@@ -904,6 +904,26 @@ function Missions.validate(): { string }
 			if obj.kind == Objective.Kill and obj.target and not NPCArchetypes.exists(obj.target) then
 				table.insert(problems, `{id}: objective {i} targets unknown archetype "{obj.target}"`)
 			end
+			--[[
+				Reach and Deliver resolve their target against the planet's
+				points of interest, and MissionService silently skips one it
+				cannot find. Six objectives shipped pointing at POIs that were
+				never defined, so four missions could be accepted and never
+				finished, with nothing on screen to say why.
+			]]
+			if obj.kind == Objective.Reach and obj.target and not Planets.hasPOI(m.planet, obj.target) then
+				table.insert(problems, `{id}: objective {i} reaches unknown POI "{obj.target}" on {m.planet}`)
+			end
+			if
+				obj.kind == Objective.Deliver
+				and obj.destination
+				and not Planets.hasPOI(m.planet, obj.destination)
+			then
+				table.insert(
+					problems,
+					`{id}: objective {i} delivers to unknown POI "{obj.destination}" on {m.planet}`
+				)
+			end
 			if m.rewards.rep then
 				for factionId in m.rewards.rep do
 					if not Factions.exists(factionId) then

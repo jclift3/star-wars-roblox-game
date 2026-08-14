@@ -187,6 +187,18 @@ def({
 			kind = "Outpost",
 			description = "A moisture farm on the edge of the Dune Sea.",
 		},
+		{
+			id = "SandcrawlerWreck",
+			displayName = "Sandcrawler Wreck",
+			kind = "Ruin",
+			description = "A Jawa crawler that broke an axle and never moved again. They live in it still.",
+		},
+		{
+			id = "DuneSeaWreck",
+			displayName = "Dune Sea Wreck",
+			kind = "Ruin",
+			description = "Half a hull sticking out of the sand. Nobody agrees on what it used to be.",
+		},
 	},
 })
 
@@ -256,6 +268,24 @@ def({
 			kind = "Spaceport",
 			description = "Landing platform for anyone the Empire has cleared to land.",
 		},
+		{
+			id = "SkylaneAlpha",
+			displayName = "Skylane Alpha",
+			kind = "Outpost",
+			description = "The high commercial lane. Traffic moves fast and does not stop for you.",
+		},
+		{
+			id = "SkylaneBeta",
+			displayName = "Skylane Beta",
+			kind = "Outpost",
+			description = "A mid-level freight lane threading between the towers.",
+		},
+		{
+			id = "SkylaneGamma",
+			displayName = "Skylane Gamma",
+			kind = "Outpost",
+			description = "The low lane, close enough to the underlevels that patrols go in pairs.",
+		},
 	},
 })
 
@@ -311,6 +341,12 @@ def({
 			displayName = "Wampa Caves",
 			kind = "Ruin",
 			description = "Do not go in alone. Do not go in armed only with a blaster.",
+		},
+		{
+			id = "NorthRavine",
+			displayName = "North Ravine",
+			kind = "Outpost",
+			description = "A crevasse the perimeter sensors keep losing track of. Something keeps breaking them.",
 		},
 	},
 })
@@ -603,6 +639,20 @@ end
 
 function Planets.exists(id: string): boolean
 	return defs[id] ~= nil
+end
+
+--- Whether `planetId` defines the point of interest `poiId`.
+function Planets.hasPOI(planetId: string, poiId: string): boolean
+	local p = defs[planetId]
+	if not p then
+		return false
+	end
+	for _, poi in p.pointsOfInterest do
+		if poi.id == poiId then
+			return true
+		end
+	end
+	return false
 end
 
 --- Straight-line galaxy-map distance between two worlds.
