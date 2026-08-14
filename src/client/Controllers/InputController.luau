@@ -66,8 +66,13 @@ end
 	open -- not a game you cannot shoot in.
 ]]
 local function uiHasFocus(): boolean
-	local inventory = ServiceLoader.find("InventoryController")
-	return inventory ~= nil and inventory.isOpen() == true
+	for _, name in { "InventoryController", "MissionBoardController" } do
+		local panel = ServiceLoader.find(name)
+		if panel ~= nil and panel.isOpen() == true then
+			return true
+		end
+	end
+	return false
 end
 
 --- Where the crosshair is pointing, at most `range` studs away.
