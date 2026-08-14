@@ -162,11 +162,23 @@ function MissionService.accept(player: Player, missionId: string): (boolean, str
 	end
 
 	local mission = Missions.get(missionId)
+	--[[
+		A zero for every objective, rather than an empty table that grows a key
+		as each one is worked on.
+
+		Progress used to be recorded sparsely, so finishing objective 3 before
+		objective 2 left `{ [1] = 1, [3] = 1 }` -- an array with a hole in it.
+		Roblox does not replicate the part of such a table past the hole, and
+		JSONEncode turns its indices into strings on the way to a DataStore, so
+		the objective ticked on the server and stayed unticked everywhere the
+		player could see it. Starting dense means there is never a hole.
+	]]
+	local blank: { [number]: number } = table.create(#mission.objectives, 0)
 	data().update(player, function(p: PlayerProfile)
 		p.missions.active[missionId] = {
 			missionId = missionId,
 			startedAt = os.time(),
-			objectives = {},
+			objectives = blank,
 			stage = 1,
 		} :: MissionProgress
 	end)

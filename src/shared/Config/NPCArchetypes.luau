@@ -423,7 +423,16 @@ def({
 	faction = "Hutt",
 	costume = "BountyHunter",
 	speciesPool = pool({ Human = 5, Trandoshan = 3, Rodian = 2, Zabrak = 2 }),
-	behavior = Behavior.Aggressive,
+	--[[
+		A hunter works from a list. Aggressive would have him shoot anyone who
+		is not an outright friend of the Hutts, which at rep 0 is every new
+		player -- and three of these stand in Tatooine's cantina, 260 studs from
+		the spawn point, at level 18-36 against a level 1. Guard engages only
+		players the Hutts hold Hostile, which is the mark he is actually after.
+		The sight range comes down with it: 260 was the longest in the game and
+		let him open fire from the next district over.
+	]]
+	behavior = Behavior.Guard,
 	minLevel = 18,
 	maxLevel = 36,
 	baseHealth = 260,
@@ -431,7 +440,7 @@ def({
 	walkSpeed = 12,
 	runSpeed = 22,
 	weapon = "DisruptorPistol",
-	sightRange = 260,
+	sightRange = 150,
 	attackRange = 140,
 	reactionTime = 0.25,
 	spreadMult = 0.9,
