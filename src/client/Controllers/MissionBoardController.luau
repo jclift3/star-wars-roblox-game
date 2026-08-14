@@ -518,12 +518,14 @@ function MissionBoardController.setOpen(value: boolean)
 	open = value
 	screen.Enabled = value
 	if value then
-		-- Both panels are the same size in the same place. `find` rather than
-		-- `get` so a broken inventory costs an overlapping panel, not a board
-		-- that refuses to open.
-		local inventory = ServiceLoader.find("InventoryController")
-		if inventory then
-			inventory.setOpen(false)
+		-- Every full-screen panel is the same size in the same place. `find`
+		-- rather than `get` so a broken inventory costs an overlapping panel,
+		-- not a board that refuses to open.
+		for _, name in { "InventoryController", "SkillTreeController" } do
+			local panel = ServiceLoader.find(name)
+			if panel then
+				panel.setOpen(false)
+			end
 		end
 		task.spawn(refresh)
 	end

@@ -473,9 +473,11 @@ function InventoryController.setOpen(value: boolean)
 	screen.Enabled = value
 	if value then
 		-- See the matching note in MissionBoardController.setOpen.
-		local board = ServiceLoader.find("MissionBoardController")
-		if board then
-			board.setOpen(false)
+		for _, name in { "MissionBoardController", "SkillTreeController" } do
+			local panel = ServiceLoader.find(name)
+			if panel then
+				panel.setOpen(false)
+			end
 		end
 		task.spawn(refresh)
 	end

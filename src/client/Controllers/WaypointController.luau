@@ -291,11 +291,12 @@ local function update(dt: number)
 	end
 
 	-- A panel has the screen; a waypoint over it is clutter.
-	local panel = ServiceLoader.find("InventoryController")
-	local boardPanel = ServiceLoader.find("MissionBoardController")
-	if (panel and panel.isOpen()) or (boardPanel and boardPanel.isOpen()) then
-		hide()
-		return
+	for _, name in { "InventoryController", "MissionBoardController", "SkillTreeController" } do
+		local panel = ServiceLoader.find(name)
+		if panel and panel.isOpen() then
+			hide()
+			return
+		end
 	end
 
 	local distance = (part.Position - root.Position).Magnitude

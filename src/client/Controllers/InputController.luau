@@ -66,7 +66,7 @@ end
 	open -- not a game you cannot shoot in.
 ]]
 local function uiHasFocus(): boolean
-	for _, name in { "InventoryController", "MissionBoardController" } do
+	for _, name in { "InventoryController", "MissionBoardController", "SkillTreeController" } do
 		local panel = ServiceLoader.find(name)
 		if panel ~= nil and panel.isOpen() == true then
 			return true

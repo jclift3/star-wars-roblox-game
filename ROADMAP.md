@@ -17,6 +17,32 @@ that already exist.
 
 ---
 
+## Design direction — Diablo-style (decided 2026-08-14)
+
+The target is an action-RPG loop: kill things, level, spend points, find better
+gear, walk somewhere harder. Three consequences, in the order they should be
+built:
+
+1. **Skill tree screen** — **[done]**, see 1.5.
+2. **Loot with rolled affixes.** The real Diablo loop. Blocked on a data-model
+   change: `profile.inventory` is `{ [itemId]: count }`, a bag of counts, so it
+   cannot hold two different rolls of the same blaster. That change gets more
+   expensive with every system that reads inventory, so it should be made
+   before the shop and mission systems grow.
+3. **A large world banded by level.** Enemies of varying level, laid out so
+   walking outward means walking into harder things. `ZoneDef.distance`
+   (`Config/Planets.luau`) is already the difficulty dial — it needs a level
+   band per zone, and a warning when the player crosses into one well above
+   them rather than a silent death.
+
+Also wanted, not required: **complementary co-op classes** — a Jedi and a
+soldier who play differently and cover each other. The four skill trees
+(Combat / Piloting / Force / Engineering) are already shaped for this; what is
+missing is a reason to specialize, which means abilities that only deep
+investment unlocks, not just bigger numbers.
+
+---
+
 ## Phase 1 — Close the loop (highest value, lowest cost)
 
 Nothing here is a new system. Each item is a missing connection between two
@@ -60,6 +86,16 @@ purpose beyond standing still.
 `ShopService` finds vendors within 30 studs, but there is no in-world cue. You
 open the panel and hope. Needs a billboard prompt (or Roblox `ProximityPrompt`)
 over shop NPCs.
+
+### 1.5 Skill tree UI — **[done]**
+`SkillTreeController.luau`, opens with **K**. A tab per tree, rank pips per node,
+an XP bar, and a preview of what the next rank buys. The Spend button carries the
+refusal reason straight from `Progression.canPurchase`, so it explains a locked
+node instead of doing nothing.
+
+Points had been accumulating unspendable since the first kill: `SpendSkillPoint`,
+`ProgressionService.purchaseSkill` and the 18 nodes all existed, and nothing on
+the client ever fired the remote.
 
 > With 1.1 and 1.2 done, the Tatooine chain is completable end to end. The
 > remaining blocker is `TalkTo` (1.3), which gates every mission with a
@@ -159,8 +195,9 @@ neither — it is random.
 
 ## Phase 4 — RPG depth
 
-- Skill tree UI. `SpendSkillPoint` remote exists, no screen fires it — same
-  shape of gap as the mission board
+- ~~Skill tree UI~~ — **done**, see 1.5
+- Loot drops with rolled affixes, and the `profile.inventory` change they need
+- Per-zone level bands + an "you are underlevelled" warning on entry
 - Weapon mods / attachments layered onto `Config/Weapons.luau`
 - Faction reputation consequences. Missions already award rep
   (`rep = { Rebellion = 120, Empire = -180 }`) and nothing reads it back
