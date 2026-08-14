@@ -1,0 +1,574 @@
+--!strict
+--[[
+	CombatService.luau
+
+	All damage in the game goes through this module.
+
+	AUTHORITY
+	The client sends "I fired, from roughly here, in this direction". It does
+	not send a target, a hit, or a damage number. The server re-derives all
+	three. That inversion is the entire security model, and it is why the client
+	cannot be trusted with anything more than input.
+
+	Specifically the server checks, per shot:
+	  - is the weapon actually equipped on the profile
+	  - has enough time passed for the weapon's fire rate (server clock)
+	  - is the claimed origin close to the player's real character
+	  - does a fresh raycast from that origin actually hit something
+
+	HITSCAN, VISUAL PROJECTILES
+	Damage is resolved instantly by raycast; the bolt the player sees is a
+	client-side visual that travels at the weapon's `projectileSpeed`. Doing it
+	the other way round -- server-simulated projectiles -- means the shot that
+	looked like a hit on the client can miss on the server, which feels broken
+	no matter how correct it is.
+]]
+
+local Players = game:GetService("Players")
+local Workspace = game:GetService("Workspace")
+
+local Shared = game:GetService("ReplicatedStorage"):WaitForChild("Shared")
+local Types = require(Shared.Types)
+local Net = require(Shared.Core.Net)
+local Signal = require(Shared.Core.Signal)
+local Weapons = require(Shared.Config.Weapons)
+local Factions = require(Shared.Config.Factions)
+local WeaponModel = require(Shared.Rig.WeaponModel)
+local ServiceLoader = require(Shared.Core.ServiceLoader)
+
+type DamageInfo = Types.DamageInfo
+type PlayerProfile = Types.PlayerProfile
+
+local CombatService = {
+	name = "CombatService",
+	priority = 30,
+}
+
+-- How far the claimed muzzle position may be from the player's root before we
+-- reject the shot. Generous enough to absorb latency and animation offsets,
+-- tight enough that it cannot be used to shoot around corners or across a map.
+local MAX_ORIGIN_ERROR = 18
+
+-- Small grace on the fire-rate check so a player on a bad connection is not
+-- punished for a shot that arrives a few milliseconds early.
+local FIRE_RATE_GRACE = 0.06
+
+local lastFireAt: { [Player]: number } = {}
+local lastSwingAt: { [Player]: number } = {}
+
+CombatService.damaged = Signal.new()
+CombatService.killed = Signal.new()
+
+local function data()
+	return ServiceLoader.get("DataService")
+end
+
+local function progression()
+	return ServiceLoader.get("ProgressionService")
+end
+
+--------------------------------------------------------------------------------
+-- Target identity
+--------------------------------------------------------------------------------
+
+--[[
+	Resolves whatever a raycast hit into a damageable character.
+
+	Walks up from the part because a hit can land on a cosmetic pauldron welded
+	to a limb, not the limb itself. Returns the humanoid plus the owning player
+	when there is one.
+]]
+local function resolveTarget(part: BasePart?): (Humanoid?, Model?, Player?)
+	if not part then
+		return nil, nil, nil
+	end
+	local model = part:FindFirstAncestorOfClass("Model")
+	while model do
+		local humanoid = model:FindFirstChildOfClass("Humanoid")
+		if humanoid then
+			return humanoid, model, Players:GetPlayerFromCharacter(model)
+		end
+		model = model:FindFirstAncestorOfClass("Model")
+	end
+	return nil, nil, nil
+end
+
+--- The faction a character fights for. NPCs carry it as an attribute.
+function CombatService.factionOf(character: Model): string
+	local player = Players:GetPlayerFromCharacter(character)
+	if player then
+		local profile = data().get(player)
+		return profile and profile.faction or Factions.DEFAULT
+	end
+	return character:GetAttribute("Faction") :: string? or Factions.DEFAULT
+end
+
+--[[
+	Whether `attacker` is allowed to damage `target`.
+
+	Player-versus-player is off. Everything else is decided by faction, which
+	means shooting a stormtrooper while wearing Imperial colours is friendly
+	fire and simply does not land -- rather than being allowed and then
+	confusing the reputation system.
+]]
+function CombatService.canDamage(attacker: Model, target: Model): boolean
+	if attacker == target then
+		return false
+	end
+	local attackerPlayer = Players:GetPlayerFromCharacter(attacker)
+	local targetPlayer = Players:GetPlayerFromCharacter(target)
+	if attackerPlayer and targetPlayer then
+		return false
+	end
+	if not attackerPlayer and not targetPlayer then
+		-- NPC on NPC: only genuine faction enemies brawl, or the streets of
+		-- Mos Eisley turn into a permanent riot.
+		return Factions.areEnemies(CombatService.factionOf(attacker), CombatService.factionOf(target))
+	end
+	return true
+end
+
+--------------------------------------------------------------------------------
+-- Damage
+--------------------------------------------------------------------------------
+
+--[[
+	The single entry point for hurting anything.
+
+	Nothing else in the codebase should touch Humanoid.Health directly: kill
+	attribution, reputation and mission progress all hang off this function, and
+	a direct health write skips every one of them.
+]]
+function CombatService.applyDamage(target: Model, info: DamageInfo): number
+	local humanoid = target:FindFirstChildOfClass("Humanoid")
+	if not humanoid or humanoid.Health <= 0 then
+		return 0
+	end
+
+	local amount = math.max(0, info.amount)
+	if amount == 0 then
+		return 0
+	end
+
+	local before = humanoid.Health
+	humanoid.Health = math.max(0, before - amount)
+	local dealt = before - humanoid.Health
+
+	CombatService.damaged:fire(target, info, dealt)
+
+	if info.attacker then
+		Net.fireClient(
+			Net.Event.DamageDealt,
+			info.attacker,
+			math.floor(dealt + 0.5),
+			info.isCritical == true,
+			info.position
+		)
+	end
+
+	if humanoid.Health <= 0 then
+		CombatService.onKilled(target, info)
+	end
+	return dealt
+end
+
+--- Handles the consequences of a death: rewards, reputation, mission progress.
+function CombatService.onKilled(target: Model, info: DamageInfo)
+	CombatService.killed:fire(target, info)
+
+	local killer = info.attacker
+	if not killer or not killer:IsDescendantOf(Players) then
+		return
+	end
+
+	local archetypeId = target:GetAttribute("Archetype") :: string?
+	if not archetypeId then
+		return -- not an NPC we track; nothing to award
+	end
+
+	local NPCArchetypes = require(Shared.Config.NPCArchetypes)
+	if not NPCArchetypes.exists(archetypeId) then
+		return
+	end
+
+	local profile = data().get(killer)
+	if not profile then
+		return
+	end
+
+	local npcLevel = (target:GetAttribute("Level") :: number?) or 1
+	local xp = NPCArchetypes.xpFor(archetypeId, npcLevel, profile.level)
+	local credits = NPCArchetypes.rollCredits(archetypeId)
+	local archetype = NPCArchetypes.get(archetypeId)
+
+	progression().awardXp(killer, xp)
+	if credits > 0 then
+		progression().awardCredits(killer, credits)
+	end
+	if archetype.repOnKill then
+		progression().awardRep(killer, archetype.faction, archetype.repOnKill)
+	end
+
+	data().update(killer, function(p: PlayerProfile)
+		p.stats.kills += 1
+	end)
+end
+
+--------------------------------------------------------------------------------
+-- Firing
+--------------------------------------------------------------------------------
+
+local function raycastParams(ignore: Model): RaycastParams
+	local params = RaycastParams.new()
+	params.FilterType = Enum.RaycastFilterType.Exclude
+	params.FilterDescendantsInstances = { ignore }
+	params.IgnoreWater = true
+	return params
+end
+
+--[[
+	Resolves one shot from `character` and returns the damage dealt.
+
+	`pierce` lets a heavy weapon punch through a target and keep going; each
+	subsequent target is added to the ignore list and the ray is re-cast from
+	the hit point, which is simpler and more predictable than a shape-cast.
+]]
+function CombatService.resolveShot(
+	character: Model,
+	weaponId: string,
+	origin: Vector3,
+	direction: Vector3,
+	attacker: Player?,
+	damageMult: number?,
+	critChance: number?
+): number
+	local weapon = Weapons.get(weaponId)
+	local params = raycastParams(character)
+	local remaining = 1 + (weapon.pierce or 0)
+	local from = origin
+	local dir = direction.Unit * weapon.range
+	local totalDealt = 0
+
+	while remaining > 0 do
+		local result = Workspace:Raycast(from, dir, params)
+		if not result then
+			break
+		end
+
+		local humanoid, targetModel = resolveTarget(result.Instance)
+		if not humanoid or not targetModel then
+			break -- hit geometry; the bolt stops
+		end
+
+		if CombatService.canDamage(character, targetModel) then
+			local distance = (result.Position - origin).Magnitude
+			local base = Weapons.damageAtRange(weaponId, distance) * (damageMult or 1)
+			local isCrit = math.random() < (critChance or 0)
+			if isCrit then
+				base *= weapon.critMultiplier or 2
+			end
+
+			totalDealt += CombatService.applyDamage(targetModel, {
+				amount = base,
+				source = character,
+				attacker = attacker,
+				damageType = if weapon.class == "Blaster" then "Blaster" else "Melee",
+				position = result.Position,
+				isCritical = isCrit,
+			})
+		end
+
+		-- Either way the ray continues past this character, so exclude the
+		-- whole model rather than the single part we hit.
+		local filter = params.FilterDescendantsInstances
+		table.insert(filter, targetModel)
+		params.FilterDescendantsInstances = filter
+
+		remaining -= 1
+		from = result.Position
+		dir = direction.Unit * math.max(0, weapon.range - (result.Position - origin).Magnitude)
+		if dir.Magnitude < 1 then
+			break
+		end
+	end
+
+	return totalDealt
+end
+
+--------------------------------------------------------------------------------
+-- Player input
+--------------------------------------------------------------------------------
+
+local function onFireWeapon(player: Player, origin: Vector3, direction: Vector3)
+	local character = player.Character
+	if not character then
+		return
+	end
+	local humanoid = character:FindFirstChildOfClass("Humanoid")
+	local root = character:FindFirstChild("HumanoidRootPart") :: BasePart?
+	if not humanoid or not root or humanoid.Health <= 0 then
+		return
+	end
+
+	local profile = data().get(player)
+	if not profile then
+		return
+	end
+
+	-- The weapon is whatever the SERVER has recorded as equipped. A client
+	-- claiming to fire a weapon it does not own gets nothing.
+	local weaponId = profile.equipped.weapon
+	if not weaponId or not Weapons.exists(weaponId) then
+		return
+	end
+	local weapon = Weapons.get(weaponId)
+	if weapon.class ~= "Blaster" then
+		return
+	end
+
+	if (origin - root.Position).Magnitude > MAX_ORIGIN_ERROR then
+		return
+	end
+
+	local stats = progression().getStats(player)
+	local cooldown = Weapons.cooldown(weaponId, stats.BlasterCooldownMult) - FIRE_RATE_GRACE
+	local now = os.clock()
+	if now - (lastFireAt[player] or 0) < cooldown then
+		return
+	end
+	lastFireAt[player] = now
+
+	-- Spread is applied server-side too, so a client cannot fire a perfectly
+	-- accurate T-21 by sending a clean direction.
+	local spread = math.rad(weapon.spread)
+	local aim = direction.Unit
+	if spread > 0 then
+		local yaw = (math.random() - 0.5) * 2 * spread
+		local pitch = (math.random() - 0.5) * 2 * spread
+		aim = (CFrame.lookAt(Vector3.zero, aim) * CFrame.Angles(pitch, yaw, 0)).LookVector
+	end
+
+	CombatService.resolveShot(
+		character,
+		weaponId,
+		origin,
+		aim,
+		player,
+		stats.BlasterDamageMult,
+		stats.CritChance
+	)
+
+	-- Everyone except the shooter needs the visual; the shooter already fired
+	-- it locally on input for responsiveness.
+	Net.fireAllExcept(Net.Event.WeaponEffect, player, weaponId, origin, aim)
+end
+
+local function onSaberSwing(player: Player)
+	local character = player.Character
+	if not character then
+		return
+	end
+	local humanoid = character:FindFirstChildOfClass("Humanoid")
+	local root = character:FindFirstChild("HumanoidRootPart") :: BasePart?
+	if not humanoid or not root or humanoid.Health <= 0 then
+		return
+	end
+
+	local profile = data().get(player)
+	if not profile then
+		return
+	end
+	local weaponId = profile.equipped.weapon
+	if not weaponId or not Weapons.exists(weaponId) then
+		return
+	end
+	local weapon = Weapons.get(weaponId)
+	if weapon.class ~= "Saber" and weapon.class ~= "Melee" then
+		return
+	end
+
+	local stats = progression().getStats(player)
+	local now = os.clock()
+	if now - (lastSwingAt[player] or 0) < Weapons.cooldown(weaponId) - FIRE_RATE_GRACE then
+		return
+	end
+	lastSwingAt[player] = now
+
+	local damageMult = if weapon.class == "Saber" then (stats.SaberDamageMult or 1) else 1
+	CombatService.swingMelee(character, weaponId, damageMult, stats.CritChance, player)
+
+	Net.fireAllExcept(Net.Event.WeaponEffect, player, weaponId, root.Position, root.CFrame.LookVector)
+end
+
+--[[
+	Sweeps a melee arc in front of `character` and damages everything in it.
+
+	A sphere query plus a facing test, rather than a swept hitbox: a saber swing
+	that connects with anything roughly in front of you at the right moment is
+	what players expect, and precise blade geometry mostly produces misses that
+	look like hits.
+]]
+function CombatService.swingMelee(
+	character: Model,
+	weaponId: string,
+	damageMult: number?,
+	critChance: number?,
+	attacker: Player?
+): number
+	local weapon = Weapons.get(weaponId)
+	local root = character:FindFirstChild("HumanoidRootPart") :: BasePart?
+	if not root then
+		return 0
+	end
+
+	local params = OverlapParams.new()
+	params.FilterType = Enum.RaycastFilterType.Exclude
+	params.FilterDescendantsInstances = { character }
+
+	local centre = root.Position + root.CFrame.LookVector * (weapon.range * 0.4)
+	local parts = Workspace:GetPartBoundsInRadius(centre, weapon.range * 0.7, params)
+
+	local seen: { [Model]: boolean } = {}
+	local hits = 0
+
+	for _, part in parts do
+		local humanoid, targetModel = resolveTarget(part)
+		if not humanoid or not targetModel or seen[targetModel] then
+			continue
+		end
+		seen[targetModel] = true
+
+		if not CombatService.canDamage(character, targetModel) then
+			continue
+		end
+
+		-- Must be in front: a 180-degree arc, so you cannot hit what is behind you.
+		local targetRoot = targetModel:FindFirstChild("HumanoidRootPart") :: BasePart?
+		if targetRoot then
+			local toTarget = (targetRoot.Position - root.Position)
+			if root.CFrame.LookVector:Dot(toTarget.Unit) < 0 then
+				continue
+			end
+		end
+
+		local isCrit = math.random() < (critChance or 0)
+		local amount = weapon.damage * (damageMult or 1)
+		if isCrit then
+			amount *= weapon.critMultiplier or 2
+		end
+
+		CombatService.applyDamage(targetModel, {
+			amount = amount,
+			source = character,
+			attacker = attacker,
+			damageType = if weapon.class == "Saber" then "Saber" else "Melee",
+			position = targetRoot and targetRoot.Position or centre,
+			isCritical = isCrit,
+		})
+		hits += 1
+	end
+
+	return hits
+end
+
+--------------------------------------------------------------------------------
+-- NPC entry points
+--------------------------------------------------------------------------------
+
+--[[
+	Fires an NPC's weapon at a target position.
+
+	NPC accuracy is a property of the archetype, not of aim: `spreadMult` widens
+	the cone. That is how a stormtrooper misses convincingly instead of the AI
+	having to pretend to be bad at maths.
+]]
+function CombatService.npcFire(npc: Model, weaponId: string, targetPosition: Vector3, spreadMult: number?)
+	local weapon = Weapons.get(weaponId)
+	local root = npc:FindFirstChild("HumanoidRootPart") :: BasePart?
+	if not root then
+		return
+	end
+
+	local origin = root.Position + root.CFrame.LookVector * 2 + Vector3.new(0, 1, 0)
+	local aim = (targetPosition - origin).Unit
+
+	local spread = math.rad(weapon.spread * (spreadMult or 1))
+	if spread > 0 then
+		local yaw = (math.random() - 0.5) * 2 * spread
+		local pitch = (math.random() - 0.5) * 2 * spread
+		aim = (CFrame.lookAt(Vector3.zero, aim) * CFrame.Angles(pitch, yaw, 0)).LookVector
+	end
+
+	CombatService.resolveShot(npc, weaponId, origin, aim, nil, 1, 0)
+	Net.fireAllClients(Net.Event.WeaponEffect, weaponId, origin, aim)
+end
+
+function CombatService.npcMelee(npc: Model, weaponId: string)
+	CombatService.swingMelee(npc, weaponId, 1, 0, nil)
+	local root = npc:FindFirstChild("HumanoidRootPart") :: BasePart?
+	if root then
+		Net.fireAllClients(Net.Event.WeaponEffect, weaponId, root.Position, root.CFrame.LookVector)
+	end
+end
+
+--------------------------------------------------------------------------------
+-- Lifecycle
+--------------------------------------------------------------------------------
+
+function CombatService.init()
+	Net.onServerEvent(Net.Event.FireWeapon, onFireWeapon, {
+		-- Above any real weapon's fire rate; the per-weapon cooldown above is
+		-- the real limit. This only stops a flood from costing us CPU.
+		rateLimit = 25,
+		validate = Net.args(Net.check.vector3(100000), Net.check.vector3(2)),
+	})
+
+	Net.onServerEvent(Net.Event.SaberSwing, onSaberSwing, {
+		rateLimit = 8,
+		validate = Net.check.none,
+	})
+
+	Net.onServerEvent(Net.Event.EquipWeapon, function(player: Player, weaponId: string)
+		if not Weapons.exists(weaponId) then
+			return
+		end
+		local profile = data().get(player)
+		if not profile then
+			return
+		end
+		-- Owned means "in inventory". Fists are always available.
+		if weaponId ~= Weapons.DEFAULT and (profile.inventory[weaponId] or 0) < 1 then
+			Net.fireClient(Net.Event.Notify, player, "You do not have that weapon", "Error")
+			return
+		end
+		data().update(player, function(p)
+			p.equipped.weapon = weaponId
+		end)
+
+		if player.Character then
+			WeaponModel.equip(player.Character, weaponId)
+		end
+	end, {
+		rateLimit = 4,
+		validate = Net.args(Net.check.string(64)),
+	})
+end
+
+function CombatService.start()
+	Players.PlayerRemoving:Connect(function(player)
+		lastFireAt[player] = nil
+		lastSwingAt[player] = nil
+	end)
+
+	-- A fresh character has empty hands. Re-equip what the profile says is
+	-- held, so the weapon survives death and travel without the client asking.
+	ServiceLoader.get("PlayerService").characterReady
+		:connect(function(_player: Player, character: Model, profile)
+			local weaponId = profile.equipped.weapon
+			if weaponId and Weapons.exists(weaponId) then
+				WeaponModel.equip(character, weaponId)
+			end
+		end)
+end
+
+return CombatService

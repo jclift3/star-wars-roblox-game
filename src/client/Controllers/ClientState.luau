@@ -1,0 +1,81 @@
+--!strict
+--[[
+	ClientState.luau
+
+	The client's copy of the player's profile.
+
+	The server sends the whole profile whenever anything in it changes, and
+	every other controller reads it from here rather than invoking the server.
+	That is the point: a HUD that asks the server for the credit balance every
+	frame is both slow and wrong, because the answer is already in flight.
+
+	This copy is advisory. Nothing here is trusted by the server -- it exists so
+	the interface can be drawn and so input can be sensible about which weapon
+	the player is holding.
+]]
+
+local Shared = game:GetService("ReplicatedStorage"):WaitForChild("Shared")
+local Net = require(Shared.Core.Net)
+local Signal = require(Shared.Core.Signal)
+
+local ClientState = {
+	name = "ClientState",
+	priority = 1,
+}
+
+export type Profile = {
+	credits: number,
+	level: number,
+	xp: number,
+	skillPoints: number,
+	skills: { [string]: number },
+	faction: string,
+	factionRep: { [string]: number },
+	currentPlanet: string,
+	homePlanet: string,
+	inventory: { [string]: number },
+	equipped: { weapon: string?, offhand: string?, outfit: string? },
+	unlockedShips: { string },
+	missions: {
+		active: {
+			[string]: { missionId: string, startedAt: number, objectives: { [number]: number }, stage: number },
+		},
+		completed: { [string]: number },
+		lastCompleted: { [string]: number },
+	},
+	stats: { [string]: number },
+}
+
+local profile: Profile? = nil
+
+ClientState.changed = Signal.new()
+
+function ClientState.get(): Profile?
+	return profile
+end
+
+--- The equipped weapon id, or nil while the profile is still loading.
+function ClientState.equippedWeapon(): string?
+	return profile and profile.equipped.weapon
+end
+
+function ClientState.init()
+	Net.onClientEvent(Net.Event.ProfileUpdated, function(view: Profile)
+		profile = view
+		ClientState.changed:fire(view)
+	end)
+end
+
+function ClientState.start()
+	-- The push above covers every later change, but a client that joins after
+	-- the profile has already loaded would otherwise wait for the next one.
+	task.spawn(function()
+		local view = Net.invokeServer(Net.Function.GetProfile)
+		if view and not profile then
+			profile = view
+			ClientState.changed:fire(view)
+		end
+	end)
+end
+
+return ClientState

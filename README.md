@@ -1,300 +1,242 @@
-# 🌟 STAR WARS: GALACTIC EMPIRE - Roblox Game
+# Outer Rim Odyssey
 
-A massive free-roam Star Wars universe where players can explore multiple planets, pilot spaceships, join factions, and create their own galactic destiny.
+A free-roam Star Wars RPG for Roblox. Eight planets, procedurally generated
+cities, a crowd of NPCs with their own lives, blaster and lightsaber combat, and
+a level-and-skill-tree progression system that persists between sessions.
 
-## 🚀 Game Overview
-A massive free-roam Star Wars universe where players can explore multiple planets, pilot spaceships, join factions, and create their own galactic destiny.
+Everything in this repository is code. There are no `.rbxl` files to merge, no
+marketplace asset IDs, and nothing that only exists inside somebody's copy of
+Studio. Characters, weapons, cities and the HUD are all built at runtime from
+config tables, which means a change to `Planets.luau` changes the game.
 
-## 🌟 Core Features
-
-### 🪐 Multi-Planet Exploration
-- **Coruscant** - Urban capital planet with massive skyscrapers
-- **Tatooine** - Desert planet with moisture farms and cantinas
-- **Hoth** - Ice planet with rebel bases
-- **Naboo** - Beautiful planet with underwater cities
-- **Mustafar** - Volcanic planet with mining operations
-- **Kamino** - Ocean planet with cloning facilities
-
-### 🚁 Spaceship System
-- **Fighter Ships**: X-Wings, TIE Fighters, A-Wings
-- **Capital Ships**: Star Destroyers, Mon Calamari Cruisers
-- **Freighters**: Millennium Falcon-style ships
-- **Customization**: Paint jobs, weapon upgrades, engine modifications
-- **Space Combat**: Dogfights, capital ship battles
-- **Hyperspace Travel**: Instant travel between planets
-
-### ⚔️ Faction System
-- **Galactic Empire**: Stormtroopers, Imperial Officers, Sith Lords
-- **Rebel Alliance**: Rebel Soldiers, Jedi Knights, Smugglers
-- **Neutral Factions**: Bounty Hunters, Traders, Pirates
-- **Faction Wars**: Territory control, resource battles
-- **Ranking System**: Promotions, special abilities, unique gear
-
-### 🎮 Gameplay Mechanics
-- **Free-Roam**: No loading screens between areas
-- **Skill Trees**: Combat, piloting, engineering, diplomacy
-- **Economy**: Credits, trading, crafting, black market
-- **Social Features**: Guilds, alliances, player housing
-- **Events**: Dynamic world events, invasions, tournaments
-
-## 🎮 Current Implementation Status
-
-### ✅ Implemented Features
-- **Planet Generation**: Procedural terrain and structures for all 6 planets
-- **Spaceship System**: X-Wing with detailed movie-accurate models and flight controls
-- **NPC System**: Multi-part NPCs with realistic behaviors (Patrol, Wander, Work, Stand)
-- **Inter-Planet Travel**: Transport hubs with hyperspace portals
-- **Faction System**: Empire, Rebel, and Neutral factions with joinable ranks
-- **Chat Commands**: Full command system for travel, factions, and ship spawning
-- **Hangar System**: Accessible hangars with ship spawning managers
-- **Sprint System**: Enhanced player movement with Shift key
-- **Monetization Framework**: VIP passes, battle pass, premium currency systems
-
-### 🚧 In Progress
-- **NPC Welding**: Ensuring all NPC parts move as single entities
-- **Flight Controls**: Fine-tuning spaceship piloting mechanics
-- **Hangar Accessibility**: Improving access to ship spawning areas
-
-### 📋 Planned Features
-- **Combat System**: Lightsaber duels, blaster combat, ship battles
-- **More Ship Models**: TIE Fighters, Millennium Falcon, Star Destroyers
-- **Player Progression**: Experience system, skill trees, achievements
-- **Advanced AI**: Dynamic world events, faction wars, NPC interactions
-
-## 🎮 Controls
-
-### Movement
-- **WASD** - Move around
-- **Shift** - Sprint
-- **Space** - Jump
-
-### Spaceship Flight
-- **WASD** - Forward/Backward/Left/Right
-- **R/F** - Fly Up/Down (prevents Space bar seat exit conflict)
-- **Q/E** - Roll Left/Right
-- **E** - Enter/Exit ship
-
-### Chat Commands
-- `/help` - Show all commands
-- `/travel [planet]` - Travel to another planet (costs 1000 credits)
-- `/faction [name]` - Join a faction (Empire, Rebel, Neutral)
-- `/ship [type]` - Get information about ships
-- `/credits` - Check your credit balance (starts with 50,000 for testing)
-- `/planets` - List all available planets
-- `/npcs` - Find nearby NPCs and highlight them
-
-## 🛠️ Installation & Setup
-
-### Prerequisites
-- Roblox Studio (latest version)
-- Basic understanding of Roblox development
-
-### Quick Setup
-1. **Clone this repository:**
-   ```bash
-   git clone https://github.com/jclift3/star-wars-roblox-game.git
-   cd star-wars-roblox-game
-   ```
-
-2. **Open Roblox Studio**
-
-3. **Import the scripts:**
-   - Copy the `StarWarsGame` folder structure into your place
-   - Ensure all scripts are in the correct locations:
-     - Server scripts in `ServerScriptService`
-     - Local scripts in `StarterPlayerScripts`
-     - Module scripts in `ReplicatedStorage`
-
-4. **Run the game** and test the systems
-
-### File Structure
-```
-📦 StarWarsGame/
-├── 📁 ServerScripts/
-│   ├── 00_Main.lua              # Main server script & chat commands
-│   ├── 📁 GameManagement/
-│   │   └── GameManager.lua       # Core game management
-│   ├── 📁 SpaceshipSystem/
-│   │   ├── SpaceshipManager.lua  # Ship functionality
-│   │   └── SpaceshipSpawner.lua  # Ship spawning & hangars
-│   ├── 📁 FactionSystem/
-│   │   └── FactionManager.lua    # Faction management
-│   ├── 📁 NPCSystem/
-│   │   └── NPCManager.lua        # NPC management & behaviors
-│   ├── 📁 PlanetGeneration/
-│   │   ├── PlanetGenerator.lua   # Planet creation
-│   │   └── WorldImporter.lua     # World importing
-│   ├── 📁 TravelSystem/
-│   │   └── InterPlanetTravel.lua # Inter-planet travel & transport hubs
-│   ├── 📁 MonetizationSystem/
-│   │   └── MonetizationManager.lua # Monetization features
-│   └── TestSystem.lua            # System diagnostics
-└── 📁 StarterPlayerScripts/
-    └── SprintSystem.lua          # Player sprint functionality
-```
-
-## 🔧 Development
-
-### Adding New Features
-1. Create your script in the appropriate folder
-2. Follow the existing naming conventions
-3. Add proper error handling and logging
-4. Test thoroughly before committing
-
-### Testing
-- Use the `/npcs` command to verify NPC spawning
-- Test spaceship spawning at hangars
-- Verify inter-planet travel works
-- Check that all chat commands function
-
-### Debugging
-- Check the Roblox Studio Output window for error messages
-- Use the `TestSystem.lua` script to diagnose issues
-- Verify all scripts are in the correct locations
-
-## 📝 Contributing
-
-1. **Fork the repository**
-2. **Create a feature branch** (`git checkout -b feature/amazing-feature`)
-3. **Commit your changes** (`git commit -m 'Add amazing feature'`)
-4. **Push to the branch** (`git push origin feature/amazing-feature`)
-5. **Open a Pull Request**
-
-## 🐛 Known Issues & Solutions
-
-### Current Issues
-- **NPC Welding**: Some NPC parts may not move together (being fixed)
-- **Hangar Access**: Some hangars may be difficult to access (being improved)
-- **Flight Controls**: Fine-tuning needed for optimal piloting experience
-
-### Solutions
-- Use `/npcs` command to find and highlight nearby NPCs
-- Visit transport hubs for easy inter-planet travel
-- Use `/help` for all available commands
-
-## 🎯 Roadmap
-
-### Short Term (Next 2-4 weeks)
-- [x] Basic planet environments
-- [x] Simple spaceship system
-- [x] Player movement and basic UI
-- [x] Faction system
-- [x] Economy basics
-- [x] Multiple planets
-- [x] Advanced spaceship features
-- [ ] Fix NPC welding issues
-- [ ] Improve hangar accessibility
-- [ ] Fine-tune flight controls
-
-### Medium Term (Next 2-3 months)
-- [ ] Implement combat system
-- [ ] Add more planets and environments
-- [ ] Create faction-specific missions
-- [ ] Add player progression system
-- [ ] Advanced AI for NPCs
-- [ ] Player housing and customization
-
-### Long Term (Next 6-12 months)
-- [ ] Multiplayer events and raids
-- [ ] Mobile app integration
-- [ ] Advanced monetization features
-- [ ] Community-driven content
-- [ ] Cross-platform features
-
-## 💰 Monetization Strategy
-
-### 🎯 Premium Features
-- **VIP Passes**: Exclusive areas, faster progression, unique items
-- **Battle Pass**: Seasonal content, exclusive cosmetics, premium rewards
-- **Premium Ships**: Special ship models, unique abilities
-- **Character Customization**: Premium outfits, accessories, animations
-
-### 🛍️ In-Game Store
-- **Cosmetics**: Character skins, ship paint jobs, weapon skins
-- **Boosters**: Experience multipliers, credit boosters, crafting materials
-- **Premium Currency**: Galactic Credits for exclusive purchases
-- **Seasonal Bundles**: Themed content packs
-
-### 🎪 Engagement Features
-- **Daily Rewards**: Login bonuses, daily missions
-- **Achievement System**: Unlockable content, leaderboards
-- **Social Features**: Friend systems, guild management
-- **Trading System**: Player-to-player economy
-
-## 🏗️ Technical Architecture
-
-### 🔧 Core Systems
-- **Spaceship Physics Engine**: Realistic flight mechanics with VehicleSeat
-- **Planet Generation**: Procedural terrain and structures
-- **Faction AI**: Dynamic NPC behavior and world events
-- **Economy Engine**: Supply/demand, inflation control
-- **Social Systems**: Guild management, chat, trading
-
-### 🚀 Performance Features
-- **Efficient NPC Management**: Optimized spawning and behavior loops
-- **Smart Asset Loading**: Dynamic world importing and caching
-- **Optimized Rendering**: Efficient planet and structure generation
-
-## 🎯 Target Audience
-- **Primary**: Star Wars fans aged 13-25
-- **Secondary**: Roblox players interested in space games
-- **Tertiary**: Players who enjoy free-roam, sandbox experiences
-
-## 📈 Success Metrics
-- **Player Retention**: 7-day, 30-day retention rates
-- **Monetization**: Average revenue per daily active user (ARPDAU)
-- **Engagement**: Average session length, daily active users
-- **Social**: Guild formation, player interactions, trading volume
-
-## 🚀 Development Phases
-
-### Phase 1: Core Foundation ✅ COMPLETED
-- Basic planet environments
-- Simple spaceship system
-- Player movement and basic UI
-
-### Phase 2: Core Systems ✅ COMPLETED
-- Faction system
-- Economy basics
-- Spaceship combat framework
-
-### Phase 3: Content & Polish 🚧 IN PROGRESS
-- Multiple planets
-- Advanced spaceship features
-- Monetization systems
-
-### Phase 4: Launch & Optimization 📋 PLANNED
-- Beta testing
-- Performance optimization
-- Marketing preparation
-
-## 💡 Innovation Features
-- **Seamless Planet Transitions**: No loading screens
-- **Dynamic World Events**: AI-driven storylines
-- **Player-Driven Economy**: Supply and demand mechanics
-- **Cross-Planet Trading**: Interplanetary commerce
-- **Faction Territory Control**: Strategic gameplay elements
-
-## 📄 License
-
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
-
-## 🙏 Acknowledgments
-
-- **Lucasfilm Ltd.** for the Star Wars universe
-- **Roblox Corporation** for the amazing platform
-- **Community contributors** for feedback and suggestions
-
-## 📞 Support
-
-- **GitHub Issues:** Report bugs and request features
-- **Discord:** Join our community server (link coming soon)
-- **Email:** jclift3@gmail.com
+> **Note:** this is a rewrite. The original 2024 project is still in
+> `StarWarsGame/` for reference and is no longer wired into anything.
 
 ---
 
-**May the Force be with you!** ⚡
+## Getting it running
 
-*Built with ❤️ for the Star Wars and Roblox communities*
+You need [Rokit](https://github.com/rojo-rbx/rokit) (a toolchain manager) and
+Roblox Studio.
 
-This game will revolutionize the Roblox space game genre by offering true free-roam exploration, deep faction systems, and engaging spaceship gameplay that keeps players coming back for more! 
+```bash
+# 1. Install the pinned tools listed in rokit.toml
+rokit install
+
+# 2. Start the sync server
+rojo serve
+```
+
+Then, in Studio:
+
+1. Install the **Rojo** plugin if you have not already
+   (`rojo plugin install`, or from the Studio toolbox).
+2. Open a new, empty baseplate place.
+3. Open the Rojo plugin panel and click **Connect**.
+4. Press Play.
+
+The world builds itself on the first server frame, so the baseplate does not
+need anything in it. You can delete the default baseplate part.
+
+### Everyday commands
+
+```bash
+./check.sh                # format, lint and type-check everything
+rojo serve                # live-sync src/ into Studio
+rojo build -o game.rbxl   # produce a place file, for uploading
+```
+
+### Checking your work
+
+`./check.sh` runs StyLua, Selene and `luau-lsp analyze` over the whole tree. The
+last of those is the important one: it gives you the same type errors Studio
+would, without having to press Play. It is worth running before every Studio
+session — it has already caught a `CFrame * Vector3` mistake that would have
+errored on every single NPC spawn.
+
+It is not a substitute for playing the game, though. Nothing here can catch a
+mistake that only shows up at runtime, so also watch the Output window on boot:
+`ServiceLoader` prints a banner listing any service that failed to load, and
+several config modules validate themselves and warn about problems (an archetype
+pointing at a weapon that does not exist, a mission objective referencing an
+unknown NPC) rather than failing silently.
+
+---
+
+## How it fits together
+
+```
+src/
+  shared/          ReplicatedStorage.Shared -- config + code both sides use
+    Config/        the game's data: planets, weapons, species, missions...
+    Core/          Signal, Net, ServiceLoader
+    Rig/           character and weapon model construction
+  server/          ServerScriptService.Server
+    Services/      one file per system, loaded by ServiceLoader
+    NPC/           the NPC state machine
+    World/         the procedural planet generator
+  client/          StarterPlayerScripts.Client
+    Controllers/   input, effects, HUD, atmosphere
+```
+
+### Services
+
+Both the server and the client boot the same way: `ServiceLoader` requires every
+ModuleScript in a folder, runs `init()` on all of them in priority order, then
+runs `start()` on all of them. `init` may only touch itself; `start` may call
+anything. That two-phase split is what removes load-order bugs — no service
+needs to care which file loaded first.
+
+| Service | Priority | Owns |
+| --- | --- | --- |
+| `DataService` | 1 | Profiles, DataStore persistence, session locking |
+| `WorldService` | 5 | When each planet gets generated |
+| `ProgressionService` | 10 | XP, levels, skill points, derived stats |
+| `PlayerService` | 20 | Spawning, per-planet gravity, sprint, travel |
+| `CombatService` | 30 | Firing, damage, kills, weapon equipping |
+| `NPCService` | 40 | Spawning, ticking and retiring the crowd |
+| `MissionService` | 50 | Accepting, tracking and rewarding missions |
+
+Client controllers follow the same pattern: `ClientState` (1), `InputController`
+(20), `EffectsController` (30), `HudController` (40), `AtmosphereController`
+(50).
+
+### The design rules
+
+A few decisions run through the whole codebase. They are worth knowing before
+changing anything.
+
+**The server decides everything.** The client sends intent — "I pressed fire,
+aiming there" — and never a result. The server re-derives which weapon is held,
+whether the cooldown has elapsed, what the spread is, what was hit and how much
+damage it did. Every remote goes through `Net`, which rate-limits per player and
+validates arguments before the handler ever runs.
+
+**Config tables are the game.** Adding a planet, a weapon, an NPC archetype or a
+mission means adding an entry to a table in `shared/Config`. No new code, no new
+Studio objects. Remote payloads carry ids, never config rows, so the client
+cannot be lied to about what a weapon does.
+
+**Compared strings live in constant tables.** The original project had a bug
+where NPCs were spawned with behaviour `"PATROL"` and the state machine checked
+for `"Patrol"`, so no NPC ever patrolled — silently, for a year. Anything that
+gets compared (`Behavior`, `Objective`, faction names) is now a named constant.
+
+**Nothing is built by hand in Studio.** The HUD, the character rigs, the
+weapons, the cities. A GUI assembled by hand in `StarterGui` is invisible to
+version control and impossible to review.
+
+---
+
+## The systems
+
+### Characters
+
+`RigBuilder` builds R15 characters through
+`Players:CreateHumanoidModelFromDescription`, then welds procedural armour,
+robes and accessories onto them. Using a real HumanoidDescription rig — rather
+than assembling parts from scratch — means the result has correct `Motor6D`
+joints, so stock Roblox animations and `PathfindingService` both work with no
+extra effort.
+
+Species (`Species.luau`) set proportions and skin tones; costumes
+(`Costumes.luau`) set the armour. A Twi'lek and a Wookiee are different heights
+and builds, a stormtrooper's plates are welded parts, a Jedi's robe is a welded
+skirt of tapering blocks.
+
+Every distinct (species, costume, size) combination is built once and cached in
+ServerStorage; every later NPC is a clone. The starting planet's combinations
+are warmed at boot, before anyone can join, because building a rig yields and
+the first one on a cold server is a visible hitch.
+
+### NPCs
+
+`NPCBrain` is a state machine — Idle, Wander, Patrol, Flee, Combat — and
+`NPCService` owns the population. Every brain is stepped from one Heartbeat
+accumulator at 8 Hz, not from its own `while true` loop, and stepping is
+level-of-detail'd by distance to the nearest player: full sensing inside 220
+studs, movement only inside 520, a slow heartbeat beyond that. One brain
+erroring cannot stop the rest.
+
+Being shot overrides disposition — a farmer who takes a bolt reacts to it
+whatever the reputation table says — and an NPC entering combat shouts to allies
+within a radius, which is what makes a patrol behave like a squad rather than
+five individuals.
+
+Planets populate lazily: a world's crowd spawns when a player is standing on it
+and despawns 90 seconds after the last one leaves, so eight worlds can share one
+server.
+
+### The world
+
+`PlanetBuilder` generates each planet deterministically from a hash of its id,
+so every server builds the same world. Ground-based planets get terrain, a
+street-grid settlement with plazas and tapering towers, and scattered dunes or
+rocks or trees. Coruscant has no ground at all: it is towers from far below up
+to the flight ceiling, with cantilevered landing platforms at intervals.
+
+The generator's output is a contract, not an implementation:
+
+```
+Workspace/Spawns/<Planet>   -- where players appear
+Workspace/Zones/<Planet>    -- where NPCs live; a multi-part zone is a patrol route
+Workspace/POI/<Planet>      -- mission "reach this place" targets
+```
+
+Nothing else in the codebase knows how the world was made. A hand-built map can
+replace the generator entirely as long as it emits those three folders.
+
+### Combat
+
+Damage is hitscan — resolved instantly by raycast on the server — while the
+visible bolt is a client-side effect that travels at the weapon's projectile
+speed. That combination is what makes blasters feel responsive and look right at
+the same time.
+
+Blasters have spread, falloff, fire modes and cooldowns; lightsabers have swing
+arcs and can deflect. Damage scales off the attacker's level and skills, and a
+critical roll comes from a derived stat rather than a hardcoded number.
+
+### Progression
+
+Kills, missions and discoveries award XP. Levels award skill points, and skill
+points buy nodes in a tree whose effects are *derived stats* — `MoveSpeedMult`,
+`CreditMult`, `HealthRegen`, `CritChance` — that every other system reads. This
+is why no system needs to know what a skill is: `PlayerService` asks for a move
+speed multiplier, not for whether the player has bought Sprinter.
+
+Profiles save to DataStore with session locking, so the same player joining a
+second server cannot fork their save.
+
+### Missions
+
+Missions are objective lists — kill N of something, talk to somebody, reach a
+place, collect an item. Every source of progress funnels through a single
+function, `MissionService.report`, so combat and dialogue never need to know a
+mission exists. Rewards scale with level and with the player's credit multiplier.
+
+### Atmosphere
+
+Each planet declares its own fog, ambient light, sky tint and day length, and
+`AtmosphereController` cross-fades Lighting between them over two seconds when
+you arrive. Gravity is per-planet too, applied as a `VectorForce` on each
+character — Roblox only has one global gravity value, so the force cancels the
+difference. Jump height and fall speed both follow from that for free.
+
+---
+
+## What is not built yet
+
+- **Ships and space travel.** Planets have coordinates, fuel costs and fast
+  travel prices in config; the flight model and the galaxy map are not written.
+- **Dialogue.** The remotes and the NPC interaction hook exist; the dialogue
+  trees and the UI do not.
+- **Shops.** Archetypes can declare a shop id; nothing serves one yet.
+- **Mission board UI.** The server answers `GetMissionBoard`; nothing on the
+  client asks.
+
+## Open questions
+
+- **The name.** `OuterRimOdyssey` is a placeholder in `default.project.json`.
+- **The old project.** `StarWarsGame/` is dead code kept for reference. It is in
+  git history either way, so it can be deleted whenever.
