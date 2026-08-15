@@ -1261,9 +1261,17 @@ local function buildMarkers(
 	]]
 	local claimed: { [number]: boolean } = {}
 
-	local function claimNear(position: Vector3): Vector3?
+	--[[
+		`limit` is the whole point. Every anchor is a block inside the
+		settlement, so an unbounded search will happily answer "the middle of
+		town" for a landmark that asked to stand on the edge of the desert --
+		which is how the Lars Homestead ended up several hundred studs from
+		the farmstead it is named after, and from the farmers who make it a
+		place rather than a building.
+	]]
+	local function claimNear(position: Vector3, limit: number): Vector3?
 		local bestIndex: number? = nil
-		local bestDistance = math.huge
+		local bestDistance = limit
 		for i, anchor in anchors do
 			if claimed[i] then
 				continue
@@ -1300,18 +1308,24 @@ local function buildMarkers(
 		local def = landmarkFor(poi)
 
 		if not planet.hasWalkableGround then
-			-- No ground at all: it goes on a platform or nowhere.
-			position = claimNear(position) or position
+			-- No ground at all: a platform or nowhere, so any platform will
+			-- do and the search is deliberately unbounded.
+			position = claimNear(position, math.huge) or position
 		elseif (position - origin).Magnitude < SETTLEMENT_RADIUS then
-			if def.radius <= BLOCK_SIZE * 0.5 then
-				-- There are houses in the way, so it takes an empty yard.
-				position = claimNear(position) or position
+			-- There are houses in the way, so it takes an empty yard -- but
+			-- only one within a block of where it wanted to stand.
+			local yard = if def.radius <= BLOCK_SIZE * 0.5 then claimNear(position, BLOCK_SIZE) else nil
+
+			if yard then
+				position = yard
 			else
 				--[[
-					Too big for a city block, so it stands just past the last
-					street on its district's bearing -- which is where a
-					spaceport or a fortress belongs anyway. The alternative is
-					a landing pad grown through somebody's roof.
+					No free yard nearby, or too big for a city block: it
+					stands just past the last street on its district's
+					bearing, which is where a spaceport or a fortress belongs
+					anyway. Moving it outwards keeps it on its own compass
+					point; the alternative -- taking whatever block happened
+					to be free -- is a farmstead in the middle of downtown.
 				]]
 				local bearing = position - origin
 				local out = if bearing.Magnitude > 1 then bearing.Unit else Vector3.new(1, 0, 0)
