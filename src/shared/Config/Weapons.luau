@@ -227,7 +227,7 @@ def({
 	id = "DH17",
 	displayName = "DH-17 Blaster Pistol",
 	class = "Blaster",
-	description = "Rebel sidearm. Short range, but it cycles fast enough to matter in a corridor.",
+	description = "Republic sidearm. Short range, but it cycles fast enough to matter in a corridor.",
 	damage = 10,
 	fireRate = 5,
 	range = 170,
@@ -243,7 +243,7 @@ def({
 	tier = 1,
 	cost = 550,
 	requiredLevel = 1,
-	factions = { "Rebellion", "Independent" },
+	factions = { "Republic", "Independent" },
 	boltColor = Palette.BlasterBlue,
 	muzzleOffset = V3(0, 0.16, -1.5),
 	parts = {
@@ -335,9 +335,9 @@ def({
 
 def({
 	id = "DC15A",
-	displayName = "DC-15A Clone Rifle",
+	displayName = "DC-15A Service Rifle",
 	class = "Blaster",
-	description = "Republic-era hardware. Heavy, accurate, and still deadly decades after the war it was built for.",
+	description = "Pre-treaty hardware. Heavy, accurate, and still deadly a war after the one it was built for.",
 	damage = 16,
 	fireRate = 3.2,
 	range = 320,
@@ -354,7 +354,7 @@ def({
 	tier = 3,
 	cost = 5200,
 	requiredLevel = 12,
-	factions = { "Republic", "Rebellion" },
+	factions = { "Jedi", "Republic" },
 	boltColor = Palette.BlasterBlue,
 	muzzleOffset = V3(0, 0.16, -3.2),
 	parts = {
@@ -379,7 +379,7 @@ def({
 	id = "T21",
 	displayName = "T-21 Light Repeater",
 	class = "Blaster",
-	description = "Sandtrooper heavy weapon. Slow, loud, and it does not care what you are standing behind.",
+	description = "Imperial heavy weapon. Slow, loud, and it does not care what you are standing behind.",
 	damage = 38,
 	fireRate = 1.1,
 	range = 300,
@@ -728,7 +728,7 @@ saber(
 		tier = 3,
 		cost = 7500,
 		requiredLevel = 10,
-		factions = { "Republic", "Rebellion" },
+		factions = { "Jedi", "Republic" },
 	}
 )
 
@@ -738,7 +738,7 @@ saber(
 	"A Consular's blade. Slightly faster in the hand, favoured by those who talk first.",
 	Palette.SaberGreen,
 	Palette.CopperTrim,
-	{ damage = 38, fireRate = 1.75, tier = 3, cost = 7500, requiredLevel = 10, factions = { "Republic" } }
+	{ damage = 38, fireRate = 1.75, tier = 3, cost = 7500, requiredLevel = 10, factions = { "Jedi" } }
 )
 
 saber(

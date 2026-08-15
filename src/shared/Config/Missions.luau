@@ -181,7 +181,7 @@ def({
 	objectives = {
 		{
 			kind = Objective.Kill,
-			target = "Stormtrooper",
+			target = "ImperialTrooper",
 			count = 6,
 			description = "Break up the Imperial patrol",
 		},
@@ -197,7 +197,7 @@ def({
 	rewards = {
 		xp = 400,
 		credits = 600,
-		rep = { Rebellion = 120, Empire = -180 },
+		rep = { Republic = 120, Empire = -180 },
 		weapon = "DH17",
 	},
 	next = "TatTheHuttsFavour",
@@ -286,7 +286,7 @@ def({
 	briefing = "There is a manifest on a terminal in the Senate District. I want a copy, and I want the Empire to keep believing nobody has one.",
 	debriefing = "Clean work. The manifest names three worlds we did not know they were stripping.",
 	kind = "Story",
-	faction = "Rebellion",
+	faction = "Republic",
 	planet = "Coruscant",
 	giver = "Smuggler",
 	minLevel = 10,
@@ -314,7 +314,7 @@ def({
 	rewards = {
 		xp = 1200,
 		credits = 2200,
-		rep = { Rebellion = 400, Empire = -300 },
+		rep = { Republic = 400, Empire = -300 },
 		skillPoints = 1,
 	},
 	timeLimit = 600,
@@ -328,21 +328,21 @@ def({
 	briefing = "They are transferring a contact across a skybridge at level 4000. If that transport reaches the Palace, we lose them.",
 	debriefing = "They are shaken, but they are ours. And they know what is on Kamino.",
 	kind = "Story",
-	faction = "Rebellion",
+	faction = "Republic",
 	planet = "Coruscant",
-	giver = "RebelPilot",
+	giver = "RepublicPilot",
 	minLevel = 14,
 	requires = { "CorPaperTrail" },
 	objectives = {
 		{
 			kind = Objective.Kill,
-			target = "Stormtrooper",
+			target = "ImperialTrooper",
 			count = 10,
 			description = "Clear the skybridge escort",
 		},
 		{
 			kind = Objective.Kill,
-			target = "DeathTrooper",
+			target = "ImperialCommando",
 			count = 2,
 			description = "Eliminate the Death Trooper detail",
 		},
@@ -356,7 +356,7 @@ def({
 	rewards = {
 		xp = 2000,
 		credits = 3500,
-		rep = { Rebellion = 600, Empire = -450 },
+		rep = { Republic = 600, Empire = -450 },
 		weapon = "DC15A",
 		skillPoints = 1,
 	},
@@ -442,9 +442,9 @@ def({
 	briefing = "A sensor tower went dark in the north ravine. If we are blind when the next probe comes through, we are finished.",
 	debriefing = "Array is live. You have bought this base another week.",
 	kind = "Side",
-	faction = "Rebellion",
+	faction = "Republic",
 	planet = "Hoth",
-	giver = "RebelTrooper",
+	giver = "RepublicTrooper",
 	minLevel = 12,
 	objectives = {
 		{
@@ -469,7 +469,7 @@ def({
 	rewards = {
 		xp = 1000,
 		credits = 1400,
-		rep = { Rebellion = 300 },
+		rep = { Republic = 300 },
 		items = { StimPack = 4 },
 	},
 })
@@ -480,9 +480,9 @@ def({
 	summary = "Imperial probe droids are mapping the glacier. Destroy them.",
 	briefing = "Probes are seeding the ice. Every one we miss is a coordinate on an Imperial chart.",
 	kind = "Repeatable",
-	faction = "Rebellion",
+	faction = "Republic",
 	planet = "Hoth",
-	giver = "RebelPilot",
+	giver = "RepublicPilot",
 	minLevel = 14,
 	objectives = {
 		{
@@ -495,7 +495,7 @@ def({
 	rewards = {
 		xp = 320,
 		credits = 650,
-		rep = { Rebellion = 80, Empire = -60 },
+		rep = { Republic = 80, Empire = -60 },
 	},
 	repeatable = true,
 	cooldown = 1500,
@@ -512,9 +512,9 @@ def({
 	briefing = "A stranger has been asking after the Order in the wrong tavern. Either they are looking for us, or someone is looking for them.",
 	debriefing = "You have a steady hand and you did not draw first. That is rarer than the Force.",
 	kind = "Story",
-	faction = "Republic",
+	faction = "Jedi",
 	planet = "Naboo",
-	giver = "NabooGuard",
+	giver = "RepublicSecurity",
 	minLevel = 10,
 	objectives = {
 		--[[
@@ -534,12 +534,12 @@ def({
 			planet = "Naboo",
 			description = "Follow the trail to the temple",
 		},
-		{ kind = Objective.TalkTo, target = "JediSurvivor", description = "Speak with the Jedi" },
+		{ kind = Objective.TalkTo, target = "JediKnight", description = "Speak with the Jedi" },
 	},
 	rewards = {
 		xp = 1100,
 		credits = 900,
-		rep = { Republic = 350 },
+		rep = { Jedi = 350 },
 	},
 	next = "NabTrialOfPatience",
 })
@@ -551,9 +551,9 @@ def({
 	briefing = "Imperials will come to this valley within the hour. Hold the approach. Do not pursue them. Holding is the lesson.",
 	debriefing = "You held. Now take this hilt. What you put in it is your own business.",
 	kind = "Story",
-	faction = "Republic",
+	faction = "Jedi",
 	planet = "Naboo",
-	giver = "JediSurvivor",
+	giver = "JediKnight",
 	minLevel = 14,
 	requires = { "NabQuietOrder" },
 	objectives = {
@@ -565,7 +565,7 @@ def({
 		},
 		{
 			kind = Objective.Kill,
-			target = "Stormtrooper",
+			target = "ImperialTrooper",
 			count = 12,
 			description = "Repel the Imperial assault",
 		},
@@ -573,7 +573,7 @@ def({
 	rewards = {
 		xp = 2400,
 		credits = 1200,
-		rep = { Republic = 700, Empire = -400 },
+		rep = { Jedi = 700, Empire = -400 },
 		weapon = "SaberBlue",
 		skillPoints = 2,
 	},
@@ -591,9 +591,9 @@ def({
 	briefing = "Tipoca City shut its labs down twenty years ago. The reactor logs disagree. Find out what is still running.",
 	debriefing = "Whatever they were growing down there, the Empire wanted it badly enough to staff it in secret.",
 	kind = "Story",
-	faction = "Rebellion",
+	faction = "Republic",
 	planet = "Kamino",
-	giver = "Scientist",
+	giver = "Researcher",
 	minLevel = 20,
 	requires = { "CorTheLongFall" },
 	objectives = {
@@ -606,7 +606,7 @@ def({
 		{ kind = Objective.Slice, target = "LabTerminal", description = "Slice the facility records" },
 		{
 			kind = Objective.Kill,
-			target = "DeathTrooper",
+			target = "ImperialCommando",
 			count = 6,
 			description = "Fight past the garrison",
 		},
@@ -621,7 +621,7 @@ def({
 	rewards = {
 		xp = 4000,
 		credits = 6000,
-		rep = { Rebellion = 800, Empire = -600 },
+		rep = { Republic = 800, Empire = -600 },
 		skillPoints = 2,
 	},
 	next = "MusTheFortress",
@@ -683,7 +683,7 @@ def({
 	objectives = {
 		{
 			kind = Objective.Kill,
-			target = "Stormtrooper",
+			target = "ImperialTrooper",
 			count = 15,
 			description = "Collect on the Imperial contract",
 		},
@@ -704,9 +704,9 @@ def({
 	briefing = "Everything the Empire hid on Kamino was requisitioned by one man, and he has not left his fortress in a decade. Go and ask him why.",
 	debriefing = "It is finished. The galaxy is not fixed -- but it is lighter by one very heavy thing.",
 	kind = "Story",
-	faction = "Rebellion",
+	faction = "Republic",
 	planet = "Mustafar",
-	giver = "RebelPilot",
+	giver = "RepublicPilot",
 	minLevel = 32,
 	requires = { "KamWhatTheyKept" },
 	objectives = {
@@ -716,7 +716,12 @@ def({
 			planet = "Mustafar",
 			description = "Breach the fortress",
 		},
-		{ kind = Objective.Kill, target = "RoyalGuard", count = 4, description = "Defeat the Royal Guard" },
+		{
+			kind = Objective.Kill,
+			target = "SithHonourGuard",
+			count = 4,
+			description = "Defeat the Royal Guard",
+		},
 		{
 			kind = Objective.Kill,
 			target = "SithAcolyte",
@@ -728,7 +733,7 @@ def({
 	rewards = {
 		xp = 12000,
 		credits = 20000,
-		rep = { Rebellion = 2000, Republic = 800, Empire = -1500 },
+		rep = { Republic = 2000, Jedi = 800, Empire = -1500 },
 		weapon = "SaberPurple",
 		skillPoints = 3,
 	},
@@ -754,7 +759,7 @@ def({
 		},
 		{
 			kind = Objective.Kill,
-			target = "BattleDroid",
+			target = "WarDroid",
 			count = 8,
 			description = "Clear malfunctioning droids",
 		},

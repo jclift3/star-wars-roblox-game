@@ -367,7 +367,7 @@ local defs: { [string]: { CosmeticPart } } = {}
 -- The flagship model. Worth the extra detail: the helmet silhouette is the most
 -- recognisable shape in the franchise, so it gets a brow, frown vents and
 -- separate ear cups rather than a plain box.
-defs.Stormtrooper = compose(
+defs.ImperialTrooper = compose(
 	armourSuit(Palette.StormtrooperWhite),
 	boots(Palette.StormtrooperWhite),
 	belt(Palette.StormtrooperWhite, Palette.ImperialBlack),
@@ -449,7 +449,7 @@ defs.Stormtrooper = compose(
 	})
 )
 
-defs.Sandtrooper = compose(
+defs.ImperialScout = compose(
 	armourSuit(Palette.SandtrooperTan),
 	boots(Palette.SandtrooperTan),
 	belt(Palette.SandtrooperTan, Palette.ImperialBlack),
@@ -458,7 +458,7 @@ defs.Sandtrooper = compose(
 	backpack(Palette.SandtrooperTan)
 )
 
-defs.DeathTrooper = compose(
+defs.ImperialCommando = compose(
 	armourSuit(Palette.DeathTrooperBlack),
 	boots(Palette.DeathTrooperBlack),
 	belt(Palette.DeathTrooperBlack),
@@ -518,7 +518,7 @@ defs.ImperialOfficer = compose(
 	})
 )
 
-defs.RoyalGuard = compose(
+defs.SithHonourGuard = compose(
 	robe(Palette.RoyalGuardRed, true),
 	boots(Palette.RoyalGuardRed),
 	part({
@@ -539,7 +539,7 @@ defs.RoyalGuard = compose(
 	})
 )
 
-defs.RebelTrooper = compose(
+defs.RepublicTrooper = compose(
 	boots(Palette.RebelOlive),
 	belt(Palette.RebelTan),
 	part({
@@ -597,7 +597,7 @@ defs.RebelTrooper = compose(
 	})
 )
 
-defs.RebelPilot = compose(
+defs.RepublicPilot = compose(
 	boots(Palette.ImperialBlack),
 	belt(Palette.RebelTan),
 	part({
@@ -687,7 +687,7 @@ defs.RebelPilot = compose(
 	})
 )
 
-defs.CloneTrooper = compose(
+defs.RepublicVeteran = compose(
 	armourSuit(Palette.CloneWhite),
 	boots(Palette.CloneWhite),
 	belt(Palette.CloneWhite),
@@ -1187,7 +1187,7 @@ defs.Merchant = compose(
 	})
 )
 
-defs.NabooGuard = compose(
+defs.RepublicSecurity = compose(
 	boots(Palette.SmugglerBrown),
 	belt(Palette.SmugglerBrown),
 	part({
@@ -1231,7 +1231,7 @@ defs.NabooGuard = compose(
 	})
 )
 
-defs.KaminoanScientist = compose(
+defs.Researcher = compose(
 	part({
 		name = "LabRobe",
 		limb = "UpperTorso",
@@ -1304,7 +1304,7 @@ defs.ProtocolDroid = compose(
 	})
 )
 
-defs.BattleDroid = compose(
+defs.WarDroid = compose(
 	part({
 		name = "DroidTorso",
 		limb = "UpperTorso",

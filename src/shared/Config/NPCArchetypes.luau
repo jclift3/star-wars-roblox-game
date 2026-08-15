@@ -65,8 +65,9 @@ export type Archetype = {
 	-- Seconds of "I saw something" before it commits to a target. Keeps NPCs
 	-- from snapping around instantly, which reads as aimbot.
 	reactionTime: number?,
-	-- Accuracy multiplier applied to the weapon's spread cone. Stormtroopers
-	-- are canonically terrible; Death Troopers are not.
+	-- Accuracy multiplier applied to the weapon's spread cone. Line infantry
+	-- are deliberately terrible so a level 3 player survives a squad of them;
+	-- commandos are not, so a squad of those is a real problem.
 	spreadMult: number?,
 	-- Fraction of the weapon's fire rate the NPC actually achieves.
 	fireRateMult: number?,
@@ -105,10 +106,10 @@ end
 --------------------------------------------------------------------------------
 
 def({
-	id = "Stormtrooper",
-	displayName = "Stormtrooper",
+	id = "ImperialTrooper",
+	displayName = "Imperial Trooper",
 	faction = "Empire",
-	costume = "Stormtrooper",
+	costume = "ImperialTrooper",
 	speciesPool = pool({ Human = 1 }),
 	behavior = Behavior.Patrol,
 	holdsGround = true,
@@ -122,7 +123,10 @@ def({
 	sightRange = 160,
 	attackRange = 130,
 	reactionTime = 0.55,
-	spreadMult = 2.6, -- the joke is canon
+	-- Line infantry with mass-issue rifles and six weeks of training. The
+	-- stormtroopers this replaced missed for a joke; these miss because the
+	-- Empire buys soldiers by the thousand.
+	spreadMult = 2.6,
 	fireRateMult = 0.75,
 	xpReward = 45,
 	creditReward = { min = 20, max = 60 },
@@ -131,10 +135,10 @@ def({
 })
 
 def({
-	id = "Sandtrooper",
-	displayName = "Sandtrooper",
+	id = "ImperialScout",
+	displayName = "Imperial Scout",
 	faction = "Empire",
-	costume = "Sandtrooper",
+	costume = "ImperialScout",
 	speciesPool = pool({ Human = 1 }),
 	behavior = Behavior.Patrol,
 	holdsGround = true,
@@ -157,10 +161,10 @@ def({
 })
 
 def({
-	id = "DeathTrooper",
-	displayName = "Death Trooper",
+	id = "ImperialCommando",
+	displayName = "Imperial Commando",
 	faction = "Empire",
-	costume = "DeathTrooper",
+	costume = "ImperialCommando",
 	speciesPool = pool({ Human = 1 }),
 	behavior = Behavior.Guard,
 	holdsGround = true,
@@ -209,10 +213,10 @@ def({
 })
 
 def({
-	id = "RoyalGuard",
-	displayName = "Imperial Royal Guard",
+	id = "SithHonourGuard",
+	displayName = "Sith Honour Guard",
 	faction = "Empire",
-	costume = "RoyalGuard",
+	costume = "SithHonourGuard",
 	speciesPool = pool({ Human = 1 }),
 	behavior = Behavior.Guard,
 	holdsGround = true,
@@ -283,14 +287,14 @@ def({
 })
 
 --------------------------------------------------------------------------------
--- Rebellion / Republic
+-- Republic / Jedi
 --------------------------------------------------------------------------------
 
 def({
-	id = "RebelTrooper",
-	displayName = "Rebel Trooper",
-	faction = "Rebellion",
-	costume = "RebelTrooper",
+	id = "RepublicTrooper",
+	displayName = "Republic Trooper",
+	faction = "Republic",
+	costume = "RepublicTrooper",
 	speciesPool = pool({ Human = 8, Twilek = 2, Rodian = 1, Zabrak = 1 }),
 	behavior = Behavior.Patrol,
 	holdsGround = true,
@@ -309,16 +313,16 @@ def({
 	xpReward = 45,
 	creditReward = { min = 20, max = 60 },
 	repOnKill = -35,
-	dialogue = "RebelTrooper",
+	dialogue = "RepublicTrooper",
 	nameStyle = "Common",
 	interactable = true,
 })
 
 def({
-	id = "RebelPilot",
-	displayName = "Rebel Pilot",
-	faction = "Rebellion",
-	costume = "RebelPilot",
+	id = "RepublicPilot",
+	displayName = "Republic Pilot",
+	faction = "Republic",
+	costume = "RepublicPilot",
 	speciesPool = pool({ Human = 8, Twilek = 1, Zabrak = 1 }),
 	behavior = Behavior.QuestGiver,
 	minLevel = 8,
@@ -331,16 +335,19 @@ def({
 	xpReward = 70,
 	creditReward = { min = 40, max = 120 },
 	repOnKill = -60,
-	dialogue = "RebelPilot",
+	dialogue = "RepublicPilot",
 	nameStyle = "Common",
 	interactable = true,
 })
 
 def({
-	id = "CloneVeteran",
-	displayName = "Clone Veteran",
+	-- Was a Clone Veteran, which is three and a half thousand years early:
+	-- the Kaminoan army does not exist yet. Same role, same numbers -- the
+	-- hardened regular the Republic sends when the conscripts are not enough.
+	id = "RepublicVeteran",
+	displayName = "Republic Veteran",
 	faction = "Republic",
-	costume = "CloneTrooper",
+	costume = "RepublicVeteran",
 	speciesPool = pool({ Human = 1 }),
 	behavior = Behavior.Guard,
 	holdsGround = true,
@@ -359,15 +366,15 @@ def({
 	xpReward = 200,
 	creditReward = { min = 120, max = 280 },
 	repOnKill = -100,
-	dialogue = "CloneVeteran",
-	nameStyle = "CloneNickname",
+	dialogue = "RepublicVeteran",
+	nameStyle = "Common",
 	interactable = true,
 })
 
 def({
-	id = "JediSurvivor",
-	displayName = "Jedi",
-	faction = "Republic",
+	id = "JediKnight",
+	displayName = "Jedi Knight",
+	faction = "Jedi",
 	costume = "Jedi",
 	speciesPool = pool({ Human = 6, Twilek = 2, Zabrak = 2, Trandoshan = 1 }),
 	behavior = Behavior.QuestGiver,
@@ -391,11 +398,14 @@ def({
 })
 
 def({
-	id = "NabooGuard",
-	displayName = "Naboo Security",
+	-- Naboo is not one of this game's nine worlds and its security force is a
+	-- prequel institution, so this is now the generic planetside garrison the
+	-- Republic leaves behind on a world it does not much care about.
+	id = "RepublicSecurity",
+	displayName = "Republic Security",
 	faction = "Republic",
-	costume = "NabooGuard",
-	speciesPool = pool({ Human = 6, Gungan = 2 }),
+	costume = "RepublicSecurity",
+	speciesPool = pool({ Human = 6, Rodian = 2 }),
 	behavior = Behavior.Guard,
 	holdsGround = true,
 	minLevel = 6,
@@ -412,7 +422,7 @@ def({
 	xpReward = 90,
 	creditReward = { min = 40, max = 110 },
 	repOnKill = -70,
-	dialogue = "NabooGuard",
+	dialogue = "RepublicSecurity",
 	nameStyle = "Common",
 	interactable = true,
 })
@@ -625,11 +635,14 @@ def({
 })
 
 def({
-	id = "Scientist",
-	displayName = "Kaminoan Scientist",
+	-- Kaminoans are an old enough species to belong here; Kamino's cloning
+	-- industry is not. So the species stays in the pool and the job changes:
+	-- Czerka runs research contracts for both governments in this era.
+	id = "Researcher",
+	displayName = "Czerka Researcher",
 	faction = "Independent",
-	costume = "KaminoanScientist",
-	speciesPool = pool({ Kaminoan = 1 }),
+	costume = "Researcher",
+	speciesPool = pool({ Human = 5, Kaminoan = 2, Twilek = 1 }),
 	behavior = Behavior.QuestGiver,
 	minLevel = 10,
 	maxLevel = 20,
@@ -637,8 +650,8 @@ def({
 	walkSpeed = 8,
 	xpReward = 10,
 	repOnKill = -40,
-	dialogue = "KaminoanScientist",
-	nameStyle = "Kaminoan",
+	dialogue = "Researcher",
+	nameStyle = "Common",
 	interactable = true,
 })
 
@@ -666,11 +679,14 @@ def({
 })
 
 def({
-	id = "BattleDroid",
-	displayName = "B1 Battle Droid",
+	-- The B1 is a Clone Wars machine. This era's equivalent is the war droid
+	-- Czerka and the Hutts keep buying second-hand off older battlefields --
+	-- same role, same terrible processors, no Trade Federation.
+	id = "WarDroid",
+	displayName = "War Droid",
 	faction = "Independent",
-	costume = "BattleDroid",
-	speciesPool = pool({ BattleDroid = 1 }),
+	costume = "WarDroid",
+	speciesPool = pool({ WarDroid = 1 }),
 	behavior = Behavior.Patrol,
 	holdsGround = true,
 	minLevel = 2,

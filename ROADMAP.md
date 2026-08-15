@@ -244,8 +244,19 @@ Chalmun's Cantina, Jabba's Palace and the Lars Homestead — all Original Trilog
 all roughly 3,600 years after this game is set. They are now Anchorhead, the Dry
 Well, Nagurra's Estate and the Vantel Moisture Farm. The planet itself was never
 in question: Tatooine is a Star Map world in KOTOR and a full planet in SWTOR.
-**Every other world still needs the same pass** — the archetypes are still named
-Stormtrooper and the factions still Empire and Rebellion.
+
+**Factions and archetypes followed on 2026-08-15.** `Rebellion` became
+`Republic` and the old `Republic` became `Jedi` — a *crossover*, so it had to
+land as one commit or every stale reference would silently point at the wrong
+faction instead of erroring. Thirteen archetypes were renamed with it
+(`Stormtrooper` → `ImperialTrooper`, `RebelTrooper` → `RepublicTrooper`,
+`RoyalGuard` → `SithHonourGuard`, `BattleDroid` → `WarDroid`, and so on), plus
+the costume keys, dialogue trees, outfit display names and weapon blurbs that
+name them. **What is still Original Trilogy: the eight non-Tatooine planets**
+(Naboo, Kamino, Mustafar and Endor are all post-dated by ~3,600 years) and the
+weapon model numbers (E11, DL-44, DC-15A). `Palette` colour constants still say
+`StormtrooperWhite`; those are internal names for shades of grey and are the
+lowest-value thing on this list.
 
 ### 3.1 The layout system — **[todo]**
 The mechanism, designed in [PLANETS.md](PLANETS.md) §2. Four pieces:
@@ -338,7 +349,7 @@ level 10 for 7,500 credits; the vendor entry becomes a hilt component instead.
   Still owed here: the "you are underlevelled" warning on crossing into one
 - Weapon mods / attachments layered onto `Config/Weapons.luau`
 - Faction reputation consequences. Missions already award rep
-  (`rep = { Rebellion = 120, Empire = -180 }`) and nothing reads it back.
+  (`rep = { Republic = 120, Empire = -180 }`) and nothing reads it back.
   Phase 3b needs this, so it is no longer optional
 - Companion NPCs — Ordo-9 is the argument for them (CAMPAIGN.md §5.4)
 - ~~Is a lightsaber bought or earned?~~ **Built, over five quests** — and every

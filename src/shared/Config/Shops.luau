@@ -6,7 +6,7 @@
 
 	Stock is listed explicitly rather than derived from a tier range, because
 	the interesting thing about a vendor is what they *don't* carry. A Jawa
-	selling you Death Trooper plate would be absurd, and a rule like "tier <= 2"
+	selling you Imperial commando plate would be absurd, and a rule like "tier <= 2"
 	has no way to express that. Explicit lists are longer and worth it.
 
 	`priceMult` is the vendor's own markup, applied before the player's Bargaining
@@ -45,10 +45,10 @@ def({
 		"MoistureFarmer",
 		"Smuggler",
 		"Merchant",
-		"RebelTrooper",
-		"RebelPilot",
-		"NabooGuard",
-		"Stormtrooper",
+		"RepublicTrooper",
+		"RepublicPilot",
+		"RepublicSecurity",
+		"ImperialTrooper",
 		"ImperialOfficer",
 	},
 	weapons = {

@@ -206,7 +206,7 @@ def({
 		-- Level 5-16 and aggressive at 180 studs, against a level 1 story
 		-- objective standing in the same sand, is not a difficulty curve.
 		{ archetype = "TuskenRaider", count = 12, zone = "DuneSea" },
-		{ archetype = "Stormtrooper", count = 10, zone = "Town" },
+		{ archetype = "ImperialTrooper", count = 10, zone = "Town" },
 		{ archetype = "CartelEnforcer", count = 6, zone = "Palace" },
 		{ archetype = "BountyHunter", count = 3, zone = "Cantina" },
 	},
@@ -314,10 +314,10 @@ def({
 		{ archetype = "Civilian", count = 40, zone = "Plaza" },
 		{ archetype = "ProtocolDroid", count = 12, zone = "Plaza" },
 		{ archetype = "Merchant", count = 8, zone = "Market" },
-		{ archetype = "Stormtrooper", count = 24, zone = "Skybridge" },
+		{ archetype = "ImperialTrooper", count = 24, zone = "Skybridge" },
 		{ archetype = "ImperialOfficer", count = 6, zone = "Palace" },
-		{ archetype = "RoyalGuard", count = 4, zone = "Palace" },
-		{ archetype = "DeathTrooper", count = 6, zone = "Palace" },
+		{ archetype = "SithHonourGuard", count = 4, zone = "Palace" },
+		{ archetype = "ImperialCommando", count = 6, zone = "Palace" },
 		{ archetype = "SithAcolyte", count = 3, zone = "Palace" },
 		{ archetype = "Smuggler", count = 6, zone = "Underlevels" },
 	},
@@ -395,7 +395,7 @@ def({
 	windSpeed = 40,
 
 	hasWalkableGround = true,
-	controllingFaction = "Rebellion",
+	controllingFaction = "Republic",
 	minLevel = 10,
 	maxLevel = 30,
 	lawLevel = 0.6,
@@ -407,12 +407,12 @@ def({
 		{ id = "Surface", distance = 1.5 },
 	},
 	spawns = {
-		{ archetype = "RebelTrooper", count = 26, zone = "Base" },
-		{ archetype = "RebelPilot", count = 8, zone = "Hangar" },
+		{ archetype = "RepublicTrooper", count = 26, zone = "Base" },
+		{ archetype = "RepublicPilot", count = 8, zone = "Hangar" },
 		{ archetype = "Civilian", count = 10, zone = "Base" },
 		{ archetype = "ProtocolDroid", count = 4, zone = "Hangar" },
-		{ archetype = "Stormtrooper", count = 14, zone = "Surface" },
-		{ archetype = "DeathTrooper", count = 3, zone = "Surface" },
+		{ archetype = "ImperialTrooper", count = 14, zone = "Surface" },
+		{ archetype = "ImperialCommando", count = 3, zone = "Surface" },
 	},
 	pointsOfInterest = {
 		{
@@ -467,7 +467,7 @@ def({
 	windSpeed = 8,
 
 	hasWalkableGround = true,
-	controllingFaction = "Republic",
+	controllingFaction = "Jedi",
 	minLevel = 5,
 	maxLevel = 35,
 	lawLevel = 0.8,
@@ -481,12 +481,12 @@ def({
 	},
 	spawns = {
 		{ archetype = "Civilian", count = 28, zone = "City" },
-		{ archetype = "NabooGuard", count = 16, zone = "City" },
+		{ archetype = "RepublicSecurity", count = 16, zone = "City" },
 		{ archetype = "Merchant", count = 6, zone = "Market" },
-		{ archetype = "JediSurvivor", count = 3, zone = "Temple" },
-		{ archetype = "CloneVeteran", count = 6, zone = "Temple" },
+		{ archetype = "JediKnight", count = 3, zone = "Temple" },
+		{ archetype = "RepublicVeteran", count = 6, zone = "Temple" },
 		{ archetype = "ProtocolDroid", count = 6, zone = "City" },
-		{ archetype = "Stormtrooper", count = 8, zone = "Spaceport" },
+		{ archetype = "ImperialTrooper", count = 8, zone = "Spaceport" },
 	},
 	pointsOfInterest = {
 		{
@@ -548,11 +548,11 @@ def({
 		{ id = "Barracks", distance = 0.9 },
 	},
 	spawns = {
-		{ archetype = "Scientist", count = 10, zone = "Labs" },
-		{ archetype = "CloneVeteran", count = 14, zone = "Barracks" },
+		{ archetype = "Researcher", count = 10, zone = "Labs" },
+		{ archetype = "RepublicVeteran", count = 14, zone = "Barracks" },
 		{ archetype = "ProtocolDroid", count = 8, zone = "Labs" },
 		{ archetype = "Civilian", count = 8, zone = "Platform" },
-		{ archetype = "DeathTrooper", count = 6, zone = "Platform" },
+		{ archetype = "ImperialCommando", count = 6, zone = "Platform" },
 		{ archetype = "BountyHunter", count = 4, zone = "Platform" },
 	},
 	pointsOfInterest = {
@@ -604,11 +604,11 @@ def({
 		{ id = "Mines", distance = 1.2 },
 	},
 	spawns = {
-		{ archetype = "DeathTrooper", count = 16, zone = "Fortress" },
-		{ archetype = "RoyalGuard", count = 8, zone = "Fortress" },
+		{ archetype = "ImperialCommando", count = 16, zone = "Fortress" },
+		{ archetype = "SithHonourGuard", count = 8, zone = "Fortress" },
 		{ archetype = "SithAcolyte", count = 8, zone = "Fortress" },
 		{ archetype = "SithLord", count = 1, zone = "Fortress" },
-		{ archetype = "BattleDroid", count = 14, zone = "Mines" },
+		{ archetype = "WarDroid", count = 14, zone = "Mines" },
 		{ archetype = "CartelEnforcer", count = 8, zone = "Mines" },
 		{ archetype = "ImperialOfficer", count = 4, zone = "Fortress" },
 	},
@@ -732,11 +732,11 @@ def({
 		{ id = "Bunker", distance = 1.4 },
 	},
 	spawns = {
-		{ archetype = "Stormtrooper", count = 22, zone = "Bunker" },
+		{ archetype = "ImperialTrooper", count = 22, zone = "Bunker" },
 		{ archetype = "ImperialOfficer", count = 4, zone = "Bunker" },
-		{ archetype = "DeathTrooper", count = 6, zone = "Bunker" },
-		{ archetype = "RebelTrooper", count = 14, zone = "Camp" },
-		{ archetype = "RebelPilot", count = 4, zone = "Camp" },
+		{ archetype = "ImperialCommando", count = 6, zone = "Bunker" },
+		{ archetype = "RepublicTrooper", count = 14, zone = "Camp" },
+		{ archetype = "RepublicPilot", count = 4, zone = "Camp" },
 	},
 	pointsOfInterest = {
 		{

@@ -500,33 +500,45 @@ Mustafar → **Korriban**, Endor → **Dromund Kaas**, plus **Ord Mantell** as a
 ninth for the Conscript's prologue. Tatooine, Coruscant, Hoth and Nar Shaddaa
 keep their `PlanetDef` almost unchanged. See [PLANETS.md](PLANETS.md).
 
-**Archetypes — 8 renamed, 1 cut, ~6 added.**
+**Archetypes — 13 renamed. DONE 2026-08-15.**
 
-| Now | Becomes |
-|---|---|
-| Stormtrooper | Imperial Trooper |
-| Sandtrooper | Imperial Scout |
-| DeathTrooper | Sith Trooper |
-| RoyalGuard | Imperial Guard |
-| ImperialOfficer | *unchanged* |
-| RebelTrooper / RebelPilot | Republic Trooper / Republic Pilot |
-| CloneVeteran | Republic Veteran |
-| BountyHunter | Mandalorian Hunter |
-| Scientist (Kaminoan) | Czerka Scientist |
-| NabooGuard | Republic Marshal |
-| JediSurvivor | Jedi Knight (an institution now, not a fugitive) |
-| BattleDroid | **cut** — replaced by Czerka Security Droid and HK-series |
+| Was | Is now | Note |
+|---|---|---|
+| Stormtrooper | `ImperialTrooper` | |
+| Sandtrooper | `ImperialScout` | |
+| DeathTrooper | `ImperialCommando` | |
+| RoyalGuard | `SithHonourGuard` | |
+| ImperialOfficer | *unchanged* | |
+| SithAcolyte / SithLord | *unchanged* | already era-correct |
+| RebelTrooper / RebelPilot | `RepublicTrooper` / `RepublicPilot` | |
+| CloneVeteran | `RepublicVeteran` | no clones in this era; he is a Sacking survivor |
+| NabooGuard | `RepublicSecurity` | Gungan dropped from the species pool |
+| JediSurvivor | `JediKnight` | an institution now, not a fugitive |
+| Scientist | `Researcher` | displays as "Czerka Researcher" |
+| BattleDroid | `WarDroid` | **kept**, not cut — the geometry was already generic |
 
-New: Sith Overseer, Sith Inquisitor, Czerka Foreman, Cartel Slicer, Separatist
-Militia, Assassin Droid, and **Hollowed** — unarmed, harmless, non-hostile, and
-the most important new archetype in the game. It has no combat role at all. Its
-entire job is to be standing in a market you have walked through a hundred times.
+Deviations from the original plan, decided while doing it: `DeathTrooper` went to
+`ImperialCommando` rather than "Sith Trooper" (the Sith prefix should mean Force
+user in this game, and that archetype is not one); `BattleDroid` was renamed
+rather than cut, because deleting it would have left three planets with an empty
+spawn slot for no gain. `BountyHunter` stayed as-is — Mandalorians are era-correct
+but not every hunter is one.
 
-**Factions — 1 renamed, 1 repurposed, 1 added.** `Rebellion` → `Republic`
-(military), the existing `Republic` → **`Jedi`** (the Order), `Empire` → the
-**Sith Empire** (id can stay `Empire`), `Hutt` unchanged, `Independent`
-unchanged, and **`Czerka`** added as the sixth. Rank names in `Factions.luau`
-need rewriting; the spillover matrix is structurally right as-is.
+Still to add: Sith Overseer, Sith Inquisitor, Czerka Foreman, Cartel Slicer,
+Assassin Droid, and **Hollowed** — unarmed, harmless, non-hostile, and the most
+important new archetype in the game. It has no combat role at all. Its entire job
+is to be standing in a market you have walked through a hundred times.
+
+**Factions — DONE 2026-08-15.** `Rebellion` → `Republic` (the navy), the old
+`Republic` → **`Jedi`** (the Order), `Empire` kept its id and became the **Sith
+Empire**, `Hutt` and `Independent` unchanged. Note this was a *crossover*: an
+id that still said `Republic` under the old meaning would have pointed at the
+wrong faction **silently**, so the whole migration landed as one commit. Rank
+ladders were rewritten (Empire now ends Moff → Grand Moff → Hand of the Emperor,
+Republic ends Commander → General → Supreme Commander); the spillover matrix
+was extended to cover Jedi. **`Czerka` was not added** — it is flavour on the
+Researcher archetype for now, and a sixth faction with no missions, no ranks and
+no rep source would be dead weight.
 
 **Missions — all 15 rewritten.** They are currently 5 unconnected chains with no
 theme. The three Tatooine missions are the closest to salvageable and map onto

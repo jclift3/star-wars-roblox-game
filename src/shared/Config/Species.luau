@@ -336,7 +336,7 @@ defs.ProtocolDroid = {
 	hideBody = true,
 }
 
-defs.BattleDroid = {
+defs.WarDroid = {
 	displayName = "Battle Droid",
 	heightScale = 1.2,
 	widthScale = 0.68,

@@ -395,11 +395,11 @@ def({
 })
 
 --------------------------------------------------------------------------------
--- The Rebellion and the Republic
+-- The Republic and the Jedi
 --------------------------------------------------------------------------------
 
 def({
-	id = "RebelPilot",
+	id = "RepublicPilot",
 	nodes = {
 		start = {
 			lines = {
@@ -423,7 +423,7 @@ def({
 })
 
 def({
-	id = "RebelTrooper",
+	id = "RepublicTrooper",
 	nodes = {
 		start = {
 			lines = {
@@ -447,13 +447,13 @@ def({
 })
 
 def({
-	id = "NabooGuard",
+	id = "RepublicSecurity",
 	nodes = {
 		start = {
 			lines = {
-				"Welcome to Theed. Keep your weapon holstered in the plaza and we will have no difficulty.",
-				"The palace is closed to visitors. The city is not. Enjoy it.",
-				"You have a traveller's look about you. Naboo is kinder than most places to that.",
+				"Senate district. Keep your weapon holstered in the plaza and we will have no difficulty.",
+				"The upper levels are closed to visitors. The rest of the district is not. Enjoy it.",
+				"You have a traveller's look about you. This world is kinder than most places to that.",
 			},
 			choices = {
 				WORK,
@@ -471,13 +471,13 @@ def({
 })
 
 def({
-	id = "CloneVeteran",
+	id = "RepublicVeteran",
 	nodes = {
 		start = {
 			lines = {
 				"Been a long time since anybody saluted. Do not start now.",
 				"You are young. Everybody is, from here.",
-				"I fought a war for a Republic that stopped existing while I was still in the field. Ask me anything else.",
+				"I held a line on Coruscant while they signed the treaty behind me. Ask me anything else.",
 			},
 			choices = {
 				WORK,
@@ -487,7 +487,7 @@ def({
 		},
 		unit = {
 			lines = {
-				"Some died. Some followed the order. I sat down in the mud and did not get up until it was over. That is the whole story.",
+				"Some died. Some took the discharge and the pension. I sat down in the mud and did not get up until it was over. That is the whole story.",
 			},
 			choices = { LEAVE },
 		},
@@ -520,13 +520,13 @@ def({
 })
 
 def({
-	id = "KaminoanScientist",
+	id = "Researcher",
 	nodes = {
 		start = {
 			lines = {
 				"You are not on the manifest. Interesting. Most irregularities here are not.",
 				"Please do not touch the tanks. The contents are further along than they look.",
-				"We do not receive visitors. We receive specimens, clients, and mistakes.",
+				"Czerka does not receive visitors. We receive specimens, clients, and mistakes.",
 			},
 			choices = {
 				WORK,

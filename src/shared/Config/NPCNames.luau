@@ -192,28 +192,6 @@ local SITH_NAMES = {
 	"Ashkar",
 }
 
-local CLONE_NICKNAMES = {
-	"Ridge",
-	"Slate",
-	"Nomad",
-	"Halfpint",
-	"Compass",
-	"Tally",
-	"Grit",
-	"Sunburn",
-	"Ledger",
-	"Anchor",
-	"Cinder",
-	"Pocket",
-	"Vantage",
-	"Nine",
-	"Hatch",
-	"Rook",
-}
-
-local KAMINOAN_PREFIX = { "Ko", "Lam", "Nala", "Taun", "Vel", "Shaa", "Ori" }
-local KAMINOAN_SUFFIX = { "Sai", "Se", "We", "Ka", "Tho", "Nu" }
-
 local JAWA_SYLLABLES = { "Ut", "Ini", "Nya", "Kuz", "Zeek", "Tha", "Wat", "Ma", "Do" }
 
 --------------------------------------------------------------------------------
@@ -240,7 +218,7 @@ generators.ImperialHuman = function(rng)
 	return `{pick(rng, ranks)} {pick(rng, LAST)}`
 end
 
---- Stormtroopers get serials, not names. That is the point of them.
+--- Imperial line infantry get serials, not names. That is the point of them.
 generators.ImperialSerial = function(rng)
 	local letters = "ABCDEFGHJKLMNPRSTVXZ"
 	local i = rng:NextInteger(1, #letters)
@@ -254,14 +232,6 @@ end
 
 generators.Sith = function(rng)
 	return `{pick(rng, SITH_TITLES)} {pick(rng, SITH_NAMES)}`
-end
-
-generators.CloneNickname = function(rng)
-	return `CT-{rng:NextInteger(1000, 9999)} "{pick(rng, CLONE_NICKNAMES)}"`
-end
-
-generators.Kaminoan = function(rng)
-	return `{pick(rng, KAMINOAN_PREFIX)} {pick(rng, KAMINOAN_SUFFIX)}`
 end
 
 generators.Jawa = function(rng)

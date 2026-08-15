@@ -121,9 +121,9 @@ def({
 --------------------------------------------------------------------------------
 
 def({
-	id = "RebelTrooper",
-	displayName = "Rebel Fatigues",
-	description = "Alliance issue. Light flak weave under the jacket, and a helmet that does less than it looks.",
+	id = "RepublicTrooper",
+	displayName = "Republic Fatigues",
+	description = "Standard issue. Light flak weave under the jacket, and a helmet that does less than it looks.",
 	tier = 3,
 	cost = 1100,
 	requiredLevel = 6,
@@ -131,8 +131,8 @@ def({
 })
 
 def({
-	id = "RebelPilot",
-	displayName = "Rebel Flight Suit",
+	id = "RepublicPilot",
+	displayName = "Republic Flight Suit",
 	description = "Orange, unmistakable, and built for a cockpit rather than a firefight.",
 	tier = 3,
 	cost = 1250,
@@ -141,8 +141,8 @@ def({
 })
 
 def({
-	id = "NabooGuard",
-	displayName = "Naboo Guard Uniform",
+	id = "RepublicSecurity",
+	displayName = "Republic Security Uniform",
 	description = "Ceremonial on the outside, genuinely armoured underneath.",
 	tier = 3,
 	cost = 1400,
@@ -151,8 +151,8 @@ def({
 })
 
 def({
-	id = "Stormtrooper",
-	displayName = "Stormtrooper Armour",
+	id = "ImperialTrooper",
+	displayName = "Imperial Trooper Armour",
 	description = "Plastoid plate over a black bodyglove. Stops a glancing bolt; the helmet costs you some peripheral vision.",
 	tier = 4,
 	cost = 1900,
@@ -161,8 +161,8 @@ def({
 })
 
 def({
-	id = "Sandtrooper",
-	displayName = "Sandtrooper Kit",
+	id = "ImperialScout",
+	displayName = "Imperial Scout Kit",
 	description = "The same plate with a cooling pack and a pauldron. Desert deployment, no loss of speed.",
 	tier = 4,
 	cost = 2200,
@@ -171,9 +171,9 @@ def({
 })
 
 def({
-	id = "CloneTrooper",
-	displayName = "Phase II Clone Armour",
-	description = "Republic surplus, decades old and still better than most of what replaced it.",
+	id = "RepublicVeteran",
+	displayName = "Veteran's Plate",
+	description = "Pre-treaty issue, worn by people who were at the Sacking. Better than most of what replaced it.",
 	tier = 4,
 	cost = 2600,
 	requiredLevel = 15,
@@ -205,8 +205,8 @@ def({
 })
 
 def({
-	id = "DeathTrooper",
-	displayName = "Death Trooper Armour",
+	id = "ImperialCommando",
+	displayName = "Imperial Commando Armour",
 	description = "Black specialist plate. Everything the standard kit should have been.",
 	tier = 5,
 	cost = 6800,
@@ -215,8 +215,8 @@ def({
 })
 
 def({
-	id = "RoyalGuard",
-	displayName = "Royal Guard Regalia",
+	id = "SithHonourGuard",
+	displayName = "Honour Guard Regalia",
 	description = "Crimson from head to heel. The heaviest thing anyone walks around in, and it walks slowly.",
 	tier = 5,
 	cost = 7500,

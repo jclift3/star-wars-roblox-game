@@ -4,10 +4,28 @@
 
 	Faction identities, rank ladders and the reputation matrix.
 
-	Reputation is the connective tissue of the sandbox: shooting a stormtrooper
-	should make Imperial NPCs hostile AND nudge the Rebels toward friendly. The
-	`spillover` table encodes that, so a single reputation change ripples
-	sensibly through the galaxy instead of being tracked per-faction by hand.
+	Reputation is the connective tissue of the sandbox: shooting an Imperial
+	trooper should make the Sith Empire hostile AND nudge the Republic toward
+	friendly. The `spillover` table encodes that, so a single reputation change
+	ripples sensibly through the galaxy instead of being tracked per-faction by
+	hand.
+
+	THE IDS WERE RE-DATED, AND TWO OF THEM SWAPPED MEANING
+	This game is set in 3,640 BBY, where there is no Galactic Empire and no
+	Rebel Alliance -- there is a Sith Empire and a Galactic Republic, both of
+	them governments, which is the whole reason a Sith player and a Republic
+	player can co-operate. The old ids mapped across like this:
+
+		Empire      -> Empire     (kept; it is the *Sith* Empire now)
+		Rebellion   -> Republic   (the plucky underdog becomes the government)
+		Republic    -> Jedi       (the old "Old Republic Remnant" was really
+		                           the Jedi Order wearing the wrong label)
+		Hutt        -> Hutt       (unchanged; the Cartel is era-correct)
+		Independent -> Independent
+
+	Note the crossover: `Republic` used to mean the Jedi and now means the
+	navy. Anything still holding an old id will silently point at the wrong
+	faction rather than erroring, so this migration had to move as one piece.
 ]]
 
 local Palette = require(script.Parent.Palette)
@@ -35,10 +53,10 @@ local defs: { [string]: FactionDef } = {}
 
 defs.Empire = {
 	id = "Empire",
-	displayName = "Galactic Empire",
+	displayName = "Sith Empire",
 	color = Palette.ImperialGrey,
-	description = "Order through strength. Well-paid, well-armed, and widely feared.",
-	homePlanet = "Coruscant",
+	description = "Order through strength, and strength through the Force. Well-paid, well-armed, and it does not forget.",
+	homePlanet = "DromundKaas",
 	ranks = {
 		{ name = "Recruit", repRequired = 0, creditStipend = 0 },
 		{ name = "Trooper", repRequired = 250, creditStipend = 100 },
@@ -46,31 +64,31 @@ defs.Empire = {
 		{ name = "Sergeant", repRequired = 1800, creditStipend = 500 },
 		{ name = "Lieutenant", repRequired = 3500, creditStipend = 900 },
 		{ name = "Captain", repRequired = 6000, creditStipend = 1500 },
-		{ name = "Commander", repRequired = 10000, creditStipend = 2400 },
-		{ name = "Admiral", repRequired = 16000, creditStipend = 4000 },
-		{ name = "Grand Moff", repRequired = 25000, creditStipend = 7000 },
+		{ name = "Moff", repRequired = 10000, creditStipend = 2400 },
+		{ name = "Grand Moff", repRequired = 16000, creditStipend = 4000 },
+		{ name = "Hand of the Emperor", repRequired = 25000, creditStipend = 7000 },
 	},
-	spillover = { Rebellion = -0.75, Hutt = -0.1, Republic = -0.5 },
+	spillover = { Republic = -0.75, Hutt = -0.1, Jedi = -0.5 },
 }
 
-defs.Rebellion = {
-	id = "Rebellion",
-	displayName = "Rebel Alliance",
+defs.Republic = {
+	id = "Republic",
+	displayName = "Galactic Republic",
 	color = Palette.RebelOrange,
-	description = "Outgunned and outnumbered. Fights for the galaxy it remembers.",
-	homePlanet = "Hoth",
+	description = "Twelve years past the Sacking of its own capital, and still insisting the treaty is holding.",
+	homePlanet = "Coruscant",
 	ranks = {
-		{ name = "Sympathiser", repRequired = 0, creditStipend = 0 },
-		{ name = "Volunteer", repRequired = 250, creditStipend = 100 },
+		{ name = "Citizen", repRequired = 0, creditStipend = 0 },
+		{ name = "Enlisted", repRequired = 250, creditStipend = 100 },
 		{ name = "Private", repRequired = 750, creditStipend = 250 },
 		{ name = "Corporal", repRequired = 1800, creditStipend = 500 },
 		{ name = "Lieutenant", repRequired = 3500, creditStipend = 900 },
 		{ name = "Captain", repRequired = 6000, creditStipend = 1500 },
 		{ name = "Commander", repRequired = 10000, creditStipend = 2400 },
 		{ name = "General", repRequired = 16000, creditStipend = 4000 },
-		{ name = "Alliance Hero", repRequired = 25000, creditStipend = 7000 },
+		{ name = "Supreme Commander", repRequired = 25000, creditStipend = 7000 },
 	},
-	spillover = { Empire = -0.75, Hutt = -0.2, Republic = 0.4 },
+	spillover = { Empire = -0.75, Hutt = -0.2, Jedi = 0.4 },
 }
 
 defs.Hutt = {
@@ -88,15 +106,15 @@ defs.Hutt = {
 		{ name = "Underboss", repRequired = 7000, creditStipend = 2000 },
 		{ name = "Kajidii", repRequired = 12000, creditStipend = 3500 },
 	},
-	spillover = { Empire = -0.1, Rebellion = -0.2 },
+	spillover = { Empire = -0.1, Republic = -0.2 },
 }
 
-defs.Republic = {
-	id = "Republic",
-	displayName = "Old Republic Remnant",
+defs.Jedi = {
+	id = "Jedi",
+	displayName = "Jedi Order",
 	color = Palette.SaberBlue,
-	description = "Jedi survivors and loyalists keeping the old order alive in hiding.",
-	homePlanet = "Naboo",
+	description = "Rebuilding on Tython after losing their temple, and quietly aware they are losing members to something else.",
+	homePlanet = "Tython",
 	ranks = {
 		{ name = "Initiate", repRequired = 0, creditStipend = 0 },
 		{ name = "Padawan", repRequired = 400, creditStipend = 120 },
@@ -105,7 +123,7 @@ defs.Republic = {
 		{ name = "Master", repRequired = 8000, creditStipend = 1800 },
 		{ name = "Council Member", repRequired = 15000, creditStipend = 3500 },
 	},
-	spillover = { Empire = -0.5, Rebellion = 0.4 },
+	spillover = { Empire = -0.5, Republic = 0.4 },
 }
 
 defs.Independent = {
