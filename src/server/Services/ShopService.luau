@@ -38,10 +38,6 @@ local ShopService = {
 	priority = 35,
 }
 
--- Close enough to be obviously talking to them, far enough that you do not
--- have to stand on their toes.
-local VENDOR_RANGE = 30
-
 local function data()
 	return ServiceLoader.get("DataService")
 end
@@ -86,7 +82,7 @@ local function vendorNear(player: Player): VendorInfo?
 	end
 
 	local best: VendorInfo? = nil
-	local bestDistance = VENDOR_RANGE
+	local bestDistance = Shops.VENDOR_RANGE
 
 	for _, model in crowd:GetDescendants() do
 		if not model:IsA("Model") then

@@ -19,6 +19,17 @@
 
 local Shops = {}
 
+--[[
+	How close you have to stand to trade.
+
+	Close enough to be obviously talking to them, far enough that you do not
+	have to stand on their toes. Shared rather than private to ShopService
+	because the client draws the "you can trade here" cue and the server
+	enforces the sale -- two copies of this number would drift, and the visible
+	symptom would be a prompt that lies.
+]]
+Shops.VENDOR_RANGE = 30
+
 export type ShopDef = {
 	id: string,
 	displayName: string,

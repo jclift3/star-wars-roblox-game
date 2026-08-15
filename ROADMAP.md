@@ -20,10 +20,12 @@ This file stays the build order. Those three are the content.
 
 ## The one-line summary
 
-The systems are largely built. The *seams between them* are missing. A player
-today can walk, shoot, buy, and level — but cannot accept a mission, talk to
-anyone, or leave the planet. Phase 1 is almost entirely about connecting things
-that already exist.
+The systems were largely built; the *seams between them* were missing. Phase 1
+was almost entirely about connecting things that already existed, and it is now
+**closed** — a player can walk, shoot, talk, trade, take a mission, finish it,
+and spend the points. What they still cannot do is leave the planet. That is
+Phase 2, and it is the first item on this list that is a genuinely new system
+rather than a wire between two old ones.
 
 ---
 
@@ -187,10 +189,24 @@ pointed at a point of interest, and two named characters (`TheedInformant`,
 (BountyHunter, CartelEnforcer, RebelTrooper, NabooGuard) had no prompt at all
 and were unreachable except through the M board.
 
-### 1.4 Vendor discovery — **[todo]**
-`ShopService` finds vendors within 30 studs, but there is no in-world cue. You
-open the panel and hope. Needs a billboard prompt (or Roblox `ProximityPrompt`)
-over shop NPCs.
+### 1.4 Vendor discovery — **[done]**
+`VendorController.luau` puts a billboard over shop NPCs: the shop's name plus
+either the distance or, once you are inside trading range, `[B] Trade` in
+accent. Nothing on it is interactive — trading already worked through the
+`ProximityPrompt` every NPC carries. The missing piece was *discovery*: that
+prompt only appears at 12 studs, so you had to already be standing next to the
+right person to find out they were the right person, in a market square holding
+five merchants and seventeen identical-looking civilians.
+
+Two deliberate constraints. Only the **nearest four** vendors are labelled, from
+a fixed pool of billboards that get re-pointed rather than rebuilt — Tatooine
+spawns 14 Jawas and 5 merchants, and signing all nineteen would be worse than
+signing none. And these are **not** `AlwaysOnTop`, unlike the objective beacon:
+a shop sign glowing through a building is how you walk into the building.
+
+The trading radius moved to `Shops.VENDOR_RANGE` so the client's cue and the
+server's enforcement read one number. Two copies would drift, and the visible
+symptom would be a prompt that lies.
 
 ### 1.5 Skill tree UI — **[done]**
 `SkillTreeController.luau`, opens with **K**. A tab per tree, rank pips per node,
@@ -202,13 +218,14 @@ Points had been accumulating unspendable since the first kill: `SpendSkillPoint`
 `ProgressionService.purchaseSkill` and the 18 nodes all existed, and nothing on
 the client ever fired the remote.
 
-> With 1.1, 1.2, 1.3 and 1.5 done, every objective kind now has a way to be
-> completed and every mission has a person to take it from.
+> Every objective kind now has a way to be completed, every mission has a person
+> to take it from, and every shop has a sign.
 
 **Phase 1 exit criterion:** a new player can spawn, be pointed at a quest-giver,
 accept a mission, complete every objective kind, and turn it in for credits.
-**Met on paper — needs a playtest to confirm it in practice.** 1.4 is the last
-piece of polish: vendors work, but nothing in the world says where they are.
+**Met on paper — needs a playtest to confirm it in practice.** There is no way
+to execute Luau offline, so nothing in Phase 1 has been run; `validate()` at
+boot and `check.sh` cover the static half only.
 
 ---
 
