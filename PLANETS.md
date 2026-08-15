@@ -1,6 +1,6 @@
 # Planets
 
-What each world is for, what stands on it, and who lives there. Eight planets,
+What each world is for, what stands on it, and who lives there. Nine planets,
 each with a job in the campaign — see [CAMPAIGN.md](CAMPAIGN.md) for the story
 they serve.
 
@@ -9,22 +9,29 @@ generate them.
 
 ---
 
-## 1. Every planet has two jobs
+## 1. Most planets have two jobs
 
-The single best structural decision available: **four of the eight planets are
-both an origin world and a later act.**
+The single best structural decision available: **three planets are both an origin
+world and a later act.**
 
 | Planet | First visit | Second visit |
 |---|---|---|
 | Korriban | Acolyte prologue, lvl 1–6 | Act 4, lvl 36–46 |
 | Taris | Scrapper prologue, lvl 1–6 | Act 2, lvl 18–26 |
 | Nar Shaddaa | Scoundrel prologue, lvl 1–6 | Act 2, lvl 15–24 |
-| Coruscant | Conscript prologue, lvl 1–6 | Act 3, lvl 26–34 |
+| **Ord Mantell** | **Conscript prologue, lvl 1–6** | **never — and that is the point** |
 
-This halves the number of worlds that have to be built to a high standard, and it
+This cuts the number of worlds that have to be built to a high standard, and it
 buys the best beat in any RPG for free: coming home at level 40 to the place that
 nearly killed you at level 3, and finding it small. The districts that were
 lethal are now scenery; the districts you could not enter are now the content.
+
+**Ord Mantell is the deliberate exception.** The Conscript could have started on
+Coruscant and saved a world, but Coruscant would have made his prologue a story
+about serving greatness; Ord Mantell makes it a story about serving anyway. It is
+also the only planet you never return to, which is its own kind of ending — the
+war he left is still going on when the credits roll, and nobody ever explains
+what it was about.
 
 `PlanetDef.minLevel/maxLevel` become a range wide enough to hold both, and the
 level banding happens per *zone* rather than per planet — which is exactly what
@@ -148,7 +155,7 @@ paint tiles, would pay for itself around planet three. Not a blocker.
 
 ---
 
-## 3. The eight planets
+## 3. The nine planets
 
 Each entry: what it is for, its level band, its districts, its building
 vocabulary, who lives there, and the beats it has to carry.
@@ -300,9 +307,57 @@ the auction.
 
 ---
 
+### Ord Mantell — the ugly little war
+
+**Conscript prologue, levels 1–6.** The ninth world, added 2026-08-14 rather
+than starting the Conscript on Coruscant.
+
+It earns the extra planet by being the only honest place to begin a character who
+enlisted at fifteen because the army fed him. Ord Mantell is a Republic world
+losing a grubby civil war to its own separatists — a war with no principles on
+either side, which the Republic does not talk about and would like to finish
+quietly. Coruscant would have made the Conscript's prologue a story about
+serving greatness. This makes it a story about serving *anyway*, which is the
+character.
+
+It is also the smallest planet in the game and should stay that way: one town,
+one battlefield, one swamp, ~20 minutes of play.
+
+**Feel:** mud, rain, and a war being fought over a hill nobody can name.
+
+**Districts**
+
+| District | Band | Contains |
+|---|---|---|
+| Fort Garnik | 1–3 | Republic garrison. Barracks, armoury, Sergeant Marr |
+| Drelliad Village | 2–4 | Civilians who have been "liberated" three times |
+| The Savrip Fields | 3–5 | Trenches, wire, artillery craters. The prologue's set piece |
+| Jagged Wilds | 4–6 | Swamp. Separatist camps, and the wreck you are not supposed to find |
+
+**Prefab vocabulary:** `GarrisonBlock` (shared with Coruscant), `Sandbag`,
+`TrenchSection`, `ArtilleryPiece`, `VillageShack`, `WaterTower`, `WireLine`,
+`CraterPool`, `SwampStilt`, `MedTent`.
+
+Cheap to build: `TrenchSection` and `Sandbag` tile along a grid row, which is the
+tile map format doing exactly what it is for.
+
+**Population:** Republic Trooper, Republic Veteran, Sergeant Marr, Civilian
+(frightened, and not grateful), Separatist Militia (a new archetype — poorly
+armed, badly led, and the first people you kill), Merchant, Protocol Droid.
+
+**Beats:** basic training compressed into one action; the garrison push that goes
+wrong; your unit's Jedi liaison going hollow mid-firefight and you dragging her
+out; command filing it as fatigue and ordering you not to write it down. You
+leave with a document that says it did not happen.
+
+**No cameo.** Deliberately. The Conscript's prologue is the one place in the game
+where nobody important is watching, and that is the point.
+
+---
+
 ### Coruscant — the cover
 
-**Conscript prologue levels 1–6; Act 3 levels 26–34.**
+**Act 3, levels 26–34.**
 
 **Feel:** the difference between the two halves. Thirteen years after the
 Sacking, the Senate District is spotless and the Underlevels are still rubble
@@ -313,10 +368,10 @@ with people living in it.
 | District | Band | Contains |
 |---|---|---|
 | Senate Plaza | 26–30 | Polished. Nothing happens here except conversation |
-| The Works | 1–6 | Conscript prologue. Garrison, barracks, resettlement blocks |
+| The Works | 27–30 | Resettlement blocks. Where the Sacking's refugees still are |
 | Jedi Temple Ruin | 30–34 | Not rebuilt. Deliberately. |
 | Skylanes | any | Traffic, the existing SkylaneAlpha/Beta/Gamma POIs |
-| Underlevels | 5–9 / 28–34 | Rubble line and below. No sky, no law |
+| Underlevels | 28–34 | Rubble line and below. No sky, no law |
 
 **Prefab vocabulary:** `SenateColonnade`, `PlazaTier`, `SpeederLane`,
 `GarrisonBlock`, `ResettlementStack`, `RubbleSpan`, `TempleRuin`, `SkybridgeLong`,
@@ -326,9 +381,10 @@ with people living in it.
 Officer (an embassy — the treaty is still nominally in force, which is a great
 source of tension), Civilian, Protocol Droid, Jedi Knight (a handful, wary).
 
-**Beats (prologue):** the garrison action; the Jedi liaison goes hollow; the
-order not to write it down. **Beats (Act 3):** taking the evidence to the
-Republic and being sincerely thanked and quietly buried.
+**Beats:** taking the evidence to the Republic, and being sincerely thanked and
+quietly buried. The Conscript gets an extra thread here — the document from Ord
+Mantell saying it never happened turns out to have a signature on it, and the
+person who signed it is still in the building.
 
 **Cameo:** Darth Malgus walks through a room you are hiding in. No health bar.
 
@@ -429,7 +485,7 @@ the weakest person in the room. Three endings.
 
 ## 4. Build order
 
-Depth first, not breadth. One finished planet teaches more than eight sketched
+Depth first, not breadth. One finished planet teaches more than nine sketched
 ones, and the prefab vocabulary built for Tatooine is 60% reusable everywhere.
 
 1. **Tatooine, completely.** Layout grid, ~12 prefabs, districts with bands, Act
@@ -437,12 +493,20 @@ ones, and the prefab vocabulary built for Tatooine is 60% reusable everywhere.
    fun here it is fun.
 2. **The layout system itself,** extracted from step 1 as it is written. Grid
    parser, prefab registry, district rectangles, validation.
-3. **Korriban,** because it is both the Acolyte prologue and the Act 4 payoff, so
-   it proves the two-visit structure works.
-4. **Nar Shaddaa and Taris,** the Act 2 pair. Nar Shaddaa reuses Coruscant's
+3. **Ord Mantell,** because it is the smallest planet in the game and the second
+   use of the layout system should be a cheap one. Also gets one origin
+   playable end to end.
+4. **Korriban,** which is both the Acolyte prologue and the Act 4 payoff, so it
+   proves the two-visit structure works.
+5. **Nar Shaddaa and Taris,** the Act 2 pair. Nar Shaddaa reuses Coruscant's
    vertical-city code; Taris proves the prefab family idea.
-5. **Coruscant,** already partly built, needs the Works and the Underlevels.
-6. **Tython, Hoth, Dromund Kaas** — the back half, once the pipeline is boring.
+6. **Coruscant,** already partly built, needs the Works and the Underlevels.
+7. **Tython, Hoth, Dromund Kaas** — the back half, once the pipeline is boring.
 
 Travel (roadmap Phase 2a) is a hard dependency from step 3 onward: the moment a
 second planet has content, a player has to be able to reach it.
+
+The signature chains ([CAMPAIGN.md](CAMPAIGN.md) §5) cut across this order — the
+saber alone touches Taris, Nar Shaddaa, Tython and Korriban. Nothing before step
+5 can deliver a complete one, so build them chain-part-by-chain-part as their
+planets land rather than trying to finish one chain early.

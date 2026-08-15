@@ -72,11 +72,18 @@ reasoning in [CAMPAIGN.md](CAMPAIGN.md).
 4. **Authored layouts, generated buildings.** An ASCII tile map per planet in
    config; the geometry stays procedural code. See PLANETS.md §2.
 
+Since settled, same day: **a lightsaber is built over five quests, not bought**,
+which gave every origin its own signature chain (3b.5); the tone is **decently
+dark**, written up as a usable in/out list in CAMPAIGN.md §6; **Ord Mantell is
+worth a ninth world** for the Conscript's prologue; and the game is called **The
+Hollowing**.
+
 **Cost of the era decision:** Naboo, Kamino, Mustafar and Endor are replaced by
-Korriban, Tython, Taris and Dromund Kaas. Eight archetypes are renamed, one is
-cut, six are added. All 15 missions are rewritten — they were 5 unconnected
-chains with no theme, so that was owed anyway. Every service, weapon, outfit and
-skill is untouched: the engine does not care what era it is.
+Korriban, Tython, Taris and Dromund Kaas, plus Ord Mantell as a ninth. Eight
+archetypes are renamed, one is cut, seven are added. All 15 missions are
+rewritten — they were 5 unconnected chains with no theme, so that was owed
+anyway. Every service, weapon, outfit and skill is untouched: the engine does not
+care what era it is.
 
 ---
 
@@ -298,6 +305,21 @@ the board is a to-do list, and a mystery needs a record of what happened.
 `PlayerProfile.flags: { [string]: boolean }` plus a `flag` dialogue condition.
 One field, and it is the whole of branching.
 
+### 3b.5 Signature chains — **[todo]**
+**A lightsaber is built, not bought** (decided 2026-08-14), which forced the same
+for every other origin or the Acolyte would have the only good content. Four
+five-part chains running levels 12–34, specified in [CAMPAIGN.md](CAMPAIGN.md)
+§5: the saber, the Mandalorian Great Hunt, your own ship, and restoring Ordo-9.
+
+This is the long-standing "what is the reason to specialize?" question finally
+answered — not a bigger number at rank 5, but an object. It needs no new
+machinery beyond `MissionDef.origin` from 3b.1 and `alignment` from 3b.2, which
+is what determines the crystal's colour and gives `SaberBlue/Green/Purple/Red` a
+meaning at last.
+
+**Sabers come out of the shop tables.** `Weapons.luau` currently sells one at
+level 10 for 7,500 credits; the vendor entry becomes a hilt component instead.
+
 ---
 
 ## Phase 4 — RPG depth
@@ -310,10 +332,9 @@ One field, and it is the whole of branching.
 - Faction reputation consequences. Missions already award rep
   (`rep = { Rebellion = 120, Empire = -180 }`) and nothing reads it back.
   Phase 3b needs this, so it is no longer optional
-- Companion NPCs — Ordo-9 is the argument for them (CAMPAIGN.md §5)
-- **Is a lightsaber bought or earned?** `Weapons.luau` sells one at level 10 for
-  7,500 credits. The era says a saber is a rank. If it stays purchasable the
-  Acolyte origin has no climax
+- Companion NPCs — Ordo-9 is the argument for them (CAMPAIGN.md §5.4)
+- ~~Is a lightsaber bought or earned?~~ **Built, over five quests** — and every
+  other origin got a signature chain to match. See 3b.5
 
 ---
 
@@ -331,9 +352,10 @@ One field, and it is the whole of branching.
 
 - Publish the place (also fixes DataStores — saves currently run memory-only)
 - Onboarding / first-time-user flow
-- Game name. `OuterRimOdyssey` is a placeholder in `default.project.json`, and
-  the era decision makes it actively wrong — only Tatooine and Korriban are Outer
-  Rim. Wants a name from this setting
+- ~~Game name~~ — **The Hollowing**, set 2026-08-14 in `default.project.json`.
+  Deliberately no "Star Wars" in the title: the mark in a game's *name* is the
+  highest-risk part of a fan project and the cheapest risk to drop. The era goes
+  in the store description instead
 - Delete legacy `StarWarsGame/`
 - Playtest with the boys, tune numbers
 

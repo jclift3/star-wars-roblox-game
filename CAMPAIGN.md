@@ -258,7 +258,140 @@ Three endings, above.
 
 ---
 
-## 5. The recurring cast
+## 5. Signature chains — building your own thing
+
+Decided 2026-08-14: **a lightsaber is built, not bought.** It is a chain of
+quests, and the last component is the character.
+
+The moment that was decided, the other three origins needed the same, or the
+Acolyte gets the best content in the game and everyone else gets a shop. So all
+four origins have a signature chain: a long, personal, mid-game thread that
+produces the one object your character is remembered for.
+
+This is also the answer to the roadmap's oldest open question — *what is the
+reason to specialize?* Not a bigger number at rank 5. A saber.
+
+Shared rules:
+
+- **Five parts, one per act, running levels 12–34.** Long enough to be the
+  through-line of the mid-game, finished before the endgame needs you focused.
+- **Origin-gated, not class-gated.** `MissionDef.origin` (§8.1) is all the
+  machinery required.
+- **Every part is on a planet you were going to visit anyway.** No chain adds a
+  world.
+- **The final part is a choice, not a fight,** and it writes a permanent flag
+  that Act 5 reads back.
+- **Co-op honest.** Each chain produces something the other three cannot get, so
+  a party of four covers ground no one of them could.
+
+### 5.1 Acolyte — the saber
+
+The chain is not about acquiring parts. It is about the fact that in this era a
+saber is a *document*: you built it, so it says who you are, and everyone who
+sees it can read it.
+
+| Part | Level | Where | What happens |
+|---|---|---|---|
+| **1. The Hilt** | 12 | Taris | Taris is full of Jedi who died in the bombardment. You take a hilt off a body. It has a name etched inside, and you can choose to find out whose — the optional version of this quest is the whole theme in miniature. |
+| **2. Lens and Cell** | 18 | Nar Shaddaa | Both Orders leak, so the parts are on the black market. Buy, steal, or win them from Vess Kadar. The funny one. |
+| **3. The Crystal** | 26 | Tython's Cave / Korriban's Bleeding | The real quest. You go in alone, the Force tree's abilities are your only tools, and there is nothing to kill. **The colour you come out with is your `alignment`,** which is what finally gives `SaberBlue/Green/Purple/Red` a meaning. |
+| **4. The Forge** | 30 | Forge Ridge (Tython) or Tomb of Tulak Hord (Korriban) | Assembly. A long solo scene, not a battle. **Failure is possible** and costs a component, which is the only place in the game where that is true — a saber you nearly lost is a saber you remember. |
+| **5. The First Cut** | 34 | anywhere | Its first use has a person on the other end. What you do sets a flag Act 5 reads. |
+
+**Purple should be the hardest.** Blue and green come from choosing the light;
+red comes from *bleeding* a crystal, which is a scene where you deliberately
+pour hatred into a living thing until it screams and turns — appropriately
+horrible, and the strongest argument for the tone note in §6. Purple comes from
+refusing both, which requires the player to have held a middling alignment
+through thirty levels of pressure. It should be rare and it should be respected.
+
+**Open:** `Weapons.luau` currently sells `SaberBlue` at level 10 for 7,500
+credits. Sabers come out of the shop tables entirely; the vendor entry becomes a
+hilt *component*.
+
+### 5.2 Conscript — the Great Hunt
+
+The Mandalorians run a sanctioned, ranked, publicly scored competition to find
+the best hunter in the galaxy. It is bureaucratic, which is what makes it funny,
+and lethal, which is what makes it matter.
+
+| Part | Level | Where | What happens |
+|---|---|---|---|
+| **1. Sponsorship** | 12 | Tatooine | Mandalore's Act 1 cameo pays off. You need a sponsor, and the only one available thinks you are a joke. |
+| **2–4. Three Hunts** | 18 / 24 / 30 | Nar Shaddaa, Hoth, Coruscant | Named targets with their own small stories. **At least one should be someone you do not want to kill,** and turning in a live capture is a legitimate, lower-scoring option. |
+| **5. The Forge** | 34 | Mandalorian camp | Beskar. You choose the armour's colour, which in Mandalorian culture states your purpose, and the game takes that literally. |
+
+Produces the tier-5 hunter kit and a heavy weapon nobody else can buy. Gives a
+non-Force player an equal claim on being the most dangerous person in the room.
+
+### 5.3 Scoundrel — the ship
+
+Phase 2b is building ships anyway. This chain makes *one* of them yours.
+
+| Part | Level | Where | What happens |
+|---|---|---|---|
+| **1. The Debt** | 12 | Nar Shaddaa | Vess Kadar will forgive it, sell it on, or double it. All three are viable and all three change Act 2. |
+| **2. The Hull** | 18 | Hoth's graveyard | Thousands of hulls, and one of them is nearly whole. Finding it is exploration, not combat. |
+| **3. The Drive** | 24 | Taris | Czerka has one. Czerka is not selling. |
+| **4. Making It Fly** | 30 | anywhere | Needs a Scrapper's help, or a lot of credits. **The first place the game rewards co-op explicitly.** |
+| **5. The Name** | 34 | — | You name it, it appears on the hull, and it is yours for the rest of the game. |
+
+The cheapest chain to build and probably the most loved, because the reward is a
+place rather than a stat.
+
+### 5.4 Scrapper — Ordo-9
+
+You dug Nine out of a collapsed tower at level 3 and got him walking. He is
+polite, extremely capable, and missing almost everything he used to be.
+
+| Part | Level | Where | What happens |
+|---|---|---|---|
+| **1. The Chassis** | 12 | Taris | War-surplus plating. He notices the upgrade and thanks you, which is unsettling. |
+| **2. The Memory Core** | 18 | Taris, Czerka Lot 9 | **HK-47's.** The cameo stops being a gag and becomes a plot device. |
+| **3. The Power Plant** | 24 | Nar Shaddaa | Cartel-owned, and buying it means owing somebody. |
+| **4. The Voice** | 30 | anywhere | Fragments start returning. He was not built to protect anyone. |
+| **5. Restore, or Don't** | 34 | — | Give him back his original programming — lethal, brilliant, loyal to a master who has been dead for three hundred years — or leave him as the thing you made by accident. He asks you to choose and will not choose for himself. |
+
+Produces the game's only companion, and the only signature reward that can
+disagree with you.
+
+---
+
+## 6. Tone
+
+Settled 2026-08-14: **the audience is fourteen, so it can be decently dark.**
+The register is *Star Wars* dark — Order 66, the Tusken camp, "I am your father"
+— not grim. Concretely, so it can be applied without re-asking:
+
+**In.** Death, on screen, of people you liked. Slavery and indenture as
+institutions rather than atrocities-of-the-week. Children in danger, and
+children who are the danger. Bodies. Institutional cowardice and people who do
+the wrong thing for defensible reasons. Moral compromise the game does not
+resolve for you. A villain who is polite and correct. Loss that does not get
+undone.
+
+**Out.** Sexual content of any kind. Torture as spectacle — implied, referenced,
+never dwelt on. Gore for its own sake. Cruelty to animals played for laughs.
+Slurs, real-world hate. Self-harm. **Despair without agency** — the game can be
+bleak, but the player must always have something to do about it, which is the
+line between dark and depressing.
+
+**The two scenes closest to the line,** both deliberate, both keepable:
+
+1. *The Academy disposal* (Acolyte prologue). Your friend goes hollow and Vashk
+   has her put down as defective without breaking stride. Off-screen, one line
+   of dialogue, no lingering. Its whole job is to be the moment the player
+   decides the Sith are wrong even while remaining one.
+2. *Bleeding the crystal* (Saber part 3, dark path). Deliberately awful, entirely
+   optional, and the game should not congratulate you.
+
+Roblox's own moderation is a real constraint independent of taste. Keep the
+imagery stylised — this is a game with no blood textures and no mesh assets, and
+that is a feature here.
+
+---
+
+## 7. The recurring cast
 
 The crossover the design asks for. Six characters, each introduced as one
 origin's intimate and encountered by the other three as a stranger. Playing a
@@ -295,7 +428,7 @@ known one. Roughly one per act, never a party member, never a fight you win.
 
 ---
 
-## 6. Systems the story needs
+## 8. Systems the story needs
 
 Ordered by how much they cost. Each is small; the story is what is expensive.
 
@@ -349,13 +482,14 @@ Nine is the argument for them. Not required for the campaign to work.
 
 ---
 
-## 7. Migration cost
+## 9. Migration cost
 
 Honest accounting of what the era decision breaks. Nothing here is hard; it is
 find-and-replace plus mission rewriting that was needed regardless.
 
-**Planets — 4 replaced.** Naboo → **Tython**, Kamino → **Taris**, Mustafar →
-**Korriban**, Endor → **Dromund Kaas**. Tatooine, Coruscant, Hoth and Nar Shaddaa
+**Planets — 4 replaced, 1 added.** Naboo → **Tython**, Kamino → **Taris**,
+Mustafar → **Korriban**, Endor → **Dromund Kaas**, plus **Ord Mantell** as a
+ninth for the Conscript's prologue. Tatooine, Coruscant, Hoth and Nar Shaddaa
 keep their `PlanetDef` almost unchanged. See [PLANETS.md](PLANETS.md).
 
 **Archetypes — 8 renamed, 1 cut, ~6 added.**
@@ -375,8 +509,10 @@ keep their `PlanetDef` almost unchanged. See [PLANETS.md](PLANETS.md).
 | JediSurvivor | Jedi Knight (an institution now, not a fugitive) |
 | BattleDroid | **cut** — replaced by Czerka Security Droid and HK-series |
 
-New: Sith Overseer, Sith Inquisitor, Czerka Foreman, Cartel Slicer, Hollowed
-(an unarmed, harmless, deeply unsettling wandering NPC), Assassin Droid.
+New: Sith Overseer, Sith Inquisitor, Czerka Foreman, Cartel Slicer, Separatist
+Militia, Assassin Droid, and **Hollowed** — unarmed, harmless, non-hostile, and
+the most important new archetype in the game. It has no combat role at all. Its
+entire job is to be standing in a market you have walked through a hundred times.
 
 **Factions — 1 renamed, 1 repurposed, 1 added.** `Rebellion` → `Republic`
 (military), the existing `Republic` → **`Jedi`** (the Order), `Empire` → the
@@ -393,21 +529,34 @@ untouched.** The engine does not care what era it is.
 
 ---
 
-## 8. Open questions
+## 10. Settled and still open
 
-- **Prologue planets.** Four origins want four start planets, and Conscript's
-  (Ord Mantell) would be a ninth world built for 20 minutes of play. Cheaper:
-  start the Conscript on Coruscant's surface and the Scrapper on Taris, both of
-  which are needed anyway. Decide before building Act 0.
-- **Does the player get a lightsaber, and when?** Era rules say a saber is a
-  rank. Current `Weapons.luau` sells one at level 10 for 7,500 credits. If the
-  saber is earned rather than bought, that is a genuine reward moment and a
-  reason for the Force tree to exist; if it is bought, the Acolyte origin has no
-  climax.
-- **How dark is too dark?** This is a game for your sons. The Quiet involves
-  children being bought, and the Academy kills students. That is *Star Wars*-dark
-  rather than grim, and the same register as Order 66, but it is your call where
-  the line is and it should be set before the dialogue is written.
-- **The game's name.** `OuterRimOdyssey` was always a placeholder and does not
-  fit this era at all — none of the eight planets are Outer Rim except Tatooine
-  and Korriban. Wants a name from this setting.
+**Settled 2026-08-14**
+
+- ~~Is the lightsaber bought or earned?~~ **Built, over five quests.** Which in
+  turn gave every origin a signature chain — §5, and the best thing in this
+  document.
+- ~~How dark?~~ **Decently dark; the audience is fourteen.** Written up as a
+  usable in/out list in §6.
+- ~~Prologue planets — is Ord Mantell worth a ninth world?~~ **Yes.** It is a
+  Republic world losing an embarrassing little civil war to its own separatists,
+  which is the only honest place to start a character who enlisted at fifteen
+  because the army fed him. See PLANETS.md.
+- ~~The game's name.~~ **The Hollowing.** Deliberately *without* "Star Wars" in
+  the title: the mark in a game's name is the highest-risk part of a fan project
+  and the cheapest risk to drop. "Old Republic" was considered and rejected for
+  the same reason — it is a shipped product's name, which is exactly the
+  confusion trademark law cares about. The era lives in the description instead.
+
+**Still open**
+
+- **The endgame's third ending** (giving the hollowed back, at the cost of your
+  own connection to the Force) has no mechanical design yet. It should cost the
+  player everything the Force tree bought them, and it should be the best ending.
+  Those two facts are in tension and the resolution is not obvious.
+- **What a co-op party of four actually does together.** Each signature chain
+  produces something the other three cannot get, which is the setup. There is no
+  encounter designed yet that requires more than one of them.
+- **Does alignment ever lock?** If a level 40 Sith can swing to +800 in one
+  conversation, the axis means nothing. Some form of hysteresis is needed, and
+  "you cannot go back" is a stronger story than a slider.

@@ -1,8 +1,13 @@
-# Outer Rim Odyssey
+# The Hollowing
 
-A free-roam Star Wars RPG for Roblox. Eight planets, procedurally generated
-cities, a crowd of NPCs with their own lives, blaster and lightsaber combat, and
-a level-and-skill-tree progression system that persists between sessions.
+A free-roam space-opera RPG for Roblox, set in the age of the Old Republic —
+some three and a half thousand years before an Empire. Nine planets, a crowd of
+NPCs with their own lives, blaster and lightsaber combat, four origins with
+their own prologues, and a level-and-skill-tree progression system that persists
+between sessions.
+
+Something is unmaking Force-sensitives, one at a time, across both empires. It
+looks like a disease. It is a harvest. See [CAMPAIGN.md](CAMPAIGN.md).
 
 Everything in this repository is code. There are no `.rbxl` files to merge, no
 marketplace asset IDs, and nothing that only exists inside somebody's copy of
@@ -228,15 +233,20 @@ difference. Jump height and fall speed both follow from that for free.
 ## What is not built yet
 
 - **Ships and space travel.** Planets have coordinates, fuel costs and fast
-  travel prices in config; the flight model and the galaxy map are not written.
-- **Dialogue.** The remotes and the NPC interaction hook exist; the dialogue
-  trees and the UI do not.
-- **Shops.** Archetypes can declare a shop id; nothing serves one yet.
-- **Mission board UI.** The server answers `GetMissionBoard`; nothing on the
-  client asks.
+  travel prices in config; the flight model and the galaxy map are not written,
+  so only Tatooine is reachable.
+- **The campaign.** Designed in [CAMPAIGN.md](CAMPAIGN.md), not yet authored.
+  Needs player origins, an alignment axis, and the existing missions rewritten
+  around a spine.
+- **Authored maps.** Settlements are still generated on a radial grid. The tile
+  map format is designed in [PLANETS.md](PLANETS.md) §2.
+- **Loot with rolled affixes,** which is blocked on `profile.inventory` being a
+  bag of counts rather than a list of instances.
+
+Dialogue, shops, the mission board, the skill tree and quest pickups are all
+built and reachable in-game — see [ROADMAP.md](ROADMAP.md) Phase 1.
 
 ## Open questions
 
-- **The name.** `OuterRimOdyssey` is a placeholder in `default.project.json`.
 - **The old project.** `StarWarsGame/` is dead code kept for reference. It is in
   git history either way, so it can be deleted whenever.
