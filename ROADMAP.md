@@ -12,8 +12,9 @@ Status legend: **[done]** shipped · **[gap]** built but unreachable in-game ·
 |---|---|
 | [CAMPAIGN.md](CAMPAIGN.md) | When it is set, what the story is, who you play as, who you meet |
 | [PLANETS.md](PLANETS.md) | What is on each world, and how a map gets hand-authored |
+| [LIVING-NPCS.md](LIVING-NPCS.md) | Free-form conversation, and the backend it shares with analytics |
 
-This file stays the build order. Those two are the content.
+This file stays the build order. Those three are the content.
 
 ---
 
@@ -79,11 +80,54 @@ worth a ninth world** for the Conscript's prologue; and the game is called **The
 Hollowing**.
 
 **Cost of the era decision:** Naboo, Kamino, Mustafar and Endor are replaced by
-Korriban, Tython, Taris and Dromund Kaas, plus Ord Mantell as a ninth. Eight
-archetypes are renamed, one is cut, seven are added. All 15 missions are
-rewritten — they were 5 unconnected chains with no theme, so that was owed
-anyway. Every service, weapon, outfit and skill is untouched: the engine does not
-care what era it is.
+Korriban, Tython, Taris and Dromund Kaas, plus Ord Mantell as a ninth — **still
+owed.** The factions and 13 archetypes were re-dated 2026-08-15 and are **done**;
+six more archetypes are still to add. All 15 missions are rewritten — they were 5
+unconnected chains with no theme, so that was owed anyway. Every service, weapon,
+outfit and skill is untouched: the engine does not care what era it is.
+
+---
+
+## Where data lives — decided 2026-08-15
+
+Prompted by a good question: should planets, characters, weapons and missions
+live in Supabase rather than being hardcoded, so content can be composed
+dynamically?
+
+**Static content stays in Luau `Config/` files. Runtime state that outlives a
+server instance goes in a database.** The line is not "files vs. database" but
+*authored vs. accumulated*.
+
+The `Config/` tables already are a database — `Factions.defs` is keyed by id,
+`Missions.boardFor` is a query, `Missions.validate` is referential integrity.
+Four things would be lost by moving them out of the repo, and all four have
+already been paid for:
+
+1. **The client could not read them.** `HttpService` is server-only; there is no
+   raw TCP, so no database driver. `InventoryController` and `SkillTreeController`
+   require `Shared.Config.*` and get it through replication for free. Remote
+   config means relaying every weapon stat over remotes.
+2. **`--!strict` would stop applying.** JSON is `any`. The 2026-08-15 faction
+   migration was safe *because* ids are type-checked at author time and
+   cross-checked by `validate()` at boot — a database would surface the same
+   mistakes in a Play test instead.
+3. **`git revert` would stop working.** A bad balance change is currently one
+   command. As a row update it is a mystery.
+4. **Boot would become a network call**, per server instance.
+
+What studios actually do is this: Unity ships `ScriptableObject` assets, Unreal
+ships `DataTable`s, both in version control. Remote config exists but is scoped
+to what must change *without shipping a build* — and on Roblox, publishing takes
+seconds, so that pressure barely exists.
+
+**Dynamic mission composition is a generator, not a storage problem.** Picking
+an archetype × a POI × an objective template × a level band reads the tables we
+already have and writes nothing. That is how Diablo's bounties and Skyrim's
+radiant quests work, and it is the right shape for the ARPG direction above.
+
+Where a backend does earn its place: analytics (4.1), cross-server state (5.2)
+and free-form conversation (5.1) — all three accumulate, none are authored, and
+all three share one backend. See [LIVING-NPCS.md](LIVING-NPCS.md) §5.
 
 ---
 
@@ -355,15 +399,73 @@ level 10 for 7,500 credits; the vendor entry becomes a hilt component instead.
 - ~~Is a lightsaber bought or earned?~~ **Built, over five quests** — and every
   other origin got a signature chain to match. See 3b.5
 
+### 4.0 Radiant missions — **[todo]**
+A generator that composes missions from tables that already exist: an archetype
+× a point of interest × an objective template × a level band, seeded per player
+per day. Diablo's bounties and Skyrim's radiant quests, and the concrete answer
+to "make new missions with existing characters at specific locations
+dynamically" — see "Where data lives" above.
+
+Roughly 150 lines against `NPCArchetypes`, `Planets` and `Missions`, no
+infrastructure, and it produces content indefinitely. The 15 authored missions
+become the story spine; radiant ones fill the world between them. Best built
+after 3.1, so districts have a `band` to draw a difficulty from.
+
+### 4.1 Analytics — **[todo]**
+The cheapest item on this roadmap that measurably improves the game, and the
+only one that makes every later balance decision better informed. Right now
+every number in `Config/` was picked by feel and nothing reports back: we do not
+know which missions get abandoned, where players die, or what they actually buy.
+
+A Roblox server posting events to an HTTP endpoint, and Postgres behind it. No
+dependency on anything else in Phase 4 or 5 — it can ship the day someone wants
+it. Design and the backend shape are in [LIVING-NPCS.md](LIVING-NPCS.md) §5,
+because analytics and the conversation feature share one backend.
+
+### 4.2 Secret unlock conditions — **[todo]**
+Ordinary Luau config declaring "this reward is granted when the server sees
+these conditions," with a `validate()` pass like `Missions.luau` has. Works
+against authored dialogue on day one and needs no backend.
+
+Worth building before the free-form layer rather than with it: it is the half
+that must be deterministic and testable, and doing it first means the model,
+when it arrives, is only a text generator bolted onto a reward system that
+already works. See [LIVING-NPCS.md](LIVING-NPCS.md) §2.
+
 ---
 
 ## Phase 5 — Living world
 
 - NPC schedules (day/night behaviour — the clock already runs)
 - Ambient crowd density per zone
-- LLM-powered dynamic dialogue (your note). Needs Phase 1.3 first as the
-  delivery surface
 - Faction patrols that react to player rep
+
+### 5.1 Free-form characters — **[todo]**
+Designed 2026-08-15, full document in [LIVING-NPCS.md](LIVING-NPCS.md). The
+short version: **10–20 characters in the whole game** talk freely; everyone else
+keeps their authored `Dialogue.luau` tree. Each one is hiding something, and
+talking it out of them is the puzzle — so players trying to jailbreak them is
+the intended loop rather than abuse of it.
+
+Depends on Phase 1.3 (dialogue) as the delivery surface, 4.1 for the backend and
+4.2 for the reward half. Three things that must not be forgotten:
+
+- **The model never grants anything.** It decides what a character says; a
+  deterministic server check decides what was earned. A unique crystal farmable
+  by prompt injection would be public knowledge within hours.
+- **Scarcity is the cost control**, not per-token pricing. Sell an in-fiction
+  consumable with a free daily allowance; never meter tokens at a fourteen-year
+  -old.
+- **Moderation is not a late task.** Filter in and out through
+  `TextService:FilterStringAsync`, keep a kill switch back to authored trees,
+  and read Roblox's current AI policy before building — it governs whether this
+  is publishable at all.
+
+### 5.2 Cross-server state — **[todo]**
+Same backend as 4.1. Makes "one of a kind" mean something: the first player on
+any server to crack a secret gets the unique version and the secret rotates.
+Also where a galaxy-wide war state, leaderboards or a shared economy would live.
+[LIVING-NPCS.md](LIVING-NPCS.md) §7.
 
 ---
 
