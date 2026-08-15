@@ -237,6 +237,33 @@ function Factions.areEnemies(a: string, b: string): boolean
 	return (def.spillover[b] or 0) <= -0.5
 end
 
+--[[
+	Cross-checks every faction's home world against the planet config.
+
+	`homePlanet` is a plain string that nothing read until travel needed it, so
+	when the galaxy was re-dated two factions quietly pointed at worlds that had
+	been deleted -- and the symptom would have been a fast-travel destination
+	that does not exist rather than an error.
+
+	Takes the existence check as an argument because Planets already reads
+	Factions for `controllingFaction`, and requiring it back would be a cycle.
+]]
+function Factions.validate(planetExists: (string) -> boolean): { string }
+	local problems = {}
+	for id, def in defs do
+		if not planetExists(def.homePlanet) then
+			table.insert(problems, `{id}: home planet "{def.homePlanet}" does not exist`)
+		end
+		for otherId in def.spillover do
+			if not defs[otherId] then
+				table.insert(problems, `{id}: spillover to unknown faction "{otherId}"`)
+			end
+		end
+	end
+	table.sort(problems)
+	return problems
+end
+
 function Factions.ids(): { string }
 	local out = {}
 	for id in defs do

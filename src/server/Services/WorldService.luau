@@ -18,6 +18,7 @@
 ]]
 
 local Shared = game:GetService("ReplicatedStorage"):WaitForChild("Shared")
+local Factions = require(Shared.Config.Factions)
 local Planets = require(Shared.Config.Planets)
 local PlanetBuilder = require(script.Parent.Parent.World.PlanetBuilder)
 
@@ -57,6 +58,13 @@ function WorldService.init()
 	-- tell that from a district that is simply empty.
 	for _, problem in Planets.validate() do
 		warn(`[WorldService] planet config: {problem}`)
+	end
+
+	-- Checked here rather than in a faction service because this is where the
+	-- planet list lives: a faction whose capital was deleted is a travel
+	-- destination that silently does not exist.
+	for _, problem in Factions.validate(Planets.exists) do
+		warn(`[WorldService] faction config: {problem}`)
 	end
 
 	WorldService.ensure(Planets.STARTING_PLANET)

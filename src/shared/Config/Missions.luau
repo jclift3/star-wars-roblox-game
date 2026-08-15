@@ -325,8 +325,8 @@ def({
 	id = "CorTheLongFall",
 	displayName = "The Long Fall",
 	summary = "An informant is being moved between towers. Take them off the skybridge.",
-	briefing = "They are transferring a contact across a skybridge at level 4000. If that transport reaches the Palace, we lose them.",
-	debriefing = "They are shaken, but they are ours. And they know what is on Kamino.",
+	briefing = "They are transferring a contact across a skybridge at level 4000. If that transport reaches the Imperial embassy in the Works, treaty immunity closes over them and we lose them for good.",
+	debriefing = "They are shaken, but they are ours. And they know what Czerka is holding on Taris.",
 	kind = "Story",
 	faction = "Republic",
 	planet = "Coruscant",
@@ -344,7 +344,7 @@ def({
 			kind = Objective.Kill,
 			target = "ImperialCommando",
 			count = 2,
-			description = "Eliminate the Death Trooper detail",
+			description = "Eliminate the commando detail",
 		},
 		{
 			kind = Objective.Escort,
@@ -360,7 +360,7 @@ def({
 		weapon = "DC15A",
 		skillPoints = 1,
 	},
-	next = "KamWhatTheyKept",
+	next = "TarWhatTheyKept",
 })
 
 def({
@@ -502,37 +502,37 @@ def({
 })
 
 --------------------------------------------------------------------------------
--- Naboo -- the Force chain
+-- Tython -- the Force chain
 --------------------------------------------------------------------------------
 
 def({
-	id = "NabQuietOrder",
+	id = "TytQuietOrder",
 	displayName = "A Quiet Order",
-	summary = "Someone in Theed is asking about the old temple. Find out who.",
-	briefing = "A stranger has been asking after the Order in the wrong tavern. Either they are looking for us, or someone is looking for them.",
+	summary = "Someone in Kalikori Village is asking about the Temple. Find out who.",
+	briefing = "A stranger has been asking after the Order in the wrong village. Either they are looking for us, or someone is looking for them.",
 	debriefing = "You have a steady hand and you did not draw first. That is rarer than the Force.",
 	kind = "Story",
 	faction = "Jedi",
-	planet = "Naboo",
+	planet = "Tython",
 	giver = "RepublicSecurity",
 	minLevel = 10,
 	objectives = {
 		--[[
 			`TheedInformant` was not an archetype, so this could never tick.
-			The protocol droid is the informant now: on Naboo it spawns only in
-			the City zone, which is Theed, so the objective is still tied to
-			the place the description names.
+			The protocol droid is the informant now: on Tython it spawns only
+			in the Temple zone, so the objective is still tied to a place the
+			player can be pointed at.
 		]]
 		{
 			kind = Objective.TalkTo,
 			target = "ProtocolDroid",
-			description = "Ask the protocol droids in Theed",
+			description = "Ask the Temple's droids what they have heard",
 		},
 		{
 			kind = Objective.Reach,
-			target = "HiddenTemple",
-			planet = "Naboo",
-			description = "Follow the trail to the temple",
+			target = "TythonTemple",
+			planet = "Tython",
+			description = "Follow the trail to the Temple",
 		},
 		{ kind = Objective.TalkTo, target = "JediKnight", description = "Speak with the Jedi" },
 	},
@@ -541,21 +541,21 @@ def({
 		credits = 900,
 		rep = { Jedi = 350 },
 	},
-	next = "NabTrialOfPatience",
+	next = "TytTrialOfPatience",
 })
 
 def({
-	id = "NabTrialOfPatience",
+	id = "TytTrialOfPatience",
 	displayName = "The Trial of Patience",
 	summary = "The Jedi will teach you -- after you prove you can hold a line without breaking it.",
-	briefing = "Imperials will come to this valley within the hour. Hold the approach. Do not pursue them. Holding is the lesson.",
+	briefing = "An Imperial patrol will come up out of the Gnarls within the hour. Hold the approach. Do not pursue them. Holding is the lesson.",
 	debriefing = "You held. Now take this hilt. What you put in it is your own business.",
 	kind = "Story",
 	faction = "Jedi",
-	planet = "Naboo",
+	planet = "Tython",
 	giver = "JediKnight",
 	minLevel = 14,
-	requires = { "NabQuietOrder" },
+	requires = { "TytQuietOrder" },
 	objectives = {
 		{
 			kind = Objective.Survive,
@@ -581,41 +581,41 @@ def({
 })
 
 --------------------------------------------------------------------------------
--- Kamino / Nar Shaddaa / Mustafar -- late game
+-- Taris / Nar Shaddaa / Korriban -- late game
 --------------------------------------------------------------------------------
 
 def({
-	id = "KamWhatTheyKept",
+	id = "TarWhatTheyKept",
 	displayName = "What They Kept",
-	summary = "The informant's coordinates point at a decommissioned cloning facility that is still drawing power.",
-	briefing = "Tipoca City shut its labs down twenty years ago. The reactor logs disagree. Find out what is still running.",
-	debriefing = "Whatever they were growing down there, the Empire wanted it badly enough to staff it in secret.",
+	summary = "The informant's coordinates point at a Czerka warehouse on a planet nobody audits.",
+	briefing = "Czerka says Lot 9 is empty and scheduled for demolition. The power draw disagrees. Find out what is still running.",
+	debriefing = "Whatever they are storing in there, they wanted it somewhere no inspector would ever have cause to land.",
 	kind = "Story",
 	faction = "Republic",
-	planet = "Kamino",
+	planet = "Taris",
 	giver = "Researcher",
 	minLevel = 20,
 	requires = { "CorTheLongFall" },
 	objectives = {
 		{
 			kind = Objective.Reach,
-			target = "CloningLabs",
-			planet = "Kamino",
-			description = "Reach the cloning facility",
+			target = "CzerkaLot9",
+			planet = "Taris",
+			description = "Reach Czerka Lot 9",
 		},
-		{ kind = Objective.Slice, target = "LabTerminal", description = "Slice the facility records" },
+		{ kind = Objective.Slice, target = "LabTerminal", description = "Slice the warehouse records" },
 		{
 			kind = Objective.Kill,
-			target = "ImperialCommando",
+			target = "WarDroid",
 			count = 6,
-			description = "Fight past the garrison",
+			description = "Fight past the security droids",
 		},
 		{
 			kind = Objective.Collect,
 			target = "ResearchData",
-			at = "CloningLabs",
+			at = "CzerkaLot9",
 			count = 1,
-			description = "Extract the research data",
+			description = "Extract the manifests",
 		},
 	},
 	rewards = {
@@ -624,7 +624,7 @@ def({
 		rep = { Republic = 800, Empire = -600 },
 		skillPoints = 2,
 	},
-	next = "MusTheFortress",
+	next = "KorTheTomb",
 })
 
 def({
@@ -697,36 +697,42 @@ def({
 	cooldown = 2400,
 })
 
+--[[
+	The finale is given by a Researcher in Dreshdae, the same archetype that
+	handed over the Taris lead -- an Academy archivist quietly passing notes
+	off-world. It is also the only interactable that stands on Korriban at all,
+	so a Republic officer here would be a giver the player could never reach.
+]]
 def({
-	id = "MusTheFortress",
-	displayName = "The Fortress",
-	summary = "The trail ends on Mustafar, behind black stone and a Sith Lord.",
-	briefing = "Everything the Empire hid on Kamino was requisitioned by one man, and he has not left his fortress in a decade. Go and ask him why.",
+	id = "KorTheTomb",
+	displayName = "The Tomb",
+	summary = "The trail ends on Korriban, behind a sealed door and a Sith Lord.",
+	briefing = "Everything Czerka warehoused on Taris was requisitioned by one man, and he has not come out of Tulak Hord's tomb in a decade. Go and ask him why.",
 	debriefing = "It is finished. The galaxy is not fixed -- but it is lighter by one very heavy thing.",
 	kind = "Story",
 	faction = "Republic",
-	planet = "Mustafar",
-	giver = "RepublicPilot",
+	planet = "Korriban",
+	giver = "Researcher",
 	minLevel = 32,
-	requires = { "KamWhatTheyKept" },
+	requires = { "TarWhatTheyKept" },
 	objectives = {
 		{
 			kind = Objective.Reach,
-			target = "Fortress",
-			planet = "Mustafar",
-			description = "Breach the fortress",
+			target = "TombOfTulakHord",
+			planet = "Korriban",
+			description = "Break the seal on the tomb",
 		},
 		{
 			kind = Objective.Kill,
 			target = "SithHonourGuard",
 			count = 4,
-			description = "Defeat the Royal Guard",
+			description = "Cut through the Valley guard",
 		},
 		{
 			kind = Objective.Kill,
-			target = "SithAcolyte",
+			target = "ImperialCommando",
 			count = 6,
-			description = "Cut through the acolytes",
+			description = "Clear the commandos posted inside",
 		},
 		{ kind = Objective.Kill, target = "SithLord", count = 1, description = "Confront the Sith Lord" },
 	},
@@ -740,20 +746,23 @@ def({
 })
 
 def({
-	id = "MusForgeRun",
-	displayName = "Forge Run",
-	summary = "The mining complex pays well for anyone willing to work the lava side.",
-	briefing = "Half the shift walked off. The ore does not stop coming and the platforms do not stop failing.",
+	id = "KorDigContract",
+	displayName = "Dig Contract",
+	summary = "Czerka pays by the crate for anyone willing to work the Wastes.",
+	briefing = "Half the dig crew walked off and the rest will not go past the ridge. The ore does not stop coming and the droids do not stop failing.",
 	kind = "Repeatable",
-	faction = "Hutt",
-	planet = "Mustafar",
-	giver = "CartelEnforcer",
+	-- Czerka is a corporation, not a faction, so the standing goes to the
+	-- Independents: this is the one job on Korriban that does not care whose
+	-- side you are on.
+	faction = "Independent",
+	planet = "Korriban",
+	giver = "Merchant",
 	minLevel = 28,
 	objectives = {
 		{
 			kind = Objective.Collect,
 			target = "RawOre",
-			at = "MiningComplex",
+			at = "KorribanWastes",
 			count = 12,
 			description = "Collect raw ore",
 		},
@@ -767,7 +776,7 @@ def({
 	rewards = {
 		xp = 1400,
 		credits = 3200,
-		rep = { Hutt = 120 },
+		rep = { Independent = 120 },
 	},
 	repeatable = true,
 	cooldown = 2400,

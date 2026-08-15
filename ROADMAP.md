@@ -313,10 +313,32 @@ faction instead of erroring. Thirteen archetypes were renamed with it
 (`Stormtrooper` → `ImperialTrooper`, `RebelTrooper` → `RepublicTrooper`,
 `RoyalGuard` → `SithHonourGuard`, `BattleDroid` → `WarDroid`, and so on), plus
 the costume keys, dialogue trees, outfit display names and weapon blurbs that
-name them. **What is still Original Trilogy: the eight non-Tatooine planets**
-(Naboo, Kamino, Mustafar and Endor are all post-dated by ~3,600 years) and the
-weapon model numbers (E11, DL-44, DC-15A). `Palette` colour constants still say
-`StormtrooperWhite`; those are internal names for shades of grey and are the
+name them.
+
+**The planets landed 2026-08-15, and this closes the era migration.** Naboo →
+**Tython**, Kamino → **Taris**, Mustafar → **Korriban**, Endor → **Ord Mantell**,
+plus **Dromund Kaas** added as the ninth — it was already `Factions.Empire`'s
+declared home world and simply did not exist. Coruscant flipped from Imperial to
+**Republic-held**, which is the treaty position in 3,640 BBY and a much better
+setting: Imperial diplomats walking the capital they burned. Five missions were
+re-pointed with it (`NabQuietOrder` → `TytQuietOrder`, `KamWhatTheyKept` →
+`TarWhatTheyKept`, `MusTheFortress` → `KorTheTomb`, and so on).
+
+Two bugs fell out of doing it, both the same shape as the POI bug in §1.2: a
+mission naming something that no longer exists. Rewriting Coruscant's Republic
+spawn table deleted the Imperial troopers that `CorTheLongFall` counts kills of,
+and Nar Shaddaa never had any for `NarOpenContract`. Neither would have errored
+— they would have been objectives that sat at 0/10 forever. **A giver or a Kill
+target that does not spawn on that mission's planet is unreachable**, and that
+is now checked by hand at every config change until it is checked by code.
+
+`Factions.validate(planetExists)` was added at the same time and runs from
+`WorldService.init`, so a faction capital that does not exist warns at boot
+rather than becoming a fast-travel destination that goes nowhere.
+
+**What is still Original Trilogy:** the weapon model numbers (E11, DL-44,
+DC-15A). `Palette` colour constants still say `StormtrooperWhite` and
+`NabooGrass`; those are internal names for shades of grey and green and are the
 lowest-value thing on this list.
 
 ### 3.1 The layout system — **[todo]**
