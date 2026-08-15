@@ -58,6 +58,10 @@ export type PointOfInterest = {
 	displayName: string,
 	kind: string, -- "Spaceport" | "Cantina" | "Market" | "Base" | "Temple" | "Ruin" | "Outpost"
 	description: string,
+	-- What gets built here, when `kind` is too broad to draw. Both Tatooine's
+	-- sandcrawler and the hull out in the Dune Sea are Ruins, and they should
+	-- not look alike. Defaults to `kind`.
+	landmark: string?,
 	-- The district this place stands in. Without it the point of interest is
 	-- dropped on an arbitrary circle with nothing around it, so a mission can
 	-- send you to a "Jawa crawler they live in still" that has no Jawas.
@@ -232,6 +236,7 @@ def({
 			id = "SandcrawlerWreck",
 			displayName = "Sandcrawler Wreck",
 			kind = "Ruin",
+			landmark = "Sandcrawler",
 			description = "A Jawa crawler that broke an axle and never moved again. They live in it still.",
 			zone = "Wastes",
 		},

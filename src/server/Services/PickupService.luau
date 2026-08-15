@@ -178,8 +178,17 @@ local function makePickup(rule: SpawnRule, parent: Folder, anchor: BasePart, rng
 	part.TopSurface = Enum.SurfaceType.Smooth
 	part.BottomSurface = Enum.SurfaceType.Smooth
 
+	--[[
+		A ring around the landmark rather than a disc over it.
+
+		The marker is as wide as the building standing on it, and that building
+		is solid: scattering inside the radius drops crates on the roof of the
+		sandcrawler, or under its floor, where the raycast lands them out of
+		reach either way.
+	]]
+	local skirt = math.max(anchor.Size.X, anchor.Size.Z) * 0.5
 	local angle = rng:NextNumber(0, math.pi * 2)
-	local distance = rng:NextNumber(SCATTER * 0.25, SCATTER)
+	local distance = skirt + rng:NextNumber(SCATTER * 0.25, SCATTER)
 	local spot = anchor.Position + Vector3.new(math.cos(angle) * distance, 0, math.sin(angle) * distance)
 
 	-- Roblox cylinders lie along X, so a droid needs standing up before it

@@ -48,8 +48,21 @@ local Objective = Missions.Objective
 -- a place is not a reflex test, so a second and a half is imperceptible.
 local SWEEP_INTERVAL = 1.5
 
--- How close counts as "reached" for a point of interest.
-local REACH_RADIUS = 28
+--[[
+	How close counts as "reached", measured from the edge of the place rather
+	than its middle.
+
+	Points of interest are buildings now, and the marker is sized to the one
+	standing there. A flat 28 studs from the centre of a sandcrawler is a
+	point inside the hull, which is an objective that cannot be completed by
+	walking; 28 studs from its skirt is what "you are here" means.
+]]
+local REACH_MARGIN = 28
+
+--- Distance at which a player counts as having arrived at `part`.
+local function reachRadius(part: BasePart): number
+	return REACH_MARGIN + math.max(part.Size.X, part.Size.Z) * 0.5
+end
 
 MissionService.missionCompleted = Signal.new()
 
@@ -348,7 +361,7 @@ local function sweepPlayer(player: Player, now: number)
 
 			if obj.kind == Objective.Reach and obj.target then
 				local part = poiPart(profile.currentPlanet, obj.target)
-				if part and (part.Position - position).Magnitude <= REACH_RADIUS then
+				if part and (part.Position - position).Magnitude <= reachRadius(part) then
 					table.insert(reached, obj.target)
 				end
 			elseif obj.kind == Objective.Deliver and obj.target and obj.destination then
@@ -363,7 +376,11 @@ local function sweepPlayer(player: Player, now: number)
 				local part = poiPart(profile.currentPlanet, obj.destination)
 				local carried = profile.inventory[obj.target] or 0
 				local needed = Missions.objectiveTarget(obj)
-				if part and carried >= needed and (part.Position - position).Magnitude <= REACH_RADIUS then
+				if
+					part
+					and carried >= needed
+					and (part.Position - position).Magnitude <= reachRadius(part)
+				then
 					table.insert(delivered, { item = obj.target, count = needed })
 				end
 			end
