@@ -468,7 +468,26 @@ function MissionService.start()
 		end
 	end)
 
-	npcs.interacted:connect(function(player: Player, _model: Model, archetypeId: string)
+	--[[
+		Who each player has already spoken to.
+
+		"Talk to four Jawas" is a fake objective if pressing E four times at the
+		same Jawa finishes it, so a given NPC only ever counts once. Weak keys
+		on both levels: NPCs die and respawn constantly and players leave, and
+		neither should be kept alive by a bookkeeping table.
+	]]
+	local spokenTo: { [Player]: { [Model]: boolean } } = setmetatable({}, { __mode = "k" }) :: any
+
+	npcs.interacted:connect(function(player: Player, model: Model, archetypeId: string)
+		local seen = spokenTo[player]
+		if not seen then
+			seen = setmetatable({}, { __mode = "k" }) :: any
+			spokenTo[player] = seen
+		end
+		if seen[model] then
+			return
+		end
+		seen[model] = true
 		MissionService.report(player, Objective.TalkTo, archetypeId, 1)
 	end)
 

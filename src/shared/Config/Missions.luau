@@ -131,11 +131,17 @@ def({
 			planet = "Tatooine",
 			description = "Find the sandcrawler in the wastes",
 		},
+		--[[
+			Talking, not killing. This was four dead Jawas under a description
+			that promised a conversation -- and the Jawa is an unarmed Wander
+			archetype with a Trade prompt, so the only way to move the counter
+			was to open fire on peaceful traders. TalkTo says what it means.
+		]]
 		{
-			kind = Objective.Kill,
+			kind = Objective.TalkTo,
 			target = "Jawa",
 			count = 4,
-			description = "Convince the Jawas to hand it over",
+			description = "Ask the Jawas at the crawler about it",
 		},
 		{
 			kind = Objective.Collect,
@@ -179,9 +185,12 @@ def({
 			count = 6,
 			description = "Break up the Imperial patrol",
 		},
+		-- A place, so Reach. This was a TalkTo aimed at a point of interest,
+		-- which matches against archetype ids and so matched nothing at all.
 		{
-			kind = Objective.TalkTo,
+			kind = Objective.Reach,
 			target = "ChalmunsCantina",
+			planet = "Tatooine",
 			description = "Lie low in Chalmun's Cantina",
 		},
 	},
@@ -508,7 +517,17 @@ def({
 	giver = "NabooGuard",
 	minLevel = 10,
 	objectives = {
-		{ kind = Objective.TalkTo, target = "TheedInformant", description = "Find the informant in Theed" },
+		--[[
+			`TheedInformant` was not an archetype, so this could never tick.
+			The protocol droid is the informant now: on Naboo it spawns only in
+			the City zone, which is Theed, so the objective is still tied to
+			the place the description names.
+		]]
+		{
+			kind = Objective.TalkTo,
+			target = "ProtocolDroid",
+			description = "Ask the protocol droids in Theed",
+		},
 		{
 			kind = Objective.Reach,
 			target = "HiddenTemple",
@@ -620,10 +639,13 @@ def({
 	minLevel = 16,
 	requiredRep = 150,
 	objectives = {
+		-- Was `DelinquentDealer`, which is not an archetype. Jawas are the only
+		-- thing Nar Shaddaa puts in the Refuge zone, so a Jawa dealer keeps the
+		-- objective where the description says it is.
 		{
 			kind = Objective.TalkTo,
-			target = "DelinquentDealer",
-			description = "Find the dealer in the Refugee Sector",
+			target = "Jawa",
+			description = "Find the Jawa dealer in the Refugee Sector",
 		},
 		{ kind = Objective.Kill, target = "Smuggler", count = 5, description = "Deal with his hired help" },
 		{
@@ -929,6 +951,26 @@ function Missions.validate(): { string }
 			end
 			if obj.kind == Objective.Kill and obj.target and not NPCArchetypes.exists(obj.target) then
 				table.insert(problems, `{id}: objective {i} targets unknown archetype "{obj.target}"`)
+			end
+			--[[
+				TalkTo is matched against the archetype id of whoever the
+				player just spoke to, so its target has to be an archetype.
+				Three shipped naming characters that were never written --
+				`TheedInformant`, `DelinquentDealer` -- and one naming a point
+				of interest, and all four were objectives that could be
+				accepted and never completed.
+			]]
+			if obj.kind == Objective.TalkTo then
+				if not obj.target then
+					table.insert(problems, `{id}: objective {i} talks to nobody in particular`)
+				elseif not NPCArchetypes.exists(obj.target) then
+					table.insert(problems, `{id}: objective {i} talks to unknown archetype "{obj.target}"`)
+				elseif not NPCArchetypes.get(obj.target).interactable then
+					table.insert(
+						problems,
+						`{id}: objective {i} talks to "{obj.target}", which is not interactable`
+					)
+				end
 			end
 			--[[
 				Reach and Deliver resolve their target against the planet's

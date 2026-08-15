@@ -73,14 +73,31 @@ missions wanting the same crate cannot both be paid for it.
 `Outfits`: these are carried and spent, not owned and equipped). `Missions.validate`
 now checks `at` and item ids, and `WaypointController` points at `Collect`.
 
-### 1.3 Dialogue system — **[gap]**
-`StartDialogue` / `DialogueChoice` / `EndDialogue` remotes are declared
-(`Net.luau:354-356`) with no server handler and no client UI. `TalkTo` has a
-report path (`MissionService.luau:413`) with no caller.
+### 1.3 Dialogue system — **[done]**
+`Config/Dialogue.luau` holds 17 authored trees; `DialogueService.luau` runs the
+conversation entirely on the server; `DialogueController.luau` draws it. The
+panel is 250 tall and sits at the bottom of the screen rather than covering it,
+so you keep looking at the person you are talking to. Replies are numbered and
+the number keys work.
 
-Build: dialogue trees in `src/shared/Config/Dialogue.luau`, a server service, a
-client panel. This also unblocks `TalkTo` objectives and gives quest-givers a
-purpose beyond standing still.
+The client is sent a node and a list of replies and answers with an *index into
+that list*, so it can only ever pick something it was actually offered. There is
+no client-callable "start talking" remote either — `NPCService`'s proximity
+prompt is the only way in, so there is no range check to spoof.
+
+Mission offers are derived, not authored: the "anything that needs doing?" reply
+builds itself from `Missions.boardFor` filtered by `giver`, so a new mission
+with `giver = "Merchant"` is offered by every merchant in the galaxy with no
+dialogue edit.
+
+`TalkTo` finally has a caller, deduped per NPC so pressing E four times at one
+Jawa is not four conversations. Four `TalkTo` objectives were also broken:
+"convince the Jawas" was authored as a **Kill** against unarmed traders, one
+pointed at a point of interest, and two named characters (`TheedInformant`,
+`DelinquentDealer`) that were never written. `Missions.validate` now rejects a
+`TalkTo` whose target is not an interactable archetype. Four mission givers
+(BountyHunter, CartelEnforcer, RebelTrooper, NabooGuard) had no prompt at all
+and were unreachable except through the M board.
 
 ### 1.4 Vendor discovery — **[todo]**
 `ShopService` finds vendors within 30 studs, but there is no in-world cue. You
@@ -97,13 +114,13 @@ Points had been accumulating unspendable since the first kill: `SpendSkillPoint`
 `ProgressionService.purchaseSkill` and the 18 nodes all existed, and nothing on
 the client ever fired the remote.
 
-> With 1.1 and 1.2 done, the Tatooine chain is completable end to end. The
-> remaining blocker is `TalkTo` (1.3), which gates every mission with a
-> quest-giver conversation in it.
+> With 1.1, 1.2, 1.3 and 1.5 done, every objective kind now has a way to be
+> completed and every mission has a person to take it from.
 
 **Phase 1 exit criterion:** a new player can spawn, be pointed at a quest-giver,
 accept a mission, complete every objective kind, and turn it in for credits.
-That is the actual game loop, and it does not exist today.
+**Met on paper — needs a playtest to confirm it in practice.** 1.4 is the last
+piece of polish: vendors work, but nothing in the world says where they are.
 
 ---
 

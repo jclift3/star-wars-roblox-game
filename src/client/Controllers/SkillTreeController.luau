@@ -56,7 +56,7 @@ local BAD = Color3.fromRGB(198, 78, 78)
 local TOGGLE_KEY = Enum.KeyCode.K
 
 -- Panels that own the whole screen. Opening one closes the rest.
-local OTHER_PANELS = { "InventoryController", "MissionBoardController" }
+local OTHER_PANELS = { "InventoryController", "MissionBoardController", "DialogueController" }
 
 local PIP_COUNT = Progression.MAX_NODE_RANK
 

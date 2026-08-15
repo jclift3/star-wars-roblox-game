@@ -57,16 +57,25 @@ local function effects()
 	return ServiceLoader.get("EffectsController")
 end
 
+-- Dialogue is in this list without being full-screen: it does not cover the
+-- world, but picking a reply is still a click on a button in front of a person.
+local FOCUS_PANELS = {
+	"InventoryController",
+	"MissionBoardController",
+	"SkillTreeController",
+	"DialogueController",
+}
+
 --[[
-	True while a full-screen panel has the player's attention. Clicking a Buy
-	button should not also put a bolt through the shopkeeper standing behind it.
+	True while a panel has the player's attention. Clicking a Buy button should
+	not also put a bolt through the shopkeeper standing behind it.
 
 	Deliberately a `find` rather than a `get`: this runs on every click, and if
 	the inventory panel ever fails to load, the cost should be a shop you cannot
 	open -- not a game you cannot shoot in.
 ]]
 local function uiHasFocus(): boolean
-	for _, name in { "InventoryController", "MissionBoardController", "SkillTreeController" } do
+	for _, name in FOCUS_PANELS do
 		local panel = ServiceLoader.find(name)
 		if panel ~= nil and panel.isOpen() == true then
 			return true

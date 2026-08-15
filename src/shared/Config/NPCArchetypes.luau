@@ -309,7 +309,9 @@ def({
 	xpReward = 45,
 	creditReward = { min = 20, max = 60 },
 	repOnKill = -35,
+	dialogue = "RebelTrooper",
 	nameStyle = "Common",
+	interactable = true,
 })
 
 def({
@@ -410,7 +412,9 @@ def({
 	xpReward = 90,
 	creditReward = { min = 40, max = 110 },
 	repOnKill = -70,
+	dialogue = "NabooGuard",
 	nameStyle = "Common",
+	interactable = true,
 })
 
 --------------------------------------------------------------------------------
@@ -450,6 +454,7 @@ def({
 	repOnKill = -100,
 	dialogue = "BountyHunter",
 	nameStyle = "Underworld",
+	interactable = true,
 })
 
 def({
@@ -499,7 +504,9 @@ def({
 	xpReward = 180,
 	creditReward = { min = 90, max = 240 },
 	repOnKill = -80,
+	dialogue = "CartelEnforcer",
 	nameStyle = "Underworld",
+	interactable = true,
 })
 
 def({

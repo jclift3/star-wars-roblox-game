@@ -521,7 +521,7 @@ function MissionBoardController.setOpen(value: boolean)
 		-- Every full-screen panel is the same size in the same place. `find`
 		-- rather than `get` so a broken inventory costs an overlapping panel,
 		-- not a board that refuses to open.
-		for _, name in { "InventoryController", "SkillTreeController" } do
+		for _, name in { "InventoryController", "SkillTreeController", "DialogueController" } do
 			local panel = ServiceLoader.find(name)
 			if panel then
 				panel.setOpen(false)
