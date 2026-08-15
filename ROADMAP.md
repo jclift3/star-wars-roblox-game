@@ -180,24 +180,24 @@ same generator with different colours.
   (`:42-44`) — about 65 seconds across. That is ~12% of the map area.
 - Everything beyond radius 610 is empty ground with scattered boulders.
 
-**Landmarks are not modelled and do not match canon.** Points of interest are
-placed by dividing a circle evenly by index, at a fixed radius of 286 studs
-(`PlanetBuilder.luau:625-632`):
+**Landmarks have shapes now, but not authored ones.** Until 2026-08-14 every
+point of interest was an *invisible* 40x20x40 marker: Mos Eisley, Chalmun's
+Cantina, Jabba's Palace and the Sandcrawler Wreck existed only as mission `Reach`
+targets, so the waypoint sent you into empty desert and the objective ticked
+anyway. `PlanetBuilder`'s Landmarks section now builds eight kinds — Sandcrawler,
+Ruin, Spaceport, Cantina, Base, Outpost, Market, Temple — chosen by
+`PointOfInterest.landmark or .kind`, each with a nameplate and a declared radius.
+That radius is the contract for how big a place is: reach is measured from the
+marker's edge and quest items scatter in a ring outside it.
 
-```lua
-local angle = (index - 1) * (math.pi * 2 / #planet.pointsOfInterest)
-local distance = SETTLEMENT_RADIUS * 0.55
-```
-
-So Mos Eisley, Chalmun's Cantina, Jabba's Palace and the Lars Homestead are four
-*invisible* 40x20x40 marker parts, 90 degrees apart on one circle, all the same
-distance from downtown. They exist only as mission `Reach` targets. Canonically
-the Lars homestead is a long ride out into the Jundland Wastes; here it is 286
-studs from the cantina.
+They are still *generic* buildings, and they are still placed by dividing a
+circle evenly by index within the POI's zone. Chalmun's Cantina is the same drum
+as any other cantina. Canonically the Lars homestead is a long ride out into the
+Jundland Wastes; here it is a few hundred studs from the cantina.
 
 To do:
-- Hand-authored landmark geometry for the headline locations — Chalmun's
-  Cantina interior, Jabba's Palace, the Mos Eisley docking bays
+- Hand-authored geometry for the headline locations — Chalmun's Cantina
+  interior, Jabba's Palace, the Mos Eisley docking bays
 - Per-planet layout data (landmark positions) instead of `evenly spaced on a
   circle`, so the map has a shape you can learn and navigate by memory
 - Decide the scale target. If speeders land in Phase 2b, the map can grow;
