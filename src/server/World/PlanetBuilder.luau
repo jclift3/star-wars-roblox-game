@@ -601,16 +601,24 @@ local function ball(parent: Instance, cf: CFrame, size: Vector3, color: Color3, 
 	return p
 end
 
---- A name floating over a landmark, so a place says what it is.
-local function nameplate(parent: Instance, position: Vector3, text: string)
+--[[
+	A name floating over a landmark, so a place says what it is.
+
+	`sightRange` is the distance the sign gives up at, and it is derived from
+	the landmark's own size rather than fixed. A flat 900 studs signed
+	everything identically, and because a BillboardGui is drawn with
+	`LightInfluence = 0` it ignores the fog that is busy hiding the building
+	underneath it -- so a small structure out on the edge of town was a crisp
+	label hanging over an empty horizon. A sign should not outrun the thing it
+	is pointing at.
+]]
+local function nameplate(parent: Instance, position: Vector3, text: string, sightRange: number)
 	local anchor = marker(parent, "Nameplate", position, Vector3.new(1, 1, 1))
 
 	local gui = Instance.new("BillboardGui")
 	gui.Name = "Sign"
 	gui.Size = UDim2.fromOffset(320, 40)
-	-- Readable across a district but not from the next one: a horizon full of
-	-- floating labels is a map screen, not a world.
-	gui.MaxDistance = 900
+	gui.MaxDistance = sightRange
 	gui.LightInfluence = 0
 	gui.Parent = anchor
 
@@ -1169,7 +1177,10 @@ local function buildLandmark(
 )
 	local site = folder(poi.id, parent)
 	local top = def.build(site, position, style, rng)
-	nameplate(site, position + Vector3.new(0, top + 10, 0), poi.displayName)
+	-- Roughly where the structure stops being a shape and starts being a
+	-- speck: a cantina announces itself across its own street, a spaceport
+	-- across the district.
+	nameplate(site, position + Vector3.new(0, top + 10, 0), poi.displayName, 240 + def.radius * 4)
 end
 
 --------------------------------------------------------------------------------

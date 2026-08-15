@@ -184,10 +184,17 @@ def({
 		{ id = "Town", distance = 0 },
 		{ id = "Market", distance = 0.3 },
 		{ id = "Cantina", distance = 0.5 },
-		{ id = "Farmstead", distance = 1 },
-		{ id = "Wastes", distance = 1.3 },
-		{ id = "Palace", distance = 1.7 },
-		{ id = "DuneSea", distance = 2.1 },
+		-- The outer four used to run out to 2.1 -- 1092 studs, most of a
+		-- kilometre of empty sand -- which left five of this planet's six
+		-- landmarks as smudges in the fog and made the walk between
+		-- districts dead time. Pulled in so they read as one settlement's
+		-- outskirts. The ordering is what matters rather than the scale:
+		-- this is still the difficulty dial, and the Dune Sea is still the
+		-- far edge with the Tuskens on it.
+		{ id = "Farmstead", distance = 0.8 },
+		{ id = "Wastes", distance = 1.05 },
+		{ id = "Palace", distance = 1.3 },
+		{ id = "DuneSea", distance = 1.6 },
 	},
 	spawns = {
 		{ archetype = "Jawa", count = 14, zone = "Wastes" },
