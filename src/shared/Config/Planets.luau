@@ -211,32 +211,45 @@ def({
 		{ archetype = "BountyHunter", count = 3, zone = "Cantina" },
 	},
 	pointsOfInterest = {
+		--[[
+			THESE NAMES ARE THREE AND A HALF THOUSAND YEARS EARLY
+
+			They used to be Mos Eisley, Chalmun's Cantina, Jabba's Palace and
+			the Lars Homestead -- every one of them Original Trilogy, and none
+			of them existing in 3,640 BBY. Chalmun, Jabba and the Lars family
+			are all unborn by several millennia.
+
+			Tatooine itself is era-correct and stays: it is a Star Map world
+			in KOTOR and a full planet in the era this game is set in, with
+			Anchorhead, Czerka Corporation, Jawas and Sand People all present.
+			So the planet is right and only the signage was wrong.
+		]]
 		{
-			id = "MosEisley",
-			displayName = "Mos Eisley",
+			id = "Anchorhead",
+			displayName = "Anchorhead",
 			kind = "Spaceport",
-			description = "You will never find a more wretched hive. Watch your step and your credits.",
+			description = "A mining town that grew a landing field. Czerka runs it, and Czerka is not sentimental.",
 			zone = "Town",
 		},
 		{
-			id = "ChalmunsCantina",
-			displayName = "Chalmun's Cantina",
+			id = "DuneCantina",
+			displayName = "The Dry Well",
 			kind = "Cantina",
-			description = "Music, smugglers, and a strict no-droids policy.",
+			description = "Warm drinks, cold company, and every rumour on the planet for the price of listening.",
 			zone = "Cantina",
 		},
 		{
-			id = "JabbasPalace",
-			displayName = "Jabba's Palace",
+			id = "HuttEstate",
+			displayName = "Nagurra's Estate",
 			kind = "Base",
-			description = "Cartel headquarters. You get in by invitation or by force.",
+			description = "A Hutt's compound behind a wall. You get in by invitation or by force.",
 			zone = "Palace",
 		},
 		{
-			id = "LarsHomestead",
-			displayName = "Lars Homestead",
+			id = "MoistureFarm",
+			displayName = "Vantel Moisture Farm",
 			kind = "Outpost",
-			description = "A moisture farm on the edge of the Dune Sea.",
+			description = "Forty vaporators and one family, on the edge of the Dune Sea.",
 			zone = "Farmstead",
 		},
 		{

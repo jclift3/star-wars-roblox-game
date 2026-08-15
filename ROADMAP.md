@@ -225,8 +225,8 @@ same generator with different colours.
 - Everything beyond radius 610 is empty ground with scattered boulders.
 
 **Landmarks have shapes now, but not authored ones.** Until 2026-08-14 every
-point of interest was an *invisible* 40x20x40 marker: Mos Eisley, Chalmun's
-Cantina, Jabba's Palace and the Sandcrawler Wreck existed only as mission `Reach`
+point of interest was an *invisible* 40x20x40 marker: the spaceport, the cantina,
+the Hutt's estate and the Sandcrawler Wreck existed only as mission `Reach`
 targets, so the waypoint sent you into empty desert and the objective ticked
 anyway. `PlanetBuilder`'s Landmarks section now builds eight kinds — Sandcrawler,
 Ruin, Spaceport, Cantina, Base, Outpost, Market, Temple — chosen by
@@ -234,10 +234,18 @@ Ruin, Spaceport, Cantina, Base, Outpost, Market, Temple — chosen by
 That radius is the contract for how big a place is: reach is measured from the
 marker's edge and quest items scatter in a ring outside it.
 
-They are still *generic* buildings, and they are still placed by dividing a
-circle evenly by index within the POI's zone. Chalmun's Cantina is the same drum
-as any other cantina. Canonically the Lars homestead is a long ride out into the
-Jundland Wastes; here it is a few hundred studs from the cantina.
+They are still *generic* buildings, and they are still placed on a compass fan
+by index within the POI's zone. The Dry Well is the same drum as any other
+cantina, and the moisture farm is a few hundred studs from it rather than a long
+ride out into the Wastes.
+
+**Tatooine's place names were re-dated 2026-08-14.** They were Mos Eisley,
+Chalmun's Cantina, Jabba's Palace and the Lars Homestead — all Original Trilogy,
+all roughly 3,600 years after this game is set. They are now Anchorhead, the Dry
+Well, Nagurra's Estate and the Vantel Moisture Farm. The planet itself was never
+in question: Tatooine is a Star Map world in KOTOR and a full planet in SWTOR.
+**Every other world still needs the same pass** — the archetypes are still named
+Stormtrooper and the factions still Empire and Rebellion.
 
 ### 3.1 The layout system — **[todo]**
 The mechanism, designed in [PLANETS.md](PLANETS.md) §2. Four pieces:

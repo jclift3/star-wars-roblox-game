@@ -1299,19 +1299,31 @@ local function buildMarkers(
 		return anchors[bestIndex]
 	end
 
+	local poiCount = math.max(1, #planet.pointsOfInterest)
+
 	for index, poi in planet.pointsOfInterest do
 		local position
 		local centre = if poi.zone then centres[poi.zone] else nil
+		--[[
+			Each landmark gets its own slice of the compass, the way the
+			districts already do, instead of a free-for-all bearing.
+
+			The bearing survives everything downstream -- the oversize rule
+			below pushes a landmark straight out along it -- so two rolls of
+			the same angle put two buildings on one line of sight, and their
+			signs render stacked on top of each other. Anchorhead and the
+			cantina were doing exactly that.
+		]]
+		local angle = (index - 1) * (math.pi * 2 / poiCount) + rng:NextNumber(-0.25, 0.25)
+
 		if centre then
 			-- Outside the patrol ring, so the landmark is among its people
 			-- without standing on top of one of their waypoints.
-			local angle = rng:NextNumber(0, math.pi * 2)
 			position = centre
 				+ Vector3.new(math.cos(angle) * LANDMARK_OFFSET, 0, math.sin(angle) * LANDMARK_OFFSET)
 		else
 			-- No district named: fall back to an even circle. Honest rather
 			-- than wrong -- it is somewhere, just nowhere in particular.
-			local angle = (index - 1) * (math.pi * 2 / math.max(1, #planet.pointsOfInterest))
 			local distance = SETTLEMENT_RADIUS * 0.55
 			position = origin + Vector3.new(math.cos(angle) * distance, 0, math.sin(angle) * distance)
 		end

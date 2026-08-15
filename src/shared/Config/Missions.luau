@@ -153,8 +153,8 @@ def({
 		{
 			kind = Objective.Deliver,
 			target = "AstromechDroid",
-			destination = "LarsHomestead",
-			description = "Return the droid to the homestead",
+			destination = "MoistureFarm",
+			description = "Return the droid to the farm",
 		},
 	},
 	rewards = {
@@ -170,7 +170,7 @@ def({
 	id = "TatUnwelcomeAttention",
 	displayName = "Unwelcome Attention",
 	summary = "The Empire noticed you asking questions. Deal with the patrol.",
-	briefing = "Word travels in Mos Eisley. A patrol has been asking after the offworlder who went into the Dune Sea. That is you.",
+	briefing = "Word travels in Anchorhead. A patrol has been asking after the offworlder who went into the Dune Sea. That is you.",
 	debriefing = "They will send more. They always do. But you have bought yourself some room.",
 	kind = "Story",
 	faction = "Independent",
@@ -189,9 +189,9 @@ def({
 		-- which matches against archetype ids and so matched nothing at all.
 		{
 			kind = Objective.Reach,
-			target = "ChalmunsCantina",
+			target = "DuneCantina",
 			planet = "Tatooine",
-			description = "Lie low in Chalmun's Cantina",
+			description = "Lie low in the Dry Well",
 		},
 	},
 	rewards = {
@@ -206,8 +206,8 @@ def({
 def({
 	id = "TatTheHuttsFavour",
 	displayName = "The Hutt's Favour",
-	summary = "Jabba's people have a job, and refusing is its own kind of answer.",
-	briefing = "The Great Jabba has heard of you. He does not extend invitations twice. Bring him the spice a courier lost in the wastes.",
+	summary = "The Hutt's people have a job, and refusing is its own kind of answer.",
+	briefing = "The Great Nagurra has heard of you. He does not extend invitations twice. Bring him the spice a courier lost in the wastes.",
 	debriefing = "The Hutt is satisfied. That is worth more on this rock than credits.",
 	kind = "Story",
 	faction = "Hutt",
@@ -233,8 +233,8 @@ def({
 		{
 			kind = Objective.Deliver,
 			target = "SpiceCrate",
-			destination = "JabbasPalace",
-			description = "Deliver the spice to Jabba's Palace",
+			destination = "HuttEstate",
+			description = "Deliver the spice to Nagurra's estate",
 		},
 		{
 			kind = Objective.Kill,

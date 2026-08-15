@@ -173,15 +173,21 @@ four origins land here, so it is the only planet that has to work four ways.
 
 | District | Band | Contains |
 |---|---|---|
-| Mos Eisley Spaceport | 6–8 | Docking bay pits, customs, the first vendor |
+| Anchorhead Landing | 6–8 | Docking bay pits, Czerka customs, the first vendor |
 | The Market | 6–9 | Stalls, Jawa traders, the general goods shop |
-| Cantina Row | 8–11 | Chalmun's, back rooms, the Mandalorian |
-| The Flats | 7–10 | Moisture farms, vaporators, Lars-style sunken homesteads |
-| Jundland Wastes | 11–14 | Rock, the sandcrawler wreck, Tusken territory |
+| Cantina Row | 8–11 | The Dry Well, back rooms, the Mandalorian |
+| The Flats | 7–10 | Moisture farms, vaporators, sunken courtyard homesteads |
+| Jundland Wastes | 11–14 | Rock, the sandcrawler wreck, Sand People territory |
 | Dune Sea | 13–16 | The downed Czerka transport. Nothing else. Deliberately empty. |
-| Jabba's Palace | 12–15 | Gate, audience chamber, the collection |
+| Nagurra's Estate | 12–15 | Gate, audience chamber, the collection |
 
-**Prefab vocabulary:** `DomedHut`, `SunkenHut` (Lars-style courtyard), `Vaporator`,
+> **Names are era-locked.** Anchorhead and Czerka are the KOTOR/SWTOR-era
+> settlement and corporation; Mos Eisley, Chalmun, Jabba and the Lars family are
+> all Original Trilogy and roughly 3,600 years too late. Tatooine itself is
+> correct for 3,640 BBY and stays — it is a Star Map world in KOTOR — so only the
+> signage needed changing. The same rule applies to every other planet here.
+
+**Prefab vocabulary:** `DomedHut`, `SunkenHut` (courtyard farmstead), `Vaporator`,
 `JawaTent`, `SandcrawlerHull`, `MarketStall`, `DockingBayPit`, `CantinaBlock`,
 `PalaceGate`, `MoistureCistern`, `Boulder`, `BantheBones`.
 
@@ -191,7 +197,7 @@ Row, and *not* aggressive), Imperial Scout (light presence — the Empire does n
 own this planet), one **Hollowed** wandering the Market.
 
 **Beats:** the salvaged crate; the buyer chain through the market; the Mandalorian
-who wants the same transport; Jabba's collection; the Czerka recovery team and
+who wants the same transport; the Hutt's collection; the Czerka recovery team and
 the shipping code that points at Nar Shaddaa.
 
 **Cameo:** Mandalore the Vindicated, in the cantina, sanctioning entry to the
@@ -266,7 +272,8 @@ Undercity the **Hollowed** in numbers — Czerka stores them here.
 **Beats (prologue):** Czerka strips your dig; you find the container.
 **Beats (Act 2):** Lot 9; Nine remembering; the manifests.
 
-**Cameo:** HK-47, in pieces, in a Czerka lot. Optional and missable.
+**Cameo:** HK-47's parts, in Lot 9 — shipped here from Anchorhead on Tatooine,
+where the player met him intact and could not afford him. Optional and missable.
 
 ---
 

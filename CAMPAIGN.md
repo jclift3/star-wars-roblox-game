@@ -187,13 +187,13 @@ to finish first: it is already the most built, and it has to work for all four
 prologues.
 
 A Jawa clan scavenged a Czerka transport that came down in the Dune Sea, and sold
-the salvage all over Mos Eisley before anyone realised one of the crates had a
-person in it. She is hollow, she is alive, and she is now in Jabba's collection
+the salvage all over Anchorhead before anyone realised one of the crates had a
+person in it. She is hollow, she is alive, and she is now in Nagurra's collection
 because a Hutt will buy anything unusual.
 
 Beats: find who bought the crates → the moisture farmers who found her →
 the cantina, where a Mandalorian on the Great Hunt is looking for the same
-transport for different reasons → Jabba's Palace, where you can buy her,
+transport for different reasons → Nagurra's estate, where you can buy her,
 steal her, or trade her for something worse.
 
 Ends with a Czerka recovery team arriving to take her back, and a shipping code
@@ -416,8 +416,16 @@ known one. Roughly one per act, never a party member, never a fight you win.
   a room you are hiding in. You survive by not being noticed. No health bar.
 - **Grand Master Satele Shan** — Act 3, Tython. One conversation, in which she
   declines to help and is right to.
-- **HK-47** — findable on Taris, in pieces, in a Czerka lot. Nine's ancestor and
-  the game's best gag. Optional, missable, worth the trouble.
+- **HK-47** — found on **Tatooine**, powered down in a Czerka lot in Anchorhead
+  and priced far beyond anything a level 8 character can raise. This is where
+  KOTOR sells him, so it is the callback a player who knows that game will
+  actually catch. He says four things and shuts himself off again.
+
+  The parts then follow Czerka's own paperwork to **Taris, Lot 9**, which is
+  where the Scrapper's Memory Core sits in Act 2. The gag on the first planet
+  turns out to have been the setup for a signature chain twenty levels later,
+  and Taris's "manifests" beat finally has something to point back at.
+  Optional and missable in both places.
 - **Mandalore the Vindicated** — Act 1 and again in Act 4. Sanctions your entry
   into the Great Hunt, which is how a Combat player gets their endgame weapon.
 - **Nico Okarr** — Nar Shaddaa. Sells you a bad ship and a good tip.
