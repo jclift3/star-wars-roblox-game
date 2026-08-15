@@ -6,6 +6,15 @@ than a sandbox. Ordered so that each phase produces something playable.
 Status legend: **[done]** shipped · **[gap]** built but unreachable in-game ·
 **[todo]** not written yet.
 
+**Companion documents**
+
+| Document | Answers |
+|---|---|
+| [CAMPAIGN.md](CAMPAIGN.md) | When it is set, what the story is, who you play as, who you meet |
+| [PLANETS.md](PLANETS.md) | What is on each world, and how a map gets hand-authored |
+
+This file stays the build order. Those two are the content.
+
 ---
 
 ## The one-line summary
@@ -40,6 +49,34 @@ soldier who play differently and cover each other. The four skill trees
 (Combat / Piloting / Force / Engineering) are already shaped for this; what is
 missing is a reason to specialize, which means abilities that only deep
 investment unlocks, not just bigger numbers.
+
+---
+
+## Campaign direction — decided 2026-08-14
+
+Four decisions, taken together, that everything after Phase 2 depends on. Full
+reasoning in [CAMPAIGN.md](CAMPAIGN.md).
+
+1. **Era: the Old Republic, ~3,640 BBY.** The Sith Empire and the Republic in
+   open war after the Sacking of Coruscant. Chosen because it is the only era
+   where a Sith orphan is *normal* — the Korriban Academy is a school full of
+   them — and because both sides are governments, so a Sith player and a
+   Republic player can co-op without either being a traitor.
+2. **Four origins that converge.** Acolyte (Force), Conscript (Combat),
+   Scoundrel (Piloting), Scrapper (Engineering) — one per existing skill tree, so
+   it adds no new axis. A ~20 minute prologue each, then a shared main story.
+   Each origin's mentor becomes another origin's stranger.
+3. **Cameos only; the player stays a nobody.** Malgus, Satele Shan, HK-47,
+   Mandalore. Set pieces and quest-givers, never party members, never a fight
+   you win.
+4. **Authored layouts, generated buildings.** An ASCII tile map per planet in
+   config; the geometry stays procedural code. See PLANETS.md §2.
+
+**Cost of the era decision:** Naboo, Kamino, Mustafar and Endor are replaced by
+Korriban, Tython, Taris and Dromund Kaas. Eight archetypes are renamed, one is
+cut, six are added. All 15 missions are rewritten — they were 5 unconnected
+chains with no theme, so that was owed anyway. Every service, weapon, outfit and
+skill is untouched: the engine does not care what era it is.
 
 ---
 
@@ -195,18 +232,71 @@ circle evenly by index within the POI's zone. Chalmun's Cantina is the same drum
 as any other cantina. Canonically the Lars homestead is a long ride out into the
 Jundland Wastes; here it is a few hundred studs from the cantina.
 
-To do:
-- Hand-authored geometry for the headline locations — Chalmun's Cantina
-  interior, Jabba's Palace, the Mos Eisley docking bays
-- Per-planet layout data (landmark positions) instead of `evenly spaced on a
-  circle`, so the map has a shape you can learn and navigate by memory
-- Decide the scale target. If speeders land in Phase 2b, the map can grow;
-  without them, 3000 studs is already near the limit of tolerable walking.
+### 3.1 The layout system — **[todo]**
+The mechanism, designed in [PLANETS.md](PLANETS.md) §2. Four pieces:
 
-Worth deciding early: **canon-accurate or canon-flavoured?** Accurate layouts
-mean hand-building each site and living with their real distances. Flavoured
-means recognizable landmarks arranged for playability. The current answer is
-neither — it is random.
+- **Prefabs.** Promote `PlanetBuilder`'s `LANDMARKS` table to
+  `src/server/World/Prefabs/`, one module per family, grown from 8 entries to
+  ~40. A prefab still declares its `radius` before it builds — that contract is
+  already load-bearing for reach and pickups.
+- **An ASCII tile map per planet**, one glyph per 40-stud cell with a per-planet
+  legend, held in `Config/Planets.luau`. A 32x32 grid covers the whole walkable
+  town. You can see the map in the diff, and the boys can move a tent without
+  reading Luau.
+- **Districts as rectangles** in cell coordinates, each with a `band` giving the
+  level range of NPCs that spawn there. This is also Phase 4's "per-zone level
+  bands" item, and it is the permanent fix for the `Behavior.Aggressive` hazard:
+  a declared band can be validated against the archetypes placed in it.
+- **Validation.** Unknown glyph, missing prefab, overlapping radii, district
+  outside the grid, archetype outside its band. Every one of those currently
+  fails silently.
+
+Wilderness stays generated. A hand-authored 3000x3000 map is not worth it, and
+scattered boulders are fine out there.
+
+### 3.2 The eight worlds — **[todo]**
+Contents specified per planet in [PLANETS.md](PLANETS.md) §3. Build order is
+depth-first: **Tatooine completely** (layout, ~12 prefabs, banded districts,
+Act 1) as the vertical slice, then extract the layout system from what that
+taught, then Korriban, then the rest.
+
+The structural win: **four planets are both an origin world and a later act** —
+Korriban, Taris, Nar Shaddaa and Coruscant. That halves the worlds needing a high
+finish and buys the best beat in any RPG for free, which is returning at level 40
+to the district that nearly killed you at level 3.
+
+**Travel is a hard dependency from the second planet onward.** Phase 2a before
+this goes past Tatooine.
+
+---
+
+## Phase 3b — The campaign
+
+The story, specified in [CAMPAIGN.md](CAMPAIGN.md). Mostly content, but four
+small system changes have to land first.
+
+### 3b.1 Origin — **[todo]**
+`PlayerProfile.origin`, a `Config/Origins.luau`, a creation screen on the
+existing 760x470 panel convention, and an `origin: string?` field on
+`ObjectiveDef` and on the dialogue `Condition`. That last one is what makes four
+prologues affordable: one mission and one conversation can serve all four
+origins and say something different to each.
+
+### 3b.2 Alignment — **[todo]**
+`PlayerProfile.alignment`, clamped -1000..1000, moved by dialogue and mission
+resolution rather than by combat. Gates the deep Force nodes, the saber crystal
+colours already sitting in `Weapons.luau`, and the endings. Deliberately
+separate from `factionRep` — a Sith at +800 alignment is the interesting case.
+
+### 3b.3 Acts, chapters and a journal — **[todo]**
+Nearly free: `MissionDef` already has `requires`, `next`, `minLevel` and
+`requiredRep`, and `boardFor` already respects all four. A campaign is a
+correctly wired `requires` graph. Needs `MissionDef.act`, and a journal view —
+the board is a to-do list, and a mystery needs a record of what happened.
+
+### 3b.4 Flags — **[todo]**
+`PlayerProfile.flags: { [string]: boolean }` plus a `flag` dialogue condition.
+One field, and it is the whole of branching.
 
 ---
 
@@ -214,11 +304,16 @@ neither — it is random.
 
 - ~~Skill tree UI~~ — **done**, see 1.5
 - Loot drops with rolled affixes, and the `profile.inventory` change they need
-- Per-zone level bands + an "you are underlevelled" warning on entry
+- ~~Per-zone level bands~~ — moved into 3.1, where districts declare a `band`.
+  Still owed here: the "you are underlevelled" warning on crossing into one
 - Weapon mods / attachments layered onto `Config/Weapons.luau`
 - Faction reputation consequences. Missions already award rep
-  (`rep = { Rebellion = 120, Empire = -180 }`) and nothing reads it back
-- Companion NPCs
+  (`rep = { Rebellion = 120, Empire = -180 }`) and nothing reads it back.
+  Phase 3b needs this, so it is no longer optional
+- Companion NPCs — Ordo-9 is the argument for them (CAMPAIGN.md §5)
+- **Is a lightsaber bought or earned?** `Weapons.luau` sells one at level 10 for
+  7,500 credits. The era says a saber is a rank. If it stays purchasable the
+  Acolyte origin has no climax
 
 ---
 
@@ -236,7 +331,9 @@ neither — it is random.
 
 - Publish the place (also fixes DataStores — saves currently run memory-only)
 - Onboarding / first-time-user flow
-- Game name. `OuterRimOdyssey` is a placeholder in `default.project.json`
+- Game name. `OuterRimOdyssey` is a placeholder in `default.project.json`, and
+  the era decision makes it actively wrong — only Tatooine and Korriban are Outer
+  Rim. Wants a name from this setting
 - Delete legacy `StarWarsGame/`
 - Playtest with the boys, tune numbers
 
