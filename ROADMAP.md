@@ -43,7 +43,10 @@ because several of them make the content that already exists impossible to
 
 ### Bugs and tuning
 
-**B1. Three worlds are too dark to play.** Reported for Korriban, Coruscant
+**B1, B3 and B5 were fixed on 2026-08-15.** What changed is recorded inline
+below. B2 and B4 are content work and stay open.
+
+**B1. Three worlds are too dark to play.** — **[fixed]** Reported for Korriban, Coruscant
 and — as fog rather than darkness — Ord Mantell. Two independent causes:
 
 - `AtmosphereController` runs a **day/night cycle** (`:297`, Heartbeat advances
@@ -62,6 +65,15 @@ and — as fog rather than darkness — Ord Mantell. Two independent causes:
 The rule to write down: **atmosphere is allowed to set a mood, but never to hide
 a landmark you are being sent to.** A fog end shorter than the distance between
 two points of interest is a bug.
+
+*Fixed:* `ARRIVAL_CLOCK = 9` — you now always land in the morning, instead of
+inheriting whatever hour the *previous* planet's clock had drifted to. Night is
+floored at `MAX_NIGHT = 0.7` so it never reaches full dark, and atmosphere
+density is capped at `MAX_DENSITY = 0.45` (Ord Mantell was landing at 0.58).
+Swamp air came down from 0.5/3.2 to 0.38/2.2. Korriban's ambient went from
+`RGB(90,52,42)` to `RGB(126,82,68)` with `fogEnd` 2400 → 3000; Ord Mantell from
+80/1200 to 220/2400; Coruscant's ambient lifted for the shade between towers.
+Hoth's deliberate whiteout is untouched.
 
 **B2. Every planet's buildings are identical.** Correct, and worse than it
 looks. `PlanetBuilder.styleFor` (`:139`) switches on `planet.terrain` only, and
@@ -85,8 +97,8 @@ fix is not more terrain branches; it is that a planet declares an *architecture*
 independent of its ground, and prefabs carry real shapes. Sith pylons and
 ziggurats are not adobe domes with a red tint.
 
-**B3. Everything charges you on sight from a very long way off.** Half of this
-is already solved and half is real:
+**B3. Everything charges you on sight from a very long way off.** — **[fixed]**
+Half of this was already solved and half was real:
 
 - **Line of sight already exists.** `NPCBrain.hasLineOfSight` (`:278`) raycasts
   from the NPC to the target and excludes both models. Do not build it again.
@@ -101,13 +113,26 @@ is already solved and half is real:
   always. Already recorded as a hazard; this is the second time it has produced
   a visible bug.
 
-Wanted, in rough order of value: a **detection ramp** rather than a boolean —
+*Fixed:* `NPCBrain` gained a **facing cone** — 120 degrees, so an NPC no longer
+notices what is behind it. Inside `PERIPHERAL_RANGE` (22 studs) facing stops
+mattering, because at that distance it hears you. Every archetype's
+`sightRange` came down to 100–150 (SithLord 300 → 140, Jedi 260 → 130,
+ImperialCommando 240 → 130, line infantry 160 → 110), and `MAX_SIGHT_RANGE`
+clamps at 150 whatever the config claims. Being shot from behind still provokes
+normally — that path never went through `findTarget`.
+
+**Left alone deliberately:** the `Behavior.Aggressive` short-circuit. Changing
+it decides whether Korriban has any threat at all for a fresh player, which is
+a design call, not a bug fix. It belongs with N1 (disguises) and the faction-rep
+reader in Phase 4, where reputation finally means something.
+
+Still wanted, in rough order of value: a **detection ramp** rather than a boolean —
 awareness builds with proximity, facing and whether you are moving, so there is
 a moment to back away; **rear/flank arcs** so LOS means a cone rather than a
 sphere; and **stealth as an actual input** (crouch, cover, sprinting is loud).
 That last one is what makes B4 mean something.
 
-**B5. Six of the nineteen skills do nothing at all.** Found while reviewing the
+**B5. Seven of the nineteen skills do nothing at all.** — **[fixed]** Found while reviewing the
 trees. `Config/Progression.luau` defines 19 skills; grepping each `effect.stat`
 for a reader outside `Progression.luau` and `SkillTreeController.luau` finds
 **none** for:
@@ -127,9 +152,19 @@ gain nothing, and the UI happily sells them. Two of Engineering's four are dead
 too. This is failure mode #1 again (a system with no reader), and it is the
 worst instance so far because the player *pays* for it.
 
-Immediate mitigation: mark dead skills as locked/"coming soon" in
-`SkillTreeController` so points cannot be wasted, or refund and hide the tree
-until Phase 2b ships. Proper fix is §4.3 below.
+*Fixed:* `SkillNode` gained an **`unimplemented: string?`** field. `canPurchase`
+refuses those nodes first, before it even looks at your points, so the reason is
+the honest one; the panel already surfaces `canPurchase`'s refusal, and the row
+now reads `COMING SOON` so nobody has to click to find out. Server-side
+enforcement came free, because `ProgressionService` re-checks `canPurchase`.
+
+**Points already spent on those nodes are not refunded** — the ranks are
+harmless, since nothing reads the stats. Worth a migration only if it happens to
+a real save.
+
+**The rule this establishes: a skill does not enter `Progression.luau` without
+either a reader for its stat or an `unimplemented` string.** Proper fix — making
+them real — is §4.3 below.
 
 **B4. Ord Mantell has no missions.** The board reads "No work going on this
 planet right now." It is the Conscript prologue world and has zero entries in

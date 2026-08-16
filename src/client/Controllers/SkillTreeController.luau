@@ -422,8 +422,14 @@ local function renderList()
 
 		-- The level gate is the only thing on a row that can be a hard no, so
 		-- it is the only requirement worth the space; everything else is in
-		-- the detail pane.
-		if profile and profile.level < def.requiredLevel then
+		-- the detail pane. The exception is a skill whose system does not
+		-- exist: that has to be visible without clicking, because the whole
+		-- point is that nobody spends a point on it by accident.
+		if def.unimplemented then
+			tag.Text = "COMING SOON"
+			tag.TextColor3 = DIM
+			name.TextColor3 = DIM
+		elseif profile and profile.level < def.requiredLevel then
 			tag.Text = `Requires level {def.requiredLevel}`
 			tag.TextColor3 = BAD
 		else

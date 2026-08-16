@@ -56,6 +56,20 @@ export type SkillNode = {
 	requires: { string }?,
 	-- Per-rank effect. Read by the systems that care; see `Progression.effect`.
 	effect: { stat: string, perRank: number },
+	--[[
+		Set when nothing in the game reads `effect.stat` yet.
+
+		The 2026-08-15 playtest found seven skills -- the whole Piloting tree
+		among them -- that were purchasable and did nothing, because the
+		systems they multiply do not exist. Points spent on those were simply
+		gone. `canPurchase` refuses these, and the UI shows this string as the
+		reason, so the tree can keep advertising what is coming without
+		charging for it.
+
+		**A skill does not go in this file without either a reader for its
+		stat or this field.**
+	]]
+	unimplemented: string?,
 }
 
 local nodes: { [string]: SkillNode } = {}
@@ -115,7 +129,15 @@ node({
 	effect = { stat = "CritChance", perRank = 0.04 },
 })
 
--- Piloting --------------------------------------------------------------------
+--[[
+	Piloting ------------------------------------------------------------------
+
+	The whole tree is `unimplemented` until ships exist (ROADMAP 2b/2c). Travel
+	is currently priced as a fare rather than fuel, so even Navigator has
+	nothing to reduce.
+]]
+local NO_SHIPS = "Needs starships — not in the game yet"
+
 node({
 	id = "Throttle",
 	tree = "Piloting",
@@ -124,6 +146,7 @@ node({
 	maxRank = 5,
 	requiredLevel = 1,
 	effect = { stat = "ShipSpeedMult", perRank = 0.08 },
+	unimplemented = NO_SHIPS,
 })
 node({
 	id = "Maneuvering",
@@ -134,6 +157,7 @@ node({
 	requiredLevel = 4,
 	requires = { "Throttle" },
 	effect = { stat = "ShipTurnMult", perRank = 0.1 },
+	unimplemented = NO_SHIPS,
 })
 node({
 	id = "ShieldHarmonics",
@@ -143,6 +167,7 @@ node({
 	maxRank = 5,
 	requiredLevel = 6,
 	effect = { stat = "ShipShield", perRank = 25 },
+	unimplemented = NO_SHIPS,
 })
 node({
 	id = "Navigator",
@@ -153,6 +178,7 @@ node({
 	requiredLevel = 10,
 	requires = { "Maneuvering" },
 	effect = { stat = "FuelCostMult", perRank = -0.1 },
+	unimplemented = NO_SHIPS,
 })
 
 -- Force -----------------------------------------------------------------------
@@ -194,6 +220,9 @@ node({
 	requiredLevel = 9,
 	requires = { "ForceSensitive" },
 	effect = { stat = "PushPower", perRank = 0.15 },
+	-- The power itself has never existed. Unlocking it needs the ability
+	-- system in ROADMAP 4.3, which is where the rest of the verbs go too.
+	unimplemented = "Needs the ability system — not in the game yet",
 })
 node({
 	id = "ForceSpeed",
@@ -234,6 +263,9 @@ node({
 	maxRank = 5,
 	requiredLevel = 6,
 	effect = { stat = "SliceTier", perRank = 1 },
+	-- Nothing in the world is sliceable yet; terminals and locked doors come
+	-- with the interiors in ROADMAP 3.1.
+	unimplemented = "Needs sliceable terminals — not in the game yet",
 })
 node({
 	id = "FieldRepair",
@@ -244,6 +276,7 @@ node({
 	requiredLevel = 9,
 	requires = { "Slicer" },
 	effect = { stat = "RepairMult", perRank = 0.12 },
+	unimplemented = NO_SHIPS,
 })
 
 Progression.nodes = nodes
@@ -331,6 +364,11 @@ function Progression.canPurchase(
 	local def = nodes[nodeId]
 	if not def then
 		return false, "Unknown skill"
+	end
+	-- Checked before skill points so the reason is the honest one: you are not
+	-- short of points, there is nothing here to buy yet.
+	if def.unimplemented then
+		return false, def.unimplemented
 	end
 	if skillPoints < 1 then
 		return false, "No skill points available"
