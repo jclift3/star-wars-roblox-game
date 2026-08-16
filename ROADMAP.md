@@ -583,3 +583,19 @@ Also where a galaxy-wide war state, leaderboards or a shared economy would live.
   Studio, or none of the code exists in the place. The plugin goes stale
   silently — if behaviour looks a version old, disconnect and reconnect.
 - There is no offline way to execute Luau. Runtime bugs need a Play test.
+- **Adding a UI panel is one line** in `Shared/Core/Panels.luau`. It used to be
+  six edits across six files, none of which failed loudly when missed.
+
+### Cheat codes
+
+`DevService` listens on normal chat. **Studio or the place owner only** — silent
+for anyone else, so a stranger who guesses a real word learns nothing.
+
+| Code | Effect |
+|---|---|
+| `thereisnocow` | +10,000 cr and up to level 12 — enough to reach most worlds |
+| `iamacolyte` `iamconscript` `iamscoundrel` `iamscrapper` | Set your origin |
+
+The origin codes are the ones that matter: until 3b.1 ships a creation screen
+they are the only way to see that travel differs by background at all. They are
+generated from `Origins.ids()`, so a new origin gets one automatically.
