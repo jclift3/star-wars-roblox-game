@@ -2451,7 +2451,15 @@ local function buildLandmark(
 	-- Roughly where the structure stops being a shape and starts being a
 	-- speck: a cantina announces itself across its own street, a spaceport
 	-- across the district.
-	nameplate(site, position + Vector3.new(0, top + 10, 0), poi.displayName, 240 + def.radius * 4)
+	-- Name first here, kind in brackets: standing in front of the building
+	-- you already know what it is, and the signpost that sent you here is
+	-- the place that leads on the kind.
+	nameplate(
+		site,
+		position + Vector3.new(0, top + 10, 0),
+		`{poi.displayName}  ({poi.kind})`,
+		240 + def.radius * 4
+	)
 end
 
 --------------------------------------------------------------------------------
@@ -2470,13 +2478,17 @@ end
 	its bearing, answers it from the one spot everybody passes through, and
 	is the sort of thing a frontier town would have anyway.
 ]]
-local function buildSignpost(parent: Instance, at: Vector3, places: { { name: string, at: Vector3 } })
+local function buildSignpost(
+	parent: Instance,
+	at: Vector3,
+	places: { { name: string, kind: string, at: Vector3 } }
+)
 	if #places == 0 then
 		return
 	end
 
 	local post = folder("Signpost", parent)
-	local height = 12 + #places * 5
+	local height = 14 + #places * 6
 
 	cylinder(
 		post,
@@ -2496,34 +2508,46 @@ local function buildSignpost(parent: Instance, at: Vector3, places: { { name: st
 		-- A CFrame turned by t about Y sends its local +X to
 		-- (cos t, 0, -sin t), so pointing +X along a bearing of `a` needs -a.
 		local angle = -math.atan2(facing.Z, facing.X)
-		local y = height - 4 - (index - 1) * 5
+		local y = height - 5 - (index - 1) * 6
 
 		local arm = block(
 			post,
-			CFrame.new(at + facing * 9 + Vector3.new(0, y, 0)) * CFrame.Angles(0, angle, 0),
-			Vector3.new(18, 3.5, 1.2),
+			CFrame.new(at + facing * 13 + Vector3.new(0, y, 0)) * CFrame.Angles(0, angle, 0),
+			Vector3.new(26, 5, 1),
 			Palette.SmugglerBrown,
 			Enum.Material.WoodPlanks
 		)
 		arm.Name = "Arm"
 		arm.CanCollide = false
 
-		local gui = Instance.new("BillboardGui")
-		gui.Name = "Sign"
-		gui.Size = UDim2.fromOffset(230, 26)
-		gui.MaxDistance = 260
-		gui.LightInfluence = 0
-		gui.Parent = arm
+		--[[
+			Painted on the plank, both faces, rather than floating over it.
 
-		local label = Instance.new("TextLabel")
-		label.Size = UDim2.fromScale(1, 1)
-		label.BackgroundTransparency = 1
-		label.Font = Enum.Font.GothamBold
-		label.TextSize = 16
-		label.TextColor3 = Palette.HullWhite
-		label.TextStrokeTransparency = 0.35
-		label.Text = place.name
-		label.Parent = gui
+			A BillboardGui always turns to face the camera, so six of them on
+			one post are six lines of text hanging in mid-air on top of each
+			other, attached to nothing -- which is exactly how it looked. A
+			SurfaceGui is writing *on* the sign.
+		]]
+		for _, face in { Enum.NormalId.Front, Enum.NormalId.Back } do
+			local gui = Instance.new("SurfaceGui")
+			gui.Name = "Face"
+			gui.Face = face
+			gui.PixelsPerStud = 28
+			gui.LightInfluence = 0
+			gui.Parent = arm
+
+			local label = Instance.new("TextLabel")
+			label.Size = UDim2.fromScale(0.94, 0.76)
+			label.Position = UDim2.fromScale(0.03, 0.12)
+			label.BackgroundTransparency = 1
+			label.Font = Enum.Font.GothamBold
+			label.TextScaled = true
+			label.TextColor3 = Palette.HullWhite
+			-- What it is, then what it is called. A player hunting for the
+			-- cantina is not helped by a sign reading "The Dry Well".
+			label.Text = `{place.kind}  -  {place.name}`
+			label.Parent = gui
+		end
 	end
 end
 
@@ -2608,7 +2632,7 @@ local function buildMarkers(
 	-- Collected as each landmark settles on a position, because where they
 	-- end up is decided below and nothing knows it until then. Roads and the
 	-- signpost both read it.
-	local reached: { { name: string, at: Vector3 } } = {}
+	local reached: { { name: string, kind: string, at: Vector3 } } = {}
 
 	--[[
 		Open ground that has been given to something.
@@ -2705,7 +2729,7 @@ local function buildMarkers(
 		end
 
 		buildLandmark(landmarkRoot, poi, def, position, style, rng)
-		table.insert(reached, { name = poi.displayName, at = position })
+		table.insert(reached, { name = poi.displayName, kind = poi.kind, at = position })
 
 		-- Standing room indoors, added to the district the landmark belongs
 		-- to. Small on purpose: NPCService scatters within a zone part and
