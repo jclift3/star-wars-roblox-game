@@ -25,6 +25,31 @@ local Planets = {}
 
 Planets.DEFAULT_GRAVITY = 196.2
 
+--[[
+	How wide one district's level band is, as a fraction of the planet's range.
+
+	Wide enough that a district holds a mix rather than a rank of identical
+	enemies, and narrow enough that the next one out is noticeably worse. A
+	quarter also makes consecutive bands overlap, so the step between districts
+	is a slope and not a cliff -- you meet the top of the next band before you
+	leave the current one.
+]]
+Planets.BAND_WIDTH = 0.25
+
+--- No band is narrower than this, however short the planet's level range.
+Planets.BAND_MIN_WIDTH = 2
+
+--[[
+	How far above the player a district's floor has to be before the game says
+	something.
+
+	Three, because two is an ordinary fight you might win and four is one you
+	have already lost. The point is to interrupt *before* the death, which is
+	the whole complaint this exists to answer: the old world killed you first
+	and explained afterwards, if at all.
+]]
+Planets.UNDERLEVELLED_BY = 3
+
 export type SpawnRule = {
 	archetype: string,
 	count: number,
@@ -34,6 +59,9 @@ export type SpawnRule = {
 	zone: string?,
 	behavior: string?, -- overrides the archetype's default
 }
+
+--- An inclusive level range. See `Planets.bandFor`.
+export type Band = { min: number, max: number }
 
 --[[
 	A district of a planet, and how far out of town it sits.
@@ -45,12 +73,28 @@ export type SpawnRule = {
 	its town out in the desert, and dropped twelve aggressive Tusken Raiders
 	on a level 1 player's spawn point.
 
-	Distance is also the difficulty dial. A player walks outward, so hostile
-	zones belong further out than the ones a starting mission sends them to.
+	Distance is also the difficulty dial -- and since 2026-08-16 it is one in
+	fact and not just in intent. `Planets.bandFor` turns it into the level range
+	of everything that spawns in the district, so walking outward *is* walking
+	into harder things rather than merely being supposed to.
 ]]
 export type ZoneDef = {
 	id: string,
 	distance: number,
+	--[[
+		The level range here, when distance alone gets it wrong.
+
+		Almost always nil. `bandFor` spreads the planet's own `minLevel`..
+		`maxLevel` across its districts by distance, which is right whenever
+		difficulty and remoteness agree -- and they were authored to agree, so
+		45 hand-written pairs would say the same thing as the dial already
+		does, and then drift from it the first time a zone moved.
+
+		Worth writing out when they genuinely disagree: somewhere close to
+		town that is dangerous anyway, or a far district that is only scenery
+		until much later.
+	]]
+	band: Band?,
 }
 
 export type PointOfInterest = {
@@ -1061,6 +1105,73 @@ function Planets.hasZone(planetId: string, zoneId: string): boolean
 	return false
 end
 
+--[[
+	The level range of everything that lives in one district.
+
+	Derived from `ZoneDef.distance` rather than authored, because the planet
+	already declares `minLevel`..`maxLevel` and the zones already declare how
+	far out they are: the band is what those two facts mean together. Writing
+	it out per zone would be 45 restatements of an existing number, and the
+	first time a district moved, 45 chances to forget.
+
+	Spread across the planet's *own* span of distances, not a galaxy-wide
+	scale, so every world uses its whole level range whether its districts run
+	out to 1.6 (Tatooine) or 2.6 (Korriban). The innermost district starts at
+	the planet's floor and the outermost ends at its ceiling.
+
+	`ZoneDef.band` overrides all of this, for the districts where difficulty
+	and remoteness genuinely disagree.
+]]
+function Planets.bandFor(planetId: string, zoneId: string): Band
+	local p = Planets.get(planetId)
+
+	local zone: ZoneDef? = nil
+	local nearest, furthest = math.huge, -math.huge
+	for _, z in p.zones do
+		if z.id == zoneId then
+			zone = z
+		end
+		nearest = math.min(nearest, z.distance)
+		furthest = math.max(furthest, z.distance)
+	end
+
+	-- An undeclared zone gets the whole planet, which is the honest answer:
+	-- nothing is known about where it is. `Planets.validate` reports it
+	-- separately, so this does not need to be an error as well.
+	if not zone then
+		return { min = p.minLevel, max = p.maxLevel }
+	end
+	if zone.band then
+		return zone.band
+	end
+
+	local span = math.max(0, p.maxLevel - p.minLevel)
+	local width = math.max(Planets.BAND_MIN_WIDTH, math.round(span * Planets.BAND_WIDTH))
+	-- The band slides rather than stretches, so every district is the same
+	-- width and only its floor moves outward.
+	local travel = math.max(0, span - width)
+
+	-- A planet whose districts are all at one distance -- or which has one
+	-- district -- puts everything in the innermost band rather than dividing
+	-- by zero.
+	local reach = furthest - nearest
+	local t = if reach > 0 then (zone.distance - nearest) / reach else 0
+
+	local low = p.minLevel + math.round(t * travel)
+	return { min = low, max = math.min(p.maxLevel, low + width) }
+end
+
+--[[
+	Whether `level` is far enough under `band` to be worth interrupting for.
+
+	Here rather than in the controller that draws the warning, because the
+	server picks NPC levels from the same bands and any second opinion about
+	what "too low" means would be a warning that does not match the fight.
+]]
+function Planets.underlevelled(level: number, band: Band): boolean
+	return band.min - level > Planets.UNDERLEVELLED_BY
+end
+
 --- Whether `archetypeId` appears anywhere in this planet's spawn rules.
 function Planets.spawnsArchetype(planetId: string, archetypeId: string): boolean
 	local p = defs[planetId]
@@ -1093,6 +1204,21 @@ function Planets.validate(): { string }
 			seen[zone.id] = true
 			if zone.distance < 0 then
 				table.insert(problems, `{id}: zone "{zone.id}" has negative distance`)
+			end
+			local band = zone.band
+			if band then
+				if band.min > band.max then
+					table.insert(problems, `{id}: zone "{zone.id}" has an inverted band`)
+				end
+				-- An authored band outside the planet's own range is almost
+				-- always the mistake it looks like, and it would show up as a
+				-- district that ignores the world it is on.
+				if band.min < p.minLevel or band.max > p.maxLevel then
+					table.insert(
+						problems,
+						`{id}: zone "{zone.id}" band {band.min}-{band.max} is outside the planet's {p.minLevel}-{p.maxLevel}`
+					)
+				end
 			end
 		end
 		for _, rule in p.spawns do

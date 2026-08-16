@@ -403,11 +403,31 @@ built:
    also pays the least), **DISCARD** away from one, with a two-press confirm.
    Neither will touch what is equipped: `profile.equipped` naming a uid that no
    longer exists would hand the player nothing on their next respawn.
-3. **A large world banded by level.** Enemies of varying level, laid out so
-   walking outward means walking into harder things. `ZoneDef.distance`
-   (`Config/Planets.luau`) is already the difficulty dial — it needs a level
-   band per zone, and a warning when the player crosses into one well above
-   them rather than a silent death.
+3. ~~**A large world banded by level.**~~ **Done 2026-08-16.** `ZoneDef.distance`
+   was already the difficulty dial in intent; it is one in fact now.
+   `Planets.bandFor(planetId, zoneId)` spreads the planet's own
+   `minLevel..maxLevel` across its districts by distance — a sliding window
+   `Planets.BAND_WIDTH` (a quarter of the range) wide, so consecutive bands
+   overlap and the step out of a district is a slope rather than a cliff. Bands
+   are derived, not authored: 45 hand-written pairs would only repeat what the
+   dial already says and then drift from it. `ZoneDef.band` overrides the
+   handful of places where difficulty and remoteness genuinely disagree, and
+   `validate` rejects one that is inverted or outside the planet's own range.
+
+   `NPCArchetypes.rollLevel` takes that band and **narrows the archetype's own
+   range with it** rather than replacing it — a Jawa in the deep desert sits at
+   the top of what a Jawa can be, not at level 40.
+
+   The warning is `ZoneController`. `PlanetBuilder` publishes each district's
+   `Centre` as an attribute on its zone folder — districts are placed
+   procedurally from the planet's seed, so that is the only record of where one
+   landed — and the client picks the nearest with hysteresis, because districts
+   have no borders and standing on the line between two would otherwise flicker.
+   Crossing into a new one names it and states its level range, in red with
+   "TURN BACK" when `Planets.underlevelled` says its floor is more than
+   `UNDERLEVELLED_BY` (3) above you. Client-only; no new remote, and the band
+   comes from the same shared config the server levelled the NPCs from, so the
+   warning cannot disagree with the fight.
 
 Also wanted, not required: **complementary co-op classes** — a Jedi and a
 soldier who play differently and cover each other. The four skill trees

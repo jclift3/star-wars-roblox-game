@@ -2740,6 +2740,13 @@ local function buildMarkers(
 		local reach = ZONE_SPREAD * (points / 3)
 		reaches[def.id] = reach
 
+		-- Published so the client can work out which district the player is
+		-- standing in. Districts are placed procedurally from the planet's
+		-- seed, so this is the only record of where this one ended up, and
+		-- attributes replicate where a Lua table would not.
+		zone:SetAttribute("Centre", centre)
+		zone:SetAttribute("Reach", reach)
+
 		local baseAngle = rng:NextNumber(0, math.pi * 2)
 		for point = 1, points do
 			local spokeAngle = baseAngle + (point - 1) * (math.pi * 2 / points)

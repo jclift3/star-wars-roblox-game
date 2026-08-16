@@ -41,7 +41,7 @@ get wrong announces itself there rather than on screen:
 | **K** | Skill tree |
 | **G** | Galaxy map (travel) |
 | **Esc** | Close the open panel |
-| **Shift** | Sprint (server-authoritative — see 8.4) |
+| **Shift** | Sprint (server-authoritative — see 9.4) |
 | **Mouse 1** | Fire / swing. Hold for automatics, click per shot for semi-autos |
 | **E** (prompt) | Talk to an NPC |
 | **1**–**9** | Pick a dialogue reply |
@@ -81,6 +81,7 @@ If any of these fail, stop. Nothing further is worth testing.
 6. With a panel open, clicking does **not** fire your weapon.
    *(This is `Panels.anyOpen()`. If it regresses you will empty a magazine
    into a shopkeeper while browsing his stock.)*
+7. Walking out of town names the district you enter and gives its level range.
 
 ---
 
@@ -177,12 +178,59 @@ which of two identical-looking blasters you meant?
 
 ---
 
-## 4. World layout — **new, never played**
+## 4. Level bands — **new, never played**
+
+Districts now carry a level range derived from `ZoneDef.distance`, NPCs spawn
+inside it, and crossing into a new district says so. **Tatooine is the clearest
+test** — seven districts across levels 1–20, so every step outward is visible.
+
+### 4.1 The banner
+
+1. Land on Tatooine at level 1. A banner names the district you are in and
+   gives its level range.
+2. Walk out of town. Each district you cross into announces itself **once**.
+3. Stand on the line between two districts and shuffle about. The banner does
+   **not** flicker between them. *(There are no borders — "which district" is
+   nearest-centre, with 80 studs of hysteresis for the one you are already in.)*
+4. Open a full-screen panel while a banner is up. It hides.
+5. Travel to another planet (**G**). The banner fires on arrival, even if the
+   district there happens to share a name with the one you left.
+
+### 4.2 The warning
+
+1. At level 1, walk to Tatooine's **Dune Sea** (the furthest district). The
+   banner is **red** and says TURN BACK.
+2. Levels 1–3 above you get no warning; four or more does. *(`UNDERLEVELLED_BY`
+   is 3 — two is a fight you might win, four is one you have already lost.)*
+3. The number on the banner matches what you actually meet. Kill something in
+   that district and check its level against the range you were shown. **If
+   those disagree, that is the bug** — both come from `Planets.bandFor`, so
+   they cannot disagree unless something is reading the wrong zone.
+
+### 4.3 Levels rise as you walk out
+
+1. Walk Tatooine outward and check nameplate levels district by district. They
+   go up. Roughly: Town 1–6, Market 4–9, Cantina 5–10, Farmstead 8–13,
+   Wastes 10–15, Palace 12–17, Dune Sea 15–20.
+2. Bands **overlap** on purpose, so the far edge of one district and the near
+   edge of the next are similar. A cliff between districts would be the bug.
+3. Jawas in the deep desert are **not** level 18. *(The band narrows the
+   archetype's own range instead of replacing it — a Jawa sits at the top of
+   what a Jawa can be.)*
+4. Check a short-range planet: **Tython** is only 30–36, **Dromund Kaas** 46–50.
+   Their bands should still step outward rather than collapsing to one number.
+   *(`BAND_MIN_WIDTH` is 2.)*
+5. Watch the Output window at boot for `zone "..." has an inverted band` or
+   `... is outside the planet's ...`. Neither should appear.
+
+---
+
+## 5. World layout — **new, never played**
 
 Both fixes landed in `1c265f2` off screenshots. **Nar Shaddaa is the worst
 case for both** — test it first and Tatooine second.
 
-### 4.1 Doors face the way you arrive
+### 5.1 Doors face the way you arrive
 
 1. Walk the road into an out-of-town landmark. **The road arrives at the front
    door**, not at a blank wall with the entrance round the side.
@@ -192,7 +240,7 @@ case for both** — test it first and Tatooine second.
    frame and has to be rotated with the building. If someone is standing in a
    wall, that rotation is what to look at.)*
 
-### 4.2 Crowds are spread out
+### 5.2 Crowds are spread out
 
 1. Land on **Nar Shaddaa**. The Promenade is 44 NPCs. They should read as
    *people along streets*, not a knot on the landing plaza.
@@ -208,7 +256,7 @@ case for both** — test it first and Tatooine second.
 5. Landmarks sit **outside** the patrol ring — no NPC is standing on top of a
    building's front step.
 
-### 4.3 "A landmark looks missing"
+### 5.3 "A landmark looks missing"
 
 It is always distance or fog, never terrain. Before filing it: fly to the
 coordinates, check the nameplate is visible at range, and check `Lighting`'s
@@ -217,7 +265,7 @@ late.
 
 ---
 
-## 5. Travel and origins
+## 6. Travel and origins
 
 1. **G** opens the galaxy map and lists all 9 planets: Tatooine, Korriban,
    Taris, Nar Shaddaa, Coruscant, Ord Mantell, Tython, Hoth, Dromund Kaas.
@@ -234,7 +282,7 @@ late.
 
 ---
 
-## 6. Missions
+## 7. Missions
 
 1. **M** opens the board. Missions are listed per planet with their rewards.
 2. Accept one. It appears in the HUD. *(All active missions render there —
@@ -254,7 +302,7 @@ the Escort / Survive / Slice / Destroy objective kinds have no server reader.
 
 ---
 
-## 7. Dialogue and NPCs
+## 8. Dialogue and NPCs
 
 1. Walk up to an interactable NPC. A proximity prompt appears; **E** starts the
    conversation.
@@ -269,7 +317,7 @@ the Escort / Survive / Slice / Destroy objective kinds have no server reader.
 
 ---
 
-## 8. Combat and progression
+## 9. Combat and progression
 
 1. Blasters: an E-11 fires while held, a DL-44 needs a click per shot.
 2. A lightsaber swings and blocks.
@@ -290,7 +338,7 @@ Piloting tree included. They will visibly do nothing.
 
 ---
 
-## 9. Persistence — needs two sessions
+## 10. Persistence — needs two sessions
 
 The only checks that cannot be done in one sitting.
 
@@ -309,7 +357,7 @@ The only checks that cannot be done in one sitting.
 
 ---
 
-## 10. Known open — expected, not bugs
+## 11. Known open — expected, not bugs
 
 Do not spend time filing these. They are on the roadmap.
 
@@ -334,4 +382,4 @@ Worth writing down, in this order:
 3. **The Output window**, copied. A warning printed thirty seconds before the
    symptom is usually the actual bug.
 4. A screenshot, for anything about layout or placement. The two world fixes in
-   §4 both came from screenshots and neither would have been found in words.
+   §5 both came from screenshots and neither would have been found in words.

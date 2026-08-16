@@ -747,12 +747,29 @@ function NPCArchetypes.rollSpecies(id: string, rng: Random?): string
 	return a.speciesPool[1].species
 end
 
-function NPCArchetypes.rollLevel(id: string, rng: Random?): number
+--[[
+	What level one of these spawns at.
+
+	`band` is the district's level range (`Planets.bandFor`) and it narrows the
+	archetype's own range rather than replacing it: a Jawa in the deep desert
+	sits at the top of what a Jawa can be, not at the level of the Tuskens
+	around it. Clamping both ends into the archetype's range cannot invert
+	them, because `math.clamp` is monotonic.
+
+	Typed structurally rather than as `Planets.Band` so that this config, which
+	the planet configs lean on, does not have to require them back.
+]]
+function NPCArchetypes.rollLevel(id: string, rng: Random?, band: { min: number, max: number }?): number
 	local a = NPCArchetypes.get(id)
-	if rng then
-		return rng:NextInteger(a.minLevel, a.maxLevel)
+	local low, high = a.minLevel, a.maxLevel
+	if band then
+		low = math.clamp(band.min, a.minLevel, a.maxLevel)
+		high = math.clamp(band.max, a.minLevel, a.maxLevel)
 	end
-	return math.random(a.minLevel, a.maxLevel)
+	if rng then
+		return rng:NextInteger(low, high)
+	end
+	return math.random(low, high)
 end
 
 function NPCArchetypes.healthFor(id: string, level: number): number

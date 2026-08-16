@@ -363,7 +363,8 @@ local function spawnOne(planetId: string, rule: SpawnRule): Record?
 	end
 
 	local archetype = NPCArchetypes.get(rule.archetype)
-	local level = NPCArchetypes.rollLevel(rule.archetype, rng)
+	-- A spawn rule that names no zone is planet-wide, and so is its band.
+	local level = NPCArchetypes.rollLevel(rule.archetype, rng, Planets.bandFor(planetId, rule.zone or ""))
 	local displayName = NPCNames.generate(archetype.nameStyle, rng)
 
 	local model = RigBuilder.build({
