@@ -366,11 +366,16 @@ gear, walk somewhere harder. Three consequences, in the order they should be
 built:
 
 1. **Skill tree screen** — **[done]**, see 1.5.
-2. **Loot with rolled affixes.** The real Diablo loop. Blocked on a data-model
-   change: `profile.inventory` is `{ [itemId]: count }`, a bag of counts, so it
-   cannot hold two different rolls of the same blaster. That change gets more
-   expensive with every system that reads inventory, so it should be made
-   before the shop and mission systems grow.
+2. **Loot with rolled affixes.** The real Diablo loop. The data-model change it
+   was blocked on is **[done]** (`73dc1db`): `profile.inventory` was
+   `{ [itemId]: count }`, a bag of counts that cannot hold two different rolls
+   of the same blaster. `Shared/Core/Inventory.luau` now owns the shape — a map
+   of stacks keyed by uid, each optionally carrying `rolls` — and every
+   mutation goes through it. A map rather than an array because a profile is
+   both DataStore-serialised and replicated, and neither survives a sparse one.
+   `Inventory.load` still reads the old shape, so old saves come back intact.
+   What remains is the interesting half: an affix table, a roll generator,
+   where loot drops from, and rarity in the inventory panel.
 3. **A large world banded by level.** Enemies of varying level, laid out so
    walking outward means walking into harder things. `ZoneDef.distance`
    (`Config/Planets.luau`) is already the difficulty dial — it needs a level
