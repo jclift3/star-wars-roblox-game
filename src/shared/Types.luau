@@ -48,6 +48,11 @@ export type PlayerProfile = {
 	-- The character's background: picks the skill tree, the home world, and who
 	-- is willing to fly them anywhere. See Config/Origins.luau.
 	origin: string,
+	-- Whether the player picked that origin or merely has the default. Without
+	-- a separate flag the two are indistinguishable, so the creation screen
+	-- would either never appear or appear again for anyone who chose the
+	-- default on purpose.
+	originChosen: boolean,
 	faction: string,
 	factionRep: { [string]: number },
 	-- Highest rank index each faction has already paid a stipend for. Rep can

@@ -18,11 +18,12 @@
 
 	THE ORIGIN CODES ARE THE POINT
 	`thereisnocow` is the convenient one, but `iamacolyte` and friends are the
-	ones that actually test something. Until the creation screen exists every
-	character is a Scoundrel, which means the four travel profiles -- the whole
-	reason origins were built -- cannot be seen at all. These make them visible.
-	They are derived from `Origins.ids()`, so a fifth origin gets a code for
-	free and a renamed one cannot leave a dead code behind.
+	ones that actually test something. The creation screen asks once and then
+	never again -- correctly, since the answer hands out a faction and a free
+	flight across the galaxy -- so seeing all four travel profiles any other
+	way means four characters. These re-roll it in place. They are derived
+	from `Origins.ids()`, so a fifth origin gets a code for free and a renamed
+	one cannot leave a dead code behind.
 
 	THE PRINTING CODES ARE THE TEST SUITE
 	`greedisgood`, `iseedeadpeople` and `showmethemoney` exist because there is
@@ -314,13 +315,17 @@ end
 -- One per origin: `iamacolyte`, `iamconscript`, `iamscoundrel`, `iamscrapper`.
 for _, id in Origins.ids() do
 	codes[`iam{string.lower(id)}`] = function(player: Player)
+		local def = Origins.get(id)
 		data().update(player, function(profile: PlayerProfile)
 			profile.origin = id
+			profile.faction = def.faction
+			-- Marked chosen, or the creation screen reopens on the next
+			-- profile push and asks a question the code has just answered.
+			profile.originChosen = true
 			-- Otherwise the old origin's cooldown is still running against the
 			-- new one, which reads as the code having done nothing.
 			profile.lastTravelAt = 0
 		end)
-		local def = Origins.get(id)
 		tell(player, `You are a {def.displayName} now. {def.travelBlurb}`)
 	end
 end

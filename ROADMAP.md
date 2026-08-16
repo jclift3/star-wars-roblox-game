@@ -652,7 +652,7 @@ somewhere by a different *mechanism*, expressed as three fields
 |---|---|---|---|---|---|---|
 | Acolyte | Force | Korriban | Imperial shuttle | either end is Empire-held | ×2.0 | 30 s |
 | Conscript | Combat | Ord Mantell | Republic troop transport | either end is Republic-held | ×1.4 | 75 s |
-| Scoundrel | Piloting | Nar Shaddaa | bought passage | never | ×0.6 | 20 s |
+| Scoundrel | Piloting | Tatooine | bought passage | never | ×0.6 | 20 s |
 | Scrapper | Engineering | Taris | working a freight berth | never | ×0.2 | 180 s |
 
 Two things fall out of that rather than being authored:
@@ -681,10 +681,11 @@ Implementation notes worth remembering:
   content; a destination you cannot see is not.
 - If the charge succeeds and the jump then fails, the credits are refunded.
 
-**Not yet choosable.** `DataService.defaultProfile` assigns `Origins.DEFAULT`
-("Scoundrel") to everyone, and `migrate` repairs any profile whose origin is
-missing or renamed. Until 3b.1 ships a creation screen, every character travels
-on Scoundrel terms — the differences are built and tested but invisible.
+**Choosable since 2026-08-16** (3b.1). `DataService.defaultProfile` still assigns
+`Origins.DEFAULT` and `migrate` still repairs an origin that was renamed away,
+but that is now a fallback rather than the only path: `originChosen` is false on
+a new profile and `CreationController` asks. Until then every character
+travelled on Scoundrel terms — the differences were built, tested and invisible.
 
 Shipped **before** flyable ships. Travel alone unlocks eight planets of existing
 content; flight is a separate, much larger problem.
@@ -840,16 +841,31 @@ small system changes have to land first.
 
 ### 3b.1 Origin — **[partly done]**
 `PlayerProfile.origin` and `Config/Origins.luau` landed with Phase 2a, which
-needed them to price a jump. Still outstanding:
-- a **creation screen** on the existing 760x470 panel convention — without it
-  every character is silently `Origins.DEFAULT` and the four travel profiles are
-  dead code
+needed them to price a jump.
+
+**Done 2026-08-16.** `CreationController` (modal, no toggle key, refuses
+`setOpen(false)` until answered) + `OriginService`. Choosing writes `origin`,
+`faction` and `homePlanet` and flies you there free, once —
+`PlayerProfile.originChosen` is what makes "once" enforceable, and what
+distinguishes a player who picked Scoundrel from the placeholder that made
+every character one. Two things fell out of it:
+- **`profile.faction` gained its first reader**, in `NPCBrain.isEnemy`: an
+  Acolyte starts on Korriban with zero Empire reputation and every Aggressive
+  archetype shoots anyone not Friendly, so without it picking Sith meant being
+  killed by your own Academy. Independent is excluded — it is the absence of a
+  flag, and every raider has it too.
+- **Scoundrel's home world moved Nar Shaddaa → Tatooine.** Nar Shaddaa is a
+  level 12 world and a character begins at 1. `Origins.validate` now refuses
+  any home world above minLevel 1, so the next one cannot ship quietly.
+
+Still outstanding:
 - an `origin: string?` field on `ObjectiveDef` and on the dialogue `Condition`.
   That is what makes four prologues affordable: one mission and one conversation
   can serve all four origins and say something different to each.
-- the origin should also decide the **starting planet** (`Origins.homePlanet` is
-  already declared and currently only used for flavour) and seed the first skill
-  point into its `tree`.
+- **seeding the first skill point** into the origin's tree is deliberately *not*
+  done. Every Piloting node is `unimplemented` until ships exist, so a Scoundrel
+  would be handed a rank in something that moves no number — precisely the
+  failure B5 was cleaned up to stop. Revisit with Phase 2b.
 
 ### 3b.2 Alignment — **[todo]**
 `PlayerProfile.alignment`, clamped -1000..1000, moved by dialogue and mission
@@ -1125,8 +1141,9 @@ for anyone else, so a stranger who guesses a real word learns nothing.
 | Code | Effect |
 |---|---|
 | `thereisnocow` | +10,000 cr and up to level 12 — enough to reach most worlds |
-| `iamacolyte` `iamconscript` `iamscoundrel` `iamscrapper` | Set your origin |
+| `iamacolyte` `iamconscript` `iamscoundrel` `iamscrapper` | Set your origin and its faction |
 
-The origin codes are the ones that matter: until 3b.1 ships a creation screen
-they are the only way to see that travel differs by background at all. They are
-generated from `Origins.ids()`, so a new origin gets one automatically.
+The origin codes still matter now that 3b.1 has shipped a creation screen: that
+screen asks once and refuses to ask again, so these are the only way to see all
+four travel profiles without four characters. They are generated from
+`Origins.ids()`, so a new origin gets one automatically.

@@ -126,7 +126,11 @@ def({
 	id = "Scoundrel",
 	displayName = "Scoundrel",
 	tree = "Piloting",
-	homePlanet = "NarShaddaa",
+	-- Born on Nar Shaddaa, not still there: that world starts at level 12 and
+	-- a character begins at 1. You read the manifest and you left in a hurry,
+	-- which is why the blurb is past tense and this is Hutt space you can
+	-- survive.
+	homePlanet = "Tatooine",
 	faction = "Hutt",
 	mentor = "Vess Kadar",
 	blurb = "Born owing money -- your parents' debt, transferred, with interest, which is legal on Nar Shaddaa. You can read a cargo manifest, and you have read one you were not supposed to.",
@@ -259,6 +263,15 @@ function Origins.validate(treeExists: (string) -> boolean): { string }
 	for id, o in defs do
 		if not Planets.exists(o.homePlanet) then
 			table.insert(problems, `{id}: home planet "{o.homePlanet}" does not exist`)
+		elseif Planets.get(o.homePlanet).minLevel > 1 then
+			-- The creation screen puts a brand-new character down here, so a
+			-- home world built for anyone above level 1 is a world that kills
+			-- them on arrival. Nar Shaddaa was exactly this: era-correct for
+			-- the Scoundrel's backstory and a level 12 world.
+			table.insert(
+				problems,
+				`{id}: home planet "{o.homePlanet}" starts at level {Planets.get(o.homePlanet).minLevel}`
+			)
 		end
 		if not Factions.exists(o.faction) then
 			table.insert(problems, `{id}: unknown faction "{o.faction}"`)

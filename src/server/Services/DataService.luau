@@ -108,10 +108,11 @@ local function defaultProfile(): PlayerProfile
 		xp = 0,
 		skillPoints = 1,
 		skills = {},
-		-- A placeholder until the creation screen exists. It is deliberately
-		-- the origin with no patron and no restrictions, so an unchosen
-		-- character is never one that cannot get somewhere.
+		-- A placeholder until the player picks. It is deliberately the origin
+		-- with no patron and no restrictions, so a character who somehow never
+		-- chooses is never one that cannot get somewhere.
 		origin = Origins.DEFAULT,
+		originChosen = false,
 		faction = Factions.DEFAULT,
 		factionRep = rep,
 		factionRankPaid = paid,
@@ -247,6 +248,18 @@ local function migrate(saved: any): PlayerProfile
 	-- is the same case as an origin that was later renamed.
 	if not Origins.exists(base.origin) then
 		base.origin = Origins.DEFAULT
+	end
+	--[[
+		Deliberately NOT inferred from `origin` being present.
+
+		Every profile saved before the creation screen carries
+		`origin = Origins.DEFAULT`, written by `defaultProfile` rather than
+		chosen by anybody -- which is the gap the screen exists to close. So
+		an old save falls through to `false` and gets asked once, and only a
+		save that recorded the answer skips it.
+	]]
+	if type(saved.originChosen) == "boolean" then
+		base.originChosen = saved.originChosen
 	end
 
 	base.version = PROFILE_VERSION
@@ -414,6 +427,8 @@ local function clientView(profile: PlayerProfile)
 		xp = profile.xp,
 		skillPoints = profile.skillPoints,
 		skills = profile.skills,
+		origin = profile.origin,
+		originChosen = profile.originChosen,
 		faction = profile.faction,
 		factionRep = profile.factionRep,
 		currentPlanet = profile.currentPlanet,

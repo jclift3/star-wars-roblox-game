@@ -54,6 +54,10 @@ export type PanelDef = {
 }
 
 local ALL: { PanelDef } = {
+	-- Modal, and the only one with no key: it refuses `setOpen(false)` until
+	-- the character has an origin. Registered here anyway so it takes input
+	-- focus and hides the world behind it like the rest.
+	{ name = "CreationController", fullScreen = true },
 	{ name = "InventoryController", fullScreen = true },
 	{ name = "MissionBoardController", fullScreen = true },
 	{ name = "SkillTreeController", fullScreen = true },

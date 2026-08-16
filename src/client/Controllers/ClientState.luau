@@ -30,6 +30,8 @@ export type Profile = {
 	xp: number,
 	skillPoints: number,
 	skills: { [string]: number },
+	origin: string,
+	originChosen: boolean,
 	faction: string,
 	factionRep: { [string]: number },
 	currentPlanet: string,

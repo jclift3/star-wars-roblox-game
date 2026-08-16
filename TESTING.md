@@ -59,7 +59,7 @@ published place under another account.
 | `iseedeadpeople` | Samples 5,000 drops and prints a histogram. Output window, not a toast |
 | `showmethemoney` | Prints every radiant mission on every planet and which are posted today. Output window |
 | `strengthandhonor` | +2,000 reputation with whoever runs the planet you are standing on, and the matching drop with their enemies |
-| `iamacolyte` / `iamconscript` / `iamscoundrel` / `iamscrapper` | Sets your origin, which is the only way to see the four travel profiles until a character-creation screen exists |
+| `iamacolyte` / `iamconscript` / `iamscoundrel` / `iamscrapper` | Sets your origin and its faction. The creation screen asks once and never again, so this is the only way to see all four travel profiles on one character |
 
 The three printing codes are the closest thing to a test this project can run:
 `greedisgood` reaches states normal play needs a thousand kills to see,
@@ -293,12 +293,40 @@ late.
    camera, so it must hold its offset as you turn — if it drifts, that is the
    bug.
 5. Try each origin (`iamacolyte` and friends) and travel. Each has a different
-   *mechanism* and cost. Everyone is a Scoundrel by default until there is a
-   creation screen.
+   *mechanism* and cost.
 6. Travel while wearing and wielding rolled gear. You keep both (this overlaps
    3.3, and it is worth doing twice).
 
-### 6.1 Faction standing — **new, never played**
+### 6.1 Character creation — **new, never played**
+
+Four origins, four home worlds and four factions were authored and every
+character was `Origins.DEFAULT`, because nothing ever wrote the field. **Needs a
+profile that has never chosen** — in Studio every session is fresh, so this
+fires on its own; against a live save, wipe the profile or use a new account.
+
+1. Join. Before anything else, **WHO WERE YOU** fills the screen: four origins
+   on the left, the selected one described on the right with its home world,
+   faction and skill tree.
+2. **It cannot be dismissed.** Escape does nothing. Press **B**, **M**, **K**,
+   **G** — the creation screen stays on top and in front. That is the test; a
+   panel that could be closed would never come back this session and the
+   character would be a Scoundrel forever.
+3. Each origin's right-hand pane states its *travel trade-off before you pick*
+   (the Acolyte flies Imperial space free and pays double everywhere else).
+   A permanent choice that hides its cost is the bug.
+4. Pick **Sith Acolyte**. You respawn on **Korriban**, and the toast names it.
+5. **Nobody at the Academy shoots you.** This is the real test of the whole
+   change: your Empire reputation is 0, every Aggressive archetype treats
+   "not Friendly" as a target, and only `profile.faction` stops it. Pick
+   Conscript on another character and check Ord Mantell the same way.
+6. **G** — the standing line now reads `Sith Empire: Recruit`, and the two
+   Imperial worlds quote **no fare**.
+7. Rejoin. **You are not asked again**, and you are still an Acolyte.
+8. Scoundrel starts on **Tatooine**, not Nar Shaddaa. Nar Shaddaa is a level 12
+   world; if a future origin's home world is above level 1, `Origins.validate`
+   says so in the output window at boot.
+
+### 6.2 Faction standing — **new, never played**
 
 Reputation already decided who shoots you, which missions exist and how NPCs
 greet you, and the player could see none of it; every rank also carried a
@@ -460,8 +488,11 @@ The only checks that cannot be done in one sitting.
 
 Do not spend time filing these. They are on the roadmap.
 
-- No character-creation screen, so every profile is `Origins.DEFAULT`
-  ("Scoundrel"). The cheat codes are the workaround.
+- An origin is asked once and never again — there is no respec and no way to
+  change it in-game. The cheat codes are the workaround.
+- The origin does **not** seed a skill point into its tree, because every
+  Piloting node is `unimplemented` until ships exist and the Scoundrel would be
+  paid in nothing.
 - Faction reputation is spent on hostility, mission access, dialogue and the
   rank stipend, and **nowhere else** — no vendor prices you differently, no door
   opens because you are a Captain, and there is no jail (ROADMAP N2).

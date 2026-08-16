@@ -316,27 +316,43 @@ end
 --[[
 	Decides whether this NPC considers a player an enemy.
 
-	Reputation drives it, so the same stormtrooper is a threat to a Rebel hero
-	and scenery to an Imperial loyalist without needing two archetypes.
+	Reputation drives it, so the same trooper is a threat to a Jedi and scenery
+	to an Imperial loyalist without needing two archetypes.
+
+	ENLISTMENT BEATS REPUTATION
+	`profile.faction` is set by the creation screen and was, until then, a
+	field nothing read. It has to be read here or the screen is a trap: an
+	Acolyte begins on Korriban with zero Empire reputation, and every
+	Aggressive archetype treats "not Friendly" as a target -- so picking Sith
+	meant being shot on sight by your own Academy. Wearing the flag is what
+	`attitudeToward` cannot express, because standing takes thousands of
+	reputation to earn and you start at nought.
+
+	Independent is excluded because it is the absence of a flag rather than a
+	flag: a Scrapper is Independent and so is every raider, and letting those
+	match would make half the hostile NPCs in the game ignore one origin.
 ]]
 local function isEnemy(self: Brain, player: Player): boolean
-	if self.archetype.behavior == Behavior.Aggressive then
-		local ok, profile = pcall(function()
-			return ServiceLoader.get("DataService").get(player)
-		end)
-		if not ok or not profile then
-			return true
-		end
-		return Factions.attitudeToward(self.faction, profile.factionRep) ~= "Friendly"
-	end
+	local aggressive = self.archetype.behavior == Behavior.Aggressive
 
 	local ok, profile = pcall(function()
 		return ServiceLoader.get("DataService").get(player)
 	end)
 	if not ok or not profile then
+		-- An aggressive NPC that cannot read the profile assumes the worst;
+		-- everyone else assumes nothing.
+		return aggressive
+	end
+
+	if self.faction == profile.faction and self.faction ~= Factions.DEFAULT then
 		return false
 	end
-	return Factions.attitudeToward(self.faction, profile.factionRep) == "Hostile"
+
+	local attitude = Factions.attitudeToward(self.faction, profile.factionRep)
+	if aggressive then
+		return attitude ~= "Friendly"
+	end
+	return attitude == "Hostile"
 end
 
 --- Nearest visible enemy within sight range, or nil.
