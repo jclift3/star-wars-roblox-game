@@ -24,6 +24,7 @@ local Workspace = game:GetService("Workspace")
 local Shared = game:GetService("ReplicatedStorage"):WaitForChild("Shared")
 local Types = require(Shared.Types)
 local Net = require(Shared.Core.Net)
+local Inventory = require(Shared.Core.Inventory)
 local Outfits = require(Shared.Config.Outfits)
 local Costumes = require(Shared.Config.Costumes)
 local Shops = require(Shared.Config.Shops)
@@ -203,7 +204,7 @@ local function buildCatalogue(player: Player, profile: PlayerProfile, vendor: Ve
 			tier = def.tier,
 			requiredLevel = def.requiredLevel,
 			price = progression().priceFor(player, def.cost * markup),
-			owned = (profile.inventory[id] or 0) > 0 or id == Outfits.DEFAULT,
+			owned = Inventory.has(profile.inventory, id) or id == Outfits.DEFAULT,
 			equipped = profile.equipped.outfit == id,
 			forSale = stockedOutfits[id] == true,
 			stats = outfitStatLines(id),
@@ -225,7 +226,7 @@ local function buildCatalogue(player: Player, profile: PlayerProfile, vendor: Ve
 			tier = def.tier,
 			requiredLevel = def.requiredLevel,
 			price = progression().priceFor(player, def.cost * markup),
-			owned = (profile.inventory[id] or 0) > 0 or id == Weapons.DEFAULT,
+			owned = Inventory.has(profile.inventory, id) or id == Weapons.DEFAULT,
 			equipped = profile.equipped.weapon == id,
 			forSale = stockedWeapons[id] == true,
 			stats = weaponStatLines(def),
@@ -235,7 +236,7 @@ local function buildCatalogue(player: Player, profile: PlayerProfile, vendor: Ve
 	-- Owned first, so the list is stable as you walk in and out of range of a
 	-- vendor: the same things stay in the same order, with stock appended.
 	addOutfit(Outfits.DEFAULT)
-	for id in profile.inventory do
+	for _, id in Inventory.ids(profile.inventory) do
 		addOutfit(id)
 		addWeapon(id)
 	end
@@ -311,7 +312,7 @@ function ShopService.purchase(player: Player, kind: string, id: string): (boolea
 		return false, "Unknown item"
 	end
 
-	if (profile.inventory[id] or 0) > 0 then
+	if Inventory.has(profile.inventory, id) then
 		return false, "You already own that"
 	end
 	if profile.level < requiredLevel then
@@ -325,7 +326,7 @@ function ShopService.purchase(player: Player, kind: string, id: string): (boolea
 	end
 
 	data().update(player, function(p: PlayerProfile)
-		p.inventory[id] = (p.inventory[id] or 0) + 1
+		Inventory.add(p.inventory, id, 1)
 	end)
 
 	notify(player, `Bought {displayName} for {price} cr`, "Success")
@@ -342,7 +343,7 @@ function ShopService.equipOutfit(player: Player, id: string): (boolean, string?)
 		return false, "Profile not loaded"
 	end
 	-- The starting outfit is always available, the same way fists always are.
-	if id ~= Outfits.DEFAULT and (profile.inventory[id] or 0) < 1 then
+	if id ~= Outfits.DEFAULT and not Inventory.has(profile.inventory, id) then
 		return false, "You do not own that"
 	end
 	if profile.equipped.outfit == id then

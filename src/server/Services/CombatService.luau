@@ -30,6 +30,7 @@ local Workspace = game:GetService("Workspace")
 local Shared = game:GetService("ReplicatedStorage"):WaitForChild("Shared")
 local Types = require(Shared.Types)
 local Net = require(Shared.Core.Net)
+local Inventory = require(Shared.Core.Inventory)
 local Signal = require(Shared.Core.Signal)
 local Weapons = require(Shared.Config.Weapons)
 local Factions = require(Shared.Config.Factions)
@@ -546,7 +547,7 @@ function CombatService.init()
 			return
 		end
 		-- Owned means "in inventory". Fists are always available.
-		if weaponId ~= Weapons.DEFAULT and (profile.inventory[weaponId] or 0) < 1 then
+		if weaponId ~= Weapons.DEFAULT and not Inventory.has(profile.inventory, weaponId) then
 			Net.fireClient(Net.Event.Notify, player, "You do not have that weapon", "Error")
 			return
 		end

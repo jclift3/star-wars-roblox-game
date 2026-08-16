@@ -6,6 +6,8 @@
 	shape of anything that crosses the network boundary.
 ]]
 
+local Inventory = require(script.Parent.Core.Inventory)
+
 --[[
 	A single procedurally built cosmetic part welded onto a rig limb.
 
@@ -53,7 +55,9 @@ export type PlayerProfile = {
 	-- os.time of the last jump, so a travel cooldown survives a rejoin rather
 	-- than being cleared by one.
 	lastTravelAt: number,
-	inventory: { [string]: number },
+	-- Stacks keyed by uid, not a bag of counts: see Core/Inventory.luau, and
+	-- change it only through that module.
+	inventory: Inventory.Inventory,
 	equipped: { weapon: string?, offhand: string?, outfit: string? },
 	unlockedShips: { string },
 	missions: {

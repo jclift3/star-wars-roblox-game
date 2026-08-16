@@ -32,6 +32,7 @@ local Shared = game:GetService("ReplicatedStorage"):WaitForChild("Shared")
 local Items = require(Shared.Config.Items)
 local Missions = require(Shared.Config.Missions)
 local Net = require(Shared.Core.Net)
+local Inventory = require(Shared.Core.Inventory)
 local ServiceLoader = require(Shared.Core.ServiceLoader)
 local Types = require(Shared.Types)
 
@@ -308,7 +309,7 @@ function PickupService.take(player: Player, part: BasePart, rule: SpawnRule)
 	end
 
 	data().update(player, function(p: PlayerProfile)
-		p.inventory[rule.item] = (p.inventory[rule.item] or 0) + 1
+		Inventory.add(p.inventory, rule.item, 1)
 	end)
 
 	missions().report(player, Missions.Objective.Collect, rule.item, 1)

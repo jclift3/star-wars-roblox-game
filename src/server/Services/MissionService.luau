@@ -29,6 +29,7 @@ local Workspace = game:GetService("Workspace")
 local Shared = game:GetService("ReplicatedStorage"):WaitForChild("Shared")
 local Types = require(Shared.Types)
 local Net = require(Shared.Core.Net)
+local Inventory = require(Shared.Core.Inventory)
 local Signal = require(Shared.Core.Signal)
 local Items = require(Shared.Config.Items)
 local Missions = require(Shared.Config.Missions)
@@ -109,11 +110,11 @@ local function grantRewards(player: Player, missionId: string)
 	data().update(player, function(p: PlayerProfile)
 		if rewards.items then
 			for itemId, count in rewards.items do
-				p.inventory[itemId] = (p.inventory[itemId] or 0) + count
+				Inventory.add(p.inventory, itemId, count)
 			end
 		end
 		if rewards.weapon then
-			p.inventory[rewards.weapon] = (p.inventory[rewards.weapon] or 0) + 1
+			Inventory.add(p.inventory, rewards.weapon, 1)
 		end
 		if rewards.skillPoints then
 			p.skillPoints += rewards.skillPoints
@@ -374,7 +375,7 @@ local function sweepPlayer(player: Player, now: number)
 					it, and either way carrying it is what counts.
 				]]
 				local part = poiPart(profile.currentPlanet, obj.destination)
-				local carried = profile.inventory[obj.target] or 0
+				local carried = Inventory.count(profile.inventory, obj.target)
 				local needed = Missions.objectiveTarget(obj)
 				if
 					part
@@ -403,19 +404,7 @@ local function sweepPlayer(player: Player, now: number)
 		]]
 		local spent = 0
 		data().update(player, function(p: PlayerProfile)
-			local held = p.inventory[hand.item] or 0
-			spent = math.min(held, hand.count)
-			if spent <= 0 then
-				return
-			end
-			local left = held - spent
-			if left > 0 then
-				p.inventory[hand.item] = left
-			else
-				-- Cleared rather than left at zero, so a spent quest item
-				-- does not sit in the save forever as an empty stack.
-				p.inventory[hand.item] = nil
-			end
+			spent = Inventory.remove(p.inventory, hand.item, hand.count)
 		end)
 		if spent > 0 then
 			notify(player, `Delivered: {Items.nameOf(hand.item)} x{spent}`, "Reward")

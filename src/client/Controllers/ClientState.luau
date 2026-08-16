@@ -17,6 +17,7 @@
 local Shared = game:GetService("ReplicatedStorage"):WaitForChild("Shared")
 local Net = require(Shared.Core.Net)
 local Signal = require(Shared.Core.Signal)
+local Inventory = require(Shared.Core.Inventory)
 
 local ClientState = {
 	name = "ClientState",
@@ -33,7 +34,7 @@ export type Profile = {
 	factionRep: { [string]: number },
 	currentPlanet: string,
 	homePlanet: string,
-	inventory: { [string]: number },
+	inventory: Inventory.Inventory,
 	equipped: { weapon: string?, offhand: string?, outfit: string? },
 	unlockedShips: { string },
 	missions: {

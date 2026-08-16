@@ -32,6 +32,7 @@ local Shared = game:GetService("ReplicatedStorage"):WaitForChild("Shared")
 local Types = require(Shared.Types)
 local Signal = require(Shared.Core.Signal)
 local Net = require(Shared.Core.Net)
+local Inventory = require(Shared.Core.Inventory)
 local Factions = require(Shared.Config.Factions)
 local Origins = require(Shared.Config.Origins)
 local Planets = require(Shared.Config.Planets)
@@ -44,7 +45,10 @@ local DataService = {
 	priority = 1,
 }
 
-local PROFILE_VERSION = 1
+-- 2: `inventory` became stacks keyed by uid rather than a bag of counts.
+-- Nothing branches on this -- `migrate` works field by field so a save from a
+-- half-deployed build still loads -- it is a record of what the shape is.
+local PROFILE_VERSION = 2
 local STORE_NAME = "PlayerProfiles_v1"
 local AUTOSAVE_INTERVAL = 90
 
@@ -112,7 +116,7 @@ local function defaultProfile(): PlayerProfile
 		-- The starting kit has to be *owned*, not merely equipped: every equip
 		-- path checks the inventory, so a weapon you begin holding but do not
 		-- own is one you can put down exactly once.
-		inventory = { StimPack = 2, DH17 = 1, Smuggler = 1 },
+		inventory = Inventory.load({ StimPack = 2, DH17 = 1, Smuggler = 1 }),
 		equipped = { weapon = "DH17", offhand = nil, outfit = "Smuggler" },
 		unlockedShips = { "Skiff" },
 		missions = {
@@ -173,8 +177,11 @@ local function migrate(saved: any): PlayerProfile
 	if type(saved.skills) == "table" then
 		base.skills = saved.skills
 	end
-	if type(saved.inventory) == "table" then
-		base.inventory = saved.inventory
+	-- Always through `Inventory.load`, never taken as-is: profiles saved before
+	-- stacks existed hold `{ [itemId]: count }`, and that is where it is turned
+	-- back into something the rest of the game can read.
+	if saved.inventory ~= nil then
+		base.inventory = Inventory.load(saved.inventory)
 	end
 	if type(saved.equipped) == "table" then
 		base.equipped = saved.equipped
