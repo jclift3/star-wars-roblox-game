@@ -50,6 +50,19 @@ local PREFERRED_RANGE_FACTOR = 0.65
 -- Below this the NPC backs off rather than shooting from inside the target.
 local TOO_CLOSE_FACTOR = 0.3
 
+--[[
+	An NPC only notices what is roughly in front of it. Without this, line of
+	sight alone means a guard facing a wall still spots you behind its back,
+	which is what "they all know I'm there the moment I land" looked like.
+
+	120 degrees total, so 60 either side of where it is looking.
+]]
+local FIELD_OF_VIEW_DOT = math.cos(math.rad(60))
+-- Inside this radius facing stops mattering: you are close enough to hear.
+local PERIPHERAL_RANGE = 22
+-- Nobody sees further than this, whatever their archetype claims.
+local MAX_SIGHT_RANGE = 150
+
 local WANDER_RADIUS = 45
 local WANDER_PAUSE_MIN = 2
 local WANDER_PAUSE_MAX = 7
@@ -285,6 +298,21 @@ local function hasLineOfSight(self: Brain, targetRoot: BasePart): boolean
 	return result == nil
 end
 
+--- Whether `targetRoot` is inside this NPC's forward cone.
+local function isFacing(self: Brain, targetRoot: BasePart): boolean
+	local toTarget = targetRoot.Position - self.root.Position
+	local flat = Vector3.new(toTarget.X, 0, toTarget.Z)
+	if flat.Magnitude < 0.5 then
+		return true
+	end
+	local look = self.root.CFrame.LookVector
+	local facing = Vector3.new(look.X, 0, look.Z)
+	if facing.Magnitude < 0.5 then
+		return true
+	end
+	return facing.Unit:Dot(flat.Unit) >= FIELD_OF_VIEW_DOT
+end
+
 --[[
 	Decides whether this NPC considers a player an enemy.
 
@@ -313,7 +341,7 @@ end
 
 --- Nearest visible enemy within sight range, or nil.
 local function findTarget(self: Brain): Model?
-	local range = self.archetype.sightRange or 120
+	local range = math.min(self.archetype.sightRange or 100, MAX_SIGHT_RANGE)
 	local best: Model? = nil
 	local bestDistance = range
 
@@ -333,6 +361,9 @@ local function findTarget(self: Brain): Model?
 			continue
 		end
 		if not isEnemy(self, player) then
+			continue
+		end
+		if distance > PERIPHERAL_RANGE and not isFacing(self, targetRoot) then
 			continue
 		end
 		if not hasLineOfSight(self, targetRoot) then
