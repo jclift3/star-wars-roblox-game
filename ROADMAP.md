@@ -394,9 +394,15 @@ built:
    so it would not even be a second item. About one drop per seven kills, tuned
    by `Loot.DROP_CHANCE`.
 
-   Still owed: **bag size and a way out of it**. Nothing caps the inventory, so
-   rolled drops accumulate forever and there is no way to sell or destroy one.
-   That is what rolled loot needs next, and it is also half of vendor buy-back.
+   **Bag size and a way out of it — done.** `Inventory.MAX_ROLLED` (30) caps
+   *rolled* items only: plain stacks merge by catalogue id, so the catalogue
+   itself is their ceiling and only drops are unbounded. Being over the cap is
+   legal, so an old save comes back whole and simply takes nothing more. The way
+   out is the B panel's second button — **SELL** at a vendor (`RarityDef.value`
+   × `Shops.SELL_FRACTION` ÷ the vendor's own `priceMult`, so the dearest trader
+   also pays the least), **DISCARD** away from one, with a two-press confirm.
+   Neither will touch what is equipped: `profile.equipped` naming a uid that no
+   longer exists would hand the player nothing on their next respawn.
 3. **A large world banded by level.** Enemies of varying level, laid out so
    walking outward means walking into harder things. `ZoneDef.distance`
    (`Config/Planets.luau`) is already the difficulty dial — it needs a level
@@ -849,8 +855,10 @@ level 10 for 7,500 credits; the vendor entry becomes a hilt component instead.
 - ~~Skill tree UI~~ — **done**, see 1.5. The *contents* of the trees are not:
   see 4.3, and B5 in the playtest findings
 - ~~Loot drops with rolled affixes, and the `profile.inventory` change they
-  need~~ — **done**, see the Diablo direction section. Still owed there: a bag
-  cap, and selling or destroying a roll you do not want
+  need~~ — **done**, see the Diablo direction section
+- ~~A bag cap, and selling or destroying a roll you do not want~~ — **done**,
+  same section. Vendor buy-back exists now, so a shop is a shop in both
+  directions
 - ~~Per-zone level bands~~ — moved into 3.1, where districts declare a `band`.
   Still owed here: the "you are underlevelled" warning on crossing into one
 - Weapon mods / attachments layered onto `Config/Weapons.luau`

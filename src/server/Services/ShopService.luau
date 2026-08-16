@@ -151,6 +151,17 @@ export type ItemEntry = {
 	-- Already-formatted roll lines. Empty for anything Common.
 	affixes: { string },
 	stats: { { label: string, value: string } },
+	--[[
+		Really in the bag, as opposed to merely usable.
+
+		`owned` is true for fists and the starting outfit, which nobody carries
+		and so nobody can sell or throw away. This is the flag those two
+		actions key off.
+	]]
+	carried: boolean,
+	-- What the vendor in front of the player would pay. Zero away from a
+	-- vendor, and zero for anything they will not take.
+	sellValue: number,
 }
 
 --- Human-readable stat lines for an outfit, for the detail pane.
@@ -178,6 +189,62 @@ local function weaponStatLines(def: Weapons.WeaponDef): { { label: string, value
 		{ label = "Rate", value = `{string.format("%.1f", def.fireRate)}/s` },
 		{ label = "Range", value = tostring(math.floor(def.range + 0.5)) },
 	}
+end
+
+--[[
+	What the catalogue says one of these is worth, before anyone's markup.
+
+	Nil for anything that is not a purchasable item, and zero is meaningful:
+	fists and the starting outfit cost nothing because they are given, and a
+	thing that was never bought is not worth selling either.
+]]
+local function baseCost(id: string): number?
+	if Weapons.exists(id) then
+		return Weapons.get(id).cost
+	elseif Outfits.exists(id) then
+		return Outfits.get(id).cost
+	end
+	return nil
+end
+
+--[[
+	What to call one stack in a message.
+
+	Falls back to the raw id rather than asserting, because the bag can hold
+	things this file knows nothing about -- mission pickups are neither a
+	weapon nor an outfit, and they are discardable like anything else.
+]]
+local function displayNameOf(stack: Inventory.ItemStack): string
+	local base = stack.id
+	if Weapons.exists(stack.id) then
+		base = Weapons.get(stack.id).displayName
+	elseif Outfits.exists(stack.id) then
+		base = Outfits.get(stack.id).displayName
+	end
+	return Affixes.nameFor(base, stack.rolls)
+end
+
+--[[
+	What the vendor in front of the player would pay for one stack.
+
+	Rolls are paid for -- `RarityDef.value` -- because otherwise the only thing
+	you could do with a Legendary you cannot use is throw it away, and a drop
+	that is worth nothing is not a reward.
+
+	Divided by the vendor's own `priceMult`, so the vendor who charges the most
+	also offers the least. Away from a vendor this is zero, which is the flag
+	the client reads to grey the button out.
+]]
+local function sellValue(stack: Inventory.ItemStack, shop: Shops.ShopDef?): number
+	if not shop then
+		return 0
+	end
+	local cost = baseCost(stack.id)
+	if not cost or cost <= 0 then
+		return 0
+	end
+	local each = cost * Affixes.rarityOf(stack.rolls).value * Shops.SELL_FRACTION / shop.priceMult
+	return math.max(1, math.floor(each)) * stack.count
 end
 
 --[[
@@ -213,7 +280,8 @@ local function buildCatalogue(player: Player, profile: PlayerProfile, vendor: Ve
 		end
 		seen[uid] = true
 		local def = Outfits.get(id)
-		local rolls = Inventory.rollsOf(inv, uid)
+		local stack = inv[uid]
+		local rolls = stack and stack.rolls
 		table.insert(entries, {
 			kind = "Outfit",
 			uid = uid,
@@ -231,6 +299,8 @@ local function buildCatalogue(player: Player, profile: PlayerProfile, vendor: Ve
 			rarity = Affixes.rarityOf(rolls).affixes,
 			affixes = Affixes.describe(rolls),
 			stats = outfitStatLines(id),
+			carried = stack ~= nil,
+			sellValue = if stack then sellValue(stack, shop) else 0,
 		})
 	end
 
@@ -240,7 +310,8 @@ local function buildCatalogue(player: Player, profile: PlayerProfile, vendor: Ve
 		end
 		seen[uid] = true
 		local def = Weapons.get(id)
-		local rolls = Inventory.rollsOf(inv, uid)
+		local stack = inv[uid]
+		local rolls = stack and stack.rolls
 		table.insert(entries, {
 			kind = "Weapon",
 			uid = uid,
@@ -256,6 +327,8 @@ local function buildCatalogue(player: Player, profile: PlayerProfile, vendor: Ve
 			rarity = Affixes.rarityOf(rolls).affixes,
 			affixes = Affixes.describe(rolls),
 			stats = weaponStatLines(def),
+			carried = stack ~= nil,
+			sellValue = if stack then sellValue(stack, shop) else 0,
 		})
 	end
 
@@ -398,6 +471,100 @@ function ShopService.equipOutfit(player: Player, uid: string): (boolean, string?
 	return true, nil
 end
 
+--[[
+	The stack a sell or discard would act on, or a reason it cannot.
+
+	Both actions refuse the same three things and for the same reasons, so the
+	checks live together: what is not carried cannot leave the bag (fists and
+	the starting outfit are `owned` without ever being in it), and what is worn
+	cannot leave at all, because `profile.equipped` would go on naming a uid
+	that no longer exists and the next respawn would hand the player nothing.
+]]
+local function removable(profile: PlayerProfile, uid: string): (Inventory.ItemStack?, string?)
+	local stack = profile.inventory[uid]
+	if not stack then
+		return nil, "You are not carrying that"
+	end
+	if profile.equipped.outfit == uid or profile.equipped.weapon == uid then
+		return nil, "Unequip it first"
+	end
+	return stack, nil
+end
+
+--[[
+	Sells one stack to the vendor the player is standing at.
+
+	The whole stack goes at once. A rolled item is a stack of one anyway, and
+	those are what this exists for -- splitting a pile of five stimpacks would
+	be a quantity widget in service of nothing.
+]]
+function ShopService.sell(player: Player, uid: string): (boolean, string?)
+	local profile = data().get(player)
+	if not profile then
+		return false, "Profile not loaded"
+	end
+
+	local vendor = vendorNear(player)
+	if not vendor then
+		return false, "No vendor nearby"
+	end
+
+	local stack, reason = removable(profile, uid)
+	if not stack then
+		return false, reason
+	end
+
+	-- Recomputed here rather than trusted from the row the client clicked,
+	-- for the same reason `purchase` recomputes the price.
+	local value = sellValue(stack, Shops.get(vendor.shopId))
+	if value <= 0 then
+		return false, `{vendor.displayName} will not take that`
+	end
+
+	local name = displayNameOf(stack)
+
+	-- Taken before it is paid for. If the write somehow failed after the
+	-- credits landed the player would have both, which is the one direction
+	-- this must never fail in.
+	data().update(player, function(p: PlayerProfile)
+		Inventory.take(p.inventory, uid)
+	end)
+	-- Raw: the Scavenger multiplier is for what the world gives you, and the
+	-- vendor spread is already the whole economics of a sale.
+	progression().awardCredits(player, value, true)
+
+	notify(player, `Sold {name} for {value} cr`, "Success")
+	return true, nil
+end
+
+--[[
+	Throws one stack away. No vendor, no payment, no undo.
+
+	The bag is capped (see `Inventory.MAX_ROLLED`) and vendors are in towns, so
+	without this a full bag miles from anywhere means no more drops until you
+	walk home. The client asks twice before calling it.
+]]
+function ShopService.discard(player: Player, uid: string): (boolean, string?)
+	local profile = data().get(player)
+	if not profile then
+		return false, "Profile not loaded"
+	end
+
+	local stack, reason = removable(profile, uid)
+	if not stack then
+		return false, reason
+	end
+
+	local name = displayNameOf(stack)
+
+	data().update(player, function(p: PlayerProfile)
+		Inventory.take(p.inventory, uid)
+	end)
+
+	notify(player, `Discarded {name}`, "Info")
+	return true, nil
+end
+
 --------------------------------------------------------------------------------
 -- Lifecycle
 --------------------------------------------------------------------------------
@@ -415,6 +582,10 @@ function ShopService.init()
 			equippedOutfit = profile.equipped.outfit,
 			equippedWeapon = profile.equipped.weapon,
 			vendor = vendor,
+			-- How full the bag is. Only rolled items count against it; see
+			-- Inventory.MAX_ROLLED for why the rest need no ceiling.
+			rolled = Inventory.rolled(profile.inventory),
+			maxRolled = Inventory.MAX_ROLLED,
 			items = buildCatalogue(player, profile, vendor),
 		}
 	end, {
@@ -434,6 +605,26 @@ function ShopService.init()
 
 	Net.onServerEvent(Net.Event.EquipOutfit, function(player: Player, id: string)
 		local ok, reason = ShopService.equipOutfit(player, id)
+		if not ok and reason then
+			notify(player, reason, "Error")
+		end
+	end, {
+		rateLimit = 4,
+		validate = Net.args(Net.check.string(64)),
+	})
+
+	Net.onServerEvent(Net.Event.SellItem, function(player: Player, uid: string)
+		local ok, reason = ShopService.sell(player, uid)
+		if not ok and reason then
+			notify(player, reason, "Error")
+		end
+	end, {
+		rateLimit = 4,
+		validate = Net.args(Net.check.string(64)),
+	})
+
+	Net.onServerEvent(Net.Event.DiscardItem, function(player: Player, uid: string)
+		local ok, reason = ShopService.discard(player, uid)
 		if not ok and reason then
 			notify(player, reason, "Error")
 		end

@@ -349,6 +349,8 @@ Net.Event = {
 	TrackMission = "TrackMission",
 	-- Shop / inventory
 	PurchaseItem = "PurchaseItem",
+	SellItem = "SellItem",
+	DiscardItem = "DiscardItem",
 	EquipOutfit = "EquipOutfit",
 	-- Travel
 	TravelTo = "TravelTo",

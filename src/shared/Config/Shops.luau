@@ -30,6 +30,18 @@ local Shops = {}
 ]]
 Shops.VENDOR_RANGE = 30
 
+--[[
+	What a vendor pays, as a fraction of what the thing is worth.
+
+	The spread is the whole reason a shop is a shop, and it has to be wide
+	enough that buying something and selling it straight back is an obvious
+	loss -- otherwise the vendor is a bank. Divided by the vendor's own
+	`priceMult` at the till, so the trader who charges the most also offers the
+	least, and the Jawa who is cheap to buy from also pays well. That is what
+	"it all fell off something" ought to mean in both directions.
+]]
+Shops.SELL_FRACTION = 0.3
+
 export type ShopDef = {
 	id: string,
 	displayName: string,

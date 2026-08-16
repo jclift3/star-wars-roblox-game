@@ -74,6 +74,8 @@ type ItemEntry = {
 	rarity: number,
 	affixes: { string },
 	stats: { StatLine },
+	carried: boolean,
+	sellValue: number,
 }
 
 type Snapshot = {
@@ -82,11 +84,14 @@ type Snapshot = {
 	equippedOutfit: string?,
 	equippedWeapon: string?,
 	vendor: { shopId: string, displayName: string, greeting: string, vendorName: string }?,
+	rolled: number,
+	maxRolled: number,
 	items: { ItemEntry },
 }
 
 local screen: ScreenGui
 local root: Frame
+local titleLabel: TextLabel
 local creditsLabel: TextLabel
 local vendorLabel: TextLabel
 local listFrame: ScrollingFrame
@@ -94,12 +99,23 @@ local detailTitle: TextLabel
 local detailBody: TextLabel
 local detailStats: TextLabel
 local actionButton: TextButton
+local disposeButton: TextButton
 local tabButtons: { [string]: TextButton } = {}
 
 local open = false
 local activeTab = "Outfit"
 local selected: { [string]: string? } = { Outfit = nil, Weapon = nil }
 local snapshot: Snapshot? = nil
+
+--[[
+	The uid whose DISCARD has been pressed once.
+
+	Throwing away a Legendary is the only unrecoverable thing this panel can
+	do, and it sits directly under a button people press repeatedly. Asking
+	twice is the whole safeguard -- cleared whenever the selection moves, so
+	the second press is always about the item the first one was.
+]]
+local confirmingDiscard: string? = nil
 
 -- Guards against two refreshes racing. `invokeServer` yields, so a fast
 -- sequence of buys can return replies out of order and paint a stale list.
@@ -179,9 +195,16 @@ local function buildDetailPane(parent: Frame)
 	detailStats.Size = UDim2.new(1, 0, 0, 90)
 
 	actionButton = button("Action", pane, "")
-	actionButton.Position = UDim2.new(0, 0, 1, -58)
+	actionButton.Position = UDim2.new(0, 0, 1, -104)
 	actionButton.Size = UDim2.new(1, 0, 0, 40)
 	actionButton.TextSize = 14
+
+	-- Below the action, and deliberately plainer: equipping is what you came
+	-- here to do, getting rid of something is what you do when the bag is full.
+	disposeButton = button("Dispose", pane, "")
+	disposeButton.Position = UDim2.new(0, 0, 1, -58)
+	disposeButton.Size = UDim2.new(1, 0, 0, 40)
+	disposeButton.TextSize = 13
 end
 
 local function buildTabs(parent: Frame)
@@ -216,11 +239,11 @@ local function build()
 	root.Parent = screen
 	corner(root, 8)
 
-	local title = text("Title", root, 20, TEXT)
-	title.Font = Enum.Font.GothamBold
-	title.Text = "INVENTORY"
-	title.Position = UDim2.fromOffset(18, 16)
-	title.Size = UDim2.fromOffset(300, 26)
+	titleLabel = text("Title", root, 20, TEXT)
+	titleLabel.Font = Enum.Font.GothamBold
+	titleLabel.Text = "INVENTORY"
+	titleLabel.Position = UDim2.fromOffset(18, 16)
+	titleLabel.Size = UDim2.fromOffset(360, 26)
 
 	creditsLabel = text("Credits", root, 16, ACCENT)
 	creditsLabel.Font = Enum.Font.GothamBold
@@ -303,6 +326,7 @@ local function renderDetail()
 		detailBody.Text = ""
 		detailStats.Text = ""
 		actionButton.Visible = false
+		disposeButton.Visible = false
 		return
 	end
 
@@ -368,6 +392,39 @@ local function renderDetail()
 		actionButton.TextColor3 = Color3.new(0, 0, 0)
 		actionButton.Active = true
 	end
+
+	--[[
+		Only things really in the bag can leave it, and not while worn.
+
+		Hidden rather than greyed out in those cases: shop stock and the
+		starting outfit are never going to become sellable by waiting, and a
+		permanently dead button is just clutter. An equipped item does show a
+		disabled button, because that one the player can act on.
+	]]
+	if not item.carried then
+		disposeButton.Visible = false
+	elseif item.equipped then
+		disposeButton.Visible = true
+		disposeButton.Text = "UNEQUIP TO SELL OR DISCARD"
+		disposeButton.BackgroundColor3 = ROW
+		disposeButton.TextColor3 = DIM
+		disposeButton.Active = false
+	elseif item.sellValue > 0 then
+		-- One button, and the vendor decides which action it is: standing at
+		-- a counter there is never a reason to throw away something that can
+		-- be sold, and out in the field there is never a vendor to sell to.
+		disposeButton.Visible = true
+		disposeButton.Text = `SELL — {item.sellValue} CR`
+		disposeButton.BackgroundColor3 = ROW
+		disposeButton.TextColor3 = GOOD
+		disposeButton.Active = true
+	else
+		disposeButton.Visible = true
+		disposeButton.Text = if confirmingDiscard == item.uid then "DISCARD — PRESS AGAIN" else "DISCARD"
+		disposeButton.BackgroundColor3 = ROW
+		disposeButton.TextColor3 = BAD
+		disposeButton.Active = true
+	end
 end
 
 local function renderList()
@@ -426,6 +483,9 @@ local function renderList()
 
 		row.Activated:Connect(function()
 			selected[activeTab] = item.uid
+			-- Moving the selection cancels a half-pressed discard, so the
+			-- confirm can never be inherited by a different item.
+			confirmingDiscard = nil
 			render()
 		end)
 	end
@@ -444,6 +504,17 @@ function render()
 
 	creditsLabel.Text = if snap then `{snap.credits} cr` else "—"
 
+	-- Counts rolled items only, which is what the cap counts. Shown at all
+	-- times rather than only when full, so the first time a drop is refused
+	-- is not the first time the player hears there is a limit.
+	if snap then
+		titleLabel.Text = `INVENTORY   {snap.rolled}/{snap.maxRolled}`
+		titleLabel.TextColor3 = if snap.rolled >= snap.maxRolled then BAD else TEXT
+	else
+		titleLabel.Text = "INVENTORY"
+		titleLabel.TextColor3 = TEXT
+	end
+
 	if snap and snap.vendor then
 		vendorLabel.Text = `{snap.vendor.displayName} — "{snap.vendor.greeting}"`
 		vendorLabel.TextColor3 = ACCENT
@@ -458,8 +529,12 @@ function render()
 		b.TextColor3 = if active then Color3.new(0, 0, 0) else DIM
 	end
 
-	-- Default the selection so the detail pane is never blank on open.
-	if not selected[activeTab] then
+	-- Default the selection so the detail pane is never blank on open. Tested
+	-- by resolving it rather than by its presence, which also catches a
+	-- selection that has just gone away: selling or discarding deletes the
+	-- very row the player was looking at.
+	if not selectedEntry() then
+		selected[activeTab] = nil
 		local items = entriesFor(activeTab)
 		if #items > 0 then
 			selected[activeTab] = items[1].uid
@@ -503,6 +578,7 @@ function InventoryController.setOpen(value: boolean)
 	end
 	open = value
 	screen.Enabled = value
+	confirmingDiscard = nil
 	if value then
 		-- See the matching note in MissionBoardController.setOpen.
 		Panels.closeAllExcept(InventoryController.name)
@@ -538,9 +614,28 @@ function InventoryController.start()
 		end
 	end)
 
+	disposeButton.Activated:Connect(function()
+		local item = selectedEntry()
+		if not item or not disposeButton.Active or not item.carried or item.equipped then
+			return
+		end
+		if item.sellValue > 0 then
+			Net.fireServer(Net.Event.SellItem, item.uid)
+			return
+		end
+		if confirmingDiscard ~= item.uid then
+			confirmingDiscard = item.uid
+			renderDetail()
+			return
+		end
+		confirmingDiscard = nil
+		Net.fireServer(Net.Event.DiscardItem, item.uid)
+	end)
+
 	for kind, b in tabButtons do
 		b.Activated:Connect(function()
 			activeTab = kind
+			confirmingDiscard = nil
 			render()
 		end)
 	end

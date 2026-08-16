@@ -46,9 +46,41 @@ export type Inventory = { [string]: ItemStack }
 
 local Inventory = {}
 
+--[[
+	How many *rolled* items a bag holds.
+
+	Only rolled ones are capped, because only they are unbounded. Plain stacks
+	merge by catalogue id, so the catalogue itself is their ceiling -- a few
+	dozen rows however long anyone plays. Rolled drops never merge: one arrives
+	about every seven kills, each as its own stack, and nothing has ever taken
+	one back out. That is the only leak there is, so it is the only thing
+	worth a limit.
+
+	Being over the cap is legal. `load` never refuses, so a bag that grew
+	before the cap existed comes back whole and simply cannot take another drop
+	until something is sold or thrown away.
+]]
+Inventory.MAX_ROLLED = 30
+
 --------------------------------------------------------------------------------
 -- Reading
 --------------------------------------------------------------------------------
+
+--- How many rolled items are carried. See MAX_ROLLED.
+function Inventory.rolled(inv: Inventory): number
+	local n = 0
+	for _, stack in inv do
+		if stack.rolls then
+			n += 1
+		end
+	end
+	return n
+end
+
+--- Whether another rolled item would fit.
+function Inventory.full(inv: Inventory): boolean
+	return Inventory.rolled(inv) >= Inventory.MAX_ROLLED
+end
 
 --- How many of a catalogue id are carried, across every stack of it.
 function Inventory.count(inv: Inventory, id: string): number
@@ -124,14 +156,9 @@ end
 -- Writing
 --------------------------------------------------------------------------------
 
---[[
-	Puts items in. Returns the uid of the stack they went into.
-
-	Plain items merge into the single stack named after their id. Rolled ones
-	never merge -- each is its own stack, and `count` is ignored for them,
-	because a roll is a property of one object.
-]]
-function Inventory.add(inv: Inventory, id: string, count: number?, rolls: Rolls?): string
+--- The unconditional insert. `add` is this plus the cap; `load` needs it
+--- without, so that a save is never quietly truncated on its way back in.
+local function insert(inv: Inventory, id: string, count: number?, rolls: Rolls?): string
 	if rolls then
 		local suffix = 2
 		while inv[`{id}#{suffix}`] do
@@ -150,6 +177,25 @@ function Inventory.add(inv: Inventory, id: string, count: number?, rolls: Rolls?
 		inv[id] = { uid = id, id = id, count = n, rolls = nil }
 	end
 	return id
+end
+
+--[[
+	Puts items in. Returns the uid of the stack they went into, or nil if the
+	bag would not take them.
+
+	Plain items merge into the single stack named after their id. Rolled ones
+	never merge -- each is its own stack, and `count` is ignored for them,
+	because a roll is a property of one object.
+
+	**Only a rolled item can be refused.** Purchases, mission rewards and
+	pickups are all plain and so cannot fail here; the one caller that has to
+	read the return is the loot drop. See MAX_ROLLED.
+]]
+function Inventory.add(inv: Inventory, id: string, count: number?, rolls: Rolls?): string?
+	if rolls and Inventory.full(inv) then
+		return nil
+	end
+	return insert(inv, id, count, rolls)
 end
 
 --[[
@@ -232,7 +278,7 @@ function Inventory.load(saved: any): Inventory
 		if type(value) == "number" then
 			-- Old shape: the key was the catalogue id and the value the count.
 			if value > 0 then
-				Inventory.add(out, key, value)
+				insert(out, key, value)
 			end
 		elseif type(value) == "table" and type(value.id) == "string" then
 			local count = if type(value.count) == "number" then math.floor(value.count) else 1
@@ -251,10 +297,11 @@ function Inventory.load(saved: any): Inventory
 				end
 				rolls = if any then cleaned else nil
 			end
-			-- Re-keyed through `add` rather than trusting the saved uid, so a
-			-- save hand-edited into two stacks with the same key cannot make
-			-- one of them vanish on the next write.
-			Inventory.add(out, value.id, count, rolls)
+			-- Re-keyed rather than trusting the saved uid, so a save
+			-- hand-edited into two stacks with the same key cannot make one of
+			-- them vanish on the next write. Uncapped on purpose: a bag that
+			-- is over the limit has to come back as it was, not shorter.
+			insert(out, value.id, count, rolls)
 		end
 	end
 

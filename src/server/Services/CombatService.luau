@@ -238,9 +238,17 @@ function CombatService.onKilled(target: Model, info: DamageInfo)
 	]]
 	local drop = Loot.rollDrop(lootRng, npcLevel)
 	if drop then
+		local taken = false
 		data().update(killer, function(p: PlayerProfile)
-			Inventory.add(p.inventory, drop.id, 1, drop.rolls)
+			taken = Inventory.add(p.inventory, drop.id, 1, drop.rolls) ~= nil
 		end)
+		if not taken then
+			-- A full bag is told about, not silently swallowed. The drop is
+			-- gone either way -- there is no ground to leave it on -- so the
+			-- player has to know to go and make room.
+			Net.fireClient(Net.Event.Notify, killer, `Bag full -- left {Loot.nameOf(drop)} behind`, "Error")
+			return
+		end
 		-- A rolled outfit or weapon changes nothing until it is equipped, so
 		-- there is no cache to invalidate here.
 		-- The toast's kind IS the rarity, so the colour it is drawn in comes

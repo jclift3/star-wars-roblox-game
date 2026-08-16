@@ -60,6 +60,19 @@ export type RarityDef = {
 	color: Color3,
 	-- Relative chance of rolling this rarity on a drop, before level scaling.
 	weight: number,
+	--[[
+		What one is worth, as a multiple of the plain item's catalogue cost.
+
+		Here rather than in the shop because it is a property of the rarity,
+		and the rarity is defined here -- a vendor sets its own margin
+		(`Shops.SELL_FRACTION`, `priceMult`), not what a Legendary *is*.
+
+		Deliberately far flatter than the weights are steep. A Legendary is
+		about one drop in a hundred and seventy; paying a hundred and seventy
+		times over for one would make farming and selling strictly better than
+		playing, and the point of a drop is to wear it.
+	]]
+	value: number,
 }
 
 --[[
@@ -68,11 +81,11 @@ export type RarityDef = {
 	directly.
 ]]
 local RARITY: { [number]: RarityDef } = {
-	[0] = { name = "Common", affixes = 0, color = Color3.fromRGB(178, 184, 194), weight = 100 },
-	[1] = { name = "Uncommon", affixes = 1, color = Color3.fromRGB(104, 190, 122), weight = 46 },
-	[2] = { name = "Rare", affixes = 2, color = Color3.fromRGB(88, 150, 226), weight = 18 },
-	[3] = { name = "Epic", affixes = 3, color = Color3.fromRGB(166, 110, 226), weight = 6 },
-	[4] = { name = "Legendary", affixes = 4, color = Color3.fromRGB(226, 152, 62), weight = 1 },
+	[0] = { name = "Common", affixes = 0, color = Color3.fromRGB(178, 184, 194), weight = 100, value = 1 },
+	[1] = { name = "Uncommon", affixes = 1, color = Color3.fromRGB(104, 190, 122), weight = 46, value = 1.8 },
+	[2] = { name = "Rare", affixes = 2, color = Color3.fromRGB(88, 150, 226), weight = 18, value = 3 },
+	[3] = { name = "Epic", affixes = 3, color = Color3.fromRGB(166, 110, 226), weight = 6, value = 5 },
+	[4] = { name = "Legendary", affixes = 4, color = Color3.fromRGB(226, 152, 62), weight = 1, value = 8 },
 }
 
 Affixes.MAX_AFFIXES = 4

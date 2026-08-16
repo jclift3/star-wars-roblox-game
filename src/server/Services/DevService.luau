@@ -153,9 +153,17 @@ codes.greedisgood = function(player: Player)
 	for count = 1, Affixes.MAX_AFFIXES do
 		local drop = Loot.forceDrop(devRng, profile.level, count)
 		if drop then
+			local taken = false
 			data().update(player, function(p: PlayerProfile)
-				Inventory.add(p.inventory, drop.id, 1, drop.rolls)
+				taken = Inventory.add(p.inventory, drop.id, 1, drop.rolls) ~= nil
 			end)
+			if not taken then
+				-- The cheat is subject to the cap like anything else. Lifting
+				-- it here would mean the one easy way to reach a full bag is
+				-- also the one way that cannot show what a full bag does.
+				tell(player, `Bag full at {Inventory.MAX_ROLLED}. Sell something.`, "Error")
+				break
+			end
 			given += 1
 			tell(player, `{Affixes.rarityAt(count).name}: {Loot.nameOf(drop)}`, Affixes.rarityAt(count).name)
 		end
