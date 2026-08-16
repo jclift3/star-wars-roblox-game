@@ -373,4 +373,13 @@ end
 
 Progression.TREES = { "Combat", "Piloting", "Force", "Engineering" } :: { SkillId }
 
+function Progression.hasTree(tree: string): boolean
+	for _, id in Progression.TREES do
+		if id == tree then
+			return true
+		end
+	end
+	return false
+end
+
 return Progression

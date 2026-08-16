@@ -1097,8 +1097,14 @@ function Planets.populationOf(id: string): number
 	return total
 end
 
---- Planets appropriate for a player of `level`, nearest first from `origin`.
-function Planets.suggestedFor(level: number, origin: string): { PlanetDef }
+--[[
+	Planets appropriate for a player of `level`, nearest first from `from`.
+
+	`from` is a planet id. It was called `origin` until an origin became a
+	character's background rather than a starting point, at which time the name
+	was a trap: two concepts, one word, and nothing that would error.
+]]
+function Planets.suggestedFor(level: number, from: string): { PlanetDef }
 	local out = {}
 	for _, p in defs do
 		if level + 4 >= p.minLevel then
@@ -1106,7 +1112,7 @@ function Planets.suggestedFor(level: number, origin: string): { PlanetDef }
 		end
 	end
 	table.sort(out, function(a, b)
-		return Planets.distance(origin, a.id) < Planets.distance(origin, b.id)
+		return Planets.distance(from, a.id) < Planets.distance(from, b.id)
 	end)
 	return out
 end

@@ -63,6 +63,7 @@ local FOCUS_PANELS = {
 	"InventoryController",
 	"MissionBoardController",
 	"SkillTreeController",
+	"GalaxyMapController",
 	"DialogueController",
 }
 

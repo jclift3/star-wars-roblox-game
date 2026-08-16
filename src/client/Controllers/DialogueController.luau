@@ -49,7 +49,8 @@ local CHOICE_HEIGHT = 30
 local ONE_KEY = Enum.KeyCode.One.Value
 
 -- Panels that own the whole screen. Starting a conversation closes them.
-local FULL_SCREEN_PANELS = { "InventoryController", "MissionBoardController", "SkillTreeController" }
+local FULL_SCREEN_PANELS =
+	{ "InventoryController", "MissionBoardController", "SkillTreeController", "GalaxyMapController" }
 
 --- A node as the server describes it. Choices are answered by index.
 type Payload = {

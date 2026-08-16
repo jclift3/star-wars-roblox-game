@@ -33,6 +33,7 @@ local Types = require(Shared.Types)
 local Signal = require(Shared.Core.Signal)
 local Net = require(Shared.Core.Net)
 local Factions = require(Shared.Config.Factions)
+local Origins = require(Shared.Config.Origins)
 local Planets = require(Shared.Config.Planets)
 
 type PlayerProfile = Types.PlayerProfile
@@ -99,10 +100,15 @@ local function defaultProfile(): PlayerProfile
 		xp = 0,
 		skillPoints = 1,
 		skills = {},
+		-- A placeholder until the creation screen exists. It is deliberately
+		-- the origin with no patron and no restrictions, so an unchosen
+		-- character is never one that cannot get somewhere.
+		origin = Origins.DEFAULT,
 		faction = Factions.DEFAULT,
 		factionRep = rep,
 		homePlanet = Planets.STARTING_PLANET,
 		currentPlanet = Planets.STARTING_PLANET,
+		lastTravelAt = 0,
 		-- The starting kit has to be *owned*, not merely equipped: every equip
 		-- path checks the inventory, so a weapon you begin holding but do not
 		-- own is one you can put down exactly once.
@@ -148,7 +154,18 @@ local function migrate(saved: any): PlayerProfile
 	end
 
 	for _, key in
-		{ "credits", "level", "xp", "skillPoints", "faction", "homePlanet", "currentPlanet", "createdAt" }
+		{
+			"credits",
+			"level",
+			"xp",
+			"skillPoints",
+			"origin",
+			"faction",
+			"homePlanet",
+			"currentPlanet",
+			"lastTravelAt",
+			"createdAt",
+		}
 	do
 		take(key)
 	end
@@ -198,6 +215,11 @@ local function migrate(saved: any): PlayerProfile
 	end
 	if not Factions.exists(base.faction) then
 		base.faction = Factions.DEFAULT
+	end
+	-- Every profile saved before origins existed comes back without one, which
+	-- is the same case as an origin that was later renamed.
+	if not Origins.exists(base.origin) then
+		base.origin = Origins.DEFAULT
 	end
 
 	base.version = PROFILE_VERSION

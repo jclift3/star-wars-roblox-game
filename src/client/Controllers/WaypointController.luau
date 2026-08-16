@@ -291,7 +291,9 @@ local function update(dt: number)
 	end
 
 	-- A panel has the screen; a waypoint over it is clutter.
-	for _, name in { "InventoryController", "MissionBoardController", "SkillTreeController" } do
+	for _, name in
+		{ "InventoryController", "MissionBoardController", "SkillTreeController", "GalaxyMapController" }
+	do
 		local panel = ServiceLoader.find(name)
 		if panel and panel.isOpen() then
 			hide()

@@ -19,7 +19,9 @@
 
 local Shared = game:GetService("ReplicatedStorage"):WaitForChild("Shared")
 local Factions = require(Shared.Config.Factions)
+local Origins = require(Shared.Config.Origins)
 local Planets = require(Shared.Config.Planets)
+local Progression = require(Shared.Config.Progression)
 local PlanetBuilder = require(script.Parent.Parent.World.PlanetBuilder)
 
 local WorldService = {
@@ -65,6 +67,12 @@ function WorldService.init()
 	-- destination that silently does not exist.
 	for _, problem in Factions.validate(Planets.exists) do
 		warn(`[WorldService] faction config: {problem}`)
+	end
+
+	-- An origin names a home world, a faction and a skill tree, and its travel
+	-- rules are read every time anybody opens the galaxy map.
+	for _, problem in Origins.validate(Progression.hasTree) do
+		warn(`[WorldService] origin config: {problem}`)
 	end
 
 	WorldService.ensure(Planets.STARTING_PLANET)

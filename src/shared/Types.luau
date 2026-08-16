@@ -43,10 +43,16 @@ export type PlayerProfile = {
 	xp: number,
 	skillPoints: number,
 	skills: { [string]: number },
+	-- The character's background: picks the skill tree, the home world, and who
+	-- is willing to fly them anywhere. See Config/Origins.luau.
+	origin: string,
 	faction: string,
 	factionRep: { [string]: number },
 	homePlanet: string,
 	currentPlanet: string,
+	-- os.time of the last jump, so a travel cooldown survives a rejoin rather
+	-- than being cleared by one.
+	lastTravelAt: number,
 	inventory: { [string]: number },
 	equipped: { weapon: string?, offhand: string?, outfit: string? },
 	unlockedShips: { string },

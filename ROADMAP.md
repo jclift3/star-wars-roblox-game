@@ -23,9 +23,13 @@ This file stays the build order. Those three are the content.
 The systems were largely built; the *seams between them* were missing. Phase 1
 was almost entirely about connecting things that already existed, and it is now
 **closed** — a player can walk, shoot, talk, trade, take a mission, finish it,
-and spend the points. What they still cannot do is leave the planet. That is
-Phase 2, and it is the first item on this list that is a genuinely new system
-rather than a wire between two old ones.
+and spend the points. Phase 2a then opened the other eight worlds, and turned
+out to be the same story one more time: the jump was already written and had no
+caller.
+
+What is missing now is not wiring. It is that the nine planets are the same
+generator in nine colours (Phase 3), and that the character you are has no
+moment where you choose it (Phase 3b.1).
 
 ---
 
@@ -231,22 +235,67 @@ boot and `check.sh` cover the static half only.
 
 ## Phase 2 — Space and the galaxy
 
-The single biggest content multiplier: eight planets are authored
-(`Config/Planets.luau`) and only one is reachable.
+The single biggest content multiplier: nine planets are authored
+(`Config/Planets.luau`) and until 2a only one was reachable.
 
 **There is no ship code today** — not a config, not a model, not a service. The
 word "ship" appears in `Planets.luau` only as flavour text and one comment about
-fuel range (`:593`). This is a from-scratch phase.
+fuel range. This is a from-scratch phase.
 
-### 2a. Travel without flight
-- Galaxy map UI + planet selection
-- `TravelService` — swap planet folders, reuse the existing per-planet gravity
-  and atmosphere transition (both already work)
-- Fuel / credit cost model. Per your note: fast travel costs credits, normal
-  travel is free or fuel-based
+### 2a. Travel without flight — **[done]**
 
-Ship this **before** flyable ships. Travel alone unlocks seven planets of
-existing content; flight is a separate, much larger problem.
+`Config/Origins.luau` + `TravelService` (priority 38) +
+`GalaxyMapController` (**G** key, priority 44).
+
+`PlayerService.travelTo` already swapped planet folders, respawned the character
+and ran the gravity/atmosphere transition — and, in this codebase's oldest
+failure mode, **had no caller anywhere**. So 2a is not the jump; it is the policy
+in front of it and the door into it.
+
+**Travel differs by origin, not by a flat number.** Each of the four origins gets
+somewhere by a different *mechanism*, expressed as three fields
+(`patron`, `fareMultiplier`, `cooldown`):
+
+| Origin | Tree | Home | Travels by | Free when | Fare | Cooldown |
+|---|---|---|---|---|---|---|
+| Acolyte | Force | Korriban | Imperial shuttle | either end is Empire-held | ×2.0 | 30 s |
+| Conscript | Combat | Ord Mantell | Republic troop transport | either end is Republic-held | ×1.4 | 75 s |
+| Scoundrel | Piloting | Nar Shaddaa | bought passage | never | ×0.6 | 20 s |
+| Scrapper | Engineering | Taris | working a freight berth | never | ×0.2 | 180 s |
+
+Two things fall out of that rather than being authored:
+
+- **The patron is also a liability.** If the destination's controlling faction is
+  an *enemy* of your patron (`Factions.areEnemies`), the fare takes a ×1.5
+  surcharge — nobody wants an Acolyte aboard on a Republic world. No hostility
+  list is written down; it is read off the faction graph.
+- **The asymmetry is the balance.** The Acolyte has the smallest free network
+  (2 of 9 worlds) and the steepest charter, because the Force tree is the
+  strongest. The Scrapper travels for almost nothing and waits three minutes.
+
+**Every origin keeps a paid route to every world.** A weakness that can strand
+you is not a weakness, it is a dead end — no story beat may become unreachable
+because of a background choice.
+
+Implementation notes worth remembering:
+- `Origins.passageFor` is **pure and shared**, so the price the map quotes and
+  the price the server charges cannot drift. Same reasoning as `Shops.VENDOR_RANGE`.
+- The cooldown is `profile.lastTravelAt` (an `os.time`), not server memory, so
+  rejoining is not a free reset. It is stamped *before* the jump, because
+  `travelTo` respawns the character and anything after that races the
+  character-added handler.
+- The map lists **locked** worlds too, with the reason (`Requires level 26`,
+  `Needs 4200 cr`, `No berth for 2 min`). A destination you cannot afford yet is
+  content; a destination you cannot see is not.
+- If the charge succeeds and the jump then fails, the credits are refunded.
+
+**Not yet choosable.** `DataService.defaultProfile` assigns `Origins.DEFAULT`
+("Scoundrel") to everyone, and `migrate` repairs any profile whose origin is
+missing or renamed. Until 3b.1 ships a creation screen, every character travels
+on Scoundrel terms — the differences are built and tested but invisible.
+
+Shipped **before** flyable ships. Travel alone unlocks eight planets of existing
+content; flight is a separate, much larger problem.
 
 ### 2b. Ship classes
 Proposed `Config/Ships.luau`, same shape as `Weapons.luau` — stats as data,
@@ -374,8 +423,8 @@ Korriban, Taris, Nar Shaddaa and Coruscant. That halves the worlds needing a hig
 finish and buys the best beat in any RPG for free, which is returning at level 40
 to the district that nearly killed you at level 3.
 
-**Travel is a hard dependency from the second planet onward.** Phase 2a before
-this goes past Tatooine.
+**Travel is a hard dependency from the second planet onward** — satisfied by
+Phase 2a, so this is no longer blocked.
 
 ---
 
@@ -384,12 +433,18 @@ this goes past Tatooine.
 The story, specified in [CAMPAIGN.md](CAMPAIGN.md). Mostly content, but four
 small system changes have to land first.
 
-### 3b.1 Origin — **[todo]**
-`PlayerProfile.origin`, a `Config/Origins.luau`, a creation screen on the
-existing 760x470 panel convention, and an `origin: string?` field on
-`ObjectiveDef` and on the dialogue `Condition`. That last one is what makes four
-prologues affordable: one mission and one conversation can serve all four
-origins and say something different to each.
+### 3b.1 Origin — **[partly done]**
+`PlayerProfile.origin` and `Config/Origins.luau` landed with Phase 2a, which
+needed them to price a jump. Still outstanding:
+- a **creation screen** on the existing 760x470 panel convention — without it
+  every character is silently `Origins.DEFAULT` and the four travel profiles are
+  dead code
+- an `origin: string?` field on `ObjectiveDef` and on the dialogue `Condition`.
+  That is what makes four prologues affordable: one mission and one conversation
+  can serve all four origins and say something different to each.
+- the origin should also decide the **starting planet** (`Origins.homePlanet` is
+  already declared and currently only used for flavour) and seed the first skill
+  point into its `tree`.
 
 ### 3b.2 Alignment — **[todo]**
 `PlayerProfile.alignment`, clamped -1000..1000, moved by dialogue and mission

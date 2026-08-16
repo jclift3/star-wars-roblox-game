@@ -183,7 +183,9 @@ local function refresh()
 
 	-- A panel has the screen; signs behind it are noise. Same rule the
 	-- objective waypoint follows.
-	for _, name in { "InventoryController", "MissionBoardController", "SkillTreeController" } do
+	for _, name in
+		{ "InventoryController", "MissionBoardController", "SkillTreeController", "GalaxyMapController" }
+	do
 		local panel = ServiceLoader.find(name)
 		if panel and panel.isOpen() then
 			hideAll()
