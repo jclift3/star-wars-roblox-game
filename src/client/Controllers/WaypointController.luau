@@ -34,6 +34,7 @@ local Workspace = game:GetService("Workspace")
 local Shared = game:GetService("ReplicatedStorage"):WaitForChild("Shared")
 local Missions = require(Shared.Config.Missions)
 local Palette = require(Shared.Config.Palette)
+local Panels = require(Shared.Core.Panels)
 local Planets = require(Shared.Config.Planets)
 local ServiceLoader = require(Shared.Core.ServiceLoader)
 
@@ -291,14 +292,9 @@ local function update(dt: number)
 	end
 
 	-- A panel has the screen; a waypoint over it is clutter.
-	for _, name in
-		{ "InventoryController", "MissionBoardController", "SkillTreeController", "GalaxyMapController" }
-	do
-		local panel = ServiceLoader.find(name)
-		if panel and panel.isOpen() then
-			hide()
-			return
-		end
+	if Panels.anyFullScreenOpen() then
+		hide()
+		return
 	end
 
 	local distance = (part.Position - root.Position).Magnitude

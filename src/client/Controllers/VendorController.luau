@@ -32,8 +32,8 @@ local Workspace = game:GetService("Workspace")
 local Shared = game:GetService("ReplicatedStorage"):WaitForChild("Shared")
 local NPCArchetypes = require(Shared.Config.NPCArchetypes)
 local Palette = require(Shared.Config.Palette)
+local Panels = require(Shared.Core.Panels)
 local Shops = require(Shared.Config.Shops)
-local ServiceLoader = require(Shared.Core.ServiceLoader)
 
 local VendorController = {
 	name = "VendorController",
@@ -183,14 +183,9 @@ local function refresh()
 
 	-- A panel has the screen; signs behind it are noise. Same rule the
 	-- objective waypoint follows.
-	for _, name in
-		{ "InventoryController", "MissionBoardController", "SkillTreeController", "GalaxyMapController" }
-	do
-		local panel = ServiceLoader.find(name)
-		if panel and panel.isOpen() then
-			hideAll()
-			return
-		end
+	if Panels.anyFullScreenOpen() then
+		hideAll()
+		return
 	end
 
 	local found = vendorsInSight(root.Position)

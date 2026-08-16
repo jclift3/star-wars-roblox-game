@@ -32,6 +32,7 @@ local Shared = game:GetService("ReplicatedStorage"):WaitForChild("Shared")
 local Missions = require(Shared.Config.Missions)
 local Net = require(Shared.Core.Net)
 local Palette = require(Shared.Config.Palette)
+local Panels = require(Shared.Core.Panels)
 local ServiceLoader = require(Shared.Core.ServiceLoader)
 
 local MissionBoardController = {
@@ -518,17 +519,10 @@ function MissionBoardController.setOpen(value: boolean)
 	open = value
 	screen.Enabled = value
 	if value then
-		-- Every full-screen panel is the same size in the same place. `find`
-		-- rather than `get` so a broken inventory costs an overlapping panel,
-		-- not a board that refuses to open.
-		for _, name in
-			{ "InventoryController", "SkillTreeController", "GalaxyMapController", "DialogueController" }
-		do
-			local panel = ServiceLoader.find(name)
-			if panel then
-				panel.setOpen(false)
-			end
-		end
+		-- Every full-screen panel is the same size in the same place, so only
+		-- one may be up. Naming only ourselves means a new panel never has to
+		-- be added here.
+		Panels.closeAllExcept(MissionBoardController.name)
 		task.spawn(refresh)
 	end
 end

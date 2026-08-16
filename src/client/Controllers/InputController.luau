@@ -25,6 +25,7 @@ local Workspace = game:GetService("Workspace")
 
 local Shared = game:GetService("ReplicatedStorage"):WaitForChild("Shared")
 local Net = require(Shared.Core.Net)
+local Panels = require(Shared.Core.Panels)
 local Weapons = require(Shared.Config.Weapons)
 local WeaponModel = require(Shared.Rig.WeaponModel)
 local ServiceLoader = require(Shared.Core.ServiceLoader)
@@ -57,32 +58,15 @@ local function effects()
 	return ServiceLoader.get("EffectsController")
 end
 
--- Dialogue is in this list without being full-screen: it does not cover the
--- world, but picking a reply is still a click on a button in front of a person.
-local FOCUS_PANELS = {
-	"InventoryController",
-	"MissionBoardController",
-	"SkillTreeController",
-	"GalaxyMapController",
-	"DialogueController",
-}
-
 --[[
 	True while a panel has the player's attention. Clicking a Buy button should
 	not also put a bolt through the shopkeeper standing behind it.
 
-	Deliberately a `find` rather than a `get`: this runs on every click, and if
-	the inventory panel ever fails to load, the cost should be a shop you cannot
-	open -- not a game you cannot shoot in.
+	`Panels.anyOpen` includes dialogue, which does not cover the world but is
+	still a set of buttons standing in front of a person.
 ]]
 local function uiHasFocus(): boolean
-	for _, name in FOCUS_PANELS do
-		local panel = ServiceLoader.find(name)
-		if panel ~= nil and panel.isOpen() == true then
-			return true
-		end
-	end
-	return false
+	return Panels.anyOpen()
 end
 
 --- Where the crosshair is pointing, at most `range` studs away.

@@ -27,6 +27,7 @@ local UserInputService = game:GetService("UserInputService")
 local Shared = game:GetService("ReplicatedStorage"):WaitForChild("Shared")
 local Net = require(Shared.Core.Net)
 local Palette = require(Shared.Config.Palette)
+local Panels = require(Shared.Core.Panels)
 local ServiceLoader = require(Shared.Core.ServiceLoader)
 
 local DialogueController = {
@@ -47,10 +48,6 @@ local HEIGHT = 250
 local CHOICE_HEIGHT = 30
 
 local ONE_KEY = Enum.KeyCode.One.Value
-
--- Panels that own the whole screen. Starting a conversation closes them.
-local FULL_SCREEN_PANELS =
-	{ "InventoryController", "MissionBoardController", "SkillTreeController", "GalaxyMapController" }
 
 --- A node as the server describes it. Choices are answered by index.
 type Payload = {
@@ -264,12 +261,8 @@ function DialogueController.start()
 	]]
 	Net.onClientEvent(Net.Event.StartDialogue, function(payload: Payload)
 		if not open then
-			for _, name in FULL_SCREEN_PANELS do
-				local panel = ServiceLoader.find(name)
-				if panel then
-					panel.setOpen(false)
-				end
-			end
+			-- Starting a conversation clears the screen of everything else.
+			Panels.closeAllExcept(DialogueController.name)
 			open = true
 			screen.Enabled = true
 		end

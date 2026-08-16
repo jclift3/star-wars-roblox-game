@@ -27,6 +27,7 @@ local UserInputService = game:GetService("UserInputService")
 local Shared = game:GetService("ReplicatedStorage"):WaitForChild("Shared")
 local Net = require(Shared.Core.Net)
 local Palette = require(Shared.Config.Palette)
+local Panels = require(Shared.Core.Panels)
 local ServiceLoader = require(Shared.Core.ServiceLoader)
 
 local InventoryController = {
@@ -473,14 +474,7 @@ function InventoryController.setOpen(value: boolean)
 	screen.Enabled = value
 	if value then
 		-- See the matching note in MissionBoardController.setOpen.
-		for _, name in
-			{ "MissionBoardController", "SkillTreeController", "GalaxyMapController", "DialogueController" }
-		do
-			local panel = ServiceLoader.find(name)
-			if panel then
-				panel.setOpen(false)
-			end
-		end
+		Panels.closeAllExcept(InventoryController.name)
 		task.spawn(refresh)
 	end
 end

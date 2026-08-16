@@ -30,6 +30,7 @@ local UserInputService = game:GetService("UserInputService")
 local Shared = game:GetService("ReplicatedStorage"):WaitForChild("Shared")
 local Net = require(Shared.Core.Net)
 local Palette = require(Shared.Config.Palette)
+local Panels = require(Shared.Core.Panels)
 local Progression = require(Shared.Config.Progression)
 local ServiceLoader = require(Shared.Core.ServiceLoader)
 local Types = require(Shared.Types)
@@ -54,10 +55,6 @@ local GOOD = Color3.fromRGB(96, 190, 120)
 local BAD = Color3.fromRGB(198, 78, 78)
 
 local TOGGLE_KEY = Enum.KeyCode.K
-
--- Panels that own the whole screen. Opening one closes the rest.
-local OTHER_PANELS =
-	{ "InventoryController", "MissionBoardController", "GalaxyMapController", "DialogueController" }
 
 local PIP_COUNT = Progression.MAX_NODE_RANK
 
@@ -499,15 +496,8 @@ function SkillTreeController.setOpen(value: boolean)
 	open = value
 	screen.Enabled = value
 	if value then
-		-- Every full-screen panel is the same size in the same place. `find`
-		-- rather than `get` so a broken inventory costs an overlapping panel,
-		-- not a skill tree that refuses to open.
-		for _, name in OTHER_PANELS do
-			local panel = ServiceLoader.find(name)
-			if panel then
-				panel.setOpen(false)
-			end
-		end
+		-- See the matching note in MissionBoardController.setOpen.
+		Panels.closeAllExcept(SkillTreeController.name)
 		render()
 	end
 end
