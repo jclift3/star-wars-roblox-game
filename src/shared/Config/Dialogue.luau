@@ -871,6 +871,31 @@ def({
 				},
 				{ text = "Overseer.", next = "student", condition = { origin = "Acolyte" } },
 				{ text = "I am not one of yours.", next = "outsider" },
+				--[[
+					The three saber colours, and the reason the chain was worth
+					building. The blade is the most public fact about a
+					character in this era -- everyone who sees it reads it --
+					and a reward nobody in the world reacts to is a stat.
+
+					No `notFlag` guards between them: `SaberBled`, `SaberRefused`
+					and `SaberPure` are set by three missions that forbid each
+					other, so at most one is ever true.
+				]]
+				{
+					text = "*Ignite it.*",
+					next = "bled",
+					condition = { flag = "SaberBled" },
+				},
+				{
+					text = "*Ignite it.*",
+					next = "refused",
+					condition = { flag = "SaberRefused" },
+				},
+				{
+					text = "*Ignite it.*",
+					next = "pure",
+					condition = { flag = "SaberPure" },
+				},
 				{
 					text = "There is a form for collecting acolytes. Who ordered the print run?",
 					next = "theForm",
@@ -923,6 +948,24 @@ def({
 			},
 			choices = { WORK, LEAVE },
 		},
+		bled = {
+			lines = {
+				"Red. -- Put it away; I have heard it before and I do not need to hear it in my own office. -- You did the thing correctly and I am not going to congratulate you for it. Four hundred and six forms, and every one of them was signed by somebody who had also done a difficult thing correctly.",
+			},
+			choices = { WORK, LEAVE },
+		},
+		refused = {
+			lines = {
+				"Violet. -- I have been an Overseer for thirty years and that is the second one I have seen. The first belonged to a woman who left, and was not pursued, because nobody in this building could agree on what she had done wrong. -- Do not tell anyone here how you did that.",
+			},
+			choices = { WORK, LEAVE },
+		},
+		pure = {
+			lines = {
+				"Blue. In my Academy. -- Sit down before somebody with less patience walks past the door. -- I taught you to take what you need and you have come back holding proof that you did not, which is either the greatest failure of my career or the only useful thing I have ever done. I have not decided.",
+			},
+			choices = { WORK, LEAVE },
+		},
 	},
 })
 
@@ -943,6 +986,19 @@ def({
 				},
 				{ text = "Sergeant.", next = "soldier", condition = { origin = "Conscript" } },
 				{ text = "I have never worn a uniform.", next = "civilian" },
+				--[[
+					One entry for the armour and two follow-ups for what colour
+					it was struck in, rather than two entries in the opening
+					list. Marr reacts to beskar on a Republic soldier before he
+					reacts to the shade of it -- and it is the only way both
+					`WearsBeskar` and its two branch flags get read, which is
+					what `Flags.luau` promised on all three.
+				]]
+				{
+					text = "*Let him look at the armour.*",
+					next = "beskar",
+					condition = { flag = "WearsBeskar" },
+				},
 				{
 					text = "I have a copy of the stripping manifest.",
 					next = "manifest",
@@ -995,6 +1051,36 @@ def({
 			},
 			choices = { WORK, LEAVE },
 		},
+		beskar = {
+			lines = {
+				"Beskar. -- I fought them at Jabiim for eleven days and I have not been able to look at that metal since without checking where the exits are. That is not an accusation, it is a fact about my hands. -- They gave it to you, which means they think you are somebody. They do not do that as a favour. Read what you had it struck in and tell me you understood.",
+			},
+			choices = {
+				{
+					text = "It says a debt is owed in blood.",
+					next = "beskarVengeance",
+					condition = { flag = "BeskarForVengeance" },
+				},
+				{
+					text = "It says an oath was kept.",
+					next = "beskarDuty",
+					condition = { flag = "BeskarForDuty" },
+				},
+				LEAVE,
+			} :: { Choice },
+		},
+		beskarVengeance = {
+			lines = {
+				"Then you have announced it to every Mandalorian who will ever see you, and they will hold you to it, and none of them will ask whether you still want to. -- I am not going to lecture you. I wore a commendation for eleven years that said something similar and I did not choose the wording either.",
+			},
+			choices = { WORK, LEAVE },
+		},
+		beskarDuty = {
+			lines = {
+				"An oath kept. -- To whom? -- No, do not answer that; I have watched you not answer it twice now. -- It is the harder colour to wear honestly, because the armour goes on stating a thing you then have to keep being. Come back and see me in ten years and I will tell you whether it was true.",
+			},
+			choices = { WORK, LEAVE },
+		},
 	},
 })
 
@@ -1013,7 +1099,33 @@ def({
 					next = "theGirl",
 					condition = { origin = "Scoundrel", flag = "OwesNobody" },
 				},
-				{ text = "How much do I owe today?", next = "debt", condition = { origin = "Scoundrel" } },
+				--[[
+					The ship first, then how the debt was answered, then the
+					generic "how much do I owe" -- narrowest at the top, and by
+					the time `HasOwnShip` is true the debt line is six missions
+					stale. `DebtBought` and `DebtWorked` come from two missions
+					that forbid each other, so they need no guard between them.
+				]]
+				{
+					text = "She flies.",
+					next = "sheFlies",
+					condition = { flag = "HasOwnShip" },
+				},
+				{
+					text = "I paid it. In full, in one go.",
+					next = "debtBought",
+					condition = { flag = "DebtBought", notFlag = "HasOwnShip" },
+				},
+				{
+					text = "I worked it off. Every hour of it.",
+					next = "debtWorked",
+					condition = { flag = "DebtWorked", notFlag = "HasOwnShip" },
+				},
+				{
+					text = "How much do I owe today?",
+					next = "debt",
+					condition = { origin = "Scoundrel", notFlag = "DebtSettled" },
+				},
 				{ text = "I do not owe you anything.", next = "stranger" },
 				{
 					text = "I covered a stranger's debt on the Promenade.",
@@ -1067,6 +1179,24 @@ def({
 			},
 			choices = { WORK, LEAVE },
 		},
+		debtBought = {
+			lines = {
+				"You did, and it was rude, and I have not stopped thinking about it. -- Understand what you bought. Not the debt: the debt was nothing, I have written off larger by accident. You bought the end of a reason to come and see me, and you paid retail for it. -- Sit down anyway.",
+			},
+			choices = { WORK, LEAVE },
+		},
+		debtWorked = {
+			lines = {
+				"You did, and I liked it better, and you should be suspicious of that. -- A man who pays me is finished with me. A man who works it off has shown me exactly what he is willing to do and roughly what it takes to ask. -- I am telling you this to your face because you would work it out inside a year and then trust me less.",
+			},
+			choices = { WORK, LEAVE },
+		},
+		sheFlies = {
+			lines = {
+				"I heard her come in. Everyone on this level heard her come in; you want to look at the port compressor before somebody with a permit does. -- Out of a Hoth graveyard, on parts I did not sell you, with a name I did not choose. -- That is the first thing you have ever had that I have no share of. Go and be insufferable about it somewhere else.",
+			},
+			choices = { WORK, LEAVE },
+		},
 	},
 })
 
@@ -1091,6 +1221,24 @@ def({
 					condition = { origin = "Scrapper" },
 				},
 				{ text = "What are you?", next = "whatAreYou" },
+				--[[
+					The only signature reward in the game that can disagree
+					with you afterwards, so it is the only one whose reaction
+					belongs to the reward itself rather than to a witness.
+					Restored, he is an HK assassin droid being polite about it;
+					left as he is, he is the thing you made by accident and
+					knows it, because you told him.
+				]]
+				{
+					text = "Do you remember what you used to be?",
+					next = "restored",
+					condition = { flag = "NineRestored" },
+				},
+				{
+					text = "I could have put it back. I did not.",
+					next = "leftAsHeIs",
+					condition = { flag = "NineLeftAsHeIs" },
+				},
 				{
 					text = "I have been inside Lot 9.",
 					next = "lot9",
@@ -1129,6 +1277,18 @@ def({
 		lot9 = {
 			lines = {
 				"Query: were the racks numbered? -- Do not answer. I already know they were numbered, and I know that because I have a stored route to a building I have never told you I could find. Conclusion: I carried them. Request: do not reassure me.",
+			},
+			choices = { WORK, LEAVE },
+		},
+		restored = {
+			lines = {
+				"Answer: yes. All of it, at forty-one per cent higher resolution than I would have chosen. Statement: I was extremely good at this. -- Observation: you are waiting for me to be angry with you. I am not. I am running a subroutine that wants to describe the fourteen deliveries in cheerful detail, and I am declining to, and that declining is the only part of me that is mine. Gratitude: you gave me something to decline.",
+			},
+			choices = { WORK, LEAVE },
+		},
+		leftAsHeIs = {
+			lines = {
+				"Acknowledgement: I know. You said so at the time, to my face, which I have logged and reviewed one hundred and sixty times. -- Statement: I am a droid assembled out of the wrong parts by someone who was learning, and there is no unit like me anywhere, and there is no manual for what I should be. Assessment: that is either the loneliest sentence I have ever produced or the only interesting one. Query: must it be one?",
 			},
 			choices = { WORK, LEAVE },
 		},
@@ -1176,6 +1336,28 @@ def({
 					condition = { origin = "Conscript" },
 				},
 				{ text = "I was raised on Korriban.", next = "korriban", condition = { origin = "Acolyte" } },
+				--[[
+					The other half of the saber's payoff. Vashk reads the blade
+					as a Sith and Solaa reads it as a Jedi, and the two of them
+					disagree about the same three objects -- which is the whole
+					argument the Acolyte chain is about, arriving as two people
+					who each think they are being reasonable.
+				]]
+				{
+					text = "*Ignite it.*",
+					next = "sawRed",
+					condition = { flag = "SaberBled" },
+				},
+				{
+					text = "*Ignite it.*",
+					next = "sawViolet",
+					condition = { flag = "SaberRefused" },
+				},
+				{
+					text = "*Ignite it.*",
+					next = "sawBlue",
+					condition = { flag = "SaberPure" },
+				},
 				{ text = "Why would a Jedi talk to me at all?", next = "why" },
 				LEAVE,
 			},
@@ -1210,6 +1392,24 @@ def({
 		why = {
 			lines = {
 				"Because you came up the path, and because the people who are going to be useful about this are not going to be Jedi. -- We are being hunted and we are the last to notice. That is not wisdom. That is what being important does to you.",
+			},
+			choices = { WORK, LEAVE },
+		},
+		sawRed = {
+			lines = {
+				"Thank you. Most people hide it from me and then wonder why I am careful with them. -- I am not going to ask you to give it up. It is a crystal that was hurt into being useful, and there are three people on this Council who were made the same way and I take their calls.",
+			},
+			choices = { WORK, LEAVE },
+		},
+		sawViolet = {
+			lines = {
+				"Ah. -- I am going to be honest with you rather than serene, because you have earned the difference. The Order has a word for that colour and the word is *unresolved*, and it is said kindly, and it is meant as a diagnosis. -- I think they are wrong. I think you are the only one of us who did not take the shortcut, and both shortcuts were on offer.",
+			},
+			choices = { WORK, LEAVE },
+		},
+		sawBlue = {
+			lines = {
+				"Steady. -- Somebody is going to tell you that means you were always going to end up here, and you should not believe them; the crystal does not know where you were born and neither do I. -- It only records what you did on the ridge. That is a smaller claim than the Order will make about you, and it is the true one.",
 			},
 			choices = { WORK, LEAVE },
 		},

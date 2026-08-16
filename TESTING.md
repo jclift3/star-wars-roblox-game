@@ -598,6 +598,23 @@ the level gate, `showmethemoney` covers the Scoundrel's debt.
    payments and Ordo-9's memory core, which are *supposed* to leave.
 9. **Ordo-9 talks like a droid throughout.** Statement:/Query:/Observation:. If
    he sounds like a person, a line came from the wrong tree.
+10. **Somebody notices.** The point of the whole chain. After finishing one, go
+    back to its cast member and check the new reply exists **and is the right
+    one**:
+    - **Vashk** and **Ryn Solaa** both react to the saber, and *differently* —
+      red, violet and blue each get a line from each of them, so six lines and
+      you can only ever see two per character.
+    - **Tolen Marr** reacts to the beskar, then asks what colour it was struck
+      in; the follow-up is one of two.
+    - **Vess Kadar** reacts to *how* the debt was answered, and once the ship
+      flies that replaces it — the debt line must be **gone**, not stacked
+      underneath.
+    - **Ordo-9** reacts to himself. Restored, he is an HK unit declining to be
+      one; left as he is, he knows you told him so.
+    A reply that never appears is a `Condition` reading a flag the mission never
+    set, and there is nothing on screen to distinguish it from a line nobody
+    wrote — which is why the flags are declared in `Flags.luau` in the first
+    place. Cross-check against the boot log being silent (item 1).
 
 ---
 
