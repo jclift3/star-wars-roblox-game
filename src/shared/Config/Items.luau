@@ -89,6 +89,120 @@ def({
 	shape = "Ore",
 })
 
+--------------------------------------------------------------------------------
+-- Signature chain components
+--------------------------------------------------------------------------------
+
+--[[
+	The parts the four signature chains are assembled out of.
+
+	These are the only items in the file that are not interchangeable with each
+	other. A Spice Crate is a Spice Crate wherever it turns up, and three
+	missions can share one; a Focusing Lens exists because exactly one mission
+	needs a lens, and it is worth its own entry for the same reason the chains
+	are worth building at all -- the object is the reward, and an object called
+	"Research Data" is not an object.
+
+	Nothing here is consumed by a Deliver objective. A component you hand in is
+	a component you no longer have, and every one of these is meant to still be
+	in the bag at the end of the chain. The chains close on a Reach instead.
+]]
+
+def({
+	id = "SaberHilt",
+	displayName = "Lightsaber Hilt",
+	verb = "Take",
+	colour = Palette.WornSteel,
+	size = Vector3.new(0.5, 1.4, 0.5),
+	shape = "Slab",
+})
+
+def({
+	id = "FocusingLens",
+	displayName = "Focusing Lens",
+	verb = "Take",
+	colour = Palette.SaberBlue,
+	size = Vector3.new(0.9, 0.9, 0.3),
+	shape = "Slab",
+})
+
+def({
+	id = "RawCrystal",
+	displayName = "Uncut Crystal",
+	-- Not "Take". You are not picking it up so much as being allowed to.
+	verb = "Lift",
+	colour = Palette.SaberWhite,
+	size = Vector3.new(0.8, 1.1, 0.8),
+	shape = "Ore",
+})
+
+def({
+	id = "HuntWrit",
+	displayName = "Hunt Writ",
+	verb = "Take",
+	colour = Palette.DroidGold,
+	size = Vector3.new(1.3, 1.7, 0.2),
+	shape = "Slab",
+})
+
+def({
+	id = "BeskarIngot",
+	displayName = "Beskar Ingot",
+	verb = "Take",
+	colour = Palette.DarkMetal,
+	size = Vector3.new(1.8, 0.9, 0.9),
+	shape = "Ore",
+})
+
+def({
+	id = "HullPlate",
+	displayName = "Hull Plating",
+	verb = "Salvage",
+	colour = Palette.HullGrey,
+	size = Vector3.new(4.2, 0.6, 3),
+	shape = "Crate",
+})
+
+def({
+	id = "HyperdriveCore",
+	displayName = "Hyperdrive Core",
+	verb = "Salvage",
+	colour = Palette.SaberBlue,
+	size = Vector3.new(2.4, 2.4, 3.2),
+	shape = "Crate",
+})
+
+def({
+	id = "DroidPlating",
+	displayName = "War-Surplus Plating",
+	verb = "Salvage",
+	colour = Palette.Gunmetal,
+	size = Vector3.new(3, 1.8, 1.2),
+	shape = "Crate",
+})
+
+def({
+	id = "MemoryCore",
+	displayName = "Memory Core",
+	verb = "Extract",
+	colour = Palette.SaberRed,
+	size = Vector3.new(1.1, 1.5, 0.5),
+	shape = "Slab",
+})
+
+def({
+	id = "VoiceModule",
+	displayName = "Vocabulator",
+	verb = "Salvage",
+	colour = Palette.DroidGold,
+	size = Vector3.new(1, 0.8, 0.6),
+	shape = "Slab",
+})
+
+--------------------------------------------------------------------------------
+-- API
+--------------------------------------------------------------------------------
+
 function Items.get(id: string): ItemDef
 	local i = defs[id]
 	assert(i, `Items.get: unknown item "{id}"`)

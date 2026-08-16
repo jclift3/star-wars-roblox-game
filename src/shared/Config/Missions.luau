@@ -1220,6 +1220,1257 @@ def({
 })
 
 --------------------------------------------------------------------------------
+-- Signature chains -- one per origin, levels 12-34
+--------------------------------------------------------------------------------
+
+--[[
+	The answer to the roadmap's oldest open question: what is the reason to
+	specialize?
+
+	Not a bigger number at rank 5. A saber. CAMPAIGN.md §5 settled that a
+	lightsaber is *built, not bought*, and the moment that was settled the other
+	three origins needed the same or the Acolyte would have the best content in
+	the game and everybody else would have a shop.
+
+	SHARED RULES
+	Five parts each, levels 12-34, every one of them on a planet the player was
+	going to visit anyway -- no chain adds a world. Origin-gated by
+	`MissionDef.origin`, which is all the machinery required. And each chain
+	turns on exactly one real decision, which is where its flags are written.
+
+	WHY THE BRANCH IS NOT ALWAYS AT PART 5
+	CAMPAIGN.md puts the choice last in all four. It is last in one. A branch
+	costs two missions wherever it goes, and it is worth most where the rest of
+	the chain can react to it -- so the Acolyte chooses at the forge and then
+	carries the answer around in his hand, and the Scoundrel answers Vess Kadar
+	at level 12 and is still being answered back at 34. The Scrapper's is last,
+	because his is a question about somebody else.
+
+	THREE THINGS CAMPAIGN.md ASKS FOR THAT ARE NOT HERE
+	Assembly that can *fail* and cost a component, naming your ship, and
+	"needs a Scrapper's help" as real co-op. All three need machinery that does
+	not exist -- a mission that can regress, a free-text prompt, and a shared
+	objective -- and faking any of them would be worse than waiting. The parts
+	that carry the meaning, which are the flags, are all here.
+]]
+
+--------------------------------------------------------------------------------
+-- Acolyte -- the saber
+--------------------------------------------------------------------------------
+
+--[[
+	In this era a saber is a *document*. You built it, so it says who you are,
+	and everyone who sees it can read it. That is what the three forges are
+	for, and why the chain spends four missions getting you to them.
+]]
+
+def({
+	id = "AcoTheHilt",
+	displayName = "The Hilt",
+	summary = "Taris is full of Jedi who died in the bombardment. One of them is still holding what you need.",
+	briefing = "You want to know what we dig up here that Czerka does not log? Hilts. Thirty years of them. The Order sent a hundred and fifty down when the Sith started bombing and not one came back up, and the machines went over them and left the metal because the metal is not worth anything. Go and take one. I would tell you to be respectful about it, but you would only be pretending.",
+	debriefing = "There is a name etched inside the grip. There always is -- you cut it there yourself, on the day, so that whoever finds it knows the blade was somebody's. Yours will say yours eventually. Try to be a long time about it.",
+	kind = "Story",
+	faction = "Independent",
+	planet = "Taris",
+	giver = "Researcher",
+	origin = "Acolyte",
+	minLevel = 12,
+	objectives = {
+		{
+			kind = Objective.Collect,
+			target = "SaberHilt",
+			at = "TheDig",
+			count = 1,
+			description = "Take a hilt from the spoil heap",
+		},
+		{
+			--[[
+				The whole theme of the chain in one skippable errand: you can
+				find out whose it was, or you can not, and nothing mechanical
+				turns on it. An optional objective pays nothing -- there are
+				no per-objective rewards -- which is the correct price for
+				this particular question.
+			]]
+			kind = Objective.TalkTo,
+			target = "Jawa",
+			count = 3,
+			optional = true,
+			description = "Ask the Jawas whose name is inside it",
+		},
+		{
+			kind = Objective.Reach,
+			target = "ResettlementCamp",
+			planet = "Taris",
+			hidden = true,
+			description = "Bring it back to the camp",
+		},
+	},
+	rewards = {
+		xp = 900,
+		credits = 700,
+		rep = { Independent = 30 },
+		items = { StimPack = 3 },
+	},
+	next = "AcoLensAndCell",
+})
+
+def({
+	id = "AcoLensAndCell",
+	displayName = "Lens and Cell",
+	summary = "Both Orders leak. Everything they leak ends up on the Promenade eventually.",
+	briefing = "A lens and a cell. Easy. Everything the Jedi lose and everything the Sith requisition twice comes through here inside a month, and half of it comes through me. Now -- I could sell you both. I could also send you down to the docks to take them off the man who was going to sell them to me, which costs you nothing and costs me a supplier I have gone off. You look like you want to be told which. I am not going to.",
+	debriefing = "Look at that. Focusing lens, military cell, and a face like you have done something. You have not. You have shopped. The hard part is still in front of you and it does not have a price on it, which is the first thing in your life that hasn't.",
+	kind = "Story",
+	faction = "Independent",
+	planet = "NarShaddaa",
+	-- Kadar is the Scoundrel's creditor and everyone else's fixer. He is the
+	-- only cast member three of the four chains can plausibly need.
+	giver = "VessKadar",
+	origin = "Acolyte",
+	minLevel = 18,
+	requires = { "AcoTheHilt" },
+	objectives = {
+		{
+			kind = Objective.Collect,
+			target = "FocusingLens",
+			at = "Promenade",
+			count = 1,
+			description = "Get a focusing lens off the Promenade",
+		},
+		{
+			kind = Objective.Collect,
+			target = "PowerCoupling",
+			at = "NarDocks",
+			count = 2,
+			description = "Take a pair of military cells from the docks",
+		},
+		{
+			kind = Objective.Reach,
+			target = "Promenade",
+			planet = "NarShaddaa",
+			hidden = true,
+			description = "Show Kadar what you came back with",
+		},
+	},
+	rewards = {
+		xp = 1400,
+		credits = 1100,
+		items = { StimPack = 3 },
+	},
+	next = "AcoTheCrystal",
+})
+
+def({
+	id = "AcoTheCrystal",
+	displayName = "The Crystal",
+	summary = "There is a place under the Gnarls where the Force is loud. You go in alone and there is nothing to kill.",
+	briefing = "You are not the first person from Korriban to stand in this temple and ask me that, and I will tell you what I told the others. The cave does not care which of us sent you. It is not a test you can pass and it is not a trial you can lose. You go down, and you stay until something down there is willing to be picked up. Some people are an hour. Some people are three days. Bring nothing you would mind putting down.",
+	debriefing = "Uncut, unclaimed, and it has no colour at all yet. Everyone expects it to arrive as something. It arrives as a possibility, and then you make it into a fact. That happens at a forge and it happens with your hands, and I am afraid I cannot come with you.",
+	kind = "Story",
+	faction = "Jedi",
+	planet = "Tython",
+	giver = "JediKnight",
+	origin = "Acolyte",
+	minLevel = 26,
+	requires = { "AcoLensAndCell" },
+	--[[
+		No Kill objective anywhere in this mission, on purpose. It is the one
+		place in the game that asks the player to walk somewhere quiet, and it
+		would be a much worse scene with a spawn wave in it.
+	]]
+	objectives = {
+		{
+			kind = Objective.Reach,
+			target = "TheGnarls",
+			planet = "Tython",
+			description = "Go down into the Gnarls alone",
+		},
+		{
+			kind = Objective.Collect,
+			target = "RawCrystal",
+			at = "TheGnarls",
+			count = 1,
+			hidden = true,
+			description = "Wait until something is willing to be lifted",
+		},
+		{
+			kind = Objective.Reach,
+			target = "TythonTemple",
+			planet = "Tython",
+			hidden = true,
+			description = "Come back up",
+		},
+	},
+	rewards = {
+		xp = 2600,
+		credits = 1400,
+		rep = { Jedi = 40 },
+	},
+})
+
+--[[
+	Three forges, one axis, and the only three-way branch in the game.
+
+	They partition the alignment axis exactly: at or below -100 is the tomb, at
+	or above +100 is the ridge, and the two hundred points strictly inside
+	Unaligned are the third door. Those numbers are the Unaligned band's own
+	edges (Config/Alignment.luau) rather than round figures picked here, so the
+	colour a player ends up with is the same fact the skills panel has been
+	telling them for twenty levels.
+
+	**Purple is meant to be the hard one**, and this is how: red and blue want a
+	commitment, and either is easy to drift into. Purple wants you to have held
+	the middle through thirty levels of missions that pay for not holding it.
+
+	The partition has no gaps. A chain whose last act can be unavailable is a
+	chain that eats the player's saber, and `canAccept` would say only "You are
+	not the person this needs", which is true and useless.
+
+	All three also `forbidsFlag = { "SaberBuilt" }`, and the alignment bounds
+	are not enough on their own. They are mutually exclusive at any one instant
+	but not over a lifetime: "Neither Hand" pays nothing, so the character who
+	took it is still inside Unaligned afterwards and one light-side errand later
+	is at +100, standing in front of the ridge with the Pure forge on offer and
+	a second lightsaber at the end of it. `SaberBuilt` is the shared flag naming
+	the moment, exactly as `MetTheDebtor` does, and it closes the door.
+]]
+
+def({
+	id = "AcoForgeBled",
+	displayName = "The Bleeding",
+	summary = "A crystal can be made to give you what you want. It has to be made to.",
+	briefing = "You have carried it around for a while now and it has stayed exactly what it was, so somebody has finally told you the truth, or you would not be in Dreshdae asking me. Yes. It can be forced. You take it down to Tulak Hord's tomb where the stone is already thin, and you pour everything you have into it until it stops being itself. It will resist. That is not a figure of speech and I will not pretend otherwise. Whatever comes back up the valley afterwards is not going to be quite the person who went down.",
+	debriefing = "Red. Of course it is red. Hold it further away from your face -- there, that is the sound. It does that always now, under everything, for as long as you own it. Some of them learn to stop hearing it. I would not aim for that.",
+	kind = "Story",
+	faction = "Empire",
+	planet = "Korriban",
+	giver = "Researcher",
+	origin = "Acolyte",
+	minLevel = 30,
+	requires = { "AcoTheCrystal" },
+	forbidsFlag = { "SaberBuilt" },
+	maxAlignment = -100,
+	objectives = {
+		{
+			kind = Objective.Reach,
+			target = "TombOfTulakHord",
+			planet = "Korriban",
+			description = "Go down to the tomb where the stone is thin",
+		},
+		{
+			kind = Objective.Kill,
+			target = "WarDroid",
+			planet = "Korriban",
+			count = 8,
+			description = "Clear the sentries the valley keeps sending",
+		},
+		{
+			kind = Objective.Reach,
+			target = "Dreshdae",
+			planet = "Korriban",
+			hidden = true,
+			description = "Carry it back to Dreshdae",
+		},
+	},
+	rewards = {
+		xp = 4200,
+		credits = 2400,
+		rep = { Empire = 80 },
+		weapon = "SaberRed",
+		-- The largest single alignment cost in the game. It should be: this
+		-- is a scene in which the player deliberately hurts something living
+		-- until it changes, and the number is the only thing that can say so.
+		alignment = -150,
+		flags = { "SaberBuilt", "SaberBled" },
+	},
+	next = "AcoTheFirstCut",
+})
+
+def({
+	id = "AcoForgeRefused",
+	displayName = "Neither Hand",
+	summary = "There are two ways to make a crystal answer. You are going to try a third.",
+	briefing = "I have watched people come up this ridge for forty years and there are always two of them arguing in the one body -- the half that wants to be given the blade and the half that wants to take it. You appear to have brought neither. I do not know what happens next. Nobody who has done it has been able to explain it afterwards, which either means it cannot be explained or means it cannot be taught. Go up. I will be here.",
+	debriefing = "Violet. I have seen four in my life. Every one of them belonged to somebody who had spent years being told to pick a side by people who were quite certain, and had gone on not picking. It is not a compromise, whatever the Council will tell you it is. It is the more expensive answer.",
+	kind = "Story",
+	faction = "Jedi",
+	planet = "Tython",
+	giver = "JediKnight",
+	origin = "Acolyte",
+	minLevel = 30,
+	requires = { "AcoTheCrystal" },
+	forbidsFlag = { "SaberBuilt" },
+	-- Strictly inside Unaligned: the band is [-100, 100), and both edges belong
+	-- to the other two forges.
+	minAlignment = -99,
+	maxAlignment = 99,
+	objectives = {
+		{
+			kind = Objective.Reach,
+			target = "ForgeRidge",
+			planet = "Tython",
+			description = "Climb Forge Ridge",
+		},
+		{
+			kind = Objective.Kill,
+			target = "ImperialTrooper",
+			planet = "Tython",
+			count = 6,
+			description = "Deal with the landing party working the ridge",
+		},
+		{
+			kind = Objective.Reach,
+			target = "TythonTemple",
+			planet = "Tython",
+			hidden = true,
+			description = "Bring it down to the Temple",
+		},
+	},
+	rewards = {
+		xp = 4200,
+		credits = 2400,
+		rep = { Jedi = 60 },
+		weapon = "SaberPurple",
+		-- Deliberately zero. The entire content of this ending is that the
+		-- character did not move, and paying them for it would move them.
+		flags = { "SaberBuilt", "SaberRefused" },
+	},
+	next = "AcoTheFirstCut",
+})
+
+def({
+	id = "AcoForgePure",
+	displayName = "What It Already Was",
+	summary = "The crystal does not need anything done to it. That turns out to be the difficult part.",
+	briefing = "Up the ridge, then. I will save you the sermon -- you have clearly had several and you came anyway. The only instruction that matters is this one: you are not making it into anything. You are going to sit there with it for a long time while every part of you suggests improvements, and you are going to decline all of them. People find that far harder than the other way. The other way at least feels like work.",
+	debriefing = "Blue, and steady, and it will still be steady in thirty years. There is no story in it, which is the point and which is why nobody writes songs about a Guardian's blade. Songs are for the ones that went wrong.",
+	kind = "Story",
+	faction = "Jedi",
+	planet = "Tython",
+	giver = "JediKnight",
+	origin = "Acolyte",
+	minLevel = 30,
+	requires = { "AcoTheCrystal" },
+	forbidsFlag = { "SaberBuilt" },
+	minAlignment = 100,
+	objectives = {
+		{
+			kind = Objective.Reach,
+			target = "ForgeRidge",
+			planet = "Tython",
+			description = "Climb Forge Ridge",
+		},
+		{
+			kind = Objective.Kill,
+			target = "ImperialTrooper",
+			planet = "Tython",
+			count = 6,
+			description = "Deal with the landing party working the ridge",
+		},
+		{
+			kind = Objective.Reach,
+			target = "TythonTemple",
+			planet = "Tython",
+			hidden = true,
+			description = "Bring it down to the Temple",
+		},
+	},
+	rewards = {
+		xp = 4200,
+		credits = 2400,
+		rep = { Jedi = 80 },
+		weapon = "SaberBlue",
+		alignment = 60,
+		flags = { "SaberBuilt", "SaberPure" },
+	},
+	next = "AcoTheFirstCut",
+})
+
+def({
+	id = "AcoTheFirstCut",
+	displayName = "The First Cut",
+	summary = "Whatever colour it came out, its first use has a person on the other end.",
+	briefing = "I am going to be honest with you because you have been honest with me, which on this planet is a novelty. Czerka has a warehouse in Lot 9 that we are not allowed to survey, and the crew who guard it are not Czerka. I have filed on it four times. Nothing comes back. You have a lightsaber now, which means for about a month you are the most frightening thing anyone in Lot 9 has ever met, and after that you will be a person with a job. Use the month.",
+	debriefing = "It works, then. I did not doubt it. What I want you to notice is that nobody down there asked what colour it was -- they saw the light come on and they had already decided everything about you. That is what you are carrying now. Everyone reads it before you speak.",
+	kind = "Story",
+	faction = "Independent",
+	planet = "Taris",
+	giver = "Researcher",
+	origin = "Acolyte",
+	minLevel = 34,
+	-- The shared flag rather than three `requires` lists: `requiresFlag` is an
+	-- AND with no *or*, so without `SaberBuilt` this mission would have to be
+	-- written out once per forge.
+	requiresFlag = { "SaberBuilt" },
+	objectives = {
+		{
+			kind = Objective.Reach,
+			target = "CzerkaLot9",
+			planet = "Taris",
+			description = "Walk into Lot 9 with the blade lit",
+		},
+		{
+			kind = Objective.Kill,
+			target = "WarDroid",
+			planet = "Taris",
+			count = 12,
+			description = "Take the yard from whoever is holding it",
+		},
+		{
+			kind = Objective.Reach,
+			target = "TheDig",
+			planet = "Taris",
+			hidden = true,
+			description = "Report back to the dig",
+		},
+	},
+	rewards = {
+		xp = 6000,
+		credits = 3200,
+		rep = { Independent = 60 },
+		items = { StimPack = 5 },
+	},
+})
+
+--------------------------------------------------------------------------------
+-- Conscript -- the Great Hunt
+--------------------------------------------------------------------------------
+
+--[[
+	The Mandalorians run a sanctioned, ranked, publicly scored competition to
+	find the best hunter in the galaxy. It is bureaucratic, which is what makes
+	it funny, and lethal, which is what makes it matter.
+
+	It gives a non-Force origin an equal claim on being the most dangerous
+	person in the room -- the co-op honesty CAMPAIGN.md §5 asks for, since none
+	of the other three can enter it.
+]]
+
+def({
+	id = "ConSponsorship",
+	displayName = "Sponsorship",
+	summary = "Anyone may enter the Great Hunt. Entering it requires a sponsor, and yours thinks you are a joke.",
+	briefing = "Republic. Conscript, by the haircut. You want a writ and you want me to sign it, and the honest answer is that I have signed four this decade and buried three. Here is my price and it is not money: there is a crew working the Dune Sea who took a contract off me by shooting the man carrying it. Go and take the writ back off them. If you can do that I will put my name on the form, and if you cannot then I have saved us both a funeral.",
+	debriefing = "Huh. Signed. Do not thank me -- read it first. You are entered, ranked provisionally, and scored publicly, which means every hunter between here and Nal Hutta now knows your name and exactly how little you have done. That is the sponsorship. Enjoy it.",
+	kind = "Story",
+	faction = "Independent",
+	planet = "Tatooine",
+	giver = "BountyHunter",
+	origin = "Conscript",
+	minLevel = 12,
+	objectives = {
+		{
+			kind = Objective.Kill,
+			target = "Smuggler",
+			planet = "Tatooine",
+			count = 10,
+			description = "Find the crew that took the contract",
+		},
+		{
+			kind = Objective.Collect,
+			target = "HuntWrit",
+			at = "DuneSeaWreck",
+			count = 1,
+			hidden = true,
+			description = "Take the writ back off them",
+		},
+		{
+			kind = Objective.Reach,
+			target = "DuneCantina",
+			planet = "Tatooine",
+			hidden = true,
+			description = "Get it signed at the Dry Well",
+		},
+	},
+	rewards = {
+		xp = 900,
+		credits = 800,
+		rep = { Independent = 40 },
+		items = { StimPack = 3 },
+	},
+	next = "ConHuntPromenade",
+})
+
+def({
+	id = "ConHuntPromenade",
+	displayName = "First Hunt: The Accountant",
+	summary = "Your first scored target keeps books for the Cartel and has never held a weapon.",
+	briefing = "First target, and the committee has been kind to you, which they will not be twice. He is an accountant. He is worth four hundred points because of what is in his head, not because of what he can do to you, and he will be behind about thirty enforcers who are paid to make that irrelevant. Live capture scores three hundred. Everyone tells you to take the four hundred. I am telling you the score is published and the way you got it is not.",
+	debriefing = "Recorded. Four-hundred bracket, provisional rank ninety-one, which is ninety-one places better than yesterday and about eighty worse than you think it is. Two more.",
+	kind = "Story",
+	faction = "Independent",
+	planet = "NarShaddaa",
+	giver = "BountyHunter",
+	origin = "Conscript",
+	minLevel = 18,
+	requires = { "ConSponsorship" },
+	objectives = {
+		{
+			kind = Objective.Kill,
+			target = "CartelEnforcer",
+			planet = "NarShaddaa",
+			count = 14,
+			description = "Get through the Cartel detail on the Promenade",
+		},
+		{
+			kind = Objective.Reach,
+			target = "RefugeeSector",
+			planet = "NarShaddaa",
+			hidden = true,
+			description = "Follow him down into the Refugee Sector",
+		},
+	},
+	rewards = {
+		xp = 1600,
+		credits = 1300,
+		rep = { Independent = 40 },
+		items = { StimPack = 3 },
+	},
+	next = "ConHuntWorks",
+})
+
+def({
+	id = "ConHuntWorks",
+	displayName = "Second Hunt: The Deserter",
+	summary = "The second target is Republic, and she ran for a reason the committee has not written down.",
+	briefing = "Second target and I want you to hear the whole file, not the summary. Sergeant, twelve years, one of yours. Her unit was ordered into the Works during the Sacking and she took forty of them out through a service duct instead, and the Republic has been calling that desertion ever since because the alternative is calling it something else. The Hunt does not care. Six hundred points. She is down there now doing exactly what she did then, which is looking after people nobody assigned her.",
+	debriefing = "Six hundred. You will notice I have not asked how. The scoreboard has not asked either, and that is the thing about the scoreboard.",
+	kind = "Story",
+	faction = "Independent",
+	planet = "Coruscant",
+	giver = "BountyHunter",
+	origin = "Conscript",
+	minLevel = 24,
+	requires = { "ConHuntPromenade" },
+	objectives = {
+		{
+			kind = Objective.Reach,
+			target = "TheWorks",
+			planet = "Coruscant",
+			description = "Get down into the Works",
+		},
+		{
+			kind = Objective.Kill,
+			target = "ImperialTrooper",
+			planet = "Coruscant",
+			count = 12,
+			description = "Clear the patrol that is hunting her too",
+		},
+		{
+			kind = Objective.Reach,
+			target = "Underlevels",
+			planet = "Coruscant",
+			hidden = true,
+			description = "Find where she has put everybody",
+		},
+	},
+	rewards = {
+		xp = 2600,
+		credits = 1900,
+		rep = { Independent = 50 },
+		items = { StimPack = 4 },
+	},
+	next = "ConHuntFissure",
+})
+
+def({
+	id = "ConHuntFissure",
+	displayName = "Third Hunt: The Fissure",
+	summary = "The last target is a Mandalorian, which is the committee telling you what they think of you.",
+	briefing = "Last one, and it is one of ours, which you should understand is a compliment and an insult delivered in the same envelope. He has been holed up in the glacial fissure on Hoth for two seasons killing everything the Republic sends after him and everything we send after him, and the committee has now decided that a Republic conscript with a borrowed writ is a funny way to end the story. Nine hundred points. He will not run and he will not surrender and he will be genuinely pleased to see you.",
+	debriefing = "You came back up. Nobody in the tent had you. Nine hundred, final standing, and there is exactly one thing left, which is that the ones who finish do not buy their armour. They have it struck.",
+	kind = "Story",
+	faction = "Independent",
+	planet = "Hoth",
+	giver = "BountyHunter",
+	origin = "Conscript",
+	minLevel = 30,
+	requires = { "ConHuntWorks" },
+	objectives = {
+		{
+			kind = Objective.Reach,
+			target = "GlacialFissure",
+			planet = "Hoth",
+			description = "Go into the fissure",
+		},
+		{
+			kind = Objective.Kill,
+			target = "ImperialCommando",
+			planet = "Hoth",
+			count = 14,
+			description = "Get past what he has been living off",
+		},
+		{
+			kind = Objective.Reach,
+			target = "AurekBase",
+			planet = "Hoth",
+			hidden = true,
+			description = "Walk back out and report the score",
+		},
+	},
+	rewards = {
+		xp = 4000,
+		credits = 2600,
+		rep = { Independent = 70 },
+		items = { StimPack = 5 },
+	},
+})
+
+--[[
+	The branch: beskar states your purpose, and the game takes that literally.
+
+	Two missions rather than one with a dialogue choice, because the reward
+	differs -- `Rewards.weapon` is a single string, so a fork that hands out
+	different objects has to be a fork in the mission table. They share
+	`WearsBeskar` so anything downstream can ask the easy question.
+]]
+
+def({
+	id = "ConBeskarVengeance",
+	displayName = "Struck in Red",
+	summary = "The colour you choose states your purpose. Red is a debt owed in blood.",
+	briefing = "You finished, so you do not buy armour, you declare it. The smith asks one question and does not repeat it: what is it for. Say red and it means there is a debt owed to you in blood and you intend to collect it, and every Mandalorian who ever sees you will read that off your shoulder before you open your mouth and will treat it as a statement of fact. It is not a mood. Do not pick it because it looks well.",
+	debriefing = "Red, then. It fits, which is the smith's doing and not a compliment. Understand what you have put on: you have told the galaxy in a language it can read that you are owed. People will now bring you their debts as well. They always do.",
+	kind = "Story",
+	faction = "Independent",
+	planet = "Tatooine",
+	giver = "BountyHunter",
+	origin = "Conscript",
+	minLevel = 34,
+	requires = { "ConHuntFissure" },
+	forbidsFlag = { "BeskarForDuty" },
+	objectives = {
+		{
+			kind = Objective.Collect,
+			target = "BeskarIngot",
+			at = "SandcrawlerWreck",
+			count = 3,
+			description = "Buy the ingots back off the Jawas who found them",
+		},
+		{
+			kind = Objective.Reach,
+			target = "DuneCantina",
+			planet = "Tatooine",
+			hidden = true,
+			description = "Take them to the smith and say the colour",
+		},
+	},
+	rewards = {
+		xp = 6000,
+		credits = 2000,
+		rep = { Independent = 80 },
+		weapon = "DisruptorPistol",
+		alignment = -90,
+		flags = { "WearsBeskar", "BeskarForVengeance" },
+	},
+})
+
+def({
+	id = "ConBeskarDuty",
+	displayName = "Struck in Grey",
+	summary = "The colour you choose states your purpose. Grey is an oath you have not finished keeping.",
+	briefing = "You finished, so you do not buy armour, you declare it. The smith asks one question and does not repeat it: what is it for. Say grey and it means an oath, unfinished, and that you expect to be held to it. It is the least dramatic answer available and it is the one the old ones pick, because it is the only one that does not expire. Red gets settled. Grey does not.",
+	debriefing = "Grey. The smith did not say anything, which from her is the entire speech. You will find it is a quieter thing to wear -- nobody crosses a street about it. What it means is that you have gone on record as being for something, and the galaxy will now find out what, at the worst possible moment, the way it always does.",
+	kind = "Story",
+	faction = "Independent",
+	planet = "Tatooine",
+	giver = "BountyHunter",
+	origin = "Conscript",
+	minLevel = 34,
+	requires = { "ConHuntFissure" },
+	forbidsFlag = { "BeskarForVengeance" },
+	objectives = {
+		{
+			kind = Objective.Collect,
+			target = "BeskarIngot",
+			at = "SandcrawlerWreck",
+			count = 3,
+			description = "Buy the ingots back off the Jawas who found them",
+		},
+		{
+			kind = Objective.Reach,
+			target = "DuneCantina",
+			planet = "Tatooine",
+			hidden = true,
+			description = "Take them to the smith and say the colour",
+		},
+	},
+	rewards = {
+		xp = 6000,
+		credits = 2000,
+		rep = { Independent = 80, Republic = 40 },
+		weapon = "DLT20A",
+		alignment = 90,
+		flags = { "WearsBeskar", "BeskarForDuty" },
+	},
+})
+
+--------------------------------------------------------------------------------
+-- Scoundrel -- the ship
+--------------------------------------------------------------------------------
+
+--[[
+	The cheapest chain to build and probably the most loved, because the reward
+	is a place rather than a stat.
+
+	It opens on the fork instead of closing on one. Vess Kadar owns your debt
+	from the first minute of the game, and how you get out from under it is the
+	only fact about a Scoundrel that everyone in the chain already knows.
+]]
+
+def({
+	id = "ScoDebtBought",
+	displayName = "Paid in Full",
+	summary = "You can clear Kadar's debt with money. It is a great deal of money and it is yours.",
+	briefing = "Here is the number. Do not make a face at it, you have seen it before, it has been the number since you were nineteen. And yes -- you can simply pay it. People forget that. They get so used to owing me that they start thinking of it as a relationship. Bring me the figure in one piece and it is closed, and I will shake your hand and mean it, and then you will find out what I am like to know when I am not owed anything, which is a genuinely open question.",
+	debriefing = "Closed. There -- the ledger is a line with a stroke through it and you are the first person this year. I will tell you what it buys you, since nobody ever asks: nothing. No favours, no discount, no man at the docks who owes me looking the other way for you. You wanted to owe nobody. Congratulations, that is what it is.",
+	kind = "Story",
+	faction = "Independent",
+	planet = "NarShaddaa",
+	giver = "VessKadar",
+	origin = "Scoundrel",
+	minLevel = 12,
+	forbidsFlag = { "DebtWorked" },
+	objectives = {
+		{
+			kind = Objective.Collect,
+			target = "CreditChit",
+			at = "NarDocks",
+			count = 6,
+			description = "Get the figure together, however you get it together",
+		},
+		{
+			kind = Objective.Deliver,
+			target = "CreditChit",
+			destination = "Promenade",
+			count = 6,
+			description = "Put it in Kadar's hand",
+		},
+	},
+	rewards = {
+		xp = 900,
+		credits = 200,
+		alignment = 60,
+		flags = { "DebtSettled", "DebtBought" },
+	},
+	next = "ScoTheHull",
+})
+
+def({
+	id = "ScoDebtWorked",
+	displayName = "Worked Off",
+	summary = "Or you can clear it Kadar's way, which costs nothing and is not free.",
+	briefing = "Or. And I want you to notice that I offered the money first, because later on you are going to tell somebody I did not. Or you work it off. There is a shipment on the Promenade belonging to people who are worse than me, and if it stops belonging to them tonight then your ledger is clean by morning and I am up considerably. It is the same outcome on paper. It is not the same outcome, and we both know which of us is counting on that.",
+	debriefing = "Clean. And I am going to be straight with you because you have earned about that much: I like you better this way. A man who pays me is a man I am finished with. A man who works for me is a man I know how to find. You did not choose to be findable, but you are.",
+	kind = "Story",
+	faction = "Independent",
+	planet = "NarShaddaa",
+	giver = "VessKadar",
+	origin = "Scoundrel",
+	minLevel = 12,
+	forbidsFlag = { "DebtBought" },
+	objectives = {
+		{
+			kind = Objective.Kill,
+			target = "CartelEnforcer",
+			planet = "NarShaddaa",
+			count = 12,
+			description = "Take the shipment off the people holding it",
+		},
+		{
+			kind = Objective.Collect,
+			target = "SpiceCrate",
+			at = "Promenade",
+			count = 4,
+			hidden = true,
+			description = "Move the crates before anyone counts",
+		},
+		{
+			kind = Objective.Deliver,
+			target = "SpiceCrate",
+			destination = "NarDocks",
+			count = 4,
+			hidden = true,
+			description = "Get them down to Kadar's bay",
+		},
+	},
+	rewards = {
+		xp = 900,
+		credits = 900,
+		alignment = -60,
+		flags = { "DebtSettled", "DebtWorked" },
+	},
+	next = "ScoTheHull",
+})
+
+def({
+	id = "ScoTheHull",
+	displayName = "The Hull",
+	summary = "There are thousands of hulls on Hoth and one of them is nearly whole. Finding it is the mission.",
+	briefing = "You are the fourth person this month to ask me about the Graveyard, so here is the speech. Everything out there came down in the same eleven minutes and everything out there has been picked over by everything with hands since. What is left is the ones nobody could get to, which is the ones under the ice, which is the ones that came down slow. A hull that came down slow is a hull that is *whole*. I have a plate off one at grid nine. I have never had the fuel to go back for the rest of it.",
+	debriefing = "That is her, then. Light freighter, pre-war, and the reason nobody has stripped her is that she is nose-down in forty feet of ice and everyone sensible went home. She is not going anywhere without a drive and Czerka has the only ones on this side of the Rim. But she is a hull, and until this morning you did not have one of those.",
+	kind = "Story",
+	faction = "Republic",
+	planet = "Hoth",
+	giver = "RepublicPilot",
+	origin = "Scoundrel",
+	minLevel = 18,
+	requiresFlag = { "DebtSettled" },
+	objectives = {
+		{
+			kind = Objective.Reach,
+			target = "TheGraveyard",
+			planet = "Hoth",
+			description = "Get out into the Graveyard",
+		},
+		{
+			kind = Objective.Collect,
+			target = "HullPlate",
+			at = "TheGraveyard",
+			count = 4,
+			description = "Cut through to what is under the ice",
+		},
+		{
+			kind = Objective.Reach,
+			target = "AurekHangar",
+			planet = "Hoth",
+			hidden = true,
+			description = "Bring the plate back and file the find",
+		},
+	},
+	rewards = {
+		xp = 1600,
+		credits = 1200,
+		rep = { Republic = 40 },
+		items = { StimPack = 3 },
+	},
+	next = "ScoTheDrive",
+})
+
+def({
+	id = "ScoTheDrive",
+	displayName = "The Drive",
+	summary = "Czerka has a hyperdrive core in Lot 9. Czerka is not selling.",
+	briefing = "I will tell you what is in the yard and you will not tell anyone I did. Lot 9 holds three class-two cores that were logged as damaged in transit and are not damaged, because damaged in transit is how a thing stops existing on a manifest. They will sit there until somebody senior needs a favour done. I have spent eleven years learning not to mind about this. You have not, yet, and I am curious what that looks like.",
+	debriefing = "There is going to be an inventory discrepancy and there is going to be a form, and in about six weeks a man in an office on Coruscant is going to initial the form. That is the whole consequence. I have never once been able to make anybody believe that.",
+	kind = "Story",
+	faction = "Independent",
+	planet = "Taris",
+	giver = "Researcher",
+	origin = "Scoundrel",
+	minLevel = 24,
+	requires = { "ScoTheHull" },
+	objectives = {
+		{
+			kind = Objective.Reach,
+			target = "CzerkaLot9",
+			planet = "Taris",
+			description = "Get inside Lot 9",
+		},
+		{
+			kind = Objective.Kill,
+			target = "WarDroid",
+			planet = "Taris",
+			count = 10,
+			description = "Deal with the yard's droids",
+		},
+		{
+			kind = Objective.Collect,
+			target = "HyperdriveCore",
+			at = "CzerkaLot9",
+			count = 1,
+			hidden = true,
+			description = "Take a core that was logged as damaged",
+		},
+	},
+	rewards = {
+		xp = 2600,
+		credits = 1800,
+		alignment = -30,
+		items = { StimPack = 4 },
+	},
+	next = "ScoMakingItFly",
+})
+
+def({
+	id = "ScoMakingItFly",
+	displayName = "Making It Fly",
+	summary = "A hull and a drive are not a ship. What is between them is six weeks of somebody else's trade.",
+	briefing = "So you have brought me a freighter in two halves and a face that says you expect me to be impressed. I am, a bit. Here is the part nobody tells you: joining them is not lifting. It is couplings, and shielding, and about four hundred small correct decisions, and every one of them is a trade somebody spent years learning. You can pay for that. You can also get a scrapper to do it for the pleasure of doing it, which is cheaper and slower and how most of these ships got built.",
+	debriefing = "She turned over. That is all -- she turned over, and the lights came up in the cabin, and you made a noise. Everybody makes the noise. Twenty years in this hangar and I have never once heard somebody not make it.",
+	kind = "Story",
+	faction = "Republic",
+	planet = "Hoth",
+	giver = "RepublicPilot",
+	origin = "Scoundrel",
+	minLevel = 30,
+	requires = { "ScoTheDrive" },
+	--[[
+		CAMPAIGN.md wants this to be the first place the game rewards co-op
+		explicitly -- a Scrapper's help, or a great deal of money. Neither a
+		shared objective nor a credits-for-completion option exists, so for
+		now it is the work itself, and the co-op version is a real mission
+		waiting on real machinery rather than a line of flavour text
+		pretending to be one.
+	]]
+	objectives = {
+		{
+			kind = Objective.Collect,
+			target = "PowerCoupling",
+			at = "AurekHangar",
+			count = 8,
+			description = "Scrounge couplings out of the hangar's spares",
+		},
+		{
+			kind = Objective.Kill,
+			target = "ImperialScout",
+			planet = "Hoth",
+			count = 10,
+			description = "Keep the salvage teams off her while you work",
+		},
+		{
+			kind = Objective.Reach,
+			target = "AurekHangar",
+			planet = "Hoth",
+			hidden = true,
+			description = "Put the couplings in and turn her over",
+		},
+	},
+	rewards = {
+		xp = 4000,
+		credits = 2200,
+		rep = { Republic = 60 },
+		items = { StimPack = 5 },
+	},
+	next = "ScoTheName",
+})
+
+def({
+	id = "ScoTheName",
+	displayName = "The Name",
+	summary = "She flies. She has no name, and on this moon a ship without a name cannot be registered.",
+	briefing = "You brought it here to be registered, which means you brought it to me, which is the first genuinely sentimental thing you have ever done and I am going to let it pass. The clerk needs a name. That is not a formality on this moon -- it goes on the hull and it goes in the book and it is what people mean when they say you, afterwards. Take your time. I have watched grown smugglers lose an afternoon to this.",
+	debriefing = "Registered, bonded, and painted on the port side by a man who does not ask questions and cannot spell. Look at me a moment. You came to this moon owing me more than you were worth and you are leaving it with an address. I do not get to say that often and I would like the record to show I said it.",
+	kind = "Story",
+	faction = "Independent",
+	planet = "NarShaddaa",
+	giver = "VessKadar",
+	origin = "Scoundrel",
+	minLevel = 34,
+	requires = { "ScoMakingItFly" },
+	--[[
+		The name itself is not implemented: there is no free-text prompt in the
+		game and inventing one for a single mission would be the wrong order to
+		build things in. The flag is the durable half, and it is the half Phase
+		2b will read when there is a hangar to put her in.
+	]]
+	objectives = {
+		{
+			kind = Objective.Reach,
+			target = "NarDocks",
+			planet = "NarShaddaa",
+			description = "Bring her into Docking Bay 41",
+		},
+		{
+			kind = Objective.Collect,
+			target = "CreditChit",
+			at = "NarDocks",
+			count = 3,
+			description = "Cover the registration and the bond",
+		},
+		{
+			kind = Objective.Reach,
+			target = "Promenade",
+			planet = "NarShaddaa",
+			hidden = true,
+			description = "Sign the book in front of Kadar",
+		},
+	},
+	rewards = {
+		xp = 6000,
+		credits = 1500,
+		rep = { Independent = 80 },
+		items = { StimPack = 5 },
+		flags = { "HasOwnShip" },
+	},
+})
+
+--------------------------------------------------------------------------------
+-- Scrapper -- Ordo-9
+--------------------------------------------------------------------------------
+
+--[[
+	You dug Nine out of a collapsed tower at level 3 and got him walking. He is
+	polite, extremely capable, and missing almost everything he used to be.
+
+	This is the only signature chain whose reward can disagree with you, and the
+	only one whose branch is genuinely last, because the question it asks is
+	about somebody else and he has to be there to be asked.
+]]
+
+def({
+	id = "ScrTheChassis",
+	displayName = "The Chassis",
+	summary = "Nine is walking on scaffolding you welded in an afternoon. There is war surplus in the Sinking Sector.",
+	briefing = "Observation: you have looked at my left leg four times since we started this conversation. Clarification: I am not offended. The strut is a cargo-loader arm and it is bolted, not welded, and I have been compensating for approximately nine hundred hours. Suggestion: the Sinking Sector contains military plating of the correct series. Qualifier: I raise this only because you keep looking.",
+	debriefing = "Gratitude: thank you. Addendum: I notice that I said that without being prompted to, and I notice that I noticed. Statement: I will make a record of the date. I do not know why.",
+	kind = "Story",
+	faction = "Independent",
+	planet = "Taris",
+	giver = "Ordo9",
+	origin = "Scrapper",
+	minLevel = 12,
+	objectives = {
+		{
+			kind = Objective.Reach,
+			target = "SinkingSector",
+			planet = "Taris",
+			description = "Go up through the leaning towers",
+		},
+		{
+			kind = Objective.Collect,
+			target = "DroidPlating",
+			at = "SinkingSector",
+			count = 4,
+			description = "Cut out war-surplus plating of the right series",
+		},
+		{
+			kind = Objective.Reach,
+			target = "ResettlementCamp",
+			planet = "Taris",
+			hidden = true,
+			description = "Bring it back to Nine",
+		},
+	},
+	rewards = {
+		xp = 900,
+		credits = 700,
+		items = { StimPack = 3 },
+	},
+	next = "ScrMemoryCore",
+})
+
+def({
+	id = "ScrMemoryCore",
+	displayName = "The Memory Core",
+	summary = "Czerka has a core in Lot 9 that is not on any inventory, and Nine has stopped talking about it.",
+	briefing = "Retrieval: partial. The warehouse designated Lot 9 contains a storage unit which I am able to identify and unable to explain. Query: how do I know the serial number of an object I have never been in the same room as. Statement: I have run that question one hundred and forty thousand times since we spoke last. Request: I would like you to go and look at it. Qualifier: I am aware that this is not a small thing to ask and I am asking anyway.",
+	debriefing = "Confirmation: HK-series. Manufacture predates me by eleven years. Statement: it is not my core. Correction: it is not the core I was *built* with. Pause. Statement: I would like to stop talking for a while, if that is acceptable.",
+	kind = "Story",
+	faction = "Independent",
+	planet = "Taris",
+	giver = "Ordo9",
+	origin = "Scrapper",
+	minLevel = 18,
+	requires = { "ScrTheChassis" },
+	objectives = {
+		{
+			kind = Objective.Reach,
+			target = "CzerkaLot9",
+			planet = "Taris",
+			description = "Get inside Lot 9",
+		},
+		{
+			kind = Objective.Kill,
+			target = "WarDroid",
+			planet = "Taris",
+			count = 10,
+			description = "Get past the yard's own droids",
+		},
+		{
+			kind = Objective.Collect,
+			target = "MemoryCore",
+			at = "CzerkaLot9",
+			count = 1,
+			hidden = true,
+			description = "Take the core that should not be there",
+		},
+	},
+	rewards = {
+		xp = 1600,
+		credits = 1200,
+		items = { StimPack = 3 },
+	},
+	next = "ScrThePowerPlant",
+})
+
+def({
+	id = "ScrThePowerPlant",
+	displayName = "The Power Plant",
+	summary = "The plant Nine needs is Cartel-owned, and buying it means owing somebody.",
+	briefing = "You are the scrapper with the droid. Word gets down here. Yes, we have a fusion cell of that class -- we have three, they came off a Republic pinnace, and they are not for sale to walk-ins. They are for sale to people who have done something. That is not a threat, it is an inventory policy. There is a crew working out of the docks who have been shorting us. Make them regret the arithmetic and the cell is yours at cost.",
+	debriefing = "At cost, as agreed. And now you are on a list, which is not the bad kind of list, it is the kind where somebody writes your name next to the word reliable. That is worth more than the cell and it is going to cost you more than the cell. Pleasure.",
+	kind = "Story",
+	faction = "Hutt",
+	planet = "NarShaddaa",
+	giver = "Smuggler",
+	origin = "Scrapper",
+	minLevel = 24,
+	requires = { "ScrMemoryCore" },
+	objectives = {
+		{
+			kind = Objective.Kill,
+			target = "Smuggler",
+			planet = "NarShaddaa",
+			count = 12,
+			description = "Correct the arithmetic at the docks",
+		},
+		{
+			kind = Objective.Collect,
+			target = "PowerCoupling",
+			at = "NarDocks",
+			count = 3,
+			hidden = true,
+			description = "Collect the fusion cell, at cost",
+		},
+	},
+	rewards = {
+		xp = 2600,
+		credits = 1400,
+		rep = { Hutt = 50 },
+		alignment = -30,
+		items = { StimPack = 4 },
+	},
+	next = "ScrTheVoice",
+})
+
+def({
+	id = "ScrTheVoice",
+	displayName = "The Voice",
+	summary = "The fragments are coming back, and they are not fragments of a protocol droid.",
+	briefing = "Statement: my vocabulator has been failing for six days and I have not mentioned it. Clarification: it has not been failing. It has been returning phrases which are not in my working vocabulary, in a cadence which is not mine, and I have been suppressing them mid-sentence. Query, and I would like an honest answer: when you found me in the tower, did you at any point consider leaving me there. Statement: there is a spare module in the Undercity. Statement: I am asking you to fetch it and I am aware of what I am asking you to start.",
+	debriefing = "Installation complete. Statement: I was not built to protect anyone. Amendment: I was built to be extremely good at the opposite, and I was extremely good at it, and I can now remember approximately four percent of by whom and to whom. Statement: you should know that before the next conversation. I would prefer that we have it soon.",
+	kind = "Story",
+	faction = "Independent",
+	planet = "Taris",
+	giver = "Ordo9",
+	origin = "Scrapper",
+	minLevel = 30,
+	requires = { "ScrThePowerPlant" },
+	objectives = {
+		{
+			kind = Objective.Reach,
+			target = "TheUndercity",
+			planet = "Taris",
+			description = "Go down below the rubble line",
+		},
+		{
+			kind = Objective.Kill,
+			target = "CartelEnforcer",
+			planet = "Taris",
+			count = 10,
+			description = "Clear whoever has been living around the wreck",
+		},
+		{
+			kind = Objective.Collect,
+			target = "VoiceModule",
+			at = "TheUndercity",
+			count = 1,
+			hidden = true,
+			description = "Pull the vocabulator module",
+		},
+	},
+	rewards = {
+		xp = 4000,
+		credits = 2000,
+		items = { StimPack = 5 },
+	},
+})
+
+--[[
+	The last question, and the only one in the game a reward can answer back to.
+
+	He asks and will not choose for himself, which is the cruel part and the
+	honest one: the player has spent thirty levels making him, and the bill for
+	that is being handed to them by the thing they made.
+
+	Two missions, both level 34, each forbidding the other's flag. The cast
+	dialogue in Config/Dialogue.luau is what makes the answer stick -- Nine
+	talks differently afterwards, and it is not a better or worse conversation
+	either way, only a different person having it.
+]]
+
+def({
+	id = "ScrRestore",
+	displayName = "Restore",
+	summary = "Give him back the programming he was built with. He will thank you, and the thing that thanks you will not be him.",
+	briefing = "Statement: the core is compatible. Clarification: compatible means that if you install it I will be returned to specification -- lethal, considerably more capable, and loyal to a master who has been dead for three hundred and eleven years. Query: will I still be the unit that has been walking behind you for thirty levels. Answer: I do not know, and I have run it, and I do not know. Request: I would like you to decide. Refusal: no, I will not decide. That is what I am asking you for.",
+	debriefing = "Statement: diagnostics nominal. Observation: I have four hundred years of operational memory and I remember the tower. Query: why does that seem to me like the least interesting item in it. Statement: I am very glad to be working, master. Pause. Statement: I have not called you that before.",
+	kind = "Story",
+	faction = "Independent",
+	planet = "Taris",
+	giver = "Ordo9",
+	origin = "Scrapper",
+	minLevel = 34,
+	requires = { "ScrTheVoice" },
+	forbidsFlag = { "NineLeftAsHeIs" },
+	objectives = {
+		{
+			kind = Objective.Reach,
+			target = "ResettlementCamp",
+			planet = "Taris",
+			description = "Sit down with Nine and give him the answer",
+		},
+		{
+			kind = Objective.Kill,
+			target = "ImperialCommando",
+			planet = "Taris",
+			count = 12,
+			hidden = true,
+			description = "Find out what he is like now",
+		},
+	},
+	rewards = {
+		xp = 6000,
+		credits = 2600,
+		weapon = "E5",
+		alignment = -60,
+		items = { StimPack = 5 },
+		flags = { "NineRestored" },
+	},
+})
+
+def({
+	id = "ScrLeaveHim",
+	displayName = "Leave Him As He Is",
+	summary = "Or tell him that the thing he is now is a person, and that you would rather keep it.",
+	briefing = "Statement: the core is compatible. Clarification: compatible means that if you install it I will be returned to specification -- lethal, considerably more capable, and loyal to a master who has been dead for three hundred and eleven years. Query: will I still be the unit that has been walking behind you for thirty levels. Answer: I do not know, and I have run it, and I do not know. Request: I would like you to decide. Refusal: no, I will not decide. That is what I am asking you for.",
+	debriefing = "Statement: acknowledged. Query: you understand that you have declined a considerable tactical asset in favour of a cargo droid with a limp and a habit of talking. Statement: I have logged your reasoning and it does not resolve. Statement: I have decided to stop attempting to resolve it. Observation: that is a new behaviour. I believe I am pleased.",
+	kind = "Story",
+	faction = "Independent",
+	planet = "Taris",
+	giver = "Ordo9",
+	origin = "Scrapper",
+	minLevel = 34,
+	requires = { "ScrTheVoice" },
+	forbidsFlag = { "NineRestored" },
+	objectives = {
+		{
+			kind = Objective.Reach,
+			target = "ResettlementCamp",
+			planet = "Taris",
+			description = "Sit down with Nine and give him the answer",
+		},
+		{
+			kind = Objective.Deliver,
+			target = "MemoryCore",
+			destination = "TheUndercity",
+			count = 1,
+			hidden = true,
+			description = "Put the core back where nobody will find it",
+		},
+	},
+	rewards = {
+		xp = 6000,
+		credits = 2600,
+		alignment = 90,
+		items = { StimPack = 5 },
+		flags = { "NineLeftAsHeIs" },
+	},
+})
+
+--------------------------------------------------------------------------------
 
 --[[
 	Fold in the generated missions.

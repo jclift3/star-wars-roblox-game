@@ -109,6 +109,51 @@ def("PaidTheStrangersDebt", "Covered a stranger's Cartel debt out of your own po
 def("LetThemBreakHisHands", "Watched the Cartel collect, and were pleasant about it.")
 
 --------------------------------------------------------------------------------
+-- The signature chains
+--------------------------------------------------------------------------------
+
+--[[
+	Each origin's chain turns on one decision, and this is where it is kept.
+
+	The pattern is the same one the Cartel debt established and for the same
+	reason: a branch cannot be expressed by `requires`, which only knows whether
+	a mission was finished. So each branch sets its own flag *and* a shared one
+	naming the moment, and the rest of the chain gates on the shared flag --
+	`requiresFlag` is an AND with no *or*, so without `SaberBuilt` the last part
+	of the Acolyte chain would need to be written three times.
+
+	None of these are set by a mission whose only outcome is "you finished it".
+	A chain part with no fork writes no flag; `missions.completed` already
+	records that, and duplicating it is the second source of truth this file
+	exists to prevent.
+]]
+
+-- Acolyte: three forges, one axis. Which colour you carry is the most public
+-- fact about a character in this era -- everyone who sees the blade reads it.
+def("SaberBuilt", "Any of the three forges. Gates AcoTheFirstCut and is read by Vashk and Ryn Solaa.")
+def("SaberBled", "AcoForgeBled: you bled the crystal in Tulak Hord's tomb. Red.")
+def("SaberRefused", "AcoForgeRefused: you refused both and the crystal went purple. The rare one.")
+def("SaberPure", "AcoForgePure: you let it be what it was. Blue.")
+
+-- Conscript: beskar states your purpose, and Mandalorians take that literally.
+def("WearsBeskar", "Either Great Hunt forge. Read by Tolen Marr.")
+def(
+	"BeskarForVengeance",
+	"ConBeskarVengeance: you had it struck in the colour that means a debt owed in blood."
+)
+def("BeskarForDuty", "ConBeskarDuty: you had it struck in the colour that means an oath kept.")
+
+-- Scoundrel: the debt is answered at level 12 and Kadar remembers it forever.
+def("DebtSettled", "Either debt mission. The moment closed; gates the rest of the ship chain.")
+def("DebtBought", "ScoDebtBought: you cleared it with your own money and owe him nothing.")
+def("DebtWorked", "ScoDebtWorked: you cleared it by doing his work, and he liked that better.")
+def("HasOwnShip", "ScoTheName: the hull out of the Hoth graveyard flies and it is yours.")
+
+-- Scrapper: the only signature reward that can disagree with you.
+def("NineRestored", "ScrRestore: you gave Ordo-9 back the programming he was built with.")
+def("NineLeftAsHeIs", "ScrLeaveHim: you left him as the thing you made by accident, and told him so.")
+
+--------------------------------------------------------------------------------
 -- API
 --------------------------------------------------------------------------------
 

@@ -952,21 +952,46 @@ and Coruscant then talks to you differently for the rest of the game. It is
 early on purpose: a consequence system the player meets in the fortieth hour is
 a consequence system they will never find out they have.
 
-### 3b.5 Signature chains — **[todo]**
+### 3b.5 Signature chains — **[done 2026-08-16]**
 **A lightsaber is built, not bought** (decided 2026-08-14), which forced the same
 for every other origin or the Acolyte would have the only good content. Four
-five-part chains running levels 12–34, specified in [CAMPAIGN.md](CAMPAIGN.md)
-§5: the saber, the Mandalorian Great Hunt, your own ship, and restoring Ordo-9.
+chains running levels 12–34, specified in [CAMPAIGN.md](CAMPAIGN.md) §5: the
+saber, the Mandalorian Great Hunt, your own ship, and restoring Ordo-9. **25
+missions**, plus 10 component items and 13 flags.
 
 This is the long-standing "what is the reason to specialize?" question finally
-answered — not a bigger number at rank 5, but an object. It needs no new
-machinery beyond `MissionDef.origin` (shipped with 3b.1) and `alignment` from
-3b.2, which
-is what determines the crystal's colour and gives `SaberBlue/Green/Purple/Red` a
-meaning at last.
+answered — not a bigger number at rank 5, but an object. It needed no new
+machinery: `MissionDef.origin` (3b.1) gates the chain, `alignment` (3b.2) picks
+the crystal's colour, and flags (3b.4) carry the fork forward. What it needed
+was **the discipline to build inside those five working objective kinds** —
+`Kill`, `Collect`, `TalkTo`, `Reach`, `Deliver`. `Escort`, `Survive`, `Slice`
+and `Destroy` are declared in `MissionKinds` and reported by nothing, so a chain
+written around one is a chain that cannot be finished.
 
-**Sabers come out of the shop tables.** `Weapons.luau` currently sells one at
-level 10 for 7,500 credits; the vendor entry becomes a hilt component instead.
+**The forks, and where they sit.** Not always at part 5. The Scoundrel's is
+*first* — the debt is what the chain is about, so answering it is the price of
+admission rather than the payoff. Each fork sets its own flag **and a shared one
+naming the moment** (`SaberBuilt`, `WearsBeskar`, `DebtSettled`), because
+`requiresFlag` is an AND with no *or*: without the shared flag the last part of
+the Acolyte chain would have to be written three times.
+
+**The Acolyte forge is the only three-way branch in the game**, because
+`Rewards.weapon` is one string and three colours therefore means three missions.
+They partition the alignment axis at the **Unaligned band's own edges** (≤ -100
+red, -99..99 purple, ≥ +100 blue) with no gaps — a gap is a chain that eats the
+player's saber and explains itself only as "You are not the person this needs".
+All three also `forbidsFlag = { "SaberBuilt" }`: the bounds are exclusive at an
+instant but not over a lifetime, and "Neither Hand" pays nothing, so its taker
+is one light-side errand away from standing in front of the Pure forge with a
+second lightsaber on offer.
+
+**Sabers were already absent from every shop table** — the vendor entry the
+original note worried about does not exist, so nothing had to be removed.
+
+**Deliberately not built**, with the reasons written into `Missions.luau` rather
+than left as a surprise: assembly that can *fail* (nothing can fail a mission),
+free-text ship naming (no text-entry UI, and two boys in one room would name it
+something), and real co-op chain steps (nothing is party-aware yet).
 
 ### 3b.6 The recurring cast — **[done 2026-08-16]**
 [CAMPAIGN.md](CAMPAIGN.md) §7 names six people the campaign is about, and the

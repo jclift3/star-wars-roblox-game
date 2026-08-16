@@ -552,6 +552,53 @@ tree without four playthroughs.
    at a planet, zone, archetype or dialogue tree that does not exist, and that
    character will be missing or mute in-game.
 
+### 8.3 The signature chains — **new, never played**
+
+25 missions landed 2026-08-16, four chains, levels 12–34. This is the longest
+piece of content in the game and the one with the most ways to be silently
+broken, because **a mission whose objective can never be reported looks exactly
+like a hard one**. `iam{acolyte,…}` picks the chain, `thereisnocow` gets you to
+the level gate, `showmethemoney` covers the Scoundrel's debt.
+
+1. **The boot log is silent.** `Missions.validate` checks every item, POI,
+   archetype, flag and faction id in all 25. One `[MissionService] mission
+   config:` line and something in a chain cannot be finished. Read them all —
+   they are sorted, so a chain with three problems shows as three lines.
+2. **Each chain opens at 12 and only for its own origin.** As an Acolyte at 12
+   the board shows *The Hilt*; `iamconscript` and it is **gone, not greyed** —
+   `boardFor` hides an origin refusal because it can never stop being true.
+   *Sponsorship*, *Bought and Paid For* / *Worked Off*, and *The Chassis* are
+   the other three openers.
+3. **Every objective can actually be completed.** The real test and the slow
+   one: play one chain end to end without cheating past an objective. Watch for
+   a **Collect whose crates never appear** (the `at` POI is on the wrong planet)
+   and a **Reach that never fires** (the POI exists but nothing put a marker
+   there). The HUD tracks all active missions, so an objective that will not
+   tick is visible without opening the board.
+4. **The forge is a fork, not a menu.** At level 30 with the crystal, an Acolyte
+   at **-100 or below** sees only *The Bleeding*; between **-99 and +99** only
+   *Neither Hand*; at **+100 or above** only *What It Already Was*. Check all
+   three with `iamacolyte` and alignment moved by the level-12 Coruscant fork
+   plus whatever else. **There must be no alignment at which none of the three
+   is offered** — that is a character who can never finish their own chain.
+5. **The second saber.** Take *Neither Hand* (purple, pays no alignment), then
+   run light-side content until you are at +100, and go back to Forge Ridge.
+   *What It Already Was* must **not** be on offer. This is the exploit the boys
+   will find first and the reason all three forbid `SaberBuilt`.
+6. **The blade is the right colour.** The reward equips and lights: red from the
+   tomb, violet from the ridge, blue from the ridge. Not a shop item — check
+   `B` and confirm no vendor anywhere sells a lightsaber.
+7. **The other three forks close too.** Beskar in vengeance-colour then try for
+   duty-colour; clear the debt by paying then try to clear it by working;
+   restore Ordo-9 then try to leave him as he is. Each must refuse with **"Not
+   the road you took"** and never name the branch you did take.
+8. **The components stay in the bag.** The chains close on a `Reach`, not a
+   `Deliver`, so the hilt, lens, crystal, writ, ingot, hull plate and drive core
+   are all still in `B` at the end. The two deliberate exceptions are the debt
+   payments and Ordo-9's memory core, which are *supposed* to leave.
+9. **Ordo-9 talks like a droid throughout.** Statement:/Query:/Observation:. If
+   he sounds like a person, a line came from the wrong tree.
+
 ---
 
 ## 9. Combat and progression
