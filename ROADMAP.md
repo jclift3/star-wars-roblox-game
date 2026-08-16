@@ -343,19 +343,17 @@ five features:
    per planet that drift and react, so buying spice cheap on Nar Shaddaa and
    selling it on Coruscant is a *trade route*. This is a better fit than equities
    and it makes travel (Phase 2) economically meaningful instead of a toll.
-4. **Player-to-player trading**, Diablo-style. Blocked on the same data-model
-   change as rolled affixes: `profile.inventory` is `{[id]: count}` and cannot
-   represent two different rolls of one item, let alone move one between
-   players. **This is now the second feature blocked on that change — do it
-   early.**
+4. **Player-to-player trading**, Diablo-style. **No longer blocked** — the
+   inventory is a map of stacks (`73dc1db`), and `Inventory.take(inv, uid)`
+   already lifts one specific item out. A trade is that stack re-keyed through
+   `Inventory.add` on arrival.
 5. **Loans**, with the debtor who does not pay and the mission that follows.
    This is genuinely good: it is a *generator* for radiant missions (Phase 4.0)
    with a built-in reason to care about the target, and it converts the economy
    into content instead of a number that goes up.
 
 Sequencing note: 1 and 3 are cheap and can ride along with Phase 3. 2 and 5 want
-persistence and are Phase 4. 4 is gated on the inventory rework, which should
-happen before rolled loot regardless.
+persistence and are Phase 4. 4 is unblocked and can be picked up whenever.
 
 ---
 
@@ -366,16 +364,39 @@ gear, walk somewhere harder. Three consequences, in the order they should be
 built:
 
 1. **Skill tree screen** — **[done]**, see 1.5.
-2. **Loot with rolled affixes.** The real Diablo loop. The data-model change it
-   was blocked on is **[done]** (`73dc1db`): `profile.inventory` was
-   `{ [itemId]: count }`, a bag of counts that cannot hold two different rolls
-   of the same blaster. `Shared/Core/Inventory.luau` now owns the shape — a map
-   of stacks keyed by uid, each optionally carrying `rolls` — and every
-   mutation goes through it. A map rather than an array because a profile is
-   both DataStore-serialised and replicated, and neither survives a sparse one.
-   `Inventory.load` still reads the old shape, so old saves come back intact.
-   What remains is the interesting half: an affix table, a roll generator,
-   where loot drops from, and rarity in the inventory panel.
+2. **Loot with rolled affixes** — **[done]**, `73dc1db` / `accb151` / `3ab7e9a`.
+   The data model went first: `profile.inventory` was `{ [itemId]: count }`, a
+   bag of counts that cannot hold two different rolls of the same blaster.
+   `Shared/Core/Inventory.luau` now owns the shape — a map of stacks keyed by
+   uid, each optionally carrying `rolls`. A map rather than an array because a
+   profile is both DataStore-serialised and replicated, and neither survives a
+   sparse one. `Inventory.load` still reads the old shape, so old saves come
+   back intact.
+
+   `Config/Affixes.luau` holds ten affixes, one per stat something actually
+   reads, five rarities named by affix count (0–4), and the roller.
+   `Affixes.validate(Progression.baseStats)` runs at boot and reports any affix
+   whose stat nothing consumes — the same "no dead stat" rule the skill tree
+   broke once already.
+
+   `profile.equipped` now names an inventory **stack**, not a catalogue entry.
+   That is the piece that makes rolls do anything: `ProgressionService` folds
+   the equipped outfit's *and weapon's* rolls into `computeStats`. Everything
+   that reads `equipped` resolves uid → id through `Inventory.idOf`; plain
+   items keep their id as their uid, so nothing in an existing save changed
+   meaning. The B panel is one row per stack accordingly, coloured by rarity,
+   with roll lines under the base stats.
+
+   `Config/Loot.luau` derives its pool from the Weapons and Outfits catalogues
+   by level instead of authoring a drop table, so it cannot name an item that
+   does not exist. A Common roll is treated as **no drop at all** — a plain
+   blaster identical to the vendor's is clutter, and plain stacks merge by id
+   so it would not even be a second item. About one drop per seven kills, tuned
+   by `Loot.DROP_CHANCE`.
+
+   Still owed: **bag size and a way out of it**. Nothing caps the inventory, so
+   rolled drops accumulate forever and there is no way to sell or destroy one.
+   That is what rolled loot needs next, and it is also half of vendor buy-back.
 3. **A large world banded by level.** Enemies of varying level, laid out so
    walking outward means walking into harder things. `ZoneDef.distance`
    (`Config/Planets.luau`) is already the difficulty dial — it needs a level
@@ -827,7 +848,9 @@ level 10 for 7,500 credits; the vendor entry becomes a hilt component instead.
 
 - ~~Skill tree UI~~ — **done**, see 1.5. The *contents* of the trees are not:
   see 4.3, and B5 in the playtest findings
-- Loot drops with rolled affixes, and the `profile.inventory` change they need
+- ~~Loot drops with rolled affixes, and the `profile.inventory` change they
+  need~~ — **done**, see the Diablo direction section. Still owed there: a bag
+  cap, and selling or destroying a roll you do not want
 - ~~Per-zone level bands~~ — moved into 3.1, where districts declare a `band`.
   Still owed here: the "you are underlevelled" warning on crossing into one
 - Weapon mods / attachments layered onto `Config/Weapons.luau`
