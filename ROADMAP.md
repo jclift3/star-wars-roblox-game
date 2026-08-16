@@ -187,6 +187,9 @@ a real save.
 either a reader for its stat or an `unimplemented` string.** Proper fix — making
 them real — is §4.3 below.
 
+*Follow-up 2026-08-16:* the rule was applied by hand, so it **missed two**, and
+`Progression.validate()` now checks it at boot instead of trusting it. See §4.3.
+
 **B4. Ord Mantell has no missions.** — **[fixed]** The board read "No work going on this
 planet right now." It is the Conscript prologue world and had zero entries in
 `Missions`. Same failure family as §1.2's dead POIs: nothing errors, the world
@@ -944,6 +947,37 @@ align with the objectives and gameplay."* Correct. The UI is done (1.5) and the
   play rather than how big your numbers are.
 - One skill (`ForcePush`) claims to unlock an ability. It doesn't (B5).
 - Six do nothing at all (B5).
+
+**Enforcement shipped 2026-08-16.** B5's rule was being kept by hand, and a rule
+nobody checks decays into a comment — so it had already missed two skills.
+`Progression.LIVE_STATS` (moved out of `Affixes.luau`, since it describes the
+stat table and both systems are checked against it) names every stat with a
+reader and where that reader is, and `Progression.validate()` requires each node
+to be in exactly one of three states: a live stat, a dead stat *plus* an
+`unimplemented` reason, or **no effect at all** — a gate, worth what it unlocks.
+`WorldService` warns on anything else at boot.
+
+The two it caught:
+
+| Skill | Stat | Was | Now |
+|---|---|---|---|
+| Deflection | `DeflectChance` | dead, unmarked | **implemented** — a sabre batting blaster bolts away |
+| Force Sensitive | `MaxForce` | dead, unmarked | a **gate**: `maxRank` 5 → 1, no effect |
+
+`Deflection` was worth building rather than labelling: it is the one thing
+everybody knows a lightsaber does, and marking it COMING SOON would have left
+the Force tree with a single working skill. Blaster damage only (so it counters
+the ranged enemies the other trees answer with more health, and does nothing
+against a gaffi stick), sabre must be equipped (a build, not a buff), all or
+nothing (shaving a percentage off is `DamageReduction` under another name),
+capped at 75%.
+
+`Force Sensitive` could not be marked `unimplemented` — three skills require it,
+so the whole tree would have locked. It charged five points for `+20 Force
+energy` against a pool nothing has ever spent; it now charges one for what it
+actually sells, and frees four points for skills that do something.
+
+**Still open below: everything about the *design*.** This was the honesty pass.
 - `requires` is a single-parent chain, so a "tree" is really four short ladders.
   There is no reason to ever stop partway, so every build converges.
 
@@ -978,14 +1012,15 @@ useful, there is no *choice*, only an order.
    like a *character*.
 
 **Hard rule going forward, from B5: a skill is not added to `Progression.luau`
-until something reads its stat.** Cheapest enforcement is a boot-time check —
-a table of stat → "who consumes this", validated like `Factions.validate`.
+until something reads its stat.** ~~Cheapest enforcement is a boot-time check —
+a table of stat → "who consumes this", validated like `Factions.validate`.~~
+**Done** — `Progression.LIVE_STATS` + `Progression.validate()`, above.
 
 **Sequencing.** This is a big design pass and it depends on things that do not
 exist yet: abilities need a cooldown/resource system and input bindings, the
 Force tree needs `alignment` (3b.2), the Piloting tree needs ships (2b), and
-world-opening skills need §3.1's interiors and terminals. So: do the B5
-mitigation now, write the full tree design alongside CAMPAIGN's signature
+world-opening skills need §3.1's interiors and terminals. So: ~~do the B5
+mitigation now~~ (done, above), write the full tree design alongside CAMPAIGN's signature
 chains (3b.5) since they answer the same question — *why specialize?* — and
 implement after 3.1. Design goes in a new `SKILLS.md` when it is written; this
 section is the brief.

@@ -54,8 +54,15 @@ export type SkillNode = {
 	requiredLevel: number,
 	-- Node ids that must have at least 1 rank before this unlocks.
 	requires: { string }?,
-	-- Per-rank effect. Read by the systems that care; see `Progression.effect`.
-	effect: { stat: string, perRank: number },
+	--[[
+		Per-rank effect. Read by the systems that care; see `Progression.effect`.
+
+		Absent on a node that is purely a gate -- one whose worth is the
+		nodes it unlocks, not a number it moves. `ForceSensitive` is the only
+		one, and it is that way because it used to claim `+20 Force energy`
+		out of a pool nothing has ever spent.
+	]]
+	effect: { stat: string, perRank: number }?,
 	--[[
 		Set when nothing in the game reads `effect.stat` yet.
 
@@ -182,14 +189,26 @@ node({
 })
 
 -- Force -----------------------------------------------------------------------
+--[[
+	A gate, and only a gate.
+
+	This used to read "+20 Force energy per rank" over five ranks, against a
+	`MaxForce` pool that no ability has ever drawn on -- so four of its five
+	ranks were points spent on nothing, and the fifth was the tree opening.
+	ROADMAP B5 caught seven skills like this and missed two; this is one.
+
+	Rather than mark it `unimplemented`, which would lock the Force tree
+	behind a node nobody can buy, it now charges one point for what it
+	actually sells. The four ranks that bought nothing are freed for skills
+	that do. `MaxForce` stays in `baseStats` for when a power spends it.
+]]
 node({
 	id = "ForceSensitive",
 	tree = "Force",
 	displayName = "Force Sensitive",
-	description = "+20 Force energy per rank. Required for all Force powers.",
-	maxRank = 5,
+	description = "Opens the Force tree. Required for all Force powers.",
+	maxRank = 1,
 	requiredLevel = 5,
-	effect = { stat = "MaxForce", perRank = 20 },
 })
 node({
 	id = "SaberForm",
@@ -308,6 +327,38 @@ Progression.baseStats = {
 }
 
 --[[
+	The stats something actually reads, and what reads them.
+
+	This is the whole of "does this skill do anything", written down. Skills
+	and affixes are both checked against it -- see `validate` below and
+	`Affixes.validate` -- so a stat with no entry here cannot quietly ship
+	attached to something a player pays for.
+
+	If a reader is deleted, delete the entry: whatever was riding on it will
+	then fail validation loudly, which is the point. Everything absent from
+	this list is in `baseStats` waiting for the system that will spend it.
+	Verified 2026-08-16.
+]]
+-- Annotated, not inferred: an inferred literal is a sealed table of exactly
+-- these keys, and looking an unknown stat up in one is a type error rather
+-- than the nil the checks below are asking for.
+local LIVE_STATS: { [string]: string } = {
+	BlasterDamageMult = "CombatService.resolveShot",
+	BlasterCooldownMult = "CombatService (fire-rate cooldown)",
+	BonusHealth = "ProgressionService.maxHealthFor",
+	HealthRegen = "PlayerService (regen loop)",
+	CritChance = "CombatService.resolveShot / onSaberSwing",
+	SaberDamageMult = "CombatService.onSaberSwing",
+	DeflectChance = "CombatService.applyDamage",
+	MoveSpeedMult = "PlayerService (humanoid.WalkSpeed)",
+	CreditMult = "ProgressionService.awardCredits",
+	PriceMult = "ProgressionService.priceFor / TravelService",
+	DamageReduction = "CombatService.applyDamage",
+}
+
+Progression.LIVE_STATS = LIVE_STATS
+
+--[[
 	Folds a player's purchased skill ranks into a flat stat table.
 
 	Multiplier stats (name ends in "Mult") accumulate additively around 1.0, so
@@ -325,10 +376,10 @@ function Progression.computeStats(
 	local stats = table.clone(Progression.baseStats)
 	for nodeId, rank in skills do
 		local def = nodes[nodeId]
-		if def and rank > 0 then
+		local effect = def and def.effect
+		if def and effect and rank > 0 then
 			local clamped = math.min(rank, def.maxRank)
-			local stat = def.effect.stat
-			stats[stat] = (stats[stat] or 0) + def.effect.perRank * clamped
+			stats[effect.stat] = (stats[effect.stat] or 0) + effect.perRank * clamped
 		end
 	end
 	if extra then
@@ -418,6 +469,83 @@ function Progression.hasTree(tree: string): boolean
 		end
 	end
 	return false
+end
+
+--------------------------------------------------------------------------------
+-- Validation
+--------------------------------------------------------------------------------
+
+--[[
+	Reports every skill that would take a point and do nothing.
+
+	THE RULE THIS ENFORCES
+	A skill does not enter this file without either a reader for its stat or
+	an `unimplemented` string. That rule was written after the 2026-08-15
+	playtest found seven purchasable skills that did nothing -- the entire
+	Piloting tree among them -- and it was applied by hand, which is why it
+	then missed two more. A rule nobody checks decays into a comment.
+
+	The state a node must be in is exactly one of three:
+	  * an effect whose stat is in `LIVE_STATS` -- it works;
+	  * an effect whose stat is not, plus `unimplemented` -- the tree can
+	    advertise what is coming without charging for it;
+	  * no effect at all -- a gate, worth what it unlocks.
+	Anything else is a player paying for nothing, so it is reported.
+]]
+function Progression.validate(): { string }
+	local problems: { string } = {}
+
+	for stat, reader in LIVE_STATS do
+		if Progression.baseStats[stat] == nil then
+			table.insert(problems, `LIVE_STATS names "{stat}" ({reader}), which is not a stat`)
+		end
+	end
+
+	for id, def in nodes do
+		if not Progression.hasTree(def.tree) then
+			table.insert(problems, `{id}: unknown tree "{def.tree}"`)
+		end
+		if def.maxRank < 1 then
+			table.insert(problems, `{id}: maxRank is {def.maxRank}, so it can never be bought`)
+		end
+
+		-- A prerequisite that does not exist can never reach rank 1, which
+		-- makes everything behind it unreachable and nothing says so.
+		local requires = def.requires
+		if requires then
+			for _, req in requires do
+				if not nodes[req] then
+					table.insert(problems, `{id}: requires "{req}", which is not a skill`)
+				end
+			end
+		end
+
+		local effect = def.effect
+		if not effect then
+			if def.unimplemented then
+				table.insert(problems, `{id}: has no effect, so "unimplemented" says nothing`)
+			end
+			continue
+		end
+		if Progression.baseStats[effect.stat] == nil then
+			table.insert(problems, `{id}: "{effect.stat}" has no entry in baseStats`)
+		end
+		if LIVE_STATS[effect.stat] then
+			if def.unimplemented then
+				table.insert(
+					problems,
+					`{id}: "{effect.stat}" is read by {LIVE_STATS[effect.stat]}, so it is not unimplemented`
+				)
+			end
+		elseif not def.unimplemented then
+			table.insert(
+				problems,
+				`{id}: nothing reads "{effect.stat}" -- give it a reader, or an "unimplemented" reason`
+			)
+		end
+	end
+
+	return problems
 end
 
 return Progression

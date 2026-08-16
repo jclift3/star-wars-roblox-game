@@ -76,10 +76,16 @@ function WorldService.init()
 		warn(`[WorldService] origin config: {problem}`)
 	end
 
-	-- Checked against the stat table itself: an affix whose stat nothing reads
-	-- is a drop that shows the player a number and then does nothing with it,
-	-- which is the exact failure the skill tree already shipped once.
-	for _, problem in Affixes.validate(Progression.baseStats) do
+	-- The rule from ROADMAP B5, checked rather than remembered: a skill that
+	-- takes a point and moves a stat nothing reads is the worst kind of dead
+	-- system, because the player pays for it.
+	for _, problem in Progression.validate() do
+		warn(`[WorldService] skill config: {problem}`)
+	end
+
+	-- The same rule, one system over: an affix whose stat nothing reads is a
+	-- drop that shows the player a number and then does nothing with it.
+	for _, problem in Affixes.validate(Progression.LIVE_STATS) do
 		warn(`[WorldService] affix config: {problem}`)
 	end
 

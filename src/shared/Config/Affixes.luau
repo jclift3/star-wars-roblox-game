@@ -27,30 +27,6 @@
 local Affixes = {}
 
 --------------------------------------------------------------------------------
--- Which stats are real
---------------------------------------------------------------------------------
-
---[[
-	Stats with a live reader, and where that reader is.
-
-	Checked against `Progression.baseStats` in `validate()`, so a typo here is a
-	startup error. Verified 2026-08-16; if a reader is deleted, delete the
-	entry, and any affix using it will then fail validation loudly.
-]]
-local LIVE_STATS: { [string]: string } = {
-	BlasterDamageMult = "CombatService.resolveShot",
-	BlasterCooldownMult = "CombatService (fire-rate cooldown)",
-	BonusHealth = "ProgressionService.maxHealthFor",
-	HealthRegen = "PlayerService (regen loop)",
-	CritChance = "CombatService.resolveShot / onSaberSwing",
-	SaberDamageMult = "CombatService.onSaberSwing",
-	MoveSpeedMult = "PlayerService (humanoid.WalkSpeed)",
-	CreditMult = "ProgressionService.awardCredits",
-	PriceMult = "ProgressionService.priceFor / TravelService",
-	DamageReduction = "CombatService.applyDamage",
-}
-
---------------------------------------------------------------------------------
 -- Rarity
 --------------------------------------------------------------------------------
 
@@ -488,21 +464,18 @@ end
 	Reports every affix that would do nothing, at boot. See the note at the top
 	of the file for why this rule exists.
 
-	`baseStats` is passed in rather than required, because Progression.luau is
-	the heavier module and a cycle between two config files is not worth the
-	convenience.
+	`liveStats` is `Progression.LIVE_STATS`, passed in rather than required:
+	Progression.luau is the heavier module and a cycle between two config files
+	is not worth the convenience. It lives there because it describes the stat
+	table, which is Progression's, and skills are checked against the same one
+	-- two copies of "which stats are real" would drift, and the whole point of
+	the table is that it does not.
 ]]
-function Affixes.validate(baseStats: { [string]: number }): { string }
+function Affixes.validate(liveStats: { [string]: string }): { string }
 	local problems: { string } = {}
 
-	for stat, reader in LIVE_STATS do
-		if baseStats[stat] == nil then
-			table.insert(problems, `LIVE_STATS names "{stat}" ({reader}), which is not a stat`)
-		end
-	end
-
 	for stat, a in defs do
-		if not LIVE_STATS[stat] then
+		if not liveStats[stat] then
 			table.insert(problems, `"{stat}" has no live reader, so rolling it would do nothing`)
 		end
 		if a.slot ~= "Weapon" and a.slot ~= "Outfit" and a.slot ~= "Any" then

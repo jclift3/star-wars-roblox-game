@@ -137,10 +137,19 @@ local function isProportion(stat: string): boolean
 	return string.match(stat, "Mult$") ~= nil or string.match(stat, "Chance$") ~= nil
 end
 
---- The node's total contribution at `rank`, written the way a player reads it.
+--[[
+	The node's total contribution at `rank`, written the way a player reads it.
+
+	Empty for a gate node, which has no effect at all: its worth is the part
+	of the tree it opens, and the description already says so.
+]]
 local function effectAt(def: SkillNode, rank: number): string
-	local total = def.effect.perRank * rank
-	if isProportion(def.effect.stat) then
+	local effect = def.effect
+	if not effect then
+		return ""
+	end
+	local total = effect.perRank * rank
+	if isProportion(effect.stat) then
 		return string.format("%+d%%", math.round(total * 100))
 	end
 	local rounded = math.round(total * 10) / 10
@@ -348,8 +357,12 @@ local function renderDetail()
 	detailBody.Text = def.description
 	actionButton.Visible = true
 
+	-- A gate node moves no stat, so there is nothing to name and nothing to
+	-- preview -- only the rank line, which still says whether it is bought.
+	local stat = if def.effect then ` {def.effect.stat}` else ""
+
 	if rank >= def.maxRank then
-		detailEffect.Text = `Rank {rank} of {def.maxRank}\n{effectAt(def, rank)} {def.effect.stat}`
+		detailEffect.Text = `Rank {rank} of {def.maxRank}\n{effectAt(def, rank)}{stat}`
 		detailRequirement.Text = ""
 		actionButton.Text = "MAXED"
 		actionButton.BackgroundColor3 = ROW
@@ -361,8 +374,9 @@ local function renderDetail()
 	-- What the point actually buys, before it is spent. The whole reason to
 	-- show a preview rather than the description alone is that "+6% per rank"
 	-- does not tell a player at rank 3 what they are about to have.
-	detailEffect.Text =
-		`Rank {rank} of {def.maxRank}\n{effectAt(def, rank)}  ->  {effectAt(def, rank + 1)} {def.effect.stat}`
+	detailEffect.Text = if def.effect
+		then `Rank {rank} of {def.maxRank}\n{effectAt(def, rank)}  ->  {effectAt(def, rank + 1)}{stat}`
+		else `Rank {rank} of {def.maxRank}`
 
 	if not profile then
 		detailRequirement.Text = ""
@@ -433,7 +447,9 @@ local function renderList()
 			tag.Text = `Requires level {def.requiredLevel}`
 			tag.TextColor3 = BAD
 		else
-			tag.Text = def.effect.stat
+			-- A gate node has no stat to name, so the row says what it is for
+			-- instead. "Unlocks" and nothing else would read as a bug.
+			tag.Text = if def.effect then def.effect.stat else "Unlocks this tree"
 		end
 
 		pips(row, rank, def.maxRank)

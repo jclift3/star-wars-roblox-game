@@ -142,6 +142,52 @@ end
 --------------------------------------------------------------------------------
 
 --[[
+	Whether a player with a lit sabre bats this particular shot away.
+
+	Deflection is the one thing everybody knows a lightsaber does, and it is
+	why the Force tree exists at all -- so `DeflectChance` reads as the fantasy
+	rather than as a second armour stat:
+
+	  * only against `Blaster`, so it is a *counter* to the ranged enemies the
+	    other trees answer with more health, and does nothing against a
+	    Tusken's gaffi stick;
+	  * only with a sabre actually equipped, so it is a build and not a buff.
+	    Holstering costs you the skill, which is the trade;
+	  * all or nothing. A bolt that is deflected is gone. Shaving a percentage
+	    off it would be `DamageReduction` under a better name.
+
+	Capped, because five ranks is +45% and the tree will grow more sources of
+	it: a number that can reach 1 makes a player immune to every blaster in
+	the game, and the Force tree is not supposed to end the game.
+]]
+local MAX_DEFLECT = 0.75
+
+local function deflects(victim: Player, info: DamageInfo): boolean
+	if info.damageType ~= "Blaster" then
+		return false
+	end
+	local chance = progression().getStats(victim).DeflectChance or 0
+	if chance <= 0 then
+		return false
+	end
+
+	local profile = data().get(victim)
+	if not profile then
+		return false
+	end
+	-- `equipped` names a carried stack, so a rolled sabre resolves back to the
+	-- catalogue entry that says what class it is.
+	local weaponId = Inventory.idOf(profile.inventory, profile.equipped.weapon)
+	if not weaponId or not Weapons.exists(weaponId) or Weapons.get(weaponId).class ~= "Saber" then
+		return false
+	end
+
+	-- `math.random`, like the crit roll, and deliberately not `lootRng`: a
+	-- stream of deflects must not shift the sequence drops come out of.
+	return math.random() < math.min(chance, MAX_DEFLECT)
+end
+
+--[[
 	The single entry point for hurting anything.
 
 	Nothing else in the codebase should touch Humanoid.Health directly: kill
@@ -164,6 +210,10 @@ function CombatService.applyDamage(target: Model, info: DamageInfo): number
 	-- three. NPCs have no outfit stats, so this is a no-op for them.
 	local victim = Players:GetPlayerFromCharacter(target)
 	if victim then
+		if deflects(victim, info) then
+			Net.fireClient(Net.Event.Notify, victim, "Deflected!", "Reward")
+			return 0
+		end
 		local reduction = progression().getStats(victim).DamageReduction or 0
 		amount *= 1 - math.clamp(reduction, 0, 0.75)
 	end

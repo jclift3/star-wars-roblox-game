@@ -245,8 +245,15 @@ case for both** — test it first and Tatooine second.
 
 ### 5.2 Crowds are spread out
 
-1. Land on **Nar Shaddaa**. The Promenade is 44 NPCs. They should read as
-   *people along streets*, not a knot on the landing plaza.
+**This is the one that failed on 2026-08-16** — the Promenade market was an
+empty street. Landmarks were being pushed *past* their district's patrol ring,
+and the ring widens with population, so the busiest districts threw their own
+landmark furthest from the crowd. Landmarks now go down first and the ring is
+drawn around them. Steps 1 and 5 are the fix.
+
+1. Land on **Nar Shaddaa** and walk to the market (the billboard reads *The
+   Promenade*). It should be **busy** — 44 people ringed around you at 88–187
+   studs, not an empty street with everyone behind you.
 2. Nobody is standing inside a house or half-sunk in one. *(Patrol points are
    snapped onto the street grid, which is the only part of town guaranteed
    clear. Someone inside a building means the snap missed.)*
@@ -256,8 +263,15 @@ case for both** — test it first and Tatooine second.
    and `Point2`.)*
 4. Compare a busy district with a quiet one. The busy one is visibly *wider*,
    because the ring grows with the population rather than being fixed.
-5. Landmarks sit **outside** the patrol ring — no NPC is standing on top of a
-   building's front step.
+5. Every district's landmark has its people **around** it, and nobody is
+   standing *in* the building. Check a wide one too — the Docks spaceport is
+   radius 116, so its ring has to open up to 146+ rather than the building
+   moving. *(A few NPCs inside a market or cantina is fine and rather the
+   point; a Jedi standing in the middle of the Tython temple wall is not.)*
+6. Check a district with **no** landmark at all — Nar Shaddaa's *Market* zone
+   is one (the merchants and protocol droids; the market *building* is in the
+   Promenade, confusingly). Its crowd still rings the district centre rather
+   than collapsing to a point.
 
 ### 5.3 "A landmark looks missing"
 
@@ -363,8 +377,28 @@ three. Different lists is a bug, and a bad one.
 7. Wear armour and take a hit. You take less damage.
    *(`DamageReduction` is applied in `CombatService.applyDamage`.)*
 
-**Known open — do not file:** 6 of 19 skills have no reader at all, the whole
-Piloting tree included. They will visibly do nothing.
+### 9.1 Deflection — **new, never played**
+
+`DeflectChance` was a dead stat until 2026-08-16 and is now a real mechanic.
+`thereisnocow` gets you to level 12; `iamacolyte` is not required.
+
+1. **K** → Force tree. Buy **Force Sensitive** — it costs **one** point now, is
+   marked `Unlocks this tree`, and shows no percentage. Then Lightsaber Form,
+   then **Deflection** (level 11). Take a rank or two.
+2. Equip a lightsaber. Get shot at by something with a blaster — Imperial
+   Troopers on the Nar Shaddaa Docks will do.
+3. Some bolts show a **"Deflected!"** toast and deal **zero**. Not reduced —
+   zero.
+4. **Holster the sabre** (equip a blaster) and get shot again. No deflections
+   at all. *(This is the trade that makes it a build rather than a buff.)*
+5. Get hit by something **melee** — a Tusken Raider on Tatooine. Never
+   deflected, however many ranks you have.
+6. Five ranks is 45%, so roughly two bolts in five. If it feels like *every*
+   bolt, the cap or the roll is wrong.
+
+**Known open — do not file:** 6 of 19 skills still have no reader, the whole
+Piloting tree included. They now show **COMING SOON** and refuse the point
+rather than taking it — that refusal *is* the correct behaviour.
 
 ---
 
@@ -394,7 +428,8 @@ Do not spend time filing these. They are on the roadmap.
 - No character-creation screen, so every profile is `Origins.DEFAULT`
   ("Scoundrel"). The cheat codes are the workaround.
 - Faction reputation is awarded and never read back by anything.
-- The skill trees are all passives. Nothing rewards specialising.
+- The skill trees are almost all flat passives. Deflection is the first one
+  that changes how you play; nothing else rewards specialising yet.
 - Radiant missions have no authored dialogue of their own — the giver offers
   them, but the briefing text is generated and the same shape every time.
 - `MONETIZATION_STRATEGY.md` is stale legacy and describes a game that no

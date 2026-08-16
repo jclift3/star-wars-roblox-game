@@ -2617,9 +2617,13 @@ end
 -- population. Districts with more people in them get proportionally more room.
 local ZONE_SPREAD = 70
 
--- Far enough out that the widest landmark clears the patrol ring. A building
--- standing on a waypoint is a building with NPCs walking into it.
+-- Where a *second* landmark in one district goes, since it cannot have the
+-- middle. Only the vertical cities have any, and they snap to a platform.
 local LANDMARK_OFFSET = ZONE_SPREAD * 2.2
+
+-- Kept clear around a landmark so its district's waypoints ring the building
+-- rather than land in it. Small: people inside a market are the market.
+local LANDMARK_CLEARANCE = 30
 
 --[[
 	How many NPCs one patrol point is expected to hold.
@@ -2680,15 +2684,21 @@ end
 	ring 0 -- downtown -- and its Town three rings out in the desert, and so
 	dropped twelve aggressive Tusken Raiders onto a level 1 spawn point.
 
-	Each zone gets three parts, which NPCService reads as a patrol route, so
-	guards walk a circuit without anyone hand-placing waypoints.
+	THE ORDER HERE IS THE POINT
+	District centres, then landmarks, then the crowds, then the player's spawn
+	points -- each step taking its ground and the next working round it.
 
 	A point of interest is placed inside the district it belongs to, so that
 	"the Jawa crawler they live in still" has Jawas around it and the mission
-	that sends you there is a place rather than a coordinate. Its landmark is
-	built at the same point, and the landmarks claim their ground before the
-	spawn points are chosen -- a player who materialises inside a temple is
-	pushed through the floor by the depenetration solver.
+	that sends you there is a place rather than a coordinate. So the landmark
+	goes down first and its district's patrol route -- which NPCService reads
+	off the parts named Point01.. -- is a ring around it. Doing it the other
+	way round, which this used to, means the ring is drawn blind and the
+	building has to be shoved clear of it.
+
+	Player spawns come last, out of the yards no landmark claimed: someone who
+	materialises inside a temple is pushed through the floor by the
+	depenetration solver.
 ]]
 local function buildMarkers(
 	planet: Planets.PlanetDef,
@@ -2702,11 +2712,9 @@ local function buildMarkers(
 	local zoneRoot = folder(planetId, folder("Zones", Workspace))
 	zoneRoot:ClearAllChildren()
 
-	-- Kept so points of interest can be dropped into their district below.
+	-- Where each district sits, so points of interest can be dropped into
+	-- theirs below and their crowds laid out around them after that.
 	local centres: { [string]: Vector3 } = {}
-	-- And how far that district's waypoints run out, so a landmark can be put
-	-- past them rather than on top of one.
-	local reaches: { [string]: number } = {}
 	local count = math.max(1, #planet.zones)
 
 	-- How crowded each district is meant to be. Read off the spawn rules
@@ -2732,40 +2740,6 @@ local function buildMarkers(
 			centre = anchors[math.min(index, #anchors)]
 		end
 		centres[def.id] = centre
-
-		local zone = folder(def.id, zoneRoot)
-		local points = math.clamp(math.ceil((population[def.id] or 0) / ZONE_POINT_LOAD), 3, ZONE_POINTS_MAX)
-		-- Linear in the number of points, so the ring grows about as fast as
-		-- the crowd does rather than falling behind it.
-		local reach = ZONE_SPREAD * (points / 3)
-		reaches[def.id] = reach
-
-		-- Published so the client can work out which district the player is
-		-- standing in. Districts are placed procedurally from the planet's
-		-- seed, so this is the only record of where this one ended up, and
-		-- attributes replicate where a Lua table would not.
-		zone:SetAttribute("Centre", centre)
-		zone:SetAttribute("Reach", reach)
-
-		local baseAngle = rng:NextNumber(0, math.pi * 2)
-		for point = 1, points do
-			local spokeAngle = baseAngle + (point - 1) * (math.pi * 2 / points)
-			local spread = rng:NextNumber(reach * 0.4, reach)
-			local position = centre
-				+ Vector3.new(math.cos(spokeAngle) * spread, 0, math.sin(spokeAngle) * spread)
-			local size = Vector3.new(60, 1, 60)
-
-			if not planet.hasWalkableGround and #anchors > 0 then
-				position = anchors[rng:NextInteger(1, #anchors)]
-			elseif (position - origin).Magnitude < SETTLEMENT_RADIUS then
-				position, size = ontoStreet(origin, position)
-			end
-
-			-- Zero-padded because NPCService sorts these by name to build the
-			-- patrol route, and Point10 sorts between Point1 and Point2 --
-			-- which turns a walk round the district into a zigzag across it.
-			marker(zone, `Point{string.format("%02d", point)}`, position + Vector3.new(0, 3, 0), size)
-		end
 	end
 
 	local poiRoot = folder(planetId, folder("POI", Workspace))
@@ -2815,11 +2789,16 @@ local function buildMarkers(
 
 	local poiCount = math.max(1, #planet.pointsOfInterest)
 
+	--- Where each district's landmark ended up, for its crowd to gather round.
+	local landmarks: { [string]: { at: Vector3, radius: number } } = {}
+	--- How many have been placed in each district, since only one gets the middle.
+	local placed: { [string]: number } = {}
+
 	for index, poi in planet.pointsOfInterest do
 		local position
 		local def = landmarkFor(poi)
 		local centre = if poi.zone then centres[poi.zone] else nil
-		local ring = (if poi.zone then reaches[poi.zone] else nil) or 0
+		local nth = if poi.zone then (placed[poi.zone] or 0) else 0
 		--[[
 			Each landmark gets its own slice of the compass, the way the
 			districts already do, instead of a free-for-all bearing.
@@ -2833,11 +2812,23 @@ local function buildMarkers(
 		local angle = (index - 1) * (math.pi * 2 / poiCount) + rng:NextNumber(-0.25, 0.25)
 
 		if centre then
-			-- Outside the patrol ring, so the landmark is among its people
-			-- without standing on top of one of their waypoints. The ring is
-			-- as wide as the district is crowded, so the offset has to be
-			-- read off it rather than being the one constant it used to be.
-			local offset = math.max(LANDMARK_OFFSET, ring + def.radius)
+			--[[
+				The middle of its district. Its people are ringed around it
+				afterwards, which is the whole of what makes a landmark a
+				place rather than scenery.
+
+				This used to be pushed *past* the patrol ring to keep the
+				building off the waypoints -- so the more crowded a district
+				was, the further its landmark stood from the crowd, and Nar
+				Shaddaa's Promenade ended up an empty market street with
+				forty-four people two hundred studs behind it. Clearance is
+				now the ring's problem, where it costs nothing.
+
+				A second landmark in one district cannot also have the
+				middle. Only the vertical cities have any, and they snap to a
+				platform below regardless.
+			]]
+			local offset = if nth == 0 then 0 else LANDMARK_OFFSET + def.radius
 			position = centre + Vector3.new(math.cos(angle) * offset, 0, math.sin(angle) * offset)
 		else
 			-- No district named: fall back to an even circle. Honest rather
@@ -2869,6 +2860,16 @@ local function buildMarkers(
 				local bearing = position - origin
 				local out = if bearing.Magnitude > 1 then bearing.Unit else Vector3.new(1, 0, 0)
 				position = origin + out * (SETTLEMENT_RADIUS + def.radius + 40)
+			end
+		end
+
+		-- Recorded only now, because claiming a yard or being pushed past the
+		-- last street both move it, and it is where the building actually
+		-- stands that the crowd has to gather round.
+		if poi.zone then
+			placed[poi.zone] = nth + 1
+			if nth == 0 then
+				landmarks[poi.zone] = { at = position, radius = def.radius }
 			end
 		end
 
@@ -2912,6 +2913,61 @@ local function buildMarkers(
 			position + Vector3.new(0, 3, 0),
 			Vector3.new(def.radius * 2, 20, def.radius * 2)
 		)
+	end
+
+	--[[
+		The crowd, ringed around whatever its district is famous for.
+
+		Each zone gets several parts, which NPCService reads as a patrol
+		route, so people walk a circuit without anyone hand-placing waypoints.
+		The ring is centred on the district's landmark where it has one -- and
+		on the bare district centre where it does not -- because a market with
+		its traders on the far side of a two-hundred-stud circle is an empty
+		market, whatever the geometry says about who belongs to which zone.
+
+		It has to run after the landmarks for that reason: the building takes
+		its ground first and the ring opens up around it, rather than the ring
+		being drawn blind and the building shoved outside it.
+	]]
+	for _, def in planet.zones do
+		local landmark = landmarks[def.id]
+		local centre = if landmark then landmark.at else centres[def.id]
+		local zone = folder(def.id, zoneRoot)
+		local points = math.clamp(math.ceil((population[def.id] or 0) / ZONE_POINT_LOAD), 3, ZONE_POINTS_MAX)
+		-- Linear in the number of points, so the ring grows about as fast as
+		-- the crowd does rather than falling behind it.
+		local reach = ZONE_SPREAD * (points / 3)
+		-- Nobody is asked to stand where the building is. Widening the ring
+		-- to suit is what used to be done by moving the building instead.
+		local inner = math.max(reach * 0.4, (if landmark then landmark.radius else 0) + LANDMARK_CLEARANCE)
+		reach = math.max(reach, inner + ZONE_SPREAD)
+
+		-- Published so the client can work out which district the player is
+		-- standing in. Districts are placed procedurally from the planet's
+		-- seed, so this is the only record of where this one ended up, and
+		-- attributes replicate where a Lua table would not.
+		zone:SetAttribute("Centre", centre)
+		zone:SetAttribute("Reach", reach)
+
+		local baseAngle = rng:NextNumber(0, math.pi * 2)
+		for point = 1, points do
+			local spokeAngle = baseAngle + (point - 1) * (math.pi * 2 / points)
+			local spread = rng:NextNumber(inner, reach)
+			local position = centre
+				+ Vector3.new(math.cos(spokeAngle) * spread, 0, math.sin(spokeAngle) * spread)
+			local size = Vector3.new(60, 1, 60)
+
+			if not planet.hasWalkableGround and #anchors > 0 then
+				position = anchors[rng:NextInteger(1, #anchors)]
+			elseif (position - origin).Magnitude < SETTLEMENT_RADIUS then
+				position, size = ontoStreet(origin, position)
+			end
+
+			-- Zero-padded because NPCService sorts these by name to build the
+			-- patrol route, and Point10 sorts between Point1 and Point2 --
+			-- which turns a walk round the district into a zigzag across it.
+			marker(zone, `Point{string.format("%02d", point)}`, position + Vector3.new(0, 3, 0), size)
+		end
 	end
 
 	--[[
