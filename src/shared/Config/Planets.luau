@@ -285,8 +285,10 @@ def({
 	fogColor = Color3.fromRGB(96, 108, 132),
 	fogStart = 300,
 	fogEnd = 4000,
-	ambientLight = Color3.fromRGB(70, 76, 92),
-	outdoorAmbient = Color3.fromRGB(118, 128, 150),
+	-- A city of canyons between towers shades itself, so it needs more fill
+	-- light than its own sky suggests to stay readable down among the traffic.
+	ambientLight = Color3.fromRGB(106, 114, 134),
+	outdoorAmbient = Color3.fromRGB(154, 164, 186),
 	dayLength = 0.3,
 
 	-- The headline feature of this planet: no walkable ground anywhere. You
@@ -666,9 +668,12 @@ def({
 	skyTint = Color3.fromRGB(212, 118, 78),
 	fogColor = Color3.fromRGB(140, 74, 52),
 	fogStart = 300,
-	fogEnd = 2400,
-	ambientLight = Color3.fromRGB(90, 52, 42),
-	outdoorAmbient = Color3.fromRGB(148, 92, 70),
+	fogEnd = 3000,
+	-- Lifted from RGB(90, 52, 42) after the 2026-08-15 playtest: it was the
+	-- darkest palette in the file and the valley read as black. It should feel
+	-- like a hot red dusk, not like being underground.
+	ambientLight = Color3.fromRGB(126, 82, 68),
+	outdoorAmbient = Color3.fromRGB(176, 116, 92),
 	dayLength = 0.45,
 	windSpeed = 20,
 
@@ -829,10 +834,13 @@ def({
 	rockColor = Palette.SmugglerBrown,
 	skyTint = Color3.fromRGB(150, 156, 152),
 	fogColor = Color3.fromRGB(122, 128, 122),
-	fogStart = 80,
-	fogEnd = 1200,
-	ambientLight = Color3.fromRGB(68, 72, 68),
-	outdoorAmbient = Color3.fromRGB(112, 118, 112),
+	-- Was 80/1200 with a much thicker Swamp air mix, which put a grey wall
+	-- about forty studs out and hid every landmark on the planet. Still the
+	-- haziest world that is not Hoth; it just no longer blinds you.
+	fogStart = 220,
+	fogEnd = 2400,
+	ambientLight = Color3.fromRGB(104, 110, 104),
+	outdoorAmbient = Color3.fromRGB(150, 158, 150),
 	dayLength = 0.35,
 	windSpeed = 14,
 

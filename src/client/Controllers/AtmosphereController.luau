@@ -68,7 +68,7 @@ local liveOutdoor = dayOutdoor
 local TERRAIN_AIR: { [string]: { density: number, haze: number, glare: number } } = {
 	Desert = { density = 0.36, haze = 1.8, glare = 0.35 },
 	Ice = { density = 0.42, haze = 2.4, glare = 0.6 },
-	Swamp = { density = 0.5, haze = 3.2, glare = 0.05 },
+	Swamp = { density = 0.38, haze = 2.2, glare = 0.05 },
 	Forest = { density = 0.34, haze = 1.4, glare = 0.1 },
 	Volcanic = { density = 0.46, haze = 2.8, glare = 0.25 },
 	Ocean = { density = 0.4, haze = 2.2, glare = 0.3 },
@@ -76,6 +76,27 @@ local TERRAIN_AIR: { [string]: { density: number, haze: number, glare: number } 
 }
 
 local DEFAULT_AIR = { density = 0.3, haze = 1.2, glare = 0.15 }
+
+--[[
+	The hard limits that keep atmosphere from making a world unplayable.
+
+	Mood is allowed; hiding the landmark a mission is sending you to is not.
+	Ord Mantell used to land at density 0.58 with haze 3.2 and read as a grey
+	wall about forty studs out.
+]]
+local MAX_DENSITY = 0.45
+-- Night dims towards NIGHT_TINT but never all the way: a fifteen-to-thirty
+-- minute day means a full blackout costs you a real chunk of a play session.
+local MAX_NIGHT = 0.7
+--[[
+	You always arrive in the morning.
+
+	Clock time is global to Lighting, so before this you inherited whatever
+	hour the *previous* planet had drifted to and could land on Korriban at
+	02:00 through no fault of its palette. Continuity across worlds means
+	nothing anyway -- each one declares its own day length.
+]]
+local ARRIVAL_CLOCK = 9
 
 --------------------------------------------------------------------------------
 -- Companion sun
@@ -183,7 +204,7 @@ local function nightFactor(clock: number): number
 	-- 2.2 makes the world reach full brightness well before noon rather than
 	-- spending the whole morning dim.
 	local sun = math.sin(((clock - 6) / 12) * math.pi)
-	return math.clamp(1 - sun * 2.2, 0, 1)
+	return math.clamp(1 - sun * 2.2, 0, MAX_NIGHT)
 end
 
 --- The night version of a daytime colour: dimmer, and pushed towards moonlight.
@@ -203,6 +224,7 @@ local function apply(planetId: string, instant: boolean)
 	local air = TERRAIN_AIR[planet.terrain] or DEFAULT_AIR
 
 	secondsPerDay = math.max(60, planet.dayLength * 3600)
+	Lighting.ClockTime = ARRIVAL_CLOCK
 
 	-- Handed to the clock loop rather than tweened here; see the note by the
 	-- declarations above.
@@ -222,7 +244,7 @@ local function apply(planetId: string, instant: boolean)
 	local reach = math.clamp((planet.fogEnd - 400) / 2600, 0, 1)
 
 	local atmosphereGoal = {
-		Density = math.min(0.7, air.density + (1 - reach) * 0.25),
+		Density = math.min(MAX_DENSITY, air.density + (1 - reach) * 0.25),
 		Haze = air.haze,
 		Glare = air.glare,
 		Color = planet.fogColor,
@@ -260,7 +282,7 @@ function AtmosphereController.init()
 	Lighting.EnvironmentDiffuseScale = 0.6
 	Lighting.EnvironmentSpecularScale = 0.6
 	Lighting.ExposureCompensation = 0.1
-	Lighting.ClockTime = 14
+	Lighting.ClockTime = ARRIVAL_CLOCK
 
 	tint.Saturation = 0.08
 	tint.Contrast = 0.12
