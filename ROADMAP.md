@@ -43,8 +43,8 @@ because several of them make the content that already exists impossible to
 
 ### Bugs and tuning
 
-**B1, B3 and B5 were fixed on 2026-08-15.** What changed is recorded inline
-below. B2 and B4 are content work and stay open.
+**B1, B2, B3 and B5 were fixed on 2026-08-15.** What changed is recorded inline
+below. B4 is content work and stays open.
 
 **B1. Three worlds are too dark to play.** — **[fixed]** Reported for Korriban, Coruscant
 and — as fog rather than darkness — Ord Mantell. Two independent causes:
@@ -75,8 +75,8 @@ Swamp air came down from 0.5/3.2 to 0.38/2.2. Korriban's ambient went from
 80/1200 to 220/2400; Coruscant's ambient lifted for the shade between towers.
 Hoth's deliberate whiteout is untouched.
 
-**B2. Every planet's buildings are identical.** Correct, and worse than it
-looks. `PlanetBuilder.styleFor` (`:139`) switches on `planet.terrain` only, and
+**B2. Every planet's buildings are identical.** — **[fixed]** Correct, and worse than it
+looks. `PlanetBuilder.styleFor` (`:139`) switched on `planet.terrain` only, and
 there are five branches for nine worlds:
 
 | Style | Worlds |
@@ -96,6 +96,28 @@ This is Phase 3.1's prefab work, and this finding **promotes it above 3b**. The
 fix is not more terrain branches; it is that a planet declares an *architecture*
 independent of its ground, and prefabs carry real shapes. Sith pylons and
 ziggurats are not adobe domes with a red tint.
+
+*Fixed:* `PlanetDef` gained an `architecture` field, and `Style` gained a
+`shape` function — so a style is now geometry, not a palette. Nine architectures
+for nine worlds, one each, none shared:
+
+| Architecture | World | Reads as |
+|---|---|---|
+| `Adobe` | Tatooine | cylinder drums, hemisphere domes, slit windows |
+| `SithZiggurat` | Korriban | stepped tiers, a lit mouth, flanking obelisks |
+| `Ruin` | Taris | sheared shells, exposed girders, rubble at angles |
+| `NeonStack` | Nar Shaddaa | shoved slabs, signs, a full-height neon strip |
+| `Spire` | Coruscant | slow taper, dense window bands, mast and beacon |
+| `Frontier` | Ord Mantell | stilts, corrugated hut, pitched roof, stovepipe |
+| `JediStone` | Tython | colonnade, overhanging lid, stepped roof |
+| `IceBunker` | Hoth | mostly buried dome, snow berm, tunnel mouth |
+| `ImperialGothic` | Dromund Kaas | tower, corner buttresses, narrow red slits |
+
+Terrain still picks the *scatter* (dunes, drifts, trees, rocks) — that one it
+was always right about. `styleFor` no longer branches on terrain at all, and
+PlanetBuilder warns at load about any architecture name it does not know, rather
+than at the moment someone flies there. Coruscant's `Spire` is declared but not
+drawn: `hasWalkableGround = false` sends it down the vertical-city path.
 
 **B3. Everything charges you on sight from a very long way off.** — **[fixed]**
 Half of this was already solved and half was real:
@@ -626,9 +648,11 @@ nothing at all once you have seen it on three worlds.
 
 Two additions from the 2026-08-15 playtest, both belonging here:
 
-- **Architecture is not terrain.** A planet must declare its building family
-  separately from its ground type, or Korriban stays Tatooine in a red filter
-  (B2). This is the prefab work above, with the switch moved off `terrain`.
+- **Architecture is not terrain.** — **[done]** A planet declares its building
+  family separately from its ground type (B2), so Korriban is no longer Tatooine
+  in a red filter. Nine `ARCHITECTURE` entries, each with its own `shape`
+  function. What remains here is hand-authored *prefabs* — named, unique
+  buildings — on top of the generated ones.
 - **Prefabs may declare an interior** (N5), entered by a door trigger and built
   as its own space. Zero landmarks are enterable today and this is the single
   biggest jump in how finished the world feels.

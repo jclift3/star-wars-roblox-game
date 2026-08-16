@@ -51,9 +51,10 @@ type Style = {
 	minFloors: number,
 	maxFloors: number,
 	floorHeight: number,
-	domed: boolean,
 	windowColor: Color3,
 	scatter: string, -- "Dunes" | "Rocks" | "Trees" | "Drifts" | "None"
+	-- The building geometry itself. See the Architecture section below.
+	shape: (Instance, Vector3, Vector2, Style, Random) -> (),
 }
 
 --------------------------------------------------------------------------------
@@ -111,6 +112,50 @@ local function block(
 	return p
 end
 
+-- Roblox cylinders lie along X, so a standing one is turned a quarter turn and
+-- sized (height, diameter, diameter).
+local UPRIGHT = CFrame.Angles(0, 0, math.pi * 0.5)
+
+local function cylinder(
+	parent: Instance,
+	cf: CFrame,
+	size: Vector3,
+	color: Color3,
+	material: Enum.Material
+): Part
+	local p = block(parent, cf, size, color, material)
+	p.Shape = Enum.PartType.Cylinder
+	return p
+end
+
+local function ball(parent: Instance, cf: CFrame, size: Vector3, color: Color3, material: Enum.Material): Part
+	local p = block(parent, cf, size, color, material)
+	p.Shape = Enum.PartType.Ball
+	return p
+end
+
+-- A WedgePart slopes down along +Z, so two mirrored wedges make a pitched roof.
+local function wedge(
+	parent: Instance,
+	cf: CFrame,
+	size: Vector3,
+	color: Color3,
+	material: Enum.Material
+): WedgePart
+	local p = Instance.new("WedgePart")
+	p.Anchored = true
+	p.Size = size
+	p.CFrame = cf
+	p.Color = color
+	p.Material = material
+	p.Parent = parent
+	return p
+end
+
+local function pick<T>(list: { T }, rng: Random): T
+	return list[rng:NextInteger(1, #list)]
+end
+
 --[[
 	A marker part: invisible, non-colliding, and invisible to raycasts.
 
@@ -133,73 +178,701 @@ local function marker(parent: Instance, name: string, position: Vector3, size: V
 end
 
 --------------------------------------------------------------------------------
--- Styles
+-- Architecture
 --------------------------------------------------------------------------------
 
-local function styleFor(planet: Planets.PlanetDef): Style
-	local terrain = planet.terrain
+--[[
+	How each world builds.
 
-	if terrain == "Desert" then
-		return {
-			buildingColors = { Palette.TatooineSand, Palette.TatooineRock, Palette.SmugglerBrown },
-			minFloors = 1,
-			maxFloors = 2,
-			floorHeight = 11,
-			domed = true, -- moisture farms and adobe, not office blocks
-			windowColor = Palette.CoruscantLight,
-			scatter = "Dunes",
-		}
-	elseif terrain == "Ice" then
-		return {
-			buildingColors = { Palette.HothIce, Palette.WornSteel, Palette.Gunmetal },
-			minFloors = 1,
-			maxFloors = 2,
-			floorHeight = 12,
-			domed = true,
-			windowColor = Palette.BlasterBlue,
-			scatter = "Drifts",
-		}
-	elseif terrain == "Volcanic" then
-		return {
-			buildingColors = { Palette.MustafarBasalt, Palette.DarkMetal, Palette.Gunmetal },
-			minFloors = 2,
-			maxFloors = 5,
-			floorHeight = 14,
-			domed = false,
-			windowColor = Palette.SaberRed,
-			scatter = "Rocks",
-		}
-	elseif terrain == "Forest" or terrain == "Swamp" then
-		return {
-			buildingColors = { Palette.SmugglerBrown, Palette.WookieeBrown, Palette.NabooStone },
-			minFloors = 1,
-			maxFloors = 3,
-			floorHeight = 12,
-			domed = true,
-			windowColor = Palette.DroidGold,
-			scatter = "Trees",
-		}
-	elseif terrain == "Ocean" then
-		return {
-			buildingColors = { Palette.HullWhite, Palette.WornSteel, Palette.KaminoSea },
-			minFloors = 1,
-			maxFloors = 3,
-			floorHeight = 14,
-			domed = true,
-			windowColor = Palette.CoruscantLight,
-			scatter = "None",
-		}
+	This used to switch on `terrain`, which meant five looks across nine
+	worlds: Korriban was Tatooine in different sand, and Coruscant, Taris and
+	Nar Shaddaa were one style between them. A planet now declares an
+	`architecture` and that picks a *shape function*, not just a palette --
+	because the palette was never the problem. Every world ran the same stack
+	of tapering boxes with window strips.
+
+	Scatter still follows terrain, because trees and dunes genuinely are facts
+	about the ground rather than about the people who built there.
+]]
+
+local SCATTER: { [string]: string } = {
+	Desert = "Dunes",
+	Ice = "Drifts",
+	Forest = "Trees",
+	Swamp = "Trees",
+	Volcanic = "Rocks",
+}
+
+--- Window strips down two faces. Neon so they still read at night.
+local function windowBands(
+	parent: Instance,
+	base: Vector3,
+	style: Style,
+	yStart: number,
+	floors: number,
+	width: number,
+	depth: number
+)
+	for floor = 1, floors do
+		local y = yStart + (floor - 0.5) * style.floorHeight
+		for _, side in { 1, -1 } do
+			local band = block(
+				parent,
+				CFrame.new(base + Vector3.new(0, y, side * depth * 0.5)),
+				Vector3.new(width * 0.82, 2.2, 0.4),
+				style.windowColor,
+				Enum.Material.Neon
+			)
+			band.Name = "Windows"
+			band.CanCollide = false
+		end
+	end
+end
+
+--- Tatooine. Sandblasted adobe drums under domes: no straight skyline at all.
+local function adobeShape(parent: Instance, base: Vector3, footprint: Vector2, style: Style, rng: Random)
+	local color = pick(style.buildingColors, rng)
+	local span = math.min(footprint.X, footprint.Y)
+	local height = rng:NextInteger(style.minFloors, style.maxFloors) * style.floorHeight
+
+	cylinder(
+		parent,
+		CFrame.new(base + Vector3.new(0, height * 0.5, 0)) * UPRIGHT,
+		Vector3.new(height, span, span),
+		color,
+		Enum.Material.Sandstone
+	).Name =
+		"Drum"
+
+	ball(
+		parent,
+		CFrame.new(base + Vector3.new(0, height, 0)),
+		Vector3.new(span, span * 0.85, span),
+		color,
+		Enum.Material.Sandstone
+	).Name =
+		"Dome"
+
+	-- A lean-to annex, offset so no two neighbours line up.
+	local annex = span * rng:NextNumber(0.4, 0.6)
+	local angle = rng:NextNumber(0, math.pi * 2)
+	local offset = Vector3.new(math.cos(angle), 0, math.sin(angle)) * (span * 0.5 + annex * 0.4)
+	cylinder(
+		parent,
+		CFrame.new(base + offset + Vector3.new(0, annex * 0.4, 0)) * UPRIGHT,
+		Vector3.new(annex * 0.8, annex, annex),
+		color,
+		Enum.Material.Sandstone
+	).Name =
+		"Annex"
+
+	-- Slit windows, not bands. Desert buildings keep the sun out.
+	for _ = 1, 3 do
+		local a = rng:NextNumber(0, math.pi * 2)
+		local slit = block(
+			parent,
+			CFrame.new(
+				base + Vector3.new(math.cos(a), 0, math.sin(a)) * span * 0.5 + Vector3.new(0, height * 0.6, 0)
+			),
+			Vector3.new(1.6, 3.2, 1.6),
+			style.windowColor,
+			Enum.Material.Neon
+		)
+		slit.Name = "Slit"
+		slit.CanCollide = false
+	end
+end
+
+--- Korriban. Stepped funerary stone. No windows anywhere: these are tombs.
+local function zigguratShape(parent: Instance, base: Vector3, footprint: Vector2, style: Style, rng: Random)
+	local color = pick(style.buildingColors, rng)
+	local width, depth = footprint.X, footprint.Y
+	local tiers = rng:NextInteger(3, 5)
+	local tierHeight = style.floorHeight
+	local y = 0
+
+	for _ = 1, tiers do
+		block(
+			parent,
+			CFrame.new(base + Vector3.new(0, y + tierHeight * 0.5, 0)),
+			Vector3.new(width, tierHeight, depth),
+			color,
+			Enum.Material.Slate
+		).Name =
+			"Step"
+		y += tierHeight
+		width *= 0.74
+		depth *= 0.74
 	end
 
-	return {
-		buildingColors = { Palette.CoruscantPlate, Palette.Gunmetal, Palette.WornSteel, Palette.NabooStone },
-		minFloors = 4,
-		maxFloors = 12,
-		floorHeight = 16,
-		domed = false,
+	-- The burning slit over the door, and the only light on the building.
+	local mouth = block(
+		parent,
+		CFrame.new(base + Vector3.new(0, tierHeight * 0.45, footprint.Y * 0.5)),
+		Vector3.new(footprint.X * 0.22, tierHeight * 0.55, 0.6),
+		style.windowColor,
+		Enum.Material.Neon
+	)
+	mouth.Name = "Mouth"
+	mouth.CanCollide = false
+
+	-- Flanking obelisks. These are what make the valley read as a valley of
+	-- tombs from a distance rather than as a stack of crates.
+	for _, side in { 1, -1 } do
+		local obelisk = block(
+			parent,
+			CFrame.new(base + Vector3.new(side * footprint.X * 0.62, y * 0.55, footprint.Y * 0.45)),
+			Vector3.new(footprint.X * 0.1, y * 1.1, footprint.X * 0.1),
+			Palette.SithBlack,
+			Enum.Material.Slate
+		)
+		obelisk.Name = "Obelisk"
+		obelisk.CFrame = obelisk.CFrame * CFrame.Angles(0, 0, side * 0.04)
+	end
+end
+
+--- Taris. Sheared-off duracrete towers with their frames showing.
+local function ruinShape(parent: Instance, base: Vector3, footprint: Vector2, style: Style, rng: Random)
+	local color = pick(style.buildingColors, rng)
+	local width, depth = footprint.X, footprint.Y
+	local floors = rng:NextInteger(style.minFloors, style.maxFloors)
+	local standing = math.max(1, math.floor(floors * rng:NextNumber(0.35, 0.8)))
+	local height = standing * style.floorHeight
+
+	block(
+		parent,
+		CFrame.new(base + Vector3.new(0, height * 0.5, 0)),
+		Vector3.new(width, height, depth),
+		color,
+		Enum.Material.CrackedLava
+	).Name =
+		"Shell"
+
+	windowBands(parent, base, style, 0, standing - 1, width, depth)
+
+	-- The sheared top: a half-floor slab covering part of the footprint, so
+	-- the roofline is broken rather than flat.
+	local keep = rng:NextNumber(0.35, 0.7)
+	block(
+		parent,
+		CFrame.new(base + Vector3.new(width * (0.5 - keep * 0.5), height + style.floorHeight * 0.3, 0)),
+		Vector3.new(width * keep, style.floorHeight * 0.6, depth),
+		color,
+		Enum.Material.CrackedLava
+	).Name =
+		"Shear"
+
+	-- Girders left standing where the floors above used to be.
+	for _ = 1, rng:NextInteger(2, 4) do
+		local exposed = rng:NextNumber(6, style.floorHeight * 2)
+		block(
+			parent,
+			CFrame.new(
+				base
+					+ Vector3.new(
+						rng:NextNumber(-width * 0.45, width * 0.45),
+						height + exposed * 0.5,
+						rng:NextNumber(-depth * 0.45, depth * 0.45)
+					)
+			),
+			Vector3.new(1.2, exposed, 1.2),
+			Palette.DroidRust,
+			Enum.Material.CorrodedMetal
+		).Name =
+			"Girder"
+	end
+
+	-- Rubble at the foot, which is where the height went.
+	for _ = 1, rng:NextInteger(2, 4) do
+		local chunk = rng:NextNumber(4, 11)
+		local a = rng:NextNumber(0, math.pi * 2)
+		local slab = block(
+			parent,
+			CFrame.new(
+				base
+					+ Vector3.new(math.cos(a), 0, math.sin(a)) * (width * 0.5 + chunk * 0.6)
+					+ Vector3.new(0, chunk * 0.3, 0)
+			),
+			Vector3.new(chunk, chunk * 0.6, chunk),
+			color,
+			Enum.Material.Concrete
+		)
+		slab.Name = "Rubble"
+		slab.CFrame = slab.CFrame * CFrame.Angles(rng:NextNumber(-0.4, 0.4), a, rng:NextNumber(-0.4, 0.4))
+	end
+end
+
+--- Nar Shaddaa. Slabs stacked by whoever got there first, and signage.
+local function neonStackShape(parent: Instance, base: Vector3, footprint: Vector2, style: Style, rng: Random)
+	local width, depth = footprint.X, footprint.Y
+	local slabs = rng:NextInteger(3, 5)
+	local y = 0
+
+	for slab = 1, slabs do
+		local height = style.floorHeight * rng:NextNumber(0.8, 1.6)
+		-- Each slab shoves sideways rather than shrinking, so the tower
+		-- overhangs the street the way a Hutt world should.
+		local shove = Vector3.new(
+			rng:NextNumber(-width * 0.22, width * 0.22),
+			0,
+			rng:NextNumber(-depth * 0.22, depth * 0.22)
+		)
+		local w = width * rng:NextNumber(0.7, 1.05)
+		local d = depth * rng:NextNumber(0.7, 1.05)
+
+		block(
+			parent,
+			CFrame.new(base + shove + Vector3.new(0, y + height * 0.5, 0)),
+			Vector3.new(w, height, d),
+			pick(style.buildingColors, rng),
+			Enum.Material.DiamondPlate
+		).Name =
+			`Slab{slab}`
+
+		-- A sign on most of them. Neon is the whole identity of this world.
+		if rng:NextNumber() < 0.7 then
+			local sign = block(
+				parent,
+				CFrame.new(base + shove + Vector3.new(0, y + height * 0.5, d * 0.5 + 0.6)),
+				Vector3.new(w * 0.7, height * 0.5, 0.5),
+				style.windowColor,
+				Enum.Material.Neon
+			)
+			sign.Name = "Sign"
+			sign.CanCollide = false
+		end
+
+		y += height
+	end
+
+	-- A vertical strip running the full height, the classic Hutt-slum tell.
+	local strip = block(
+		parent,
+		CFrame.new(base + Vector3.new(width * 0.5 + 0.5, y * 0.5, 0)),
+		Vector3.new(0.6, y * 0.9, 2.4),
+		Palette.SaberPurple,
+		Enum.Material.Neon
+	)
+	strip.Name = "Strip"
+	strip.CanCollide = false
+end
+
+--- Coruscant. Smooth tapering towers, dense glass, a mast on every one.
+local function spireShape(parent: Instance, base: Vector3, footprint: Vector2, style: Style, rng: Random)
+	local color = pick(style.buildingColors, rng)
+	local width, depth = footprint.X, footprint.Y
+	local floors = rng:NextInteger(style.minFloors, style.maxFloors)
+	local tiers = 4
+	local y = 0
+	local remaining = floors
+
+	for tier = 1, tiers do
+		local tierFloors = if tier == tiers
+			then remaining
+			else math.max(1, math.floor(remaining / (tiers - tier + 1)))
+		remaining -= tierFloors
+		local height = tierFloors * style.floorHeight
+
+		block(
+			parent,
+			CFrame.new(base + Vector3.new(0, y + height * 0.5, 0)),
+			Vector3.new(width, height, depth),
+			color,
+			Enum.Material.Metal
+		).Name =
+			"Storey"
+		windowBands(parent, base, style, y, tierFloors, width, depth)
+
+		y += height
+		-- A gentle taper. The old generator used 0.82 per tier, which turned a
+		-- twelve-floor tower into a wedding cake.
+		width *= 0.93
+		depth *= 0.93
+	end
+
+	cylinder(
+		parent,
+		CFrame.new(base + Vector3.new(0, y + 22, 0)) * UPRIGHT,
+		Vector3.new(44, 2.4, 2.4),
+		Palette.WornSteel,
+		Enum.Material.Metal
+	).Name =
+		"Mast"
+
+	local beacon = ball(
+		parent,
+		CFrame.new(base + Vector3.new(0, y + 44, 0)),
+		Vector3.new(3, 3, 3),
+		Palette.BlasterRed,
+		Enum.Material.Neon
+	)
+	beacon.Name = "Beacon"
+	beacon.CanCollide = false
+end
+
+--- Ord Mantell. Prefab huts on stilts with corrugated pitched roofs.
+local function frontierShape(parent: Instance, base: Vector3, footprint: Vector2, style: Style, rng: Random)
+	local color = pick(style.buildingColors, rng)
+	local width, depth = footprint.X * 0.8, footprint.Y * 0.8
+	local stilt = rng:NextNumber(4, 9)
+	local height = rng:NextInteger(style.minFloors, style.maxFloors) * style.floorHeight
+
+	-- Stilts. Everything here is built above a wet season.
+	for _, sx in { -1, 1 } do
+		for _, sz in { -1, 1 } do
+			block(
+				parent,
+				CFrame.new(base + Vector3.new(sx * width * 0.42, stilt * 0.5, sz * depth * 0.42)),
+				Vector3.new(1.6, stilt, 1.6),
+				Palette.DroidRust,
+				Enum.Material.CorrodedMetal
+			).Name =
+				"Stilt"
+		end
+	end
+
+	block(
+		parent,
+		CFrame.new(base + Vector3.new(0, stilt + height * 0.5, 0)),
+		Vector3.new(width, height, depth),
+		color,
+		Enum.Material.CorrodedMetal
+	).Name =
+		"Hut"
+
+	-- Pitched roof from two mirrored wedges. A flat roof is what made every
+	-- world look like the same industrial estate.
+	local pitch = height * 0.5
+	for _, side in { 1, -1 } do
+		wedge(
+			parent,
+			CFrame.new(base + Vector3.new(0, stilt + height + pitch * 0.5, side * depth * 0.25))
+				* CFrame.Angles(0, if side > 0 then 0 else math.pi, 0),
+			Vector3.new(width, pitch, depth * 0.5),
+			Palette.WornSteel,
+			Enum.Material.CorrodedMetal
+		).Name =
+			"Roof"
+	end
+
+	-- One lit window and a stovepipe.
+	local pane = block(
+		parent,
+		CFrame.new(base + Vector3.new(0, stilt + height * 0.55, depth * 0.5)),
+		Vector3.new(width * 0.3, height * 0.3, 0.4),
+		style.windowColor,
+		Enum.Material.Neon
+	)
+	pane.Name = "Pane"
+	pane.CanCollide = false
+
+	cylinder(
+		parent,
+		CFrame.new(base + Vector3.new(width * 0.3, stilt + height + pitch + 4, 0)) * UPRIGHT,
+		Vector3.new(9, 1.4, 1.4),
+		Palette.DarkMetal,
+		Enum.Material.CorrodedMetal
+	).Name =
+		"Stovepipe"
+end
+
+--- Tython. Low stone halls behind a colonnade. Nothing here is in a hurry.
+local function jediStoneShape(parent: Instance, base: Vector3, footprint: Vector2, style: Style, rng: Random)
+	local color = pick(style.buildingColors, rng)
+	local width, depth = footprint.X, footprint.Y
+	local height = rng:NextInteger(style.minFloors, style.maxFloors) * style.floorHeight
+
+	block(
+		parent,
+		CFrame.new(base + Vector3.new(0, height * 0.5, 0)),
+		Vector3.new(width * 0.78, height, depth * 0.78),
+		color,
+		Enum.Material.Limestone
+	).Name =
+		"Hall"
+
+	-- Pillars around the perimeter, which is the whole silhouette.
+	local pillars = 8
+	for i = 1, pillars do
+		local a = (i / pillars) * math.pi * 2
+		cylinder(
+			parent,
+			CFrame.new(
+				base + Vector3.new(math.cos(a) * width * 0.46, height * 0.45, math.sin(a) * depth * 0.46)
+			) * UPRIGHT,
+			Vector3.new(height * 0.9, 3.4, 3.4),
+			color,
+			Enum.Material.Limestone
+		).Name =
+			"Pillar"
+	end
+
+	-- A wide overhanging lid resting on them.
+	block(
+		parent,
+		CFrame.new(base + Vector3.new(0, height * 0.95, 0)),
+		Vector3.new(width * 1.08, height * 0.12, depth * 1.08),
+		color,
+		Enum.Material.Limestone
+	).Name =
+		"Lid"
+
+	-- Shallow stepped roof above the lid.
+	for step = 1, 3 do
+		local shrink = 1 - step * 0.22
+		block(
+			parent,
+			CFrame.new(base + Vector3.new(0, height * (1.0 + step * 0.1), 0)),
+			Vector3.new(width * 0.85 * shrink, height * 0.1, depth * 0.85 * shrink),
+			color,
+			Enum.Material.Limestone
+		).Name =
+			"Roof"
+	end
+
+	local lantern = ball(
+		parent,
+		CFrame.new(base + Vector3.new(0, height * 1.42, 0)),
+		Vector3.new(4, 4, 4),
+		style.windowColor,
+		Enum.Material.Neon
+	)
+	lantern.Name = "Lantern"
+	lantern.CanCollide = false
+end
+
+--- Hoth. Half-buried domes joined by tunnels. Most of it is under the snow.
+local function iceBunkerShape(parent: Instance, base: Vector3, footprint: Vector2, style: Style, rng: Random)
+	local color = pick(style.buildingColors, rng)
+	local span = math.min(footprint.X, footprint.Y)
+	local rise = span * rng:NextNumber(0.28, 0.42)
+
+	-- The dome sits low: two thirds of it is below the surface, which is why
+	-- this reads as dug in rather than as another box.
+	ball(
+		parent,
+		CFrame.new(base + Vector3.new(0, rise - span * 0.35, 0)),
+		Vector3.new(span, span, span),
+		color,
+		Enum.Material.Glacier
+	).Name =
+		"Dome"
+
+	-- A wind berm on the weather side.
+	local a = rng:NextNumber(0, math.pi * 2)
+	local berm = block(
+		parent,
+		CFrame.new(
+			base + Vector3.new(math.cos(a), 0, math.sin(a)) * span * 0.62 + Vector3.new(0, rise * 0.3, 0)
+		),
+		Vector3.new(span * 0.9, rise * 0.7, span * 0.25),
+		Palette.HothSnow,
+		Enum.Material.Snow
+	)
+	berm.Name = "Berm"
+	berm.CFrame = berm.CFrame * CFrame.Angles(0, -a, 0)
+
+	-- The tunnel mouth, and the only thing you can actually walk to.
+	local mouthAngle = a + math.pi
+	local mouth = Vector3.new(math.cos(mouthAngle), 0, math.sin(mouthAngle)) * span * 0.45
+	block(
+		parent,
+		CFrame.new(base + mouth + Vector3.new(0, 5, 0)),
+		Vector3.new(14, 10, 14),
+		Palette.WornSteel,
+		Enum.Material.Metal
+	).Name =
+		"TunnelMouth"
+
+	local glow = block(
+		parent,
+		CFrame.new(base + mouth * 1.4 + Vector3.new(0, 5, 0)),
+		Vector3.new(8, 6, 0.5),
+		style.windowColor,
+		Enum.Material.Neon
+	)
+	glow.Name = "Glow"
+	glow.CanCollide = false
+
+	-- Aerials, because a buried base needs something above the snowline.
+	for _ = 1, rng:NextInteger(1, 3) do
+		local mastAngle = rng:NextNumber(0, math.pi * 2)
+		cylinder(
+			parent,
+			CFrame.new(
+				base
+					+ Vector3.new(math.cos(mastAngle), 0, math.sin(mastAngle)) * span * 0.3
+					+ Vector3.new(0, rise + 9, 0)
+			) * UPRIGHT,
+			Vector3.new(20, 1, 1),
+			Palette.DarkMetal,
+			Enum.Material.Metal
+		).Name =
+			"Aerial"
+	end
+end
+
+--- Dromund Kaas. Tall, black, buttressed and pointed. Deliberately unfriendly.
+local function gothicShape(parent: Instance, base: Vector3, footprint: Vector2, style: Style, rng: Random)
+	local color = pick(style.buildingColors, rng)
+	local width, depth = footprint.X * 0.7, footprint.Y * 0.7
+	local floors = rng:NextInteger(style.minFloors, style.maxFloors)
+	local height = floors * style.floorHeight
+
+	block(
+		parent,
+		CFrame.new(base + Vector3.new(0, height * 0.5, 0)),
+		Vector3.new(width, height, depth),
+		color,
+		Enum.Material.Slate
+	).Name =
+		"Tower"
+
+	-- Buttress fins on all four corners, leaning in. These do more for the
+	-- silhouette than any amount of extra height.
+	for _, sx in { -1, 1 } do
+		for _, sz in { -1, 1 } do
+			local fin = block(
+				parent,
+				CFrame.new(base + Vector3.new(sx * width * 0.55, height * 0.4, sz * depth * 0.55)),
+				Vector3.new(width * 0.14, height * 0.85, depth * 0.14),
+				color,
+				Enum.Material.Slate
+			)
+			fin.Name = "Buttress"
+			fin.CFrame = fin.CFrame * CFrame.Angles(sz * 0.06, 0, -sx * 0.06)
+		end
+	end
+
+	-- Narrow vertical slits rather than window bands. Nothing here wants light.
+	for _, side in { 1, -1 } do
+		for i = 1, 3 do
+			local slit = block(
+				parent,
+				CFrame.new(base + Vector3.new((i - 2) * width * 0.28, height * 0.5, side * depth * 0.5)),
+				Vector3.new(1.4, height * 0.6, 0.4),
+				style.windowColor,
+				Enum.Material.Neon
+			)
+			slit.Name = "Slit"
+			slit.CanCollide = false
+		end
+	end
+
+	-- The point.
+	local spike = height * 0.34
+	for _, side in { 1, -1 } do
+		wedge(
+			parent,
+			CFrame.new(base + Vector3.new(0, height + spike * 0.5, side * depth * 0.25))
+				* CFrame.Angles(0, if side > 0 then 0 else math.pi, 0),
+			Vector3.new(width, spike, depth * 0.5),
+			color,
+			Enum.Material.Slate
+		).Name =
+			"Crown"
+	end
+end
+
+local ARCHITECTURE: { [string]: Style } = {
+	Adobe = {
+		buildingColors = { Palette.TatooineSand, Palette.TatooineRock, Palette.SandtrooperTan },
+		minFloors = 1,
+		maxFloors = 2,
+		floorHeight = 11,
 		windowColor = Palette.CoruscantLight,
 		scatter = "None",
-	}
+		shape = adobeShape,
+	},
+	SithZiggurat = {
+		buildingColors = { Palette.SithBlack, Palette.MustafarBasalt, Palette.DarkMetal },
+		minFloors = 2,
+		maxFloors = 4,
+		floorHeight = 13,
+		windowColor = Palette.SaberRed,
+		scatter = "None",
+		shape = zigguratShape,
+	},
+	Ruin = {
+		buildingColors = { Palette.WornSteel, Palette.Gunmetal, Palette.NabooStone, Palette.CoruscantPlate },
+		minFloors = 4,
+		maxFloors = 11,
+		floorHeight = 15,
+		windowColor = Palette.DroidGold,
+		scatter = "None",
+		shape = ruinShape,
+	},
+	NeonStack = {
+		buildingColors = { Palette.DarkMetal, Palette.Gunmetal, Palette.ImperialGrey, Palette.SmugglerBrown },
+		minFloors = 3,
+		maxFloors = 8,
+		floorHeight = 13,
+		windowColor = Palette.TwilekRed,
+		scatter = "None",
+		shape = neonStackShape,
+	},
+	Spire = {
+		buildingColors = { Palette.CoruscantPlate, Palette.HullGrey, Palette.WornSteel, Palette.NabooStone },
+		minFloors = 6,
+		maxFloors = 14,
+		floorHeight = 16,
+		windowColor = Palette.CoruscantLight,
+		scatter = "None",
+		shape = spireShape,
+	},
+	Frontier = {
+		buildingColors = { Palette.RebelTan, Palette.SmugglerBrown, Palette.DroidRust, Palette.RebelOlive },
+		minFloors = 1,
+		maxFloors = 2,
+		floorHeight = 12,
+		windowColor = Palette.DroidGold,
+		scatter = "None",
+		shape = frontierShape,
+	},
+	JediStone = {
+		buildingColors = { Palette.NabooStone, Palette.JediCream, Palette.SandtrooperTan },
+		minFloors = 1,
+		maxFloors = 3,
+		floorHeight = 13,
+		windowColor = Palette.SaberYellow,
+		scatter = "None",
+		shape = jediStoneShape,
+	},
+	IceBunker = {
+		buildingColors = { Palette.HothIce, Palette.StormtrooperShadow, Palette.WornSteel },
+		minFloors = 1,
+		maxFloors = 2,
+		floorHeight = 12,
+		windowColor = Palette.BlasterBlue,
+		scatter = "None",
+		shape = iceBunkerShape,
+	},
+	ImperialGothic = {
+		buildingColors = { Palette.ImperialBlack, Palette.DarkMetal, Palette.ImperialGrey },
+		minFloors = 4,
+		maxFloors = 9,
+		floorHeight = 15,
+		windowColor = Palette.SaberRed,
+		scatter = "None",
+		shape = gothicShape,
+	},
+}
+
+-- At load, not at first visit. A typo here means a world silently looks like
+-- a different world, which is exactly the bug this whole section exists to
+-- fix, and you would not see it until someone travelled there.
+for _, id in Planets.ids() do
+	local name = Planets.get(id).architecture
+	if not ARCHITECTURE[name] then
+		warn(`[PlanetBuilder] {id}: unknown architecture "{name}"; it will build as Spire`)
+	end
+end
+
+local function styleFor(planet: Planets.PlanetDef): Style
+	local base = ARCHITECTURE[planet.architecture] or ARCHITECTURE.Spire
+	local style = table.clone(base)
+	style.scatter = SCATTER[planet.terrain] or "None"
+	return style
 end
 
 --------------------------------------------------------------------------------
@@ -297,83 +970,6 @@ end
 -- Settlement
 --------------------------------------------------------------------------------
 
---[[
-	One building: stacked, shrinking boxes with lit window bands.
-
-	The taper is what does the work. A single box of a random height is a
-	crate; two or three boxes that step inward as they rise is a silhouette,
-	and silhouette is most of what makes a skyline legible from a distance.
-]]
-local function buildBuilding(parent: Instance, base: Vector3, footprint: Vector2, style: Style, rng: Random)
-	local floors = rng:NextInteger(style.minFloors, style.maxFloors)
-	local width, depth = footprint.X, footprint.Y
-	local color = style.buildingColors[rng:NextInteger(1, #style.buildingColors)]
-	local y = 0
-
-	local tiers = math.clamp(math.floor(floors / 3) + 1, 1, 3)
-	local remaining = floors
-
-	for tier = 1, tiers do
-		local tierFloors = if tier == tiers
-			then remaining
-			else math.max(1, math.floor(remaining / (tiers - tier + 1)))
-		remaining -= tierFloors
-		local height = tierFloors * style.floorHeight
-
-		block(
-			parent,
-			CFrame.new(base + Vector3.new(0, y + height * 0.5, 0)),
-			Vector3.new(width, height, depth),
-			color,
-			Enum.Material.Concrete
-		).Name =
-			"Storey"
-
-		-- Window bands on the two long faces. Neon rather than a texture so
-		-- they read at night, which is when a city needs to look like one.
-		for floor = 1, tierFloors do
-			local windowY = y + (floor - 0.5) * style.floorHeight
-			for _, side in { 1, -1 } do
-				local band = block(
-					parent,
-					CFrame.new(base + Vector3.new(0, windowY, side * depth * 0.5)),
-					Vector3.new(width * 0.82, 2.2, 0.4),
-					style.windowColor,
-					Enum.Material.Neon
-				)
-				band.Name = "Windows"
-				band.CanCollide = false
-			end
-		end
-
-		y += height
-		width *= 0.82
-		depth *= 0.82
-	end
-
-	if style.domed then
-		local dome = Instance.new("Part")
-		dome.Anchored = true
-		dome.Shape = Enum.PartType.Ball
-		dome.Size = Vector3.new(width * 1.05, width * 0.75, depth * 1.05)
-		dome.Position = base + Vector3.new(0, y, 0)
-		dome.Color = style.buildingColors[rng:NextInteger(1, #style.buildingColors)]
-		dome.Material = Enum.Material.Concrete
-		dome.Name = "Dome"
-		dome.Parent = parent
-	else
-		-- A mast or vent stack. Cheap vertical interest along the roofline.
-		block(
-			parent,
-			CFrame.new(base + Vector3.new(rng:NextNumber(-width * 0.2, width * 0.2), y + 9, 0)),
-			Vector3.new(2, 18, 2),
-			Palette.DarkMetal,
-			Enum.Material.Metal
-		).Name =
-			"Mast"
-	end
-end
-
 local function buildStreetLamp(parent: Instance, position: Vector3, color: Color3)
 	block(
 		parent,
@@ -466,7 +1062,7 @@ local function buildSettlement(
 				rng:NextNumber(-1, 1) * (usable - footprint.Y) * 0.4
 			)
 
-			buildBuilding(town, centre + jitter, footprint, style, rng)
+			style.shape(town, centre + jitter, footprint, style, rng)
 
 			if rng:NextNumber() < 0.3 then
 				buildStreetLamp(
@@ -578,28 +1174,6 @@ end
 	wider than it is tall, or stepped, or half-buried, reads from far enough
 	away to be worth walking towards.
 ]]
-
--- Roblox cylinders lie along X, so a standing one is turned a quarter turn and
--- sized (height, diameter, diameter).
-local UPRIGHT = CFrame.Angles(0, 0, math.pi * 0.5)
-
-local function cylinder(
-	parent: Instance,
-	cf: CFrame,
-	size: Vector3,
-	color: Color3,
-	material: Enum.Material
-): Part
-	local p = block(parent, cf, size, color, material)
-	p.Shape = Enum.PartType.Cylinder
-	return p
-end
-
-local function ball(parent: Instance, cf: CFrame, size: Vector3, color: Color3, material: Enum.Material): Part
-	local p = block(parent, cf, size, color, material)
-	p.Shape = Enum.PartType.Ball
-	return p
-end
 
 --[[
 	A name floating over a landmark, so a place says what it is.

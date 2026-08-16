@@ -98,6 +98,22 @@ export type PlanetDef = {
 	-- Environment ---------------------------------------------------------
 	gravity: number,
 	terrain: string, -- "Desert" | "Ice" | "Urban" | "Swamp" | "Ocean" | "Volcanic" | "Forest"
+	--[[
+		How this world *builds*, which is not what its ground is made of.
+
+		Until 2026-08-15 `PlanetBuilder` picked a building style from `terrain`
+		alone, so Korriban and Tatooine — both "Desert" — ran identical
+		geometry in different sand, and Coruscant, Taris and Nar Shaddaa were
+		one style between them. Nine worlds shared five looks and the boys
+		spotted it in the first ten minutes.
+
+		One of: "Adobe" | "SithZiggurat" | "Ruin" | "NeonStack" | "Spire"
+		      | "Frontier" | "JediStone" | "IceBunker" | "ImperialGothic"
+		Each is a separate shape function in `PlanetBuilder.ARCHITECTURE`, not
+		just a palette. Adding one means adding it there too; PlanetBuilder
+		warns about an unknown name when it loads, not when you fly there.
+	]]
+	architecture: string,
 	groundColor: Color3,
 	rockColor: Color3?,
 	skyTint: Color3,
@@ -153,6 +169,7 @@ def({
 
 	gravity = 178,
 	terrain = "Desert",
+	architecture = "Adobe",
 	groundColor = Palette.TatooineSand,
 	rockColor = Palette.TatooineRock,
 	skyTint = Color3.fromRGB(255, 226, 178),
@@ -279,6 +296,10 @@ def({
 
 	gravity = 196.2,
 	terrain = "Urban",
+	-- Declared but not drawn: `hasWalkableGround = false` below sends this
+	-- planet down the vertical-city path, which builds its own towers. Kept
+	-- accurate anyway, so it is right the day Coruscant grows a ground level.
+	architecture = "Spire",
 	groundColor = Palette.CoruscantPlate,
 	rockColor = Palette.WornSteel,
 	skyTint = Color3.fromRGB(168, 186, 214),
@@ -403,6 +424,7 @@ def({
 
 	gravity = 210, -- heavier than standard; jumps are shorter here
 	terrain = "Ice",
+	architecture = "IceBunker",
 	groundColor = Palette.HothSnow,
 	rockColor = Palette.HothIce,
 	skyTint = Color3.fromRGB(206, 226, 244),
@@ -489,6 +511,7 @@ def({
 
 	gravity = 190,
 	terrain = "Forest",
+	architecture = "JediStone",
 	groundColor = Palette.NabooGrass,
 	rockColor = Palette.NabooStone,
 	skyTint = Color3.fromRGB(198, 224, 255),
@@ -573,6 +596,7 @@ def({
 
 	gravity = 196.2,
 	terrain = "Urban",
+	architecture = "Ruin",
 	groundColor = Palette.WornSteel,
 	rockColor = Palette.DarkMetal,
 	skyTint = Color3.fromRGB(150, 146, 138),
@@ -663,6 +687,7 @@ def({
 
 	gravity = 202,
 	terrain = "Desert",
+	architecture = "SithZiggurat",
 	groundColor = Palette.ZabrakRust,
 	rockColor = Palette.MustafarBasalt,
 	skyTint = Color3.fromRGB(212, 118, 78),
@@ -755,6 +780,7 @@ def({
 
 	gravity = 182,
 	terrain = "Urban",
+	architecture = "NeonStack",
 	groundColor = Palette.CoruscantPlate,
 	rockColor = Palette.DarkMetal,
 	skyTint = Color3.fromRGB(126, 96, 138),
@@ -830,6 +856,7 @@ def({
 
 	gravity = 194,
 	terrain = "Swamp",
+	architecture = "Frontier",
 	groundColor = Color3.fromRGB(88, 84, 62),
 	rockColor = Palette.SmugglerBrown,
 	skyTint = Color3.fromRGB(150, 156, 152),
@@ -911,6 +938,7 @@ def({
 
 	gravity = 198,
 	terrain = "Forest",
+	architecture = "ImperialGothic",
 	groundColor = Color3.fromRGB(52, 58, 48),
 	rockColor = Palette.ImperialBlack,
 	skyTint = Color3.fromRGB(88, 92, 108),
