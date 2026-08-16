@@ -50,6 +50,17 @@ local ROAD_THICKNESS = 1
 -- Narrower than the gap between blocks: the leftover is a verge, and a road
 -- that exactly fills its gap reads as a floor rather than as a road.
 local ROAD_WIDTH = 18
+--[[
+	Every crossing is two slabs overlapping, so each layer of paving gets its
+	own height or their top faces are coplanar and z-fight -- the roads
+	visibly flicker. Planets sit at multiples of 12,000 studs from the world
+	origin, where a float32 resolves to roughly 0.004 studs, so the steps are
+	deliberately much larger than they need to be to separate the faces. The
+	tallest is 0.36 over the plaza, well under a character's step height.
+]]
+local ROAD_LIFT_NS = 0.12
+local ROAD_LIFT_EW = 0.24
+local ROAD_LIFT_RADIAL = 0.36
 
 local TOWER_BASE_Y = -400
 local SKYLANE_STEP = 220
@@ -916,9 +927,18 @@ local function roadLook(planet: Planets.PlanetDef): (Color3, Enum.Material)
 end
 
 --- One straight run of paving between two points on the ground plane.
-local function pave(parent: Instance, from: Vector3, to: Vector3, color: Color3, material: Enum.Material)
-	local flatFrom = Vector3.new(from.X, ROAD_Y, from.Z)
-	local flatTo = Vector3.new(to.X, ROAD_Y, to.Z)
+--- `lift` separates this run from whatever it crosses; see the ROAD_LIFT_* notes.
+local function pave(
+	parent: Instance,
+	from: Vector3,
+	to: Vector3,
+	color: Color3,
+	material: Enum.Material,
+	lift: number
+)
+	local y = ROAD_Y + lift
+	local flatFrom = Vector3.new(from.X, y, from.Z)
+	local flatTo = Vector3.new(to.X, y, to.Z)
 	local run = (flatTo - flatFrom).Magnitude
 	if run < 1 then
 		return
@@ -961,14 +981,16 @@ local function buildStreets(parent: Instance, planet: Planets.PlanetDef, origin:
 			origin + Vector3.new(offset, 0, -half),
 			origin + Vector3.new(offset, 0, half),
 			color,
-			material
+			material,
+			ROAD_LIFT_NS
 		)
 		pave(
 			streets,
 			origin + Vector3.new(-half, 0, offset),
 			origin + Vector3.new(half, 0, offset),
 			color,
-			material
+			material,
+			ROAD_LIFT_EW
 		)
 	end
 end
@@ -2147,11 +2169,21 @@ local function buildMarkers(
 	if planet.hasWalkableGround then
 		local roads = folder("Roads", root)
 		local color, material = roadLook(planet)
-		for _, destination in reached do
+		for index, destination in reached do
 			local bearing = destination - origin
 			local flat = Vector3.new(bearing.X, 0, bearing.Z)
 			if flat.Magnitude > SETTLEMENT_RADIUS then
-				pave(roads, origin + flat.Unit * (SETTLEMENT_RADIUS * 0.94), destination, color, material)
+				pave(
+					roads,
+					origin + flat.Unit * (SETTLEMENT_RADIUS * 0.94),
+					destination,
+					color,
+					material,
+					-- Radials all leave the same ring, so two landmarks on
+					-- close bearings overlap near the town edge: give each
+					-- its own height too.
+					ROAD_LIFT_RADIAL + index * 0.04
+				)
 			end
 		end
 	end
