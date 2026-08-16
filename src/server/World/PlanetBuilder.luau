@@ -1969,13 +1969,27 @@ local function buildCantina(parent: Instance, base: Vector3, style: Style, rng: 
 	).Name =
 		"Ceiling"
 
-	-- The dome's equator sits on the wall head, so only its upper half shows
-	-- and the silhouette is unchanged from when this was a solid building.
-	-- It does not collide: the ceiling under it is the real surface.
+	--[[
+		A dome needs half a ball, and Roblox only has whole ones -- so the
+		lower half has to be buried in something. Resting the equator on the
+		wall head buries it in the *room*, which is why the first version hung
+		a huge lit bowl over the tables. The drum buries it instead, and a
+		dome on a drum is the Tatooine silhouette anyway.
+	]]
+	local domeRise = 12
+	cylinder(
+		parent,
+		CFrame.new(base + Vector3.new(0, ROOM_HEIGHT + domeRise * 0.5, 0)) * UPRIGHT,
+		Vector3.new(domeRise, radius * 2 + 2, radius * 2 + 2),
+		wall,
+		Enum.Material.Concrete
+	).Name =
+		"Drum"
+
 	local roof = ball(
 		parent,
-		CFrame.new(base + Vector3.new(0, ROOM_HEIGHT, 0)),
-		Vector3.new(radius * 2 + 2, 24, radius * 2 + 2),
+		CFrame.new(base + Vector3.new(0, ROOM_HEIGHT + domeRise, 0)),
+		Vector3.new(radius * 2 + 2, domeRise * 2, radius * 2 + 2),
 		wall,
 		Enum.Material.Concrete
 	)
@@ -2105,7 +2119,8 @@ local function buildCantina(parent: Instance, base: Vector3, style: Style, rng: 
 	ceilingLamp(parent, base + Vector3.new(0, ROOM_HEIGHT - 3, 0), style.windowColor, 60)
 	ceilingLamp(parent, base + Vector3.new(-18, ROOM_HEIGHT - 3, 0), style.windowColor, 40)
 
-	return ROOM_HEIGHT + 14
+	-- Wall head, drum, then the dome cap on top of it.
+	return ROOM_HEIGHT + 24
 end
 
 --- A walled compound. Whoever holds it wants you to come in by the gate.
@@ -2478,17 +2493,18 @@ end
 	its bearing, answers it from the one spot everybody passes through, and
 	is the sort of thing a frontier town would have anyway.
 ]]
-local function buildSignpost(
-	parent: Instance,
-	at: Vector3,
-	places: { { name: string, kind: string, at: Vector3 } }
-)
+local function buildSignpost(parent: Instance, at: Vector3, places: { { kind: string, at: Vector3 } })
 	if #places == 0 then
 		return
 	end
 
 	local post = folder("Signpost", parent)
-	local height = 14 + #places * 6
+	-- Arms stack up from just over head height instead of hanging off a tall
+	-- post. From the ground the top of a 50-stud post is seen nearly edge-on,
+	-- and a sign you have to crane at is a sign you do not read.
+	local LOWEST_ARM = 8
+	local ARM_SPACING = 5
+	local height = LOWEST_ARM + (#places - 1) * ARM_SPACING + 4
 
 	cylinder(
 		post,
@@ -2508,12 +2524,12 @@ local function buildSignpost(
 		-- A CFrame turned by t about Y sends its local +X to
 		-- (cos t, 0, -sin t), so pointing +X along a bearing of `a` needs -a.
 		local angle = -math.atan2(facing.Z, facing.X)
-		local y = height - 5 - (index - 1) * 6
+		local y = LOWEST_ARM + (index - 1) * ARM_SPACING
 
 		local arm = block(
 			post,
-			CFrame.new(at + facing * 13 + Vector3.new(0, y, 0)) * CFrame.Angles(0, angle, 0),
-			Vector3.new(26, 5, 1),
+			CFrame.new(at + facing * 10 + Vector3.new(0, y, 0)) * CFrame.Angles(0, angle, 0),
+			Vector3.new(20, 4.5, 1),
 			Palette.SmugglerBrown,
 			Enum.Material.WoodPlanks
 		)
@@ -2543,9 +2559,19 @@ local function buildSignpost(
 			label.Font = Enum.Font.GothamBold
 			label.TextScaled = true
 			label.TextColor3 = Palette.HullWhite
-			-- What it is, then what it is called. A player hunting for the
-			-- cantina is not helped by a sign reading "The Dry Well".
-			label.Text = `{place.kind}  -  {place.name}`
+			--[[
+				The kind, and only the kind.
+
+				TextScaled fits the *width* as well as the height, so a long
+				string is not big text that runs off the plank -- it is small
+				text, and "Cantina - The Dry Well" came out as a thin smear
+				you had to already know to read. One word fills the sign.
+
+				Where two of a kind exist the player gets two arms reading
+				RUIN pointing different ways, which is true and still more
+				use than either name. The building's own plate has the name.
+			]]
+			label.Text = string.upper(place.kind)
 			label.Parent = gui
 		end
 	end
@@ -2632,7 +2658,7 @@ local function buildMarkers(
 	-- Collected as each landmark settles on a position, because where they
 	-- end up is decided below and nothing knows it until then. Roads and the
 	-- signpost both read it.
-	local reached: { { name: string, kind: string, at: Vector3 } } = {}
+	local reached: { { kind: string, at: Vector3 } } = {}
 
 	--[[
 		Open ground that has been given to something.
@@ -2729,7 +2755,7 @@ local function buildMarkers(
 		end
 
 		buildLandmark(landmarkRoot, poi, def, position, style, rng)
-		table.insert(reached, { name = poi.displayName, kind = poi.kind, at = position })
+		table.insert(reached, { kind = poi.kind, at = position })
 
 		-- Standing room indoors, added to the district the landmark belongs
 		-- to. Small on purpose: NPCService scatters within a zone part and
