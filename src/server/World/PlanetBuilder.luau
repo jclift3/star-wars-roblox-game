@@ -1582,7 +1582,18 @@ end
 	not say how big it is is a place that cannot be arrived at.
 ]]
 type Landmark = (Instance, Vector3, Style, Random) -> number
-type LandmarkDef = { radius: number, build: Landmark }
+
+--[[
+	`interior`, when a landmark has one, is where inside it people stand --
+	an offset from the building's own base. It becomes a part in the
+	landmark's district zone, which NPCService reads as somewhere to spawn
+	and as a stop on that district's patrol route, so a cantina has drinkers
+	in it and the guards outside walk in and back out again.
+
+	A room nobody is in is a room, not a place; furniture was the cheap half
+	of the job.
+]]
+type LandmarkDef = { radius: number, build: Landmark, interior: Vector3? }
 
 --- A Jawa sandcrawler: a tracked wedge that threw a tread and stayed put.
 local function buildSandcrawler(parent: Instance, base: Vector3, style: Style, rng: Random): number
@@ -2214,8 +2225,8 @@ local LANDMARKS: { [string]: LandmarkDef } = {
 	Sandcrawler = { radius = 78, build = buildSandcrawler },
 	Ruin = { radius = 62, build = buildWreck },
 	Spaceport = { radius = 116, build = buildSpaceport },
-	Cantina = { radius = 52, build = buildCantina },
-	Base = { radius = 92, build = buildBase },
+	Cantina = { radius = 52, build = buildCantina, interior = Vector3.new(0, 0, 0) },
+	Base = { radius = 92, build = buildBase, interior = Vector3.new(20, 0, 0) },
 	Outpost = OUTPOST,
 	Market = { radius = 58, build = buildMarket },
 	Temple = { radius = 74, build = buildTemple },
@@ -2420,6 +2431,19 @@ local function buildMarkers(
 
 		buildLandmark(landmarkRoot, poi, def, position, style, rng)
 		table.insert(reached, position)
+
+		-- Standing room indoors, added to the district the landmark belongs
+		-- to. Small on purpose: NPCService scatters within a zone part and
+		-- then drops whatever it picks to the floor, so a box the size of
+		-- the room would put people on the tables and behind the bar.
+		if def.interior and poi.zone then
+			marker(
+				folder(poi.zone, zoneRoot),
+				"Inside",
+				position + def.interior + Vector3.new(0, 3, 0),
+				Vector3.new(16, 1, 16)
+			)
+		end
 		-- The marker is sized to the landmark rather than to a fixed box, so
 		-- everything measuring against it -- "have I reached this", "where do
 		-- the pickups go" -- scales with the building instead of guessing.

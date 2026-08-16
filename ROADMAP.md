@@ -293,12 +293,16 @@ afterwards, so there is never a solid version and a hollow version of the same
 wall to keep in step. `roundWall` and `roomShell` in `PlanetBuilder` are the two
 shells; a third landmark should need no new machinery.
 
-Still open, and this is the half that matters: **nobody is inside yet.** NPCs
-spawn at their zone's patrol points, which are outdoors, so the cantina is a
-well-furnished empty room. Putting the vendor behind his own bar needs spawn
-points that a landmark can declare — that, not more geometry, is the next step.
-Also open: ordinary settlement buildings (still solid), and shops/tombs/
-apartments.
+**And there are people in them.** A `LandmarkDef` may declare an `interior`
+offset, which becomes a part in that landmark's district zone — and NPCService's
+map contract already reads a zone's parts as both spawn points and a patrol
+route, so a cantina gets drinkers and the guards outside walk in and back out
+again without a line of new AI. A room nobody is in is a room, not a place;
+furniture was the cheap half of the job.
+
+Still open: ordinary settlement buildings are still solid, and shops, tombs and
+apartments have no interiors. Neither needs new machinery — `roundWall` and
+`roomShell` plus an `interior` offset is the whole pattern.
 
 **N6. An economy, not just a wallet.** The largest new ask, and it is really
 five features:
