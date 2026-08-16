@@ -84,6 +84,20 @@ local function gather(itemLevel: number): { Candidate }
 	return out
 end
 
+--- One item from the pool `level` opens up, carrying exactly `count` affixes.
+local function draw(rng: Random, level: number, count: number): Drop?
+	local pool = gather(level)
+	if #pool == 0 then
+		return nil
+	end
+	local pick = pool[rng:NextInteger(1, #pool)]
+	local rolls = Affixes.rollExactly(rng, pick.kind, level, count)
+	if not rolls then
+		return nil
+	end
+	return { kind = pick.kind, id = pick.id, rolls = rolls }
+end
+
 --[[
 	Rolls one kill's worth of loot. Returns nil far more often than not.
 
@@ -95,19 +109,18 @@ function Loot.rollDrop(rng: Random, itemLevel: number): Drop?
 	if rng:NextNumber() > Loot.DROP_CHANCE then
 		return nil
 	end
-
 	local level = math.max(1, math.floor(itemLevel))
-	local pool = gather(level)
-	if #pool == 0 then
-		return nil
-	end
+	return draw(rng, level, Affixes.rollRarity(rng, level))
+end
 
-	local pick = pool[rng:NextInteger(1, #pool)]
-	local rolls = Affixes.roll(rng, pick.kind, level)
-	if not rolls then
-		return nil
-	end
-	return { kind = pick.kind, id = pick.id, rolls = rolls }
+--[[
+	A guaranteed drop of a chosen rarity. For DevService only.
+
+	Skips both the drop-chance gate and the rarity weights, which is the only
+	way to look at a Legendary without playing for a week.
+]]
+function Loot.forceDrop(rng: Random, itemLevel: number, affixCount: number): Drop?
+	return draw(rng, math.max(1, math.floor(itemLevel)), affixCount)
 end
 
 --- The dropped item's decorated name, for the pickup message.

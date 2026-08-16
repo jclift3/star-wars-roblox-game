@@ -24,6 +24,13 @@
 	They are derived from `Origins.ids()`, so a fifth origin gets a code for
 	free and a renamed one cannot leave a dead code behind.
 
+	THE LOOT CODES ARE THE TEST SUITE
+	`greedisgood` and `iseedeadpeople` exist because rarity is a long tail and
+	there is no way to run Luau outside Roblox. One hands you a drop of every
+	rarity so the colours and names can be looked at; the other samples five
+	thousand kills and prints the distribution. Between them they cover what a
+	unit test would, for a fraction of the harness.
+
 	HOW YOU ENTER ONE
 	Type it in the normal Roblox chat. `Player.Chatted` still fires server-side
 	under TextChatService, and using it means this feature needs no client code,
@@ -38,6 +45,9 @@ local RunService = game:GetService("RunService")
 local Shared = game:GetService("ReplicatedStorage"):WaitForChild("Shared")
 local Types = require(Shared.Types)
 local Net = require(Shared.Core.Net)
+local Inventory = require(Shared.Core.Inventory)
+local Affixes = require(Shared.Config.Affixes)
+local Loot = require(Shared.Config.Loot)
 local Origins = require(Shared.Config.Origins)
 local Progression = require(Shared.Config.Progression)
 local ServiceLoader = require(Shared.Core.ServiceLoader)
@@ -54,6 +64,10 @@ local DevService = {
 --- except the Core and the deep Outer Rim, which is the point of the code.
 local BOOST_LEVEL = 12
 local BOOST_CREDITS = 10000
+
+-- Separate from CombatService's loot rng purely so that hammering a cheat code
+-- cannot shift the sequence real drops come out of.
+local devRng = Random.new()
 
 local function data()
 	return ServiceLoader.get("DataService")
@@ -118,6 +132,96 @@ codes.thereisnocow = function(player: Player)
 	progression().awardCredits(player, BOOST_CREDITS, true)
 	liftToLevel(player, BOOST_LEVEL)
 	tell(player, `The cow says nothing. +{BOOST_CREDITS} cr, level {BOOST_LEVEL}.`)
+end
+
+--[[
+	One drop of every rarity, at the player's own level.
+
+	Rarity is a long tail -- Legendary is weight 1 against Common's 100, and
+	only about one kill in seven drops anything at all, which puts a Legendary
+	somewhere past a thousand kills. The colours, the four-affix names and the
+	panel's layout at maximum rolls are all unreachable by playing. This makes
+	them one line of chat.
+]]
+codes.greedisgood = function(player: Player)
+	local profile = data().get(player)
+	if not profile then
+		return
+	end
+
+	local given = 0
+	for count = 1, Affixes.MAX_AFFIXES do
+		local drop = Loot.forceDrop(devRng, profile.level, count)
+		if drop then
+			data().update(player, function(p: PlayerProfile)
+				Inventory.add(p.inventory, drop.id, 1, drop.rolls)
+			end)
+			given += 1
+			tell(player, `{Affixes.rarityAt(count).name}: {Loot.nameOf(drop)}`, Affixes.rarityAt(count).name)
+		end
+	end
+	tell(player, `{given} items, one of each rarity. Open your bag.`)
+end
+
+--[[
+	Rolls a great many drops and prints what came out.
+
+	The closest thing to a test this project can run. There is no way to
+	execute Luau offline, so the alternative to a sampling loop is reading the
+	weights and hoping. It answers the two questions reading cannot: what the
+	real drop rate is once "Common means nothing" is applied, and whether an
+	affix can roll an absurd number at the top of the level range.
+
+	Prints rather than toasts, because a histogram does not fit in a toast and
+	the Studio output window is where the author already is.
+]]
+local SAMPLES = 5000
+
+codes.iseedeadpeople = function(player: Player)
+	local profile = data().get(player)
+	local level = profile and profile.level or 1
+
+	local drops = 0
+	local byRarity: { [number]: number } = {}
+	local low: { [string]: number } = {}
+	local high: { [string]: number } = {}
+
+	for _ = 1, SAMPLES do
+		local drop = Loot.rollDrop(devRng, level)
+		if not drop then
+			continue
+		end
+		drops += 1
+		local n = Affixes.rarityOf(drop.rolls).affixes
+		byRarity[n] = (byRarity[n] or 0) + 1
+		for stat, value in drop.rolls do
+			low[stat] = math.min(low[stat] or value, value)
+			high[stat] = math.max(high[stat] or value, value)
+		end
+	end
+
+	print(`\n=== loot sample: {SAMPLES} kills at level {level} ===`)
+	print(`drops: {drops}  ({string.format("%.1f", drops / SAMPLES * 100)}% of kills)`)
+	for count = 1, Affixes.MAX_AFFIXES do
+		local n = byRarity[count] or 0
+		local rarity = Affixes.rarityAt(count)
+		print(
+			`  {rarity.name}: {n}  ({string.format("%.2f", n / SAMPLES * 100)}% of kills,`
+				.. ` 1 in {if n > 0 then math.floor(SAMPLES / n) else "never"})`
+		)
+	end
+	print("affix ranges seen:")
+	-- Sorted so two runs can be diffed by eye.
+	local stats: { string } = {}
+	for stat in low do
+		table.insert(stats, stat)
+	end
+	table.sort(stats)
+	for _, stat in stats do
+		print(`  {stat}: {string.format("%.3f", low[stat])} .. {string.format("%.3f", high[stat])}`)
+	end
+
+	tell(player, `{drops} drops in {SAMPLES} kills at level {level}. See the output window.`)
 end
 
 -- One per origin: `iamacolyte`, `iamconscript`, `iamscoundrel`, `iamscrapper`.

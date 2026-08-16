@@ -302,15 +302,19 @@ function Affixes.rollRarity(rng: Random, itemLevel: number): number
 end
 
 --[[
-	Rolls a full set of modifiers for one dropped item.
+	Rolls exactly `count` modifiers, ignoring the rarity weights.
 
-	Returns nil for a Common drop rather than an empty table, because that is
-	what `ItemStack.rolls` expects -- an item with no rolls is a plain item and
-	must stack with other plain ones.
+	Exists for DevService. A Legendary is about one drop in a hundred and
+	seventy, so the only practical way to look at one is to ask for it.
 ]]
-function Affixes.roll(rng: Random, slot: string, itemLevel: number): { [string]: number }?
+function Affixes.rollExactly(
+	rng: Random,
+	slot: string,
+	itemLevel: number,
+	count: number
+): { [string]: number }?
 	local pool = Affixes.forSlot(slot)
-	local wanted = math.min(Affixes.rollRarity(rng, itemLevel), #pool)
+	local wanted = math.min(count, #pool)
 	if wanted <= 0 then
 		return nil
 	end
@@ -332,6 +336,17 @@ function Affixes.roll(rng: Random, slot: string, itemLevel: number): { [string]:
 		rolls[a.stat] = tidy(rng:NextNumber(low, high))
 	end
 	return rolls
+end
+
+--[[
+	Rolls a full set of modifiers for one dropped item.
+
+	Returns nil for a Common drop rather than an empty table, because that is
+	what `ItemStack.rolls` expects -- an item with no rolls is a plain item and
+	must stack with other plain ones.
+]]
+function Affixes.roll(rng: Random, slot: string, itemLevel: number): { [string]: number }?
+	return Affixes.rollExactly(rng, slot, itemLevel, Affixes.rollRarity(rng, itemLevel))
 end
 
 --------------------------------------------------------------------------------
