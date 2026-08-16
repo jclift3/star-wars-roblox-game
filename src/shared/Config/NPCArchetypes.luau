@@ -811,7 +811,15 @@ end
 	which is the loud failure and the one we want.
 ]]
 function NPCArchetypes.hostileIn(
-	spawns: { { archetype: string, count: number, zone: string?, behavior: string? } },
+	spawns: {
+		{
+			archetype: string,
+			count: number,
+			zone: string?,
+			behavior: string?,
+			cast: string?,
+		}
+	},
 	zoneId: string
 ): string?
 	for _, rule in spawns do

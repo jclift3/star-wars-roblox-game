@@ -72,6 +72,19 @@ def("InformantSaved", "CorTheLongFall: the informant came off the skybridge aliv
 def("SawLot9", "TarWhatTheyKept: you have been inside the Czerka warehouse and seen what draws the power.")
 def("TombOpened", "KorTheTomb: the seal on Tulak Hord's tomb is broken and the man behind it is dead.")
 
+--[[
+	The only flag raised by a conversation rather than by an errand, and the
+	one that most earns being a flag at all.
+
+	Master Ryn Solaa says the words out loud. Nothing about the world changes;
+	what changes is that three other people -- Vashk, who has been documenting
+	it unnamed for thirty years, Marr, whose service filed it as fatigue, and
+	Corr, who has been entering it in a column headed attrition -- can now be
+	told there is a name for it. Each answers in character, and none of them
+	could have unless something recorded that the naming happened.
+]]
+def("NamedTheQuiet", "CastRynSolaa: a Jedi Master named the thing. Read by Vashk, Tolen Marr and Aneth Corr.")
+
 --------------------------------------------------------------------------------
 -- Choices with a price
 --------------------------------------------------------------------------------

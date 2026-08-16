@@ -76,6 +76,16 @@ export type SpawnRule = {
 	-- old version's crowds feel like debris.
 	zone: string?,
 	behavior: string?, -- overrides the archetype's default
+	--[[
+		A named character from Config/Cast.luau rather than one of a crowd.
+
+		Never written in the tables below: `Cast.onPlanet` builds these rules,
+		and NPCService spawns them alongside the planet's own. It lives on the
+		rule anyway because respawn is scheduled from a rule, and a rule that
+		forgot it was Overseer Vashk would bring him back as an anonymous Sith
+		Lord who attacks his own student.
+	]]
+	cast: string?,
 }
 
 --- An inclusive level range. See `Planets.bandFor`.

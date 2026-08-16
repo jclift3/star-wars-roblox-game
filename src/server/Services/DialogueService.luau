@@ -28,6 +28,7 @@
 local Players = game:GetService("Players")
 
 local Shared = game:GetService("ReplicatedStorage"):WaitForChild("Shared")
+local Cast = require(Shared.Config.Cast)
 local Dialogue = require(Shared.Config.Dialogue)
 local Flags = require(Shared.Config.Flags)
 local Missions = require(Shared.Config.Missions)
@@ -74,6 +75,17 @@ type Session = {
 	npc: Model,
 	archetypeId: string,
 	speaker: string,
+	--[[
+		Whose missions this speaker offers, and what the panel calls them.
+
+		Both are the archetype for a crowd NPC and the cast member for a named
+		one. They are stored rather than recomputed because a session outlives
+		the model lookup, and because `giverId` is what the whole Work branch
+		matches on -- deriving it twice is how the board and the conversation
+		end up disagreeing about who gives what.
+	]]
+	giverId: string,
+	title: string,
 	faction: string,
 	treeId: string,
 	nodeId: string,
@@ -99,11 +111,11 @@ end
 -- Building a node
 --------------------------------------------------------------------------------
 
---- Missions this archetype gives that the player could take right now.
-local function offersFor(profile: any, archetypeId: string): { Missions.MissionDef }
+--- Missions this speaker gives that the player could take right now.
+local function offersFor(profile: any, giverId: string): { Missions.MissionDef }
 	local out: { Missions.MissionDef } = {}
 	for _, entry in Missions.boardFor(profile.currentPlanet, profile, os.time()) do
-		if entry.mission.giver == archetypeId and not entry.locked then
+		if entry.mission.giver == giverId and not entry.locked then
 			table.insert(out, entry.mission)
 		end
 	end
@@ -143,7 +155,7 @@ local function resolveChoices(profile: any, session: Session, node: Dialogue.Nod
 				continue
 			end
 		end
-		if choice.action == Action.Work and #offersFor(profile, session.archetypeId) == 0 then
+		if choice.action == Action.Work and #offersFor(profile, session.giverId) == 0 then
 			continue
 		end
 
@@ -162,7 +174,7 @@ end
 
 --- The generated node listing everything this speaker has going.
 local function workNode(profile: any, session: Session): (string, { Resolved })
-	local available = offersFor(profile, session.archetypeId)
+	local available = offersFor(profile, session.giverId)
 	if #available == 0 then
 		return "There is nothing I need doing right now. Come back another time.",
 			{
@@ -275,7 +287,7 @@ local function goTo(player: Player, session: Session, nodeId: string)
 
 	Net.fireClient(Net.Event.StartDialogue, player, {
 		speaker = session.speaker,
-		title = NPCArchetypes.get(session.archetypeId).displayName,
+		title = session.title,
 		text = line,
 		choices = wire,
 	})
@@ -287,7 +299,13 @@ function DialogueService.begin(player: Player, npc: Model, archetypeId: string)
 		return
 	end
 	local archetype = NPCArchetypes.get(archetypeId)
-	local treeId = archetype.dialogue
+
+	-- Set by NPCService on a named character. Everything about the speaker
+	-- except the body they wear comes from the cast entry when it is there.
+	local castId = npc:GetAttribute("Cast")
+	local cast = if type(castId) == "string" and Cast.exists(castId) then Cast.get(castId) else nil
+
+	local treeId = if cast then cast.dialogue else archetype.dialogue
 	if not treeId or not Dialogue.exists(treeId) then
 		return
 	end
@@ -300,6 +318,8 @@ function DialogueService.begin(player: Player, npc: Model, archetypeId: string)
 		npc = npc,
 		archetypeId = archetypeId,
 		speaker = npc.Name,
+		giverId = if cast then cast.id else archetypeId,
+		title = if cast then cast.title else archetype.displayName,
 		faction = archetype.faction,
 		treeId = treeId,
 		nodeId = "",
@@ -367,6 +387,13 @@ end
 function DialogueService.init()
 	for _, problem in Dialogue.validate(Missions.exists, Origins.exists, Flags.exists) do
 		warn(`[DialogueService] dialogue config: {problem}`)
+	end
+
+	-- Checked here rather than in Cast itself: Dialogue is the one config the
+	-- cast could not require without closing a cycle, since its trees are
+	-- written for the cast and the cast names its trees.
+	for _, problem in Cast.validate(Dialogue.exists) do
+		warn(`[DialogueService] cast config: {problem}`)
 	end
 
 	--[[

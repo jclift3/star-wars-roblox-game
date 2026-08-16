@@ -826,6 +826,462 @@ def({
 })
 
 --------------------------------------------------------------------------------
+-- The recurring cast
+--------------------------------------------------------------------------------
+
+--[[
+	Six trees that are allowed to assume they have met you.
+
+	Every tree above this line is written for a *kind* of person -- there are
+	eleven Czerka researchers on Taris and the tree has to work for all of
+	them. These six are written for one person each, which changes what the
+	writing is allowed to do: it can open by recognising you, it can be wrong
+	about you, and it can refer to a thing that happened once.
+
+	The shape is the same in all six on purpose. A line for the origin who
+	belongs to this character, a line for each of the origins who do not, and
+	then whatever the flags say. The origin lines matter as much as the flags:
+	Vashk raised the Acolyte and has never met a Scrapper, and the difference
+	between those two conversations is most of what makes an origin feel like
+	a life rather than a starting zone.
+
+	`Cast.luau` says who they are and where they stand. See CAMPAIGN.md §7.
+]]
+
+def({
+	id = "CastVashk",
+	nodes = {
+		start = {
+			lines = {
+				"You are still breathing. Statistically that is already unusual. -- Say what you came to say; I do not enjoy being circled.",
+				"The Academy has not missed you. Institutions do not miss people. I notice, which is a different thing, and rarer.",
+			},
+			choices = {
+				WORK,
+				--[[
+					Vashk's own student first, then the three who do not know
+					him. Narrowest-first, same rule as the Researcher tree:
+					nothing ranks conditions, so the specific line has to be
+					written above the general one.
+				]]
+				{
+					text = "You had her put down and you did not stop walking.",
+					next = "defective",
+					condition = { origin = "Acolyte", flag = "SawTheIntakeForm" },
+				},
+				{ text = "Overseer.", next = "student", condition = { origin = "Acolyte" } },
+				{ text = "I am not one of yours.", next = "outsider" },
+				{
+					text = "There is a form for collecting acolytes. Who ordered the print run?",
+					next = "theForm",
+					condition = { flag = "SawTheIntakeForm" },
+				},
+				{
+					text = "A Jedi Master has a name for what is happening.",
+					next = "named",
+					condition = { flag = "NamedTheQuiet" },
+				},
+				LEAVE,
+			},
+		},
+		student = {
+			lines = {
+				"I told you on your first day that most of you would die here and that this was the point. You are annoyed that it was true. Everyone is, eventually.",
+			},
+			choices = { WORK, LEAVE },
+		},
+		outsider = {
+			lines = {
+				"No. You have the posture of somebody who was fed regularly. -- Do not mistake that for an insult. It is the closest thing to good fortune anybody in this building has had.",
+			},
+			choices = { WORK, LEAVE },
+		},
+		defective = {
+			lines = {
+				"I signed it. I have signed four hundred and six of them, and I can tell you the year of each one, which is not a defence and I am not offering it as one. -- She was not defective. There is no word for what she was, so the form has a box that says so, and I ticked it.",
+			},
+			choices = {
+				{ text = "Then why keep signing them?", next = "keepSigning" },
+				LEAVE,
+			} :: { Choice },
+		},
+		keepSigning = {
+			lines = {
+				"Because the ones I do not sign are collected anyway, and then nobody has written it down. -- Thirty years of it, in a hand nobody reads. If you ever find who reads it, you will know more than I do.",
+			},
+			choices = { WORK, LEAVE },
+		},
+		theForm = {
+			lines = {
+				"An excellent question, and the only one worth asking. It is not the Academy. We requisition students; we do not requisition a *count*. -- Somebody outside this order told the Empire how many it needed and by when.",
+			},
+			choices = { WORK, LEAVE },
+		},
+		named = {
+			lines = {
+				"A name. Thirty years and a Jedi gets to say it out loud in a room where nobody is frightened of her. -- Good. Use it. A thing with a name can be put on a form, and a thing on a form can be traced.",
+			},
+			choices = { WORK, LEAVE },
+		},
+	},
+})
+
+def({
+	id = "CastTolenMarr",
+	nodes = {
+		start = {
+			lines = {
+				"Sergeant Marr. Twenty-one years, four postings, one commendation I did not want. Sit down or do not.",
+				"If you are here from Command, I filed it. If you are here about what was in it, sit down.",
+			},
+			choices = {
+				WORK,
+				{
+					text = "You were the one who wrote it up as fatigue.",
+					next = "filed",
+					condition = { origin = "Conscript", flag = "SawBothCopies" },
+				},
+				{ text = "Sergeant.", next = "soldier", condition = { origin = "Conscript" } },
+				{ text = "I have never worn a uniform.", next = "civilian" },
+				{
+					text = "I have a copy of the stripping manifest.",
+					next = "manifest",
+					condition = { flag = "HasTheManifest" },
+				},
+				{
+					text = "A Jedi Master has a name for what is happening.",
+					next = "named",
+					condition = { flag = "NamedTheQuiet" },
+				},
+				LEAVE,
+			},
+		},
+		soldier = {
+			lines = {
+				"You came out the other side of it, which is more than the report says about you. The report says the incident concluded. -- Incidents do not conclude. They stop happening to one person and start happening to another.",
+			},
+			choices = { WORK, LEAVE },
+		},
+		civilian = {
+			lines = {
+				"Then you can ask questions I cannot, and nobody puts a note in your file for it. -- I am not being friendly. I am being practical, and you should not confuse the two while you are useful to me.",
+			},
+			choices = { WORK, LEAVE },
+		},
+		filed = {
+			lines = {
+				"I wrote what they would file. If I had written what I saw, the report goes in a drawer and I go somewhere without a comm. Written the way I wrote it, it went to eleven desks. -- One of those desks wrote back. That is why I am still asking.",
+			},
+			choices = {
+				{ text = "Which desk?", next = "whichDesk" },
+				LEAVE,
+			} :: { Choice },
+		},
+		whichDesk = {
+			lines = {
+				"Procurement. Not intelligence, not medical -- procurement. A woman with a budget wanted to know whether the effect was reproducible. She used that word in an official reply and nobody flagged it.",
+			},
+			choices = { WORK, LEAVE },
+		},
+		manifest = {
+			lines = {
+				"Let me see it. -- No, keep it, I do not want it in my hand. Read me the third column. That is a delivery schedule, and the Republic is on it as a *supplier*. -- I have been telling myself for two years that we were only slow.",
+			},
+			choices = { WORK, LEAVE },
+		},
+		named = {
+			lines = {
+				"The Jedi named it. Good for the Jedi. -- Now watch what my service does with the name, because I have seen this shape before: we will agree it is terrible, and then we will classify it, and then it will be nobody's job.",
+			},
+			choices = { WORK, LEAVE },
+		},
+	},
+})
+
+def({
+	id = "CastVessKadar",
+	nodes = {
+		start = {
+			lines = {
+				"There you are. I had you at four days and you took six, which costs you nothing and tells me something. -- Sit. I am fond of you and you still owe me.",
+				"Everyone who walks up to this table wants something. The honest ones say so in the first sentence.",
+			},
+			choices = {
+				WORK,
+				{
+					text = "The girl in the crate. You knew what the cargo was.",
+					next = "theGirl",
+					condition = { origin = "Scoundrel", flag = "OwesNobody" },
+				},
+				{ text = "How much do I owe today?", next = "debt", condition = { origin = "Scoundrel" } },
+				{ text = "I do not owe you anything.", next = "stranger" },
+				{
+					text = "I covered a stranger's debt on the Promenade.",
+					next = "paidOne",
+					condition = { flag = "PaidTheStrangersDebt" },
+				},
+				{
+					text = "I watched the Cartel collect and I said nothing.",
+					next = "watchedOne",
+					condition = { flag = "LetThemBreakHisHands" },
+				},
+				LEAVE,
+			},
+		},
+		debt = {
+			lines = {
+				"Less than yesterday, which is the only sentence in this business anybody is ever glad to hear. -- I could clear it. I want you to notice that I have not, and to ask yourself why, and then to do nothing about it, because I like the arrangement.",
+			},
+			choices = { WORK, LEAVE },
+		},
+		stranger = {
+			lines = {
+				"Not yet. Nobody does, at first. -- I sell what nobody else will and I charge what the room will bear. You will be back, and I will be pleasant about it, and both of us will pretend that is a kindness.",
+			},
+			choices = { WORK, LEAVE },
+		},
+		theGirl = {
+			lines = {
+				"I knew it was sealed, sedated and worth eleven thousand, and I did not open it, because a fixer who opens the cargo is a fixer nobody hires twice. -- You opened it. -- I have thought about that more than I would like, and I have not changed anything, and those are two separate facts about me.",
+			},
+			choices = {
+				{ text = "Who was the buyer?", next = "buyer" },
+				LEAVE,
+			} :: { Choice },
+		},
+		buyer = {
+			lines = {
+				"A Czerka account, paid clean, signed by somebody with a doctorate. -- That is the part that should frighten you. Not the Hutts. The paperwork.",
+			},
+			choices = { WORK, LEAVE },
+		},
+		paidOne = {
+			lines = {
+				"I heard. The whole level heard, which is the problem: eleven people now believe their debt is the kind of thing a stranger might cover. -- I am not angry. I am recalculating, and that is worse for them and better for you.",
+			},
+			choices = { WORK, LEAVE },
+		},
+		watchedOne = {
+			lines = {
+				"You stood there. -- I am not going to pretend to be shocked; I have stood there. But do not tell me it was business. Business was the debt. The hands were somebody enjoying themselves, and you watched that part too.",
+			},
+			choices = { WORK, LEAVE },
+		},
+	},
+})
+
+def({
+	id = "CastOrdo9",
+	nodes = {
+		start = {
+			lines = {
+				"Greeting: hello. I have run diagnostics eleven times since you left and I remain missing the same forty-one per cent. Statement: I have decided to find this funny.",
+				"Observation: you are approaching from my left, which is the side with the damaged sensor. Speculation: either you have forgotten, or you are being kind, and I cannot presently tell those apart.",
+			},
+			choices = {
+				WORK,
+				{
+					text = "Nine. What else do you remember about the crates?",
+					next = "crates",
+					condition = { origin = "Scrapper", flag = "HeardNineRemember" },
+				},
+				{
+					text = "How are you holding together?",
+					next = "repair",
+					condition = { origin = "Scrapper" },
+				},
+				{ text = "What are you?", next = "whatAreYou" },
+				{
+					text = "I have been inside Lot 9.",
+					next = "lot9",
+					condition = { flag = "SawLot9" },
+				},
+				LEAVE,
+			},
+		},
+		repair = {
+			lines = {
+				"Answer: adequately, and improving, which I attribute entirely to you and a scavenged coupling of the wrong gauge. Addendum: the coupling of the wrong gauge is the part I am fondest of.",
+			},
+			choices = { WORK, LEAVE },
+		},
+		whatAreYou = {
+			lines = {
+				"Answer: an HK-series unit, which I am told means something to people who were alive earlier. Qualification: I do not remember being it. Assessment: I have been informed that this is the best possible outcome, by someone who then would not look at me.",
+			},
+			choices = { WORK, LEAVE },
+		},
+		crates = {
+			lines = {
+				"Retrieval: fourteen. Fourteen deliveries, one recipient, no return leg logged. Difficulty: the recipient field is intact and the recipient name is not, which is not corruption -- corruption is untidy and that field was *cleared*.",
+			},
+			choices = {
+				{ text = "Somebody wiped it deliberately.", next = "wiped" },
+				LEAVE,
+			} :: { Choice },
+		},
+		wiped = {
+			lines = {
+				"Concurrence. And here is the part I have not said out loud: the instruction to clear it is in my own maintenance log, in my own authorisation. Statement: I did that. Clarification: I do not remember doing that, and I have stopped finding it funny.",
+			},
+			choices = { WORK, LEAVE },
+		},
+		lot9 = {
+			lines = {
+				"Query: were the racks numbered? -- Do not answer. I already know they were numbered, and I know that because I have a stored route to a building I have never told you I could find. Conclusion: I carried them. Request: do not reassure me.",
+			},
+			choices = { WORK, LEAVE },
+		},
+	},
+})
+
+def({
+	id = "CastRynSolaa",
+	nodes = {
+		start = {
+			lines = {
+				"Come in. You are the fourth person this year to walk up that path looking like they have something they are not sure they are allowed to say. -- You are allowed.",
+				"Peace. -- No, look at me properly. I am not going to tell you that you imagined it.",
+			},
+			choices = {
+				WORK,
+				--[[
+					The one line any origin can reach that sets a flag three
+					other characters read. Guarded by its own flag, so the
+					naming happens once.
+
+					Gated on level rather than on evidence, and that is a
+					compromise worth writing down: the honest condition is
+					"has seen any of the four prologues", and a Condition is
+					an AND of its fields with no way to say *or*. Four copies
+					of this choice, one per prologue flag, would show the same
+					line twice to a character who saw two of them. Level 20 is
+					the proxy -- late enough that a player arriving here has
+					been somewhere.
+				]]
+				{
+					text = "Say what it is. Out loud.",
+					next = "naming",
+					sets = { "NamedTheQuiet" },
+					condition = { minLevel = 20, notFlag = "NamedTheQuiet" },
+				},
+				{
+					text = "You said it. Has the Council?",
+					next = "council",
+					condition = { flag = "NamedTheQuiet" },
+				},
+				{
+					text = "One of your Order went hollow in front of me.",
+					next = "witness",
+					condition = { origin = "Conscript" },
+				},
+				{ text = "I was raised on Korriban.", next = "korriban", condition = { origin = "Acolyte" } },
+				{ text = "Why would a Jedi talk to me at all?", next = "why" },
+				LEAVE,
+			},
+		},
+		naming = {
+			lines = {
+				"The Quiet. -- That is what it is called by the four of us who have written it down, and I am aware of how it sounds. Something is taking the Force out of living people and leaving the people. -- There. It is said, and the room did not fall down, and now you and I both have to be someone who knows.",
+			},
+			choices = {
+				{ text = "Then what do we do?", next = "council" },
+				LEAVE,
+			} :: { Choice },
+		},
+		council = {
+			lines = {
+				"The Council has read every word and asked for a fifth report. -- I have stopped believing that is caution. An institution that is frightened does not act; it commissions. Whatever gets done about this will be done by people acting against their own order, and I am now one of them.",
+			},
+			choices = { WORK, LEAVE },
+		},
+		witness = {
+			lines = {
+				"You carried her out. I read the file -- the real one, not the one with fatigue written on it. -- You are the only non-sensitive I have met who has watched it happen, and you have no idea how much that is worth. You cannot be told you imagined it.",
+			},
+			choices = { WORK, LEAVE },
+		},
+		korriban = {
+			lines = {
+				"I know. You have been standing there deciding how I will take it. -- Badly, if you had come ten years ago. It cannot touch the people who have no talent to take, which means it is not a Sith weapon and not a Jedi problem. It is being done to *us*, and I am afraid I have to include you in that word.",
+			},
+			choices = { WORK, LEAVE },
+		},
+		why = {
+			lines = {
+				"Because you came up the path, and because the people who are going to be useful about this are not going to be Jedi. -- We are being hunted and we are the last to notice. That is not wisdom. That is what being important does to you.",
+			},
+			choices = { WORK, LEAVE },
+		},
+	},
+})
+
+def({
+	id = "CastAnethCorr",
+	nodes = {
+		start = {
+			lines = {
+				"Doctor Corr. You are not on today's list, and I would rather talk to you than have you removed, so let us do that instead. -- Everything here is legal. I say that first because it is the part people refuse to believe.",
+				"You have questions, and I will answer them, and that will be worse for you than being lied to. Most people find this out too late to leave.",
+			},
+			choices = {
+				WORK,
+				{
+					text = "The racks in Lot 9 have people in them.",
+					next = "racks",
+					condition = { flag = "SawLot9" },
+				},
+				{
+					text = "I have your stripping manifest.",
+					next = "manifest",
+					condition = { flag = "HasTheManifest", notFlag = "SawLot9" },
+				},
+				{
+					text = "A Jedi Master has a name for what you do.",
+					next = "named",
+					condition = { flag = "NamedTheQuiet" },
+				},
+				{ text = "What exactly does Czerka procure?", next = "procure" },
+				LEAVE,
+			},
+		},
+		procure = {
+			lines = {
+				"Whatever the contract specifies. I have a budget, a quota and a client, and I have never met the client, which is normal and which I am aware sounds otherwise. -- I am not the interesting part of this. I am the part that makes it happen on schedule.",
+			},
+			choices = { WORK, LEAVE },
+		},
+		racks = {
+			lines = {
+				"Yes. Sedated, monitored, and in better health than most of this planet -- which is not a defence, it is a specification. The contract requires them intact. -- You want me to be frightened of you now. I would rather you asked who wrote the specification, because I did not, and I would very much like to know.",
+			},
+			choices = {
+				{ text = "Then stop filling it.", next = "stop" },
+				LEAVE,
+			} :: { Choice },
+		},
+		stop = {
+			lines = {
+				"And be replaced within the quarter by someone who does not keep records. -- I know how that sounds. It is also the only true thing I have said today: my successor's quota would be the same and there would be no manifest for you to be holding.",
+			},
+			choices = { WORK, LEAVE },
+		},
+		manifest = {
+			lines = {
+				"Then you have my signature, my requisition numbers and the shipping schedule, and none of it is a crime in any jurisdiction that has an office on this planet. -- Take it to the Republic. I am serious. Watch what they do with it, and then come back and we will have a much shorter conversation.",
+			},
+			choices = { WORK, LEAVE },
+		},
+		named = {
+			lines = {
+				"The Quiet. -- How very Jedi. We call it attrition, in the schedule, because a schedule needs a word for the difference between what arrives and what is usable. -- I have been putting a number in that column for six years without once asking what it was a number of.",
+			},
+			choices = { WORK, LEAVE },
+		},
+	},
+})
+
+--------------------------------------------------------------------------------
 -- API
 --------------------------------------------------------------------------------
 

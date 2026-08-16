@@ -21,6 +21,10 @@
 	follow it there is a story at the end.
 ]]
 
+-- Named characters are legal mission givers, so `validate` has to be able to
+-- tell one from an archetype. Cast requires Planets and NPCArchetypes, both of
+-- which this file already requires, so there is no cycle.
+local Cast = require(script.Parent.Cast)
 local Factions = require(script.Parent.Factions)
 local Flags = require(script.Parent.Flags)
 local Items = require(script.Parent.Items)
@@ -1480,7 +1484,16 @@ function Missions.validate(): { string }
 			was written for never happens. Checked here rather than trusted,
 			because nothing errors when it is wrong.
 		]]
-		if not NPCArchetypes.exists(m.giver) then
+		if Cast.exists(m.giver) then
+			-- A named character is always interactable and declares their own
+			-- planet, so only the one check is left.
+			if Cast.get(m.giver).planet ~= m.planet then
+				table.insert(
+					problems,
+					`{id}: giver "{m.giver}" stands on {Cast.get(m.giver).planet}, not {m.planet}`
+				)
+			end
+		elseif not NPCArchetypes.exists(m.giver) then
 			table.insert(problems, `{id}: unknown giver archetype "{m.giver}"`)
 		elseif not NPCArchetypes.get(m.giver).interactable then
 			table.insert(problems, `{id}: giver "{m.giver}" is not interactable`)

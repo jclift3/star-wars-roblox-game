@@ -968,6 +968,51 @@ meaning at last.
 **Sabers come out of the shop tables.** `Weapons.luau` currently sells one at
 level 10 for 7,500 credits; the vendor entry becomes a hilt component instead.
 
+### 3b.6 The recurring cast — **[done 2026-08-16]**
+[CAMPAIGN.md](CAMPAIGN.md) §7 names six people the campaign is about, and the
+mission text refers to them by name — Vashk signed the order, Nine remembers the
+deliveries, Kadar owns the debt. **None of them existed.** A story whose
+characters are only ever mentioned in briefing text is a story the player reads
+*about* rather than one they are in, which is most of what "I'm left wanting
+more character development" was describing.
+
+`Config/Cast.luau` declares the six: Overseer Vashk (Korriban Academy), Sergeant
+Tolen Marr (Ord Mantell Garrison), Vess Kadar (Nar Shaddaa Promenade), Ordo-9
+(Taris Camp), Master Ryn Solaa (Tython Temple), Doctor Aneth Corr (Taris Lot 9).
+Four are one origin's mentor each; Solaa and Corr are introduced identically to
+all four, so the ally and the antagonist are shared and four players who agree on
+nothing else can still be in one conversation.
+
+**A cast member borrows an archetype for its body and overrides everything that
+makes a crowd a crowd.** An archetype is deliberately a *kind* of person —
+`NPCService` rolls a level from the district band, a name from a pool, a species
+from a weighted table — and every one of those is wrong for a named character.
+So costume, species, faction and the rig come from the archetype; level, name,
+dialogue and behaviour do not. Behaviour is forced to `QuestGiver` whatever the
+archetype does, which is what lets Vashk wear a Sith Lord's armour without
+shooting the Acolyte he raised, and the prompt is added on `interactable or
+cast`. Levels are fixed and high (26–45) for the unromantic reason that a story
+character who can be killed by the players standing next to him will be.
+
+No parallel spawner: `Cast.spawnRules(planetId)` emits ordinary
+`Planets.SpawnRule`s carrying a new `cast` field, so placement, respawn,
+corpses and prompts all reuse the paths that already work. The field lives on
+the *rule* rather than the model because respawn is scheduled from a rule — one
+that forgot it was Vashk would bring him back as an anonymous hostile Sith Lord.
+
+Six dialogue trees, each shaped the same way: a line for the origin who belongs
+to this character, a line for the origins who do not, then whatever the flags
+say. They are the only conversations in the game allowed to assume they have met
+you before, which is what the flags system was built for. One new flag,
+`NamedTheQuiet`, is the only flag in the game raised by a conversation rather
+than an errand — Solaa will say the word with you from level 20, and Vashk,
+Tolen Marr and Aneth Corr all answer differently once someone has.
+
+`Missions.validate` now accepts a cast id as a `giver` (checking only that the
+mission's planet is where that character stands), and `Cast.validate` is run at
+boot from `DialogueService`, which is also the one place that can see both
+configs without closing a require cycle.
+
 ---
 
 ## Phase 4 — RPG depth

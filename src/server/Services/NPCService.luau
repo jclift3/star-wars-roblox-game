@@ -38,6 +38,7 @@ local TweenService = game:GetService("TweenService")
 local Workspace = game:GetService("Workspace")
 
 local Shared = game:GetService("ReplicatedStorage"):WaitForChild("Shared")
+local Cast = require(Shared.Config.Cast)
 local NPCArchetypes = require(Shared.Config.NPCArchetypes)
 local NPCNames = require(Shared.Config.NPCNames)
 local Planets = require(Shared.Config.Planets)
@@ -363,9 +364,20 @@ local function spawnOne(planetId: string, rule: SpawnRule): Record?
 	end
 
 	local archetype = NPCArchetypes.get(rule.archetype)
+
+	--[[
+		A named character overrides the two things that make a crowd a crowd.
+
+		A rolled name and a district-derived level are right for the eleventh
+		Cartel enforcer and wrong for Overseer Vashk, who has one name and is
+		the same man whichever district the map happens to put him in.
+	]]
+	local cast = if rule.cast and Cast.exists(rule.cast) then Cast.get(rule.cast) else nil
 	-- A spawn rule that names no zone is planet-wide, and so is its band.
-	local level = NPCArchetypes.rollLevel(rule.archetype, rng, Planets.bandFor(planetId, rule.zone or ""))
-	local displayName = NPCNames.generate(archetype.nameStyle, rng)
+	local level = if cast
+		then cast.level
+		else NPCArchetypes.rollLevel(rule.archetype, rng, Planets.bandFor(planetId, rule.zone or ""))
+	local displayName = if cast then cast.displayName else NPCNames.generate(archetype.nameStyle, rng)
 
 	local model = RigBuilder.build({
 		species = NPCArchetypes.rollSpecies(rule.archetype, rng),
@@ -395,6 +407,12 @@ local function spawnOne(planetId: string, rule: SpawnRule): Record?
 	model:SetAttribute("Faction", archetype.faction)
 	model:SetAttribute("Level", level)
 	model:SetAttribute("Planet", planetId)
+	-- How DialogueService knows to open this character's own tree instead of
+	-- the archetype's. Set on the model rather than passed through the
+	-- `interacted` signal so nothing else has to learn a new signature.
+	if cast then
+		model:SetAttribute("Cast", cast.id)
+	end
 
 	local carriesWeapon = archetype.weapon ~= nil
 		and (archetype.weaponChance == nil or rng:NextNumber() < archetype.weaponChance)
@@ -419,7 +437,10 @@ local function spawnOne(planetId: string, rule: SpawnRule): Record?
 		brain:setPatrolRoute(route)
 	end
 
-	if archetype.interactable then
+	-- A cast member is always interactable: the archetype they borrowed may be
+	-- a Sith Lord, and being unable to talk to the man who raised you because
+	-- his costume normally shoots people is not a rule worth respecting.
+	if archetype.interactable or cast then
 		addPrompt(model, root, archetype, displayName)
 	end
 
@@ -459,7 +480,15 @@ local function populate(planetId: string)
 	populated[planetId] = true
 
 	task.spawn(function()
+		-- The cast go first. MAX_NPCS is a real ceiling, and if a planet ever
+		-- reaches it the thing that gets left out should not be the one
+		-- person on it a mission can name.
+		local rules = Cast.spawnRules(planetId)
 		for _, rule in Planets.get(planetId).spawns do
+			table.insert(rules, rule)
+		end
+
+		for _, rule in rules do
 			for _ = 1, rule.count do
 				if not populated[planetId] then
 					return -- the last player left mid-build

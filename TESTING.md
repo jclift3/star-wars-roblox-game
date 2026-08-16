@@ -513,6 +513,45 @@ and both `Missions.validate` and `Dialogue.validate` check them at boot. So
 check the server log at startup **first** — if it is silent, the flag is fine
 and the condition is what is wrong.)*
 
+### 8.2 The recurring cast — **new, never played**
+
+Six named characters landed 2026-08-16. Until then they existed only as names in
+briefing text. `iam{acolyte,conscript,scoundrel,scrapper}` switches origin and
+`thereisnocow` levels, which is how you see the other three-quarters of each
+tree without four playthroughs.
+
+1. **They are where they say they are.** Six characters, one visit each:
+   **Overseer Vashk** (Korriban, Academy), **Sergeant Tolen Marr** (Ord Mantell,
+   Garrison), **Vess Kadar** (Nar Shaddaa, Promenade), **Ordo-9** (Taris, Camp),
+   **Master Ryn Solaa** (Tython, Temple), **Doctor Aneth Corr** (Taris, Lot 9).
+   Each has their own name over their head, not a rolled one, and a **Talk**
+   prompt.
+2. **The ceiling did not eat them.** `MAX_NPCS` is a real limit and the cast are
+   spawned *before* the crowd so they win it. Check all six on a full server,
+   not an empty one — a missing character with a silent boot log is this.
+3. **Their body is borrowed and their behaviour is not.** Vashk wears Sith Lord
+   armour and Ordo-9 is an armed war droid. **Neither may attack you**, on any
+   origin, at any reputation. This is the single most likely thing to be wrong.
+4. **Killing one does not un-name them.** Shoot a cast member (they are levels
+   26–45, so this needs cheats or patience), wait out the respawn, and talk to
+   whoever comes back. It must still be **Overseer Vashk** with his own
+   conversation — not an anonymous hostile Sith Lord.
+5. **They know which origin you are.** Talk to Vashk as an Acolyte, then
+   `iamscoundrel` and talk to him again. The opening reply is different: one is
+   the man who raised you, the other is a stranger in his Academy. Same test for
+   Tolen Marr (Conscript), Kadar (Scoundrel) and Ordo-9 (Scrapper).
+6. **They remember your prologue.** With the matching origin's prologue
+   finished, the mentor has an extra reply about the specific thing you saw.
+   Without it, that reply is absent — not greyed, absent.
+7. **Naming the Quiet.** At level 20+, Master Ryn Solaa offers *Say what it is.
+   Out loud.* Take it. Then talk to **Vashk**, **Tolen Marr** and **Aneth Corr**:
+   each has a line that only exists once someone has said the word. Go back to
+   Solaa — the choice must be **gone**, not repeatable.
+8. **The boot log is silent.** `Cast.validate` runs from `DialogueService` at
+   startup. Any `[DialogueService] cast config:` line means a cast member points
+   at a planet, zone, archetype or dialogue tree that does not exist, and that
+   character will be missing or mute in-game.
+
 ---
 
 ## 9. Combat and progression
