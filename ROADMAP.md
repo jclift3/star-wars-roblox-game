@@ -33,6 +33,181 @@ moment where you choose it (Phase 3b.1).
 
 ---
 
+## Playtest findings — 2026-08-15
+
+First run with all nine worlds reachable. Split into **bugs** (something is
+wrong with what exists) and **new scope** (something that was never built).
+The bugs are cheap and should land before any of Phase 3's content work,
+because several of them make the content that already exists impossible to
+*see*.
+
+### Bugs and tuning
+
+**B1. Three worlds are too dark to play.** Reported for Korriban, Coruscant
+and — as fog rather than darkness — Ord Mantell. Two independent causes:
+
+- `AtmosphereController` runs a **day/night cycle** (`:297`, Heartbeat advances
+  `Lighting.ClockTime` and lerps ambient toward `afterDark(...)` by
+  `nightFactor()`). It is entirely possible to arrive on a planet at 02:00 and
+  find it unplayable through no fault of the palette. **Suspect this first.**
+  Options: clamp `nightFactor` so night never goes below a floor; hold new
+  arrivals at midday for a minute; or give `PlanetDef` a `fixedClockTime` for
+  worlds that should never be dark.
+- The per-planet palettes are genuinely dark on top of that. Korriban's
+  `ambientLight` is `RGB(90, 52, 42)` — the second darkest in the file, under a
+  red fog at `fogEnd = 2400`. Ord Mantell is `fogStart = 200 / fogEnd = 2200` in
+  purple-grey. Hoth's `fogEnd = 900` is deliberate (the comment says "whiteout:
+  you cannot see trouble coming") and should stay.
+
+The rule to write down: **atmosphere is allowed to set a mood, but never to hide
+a landmark you are being sent to.** A fog end shorter than the distance between
+two points of interest is a bug.
+
+**B2. Every planet's buildings are identical.** Correct, and worse than it
+looks. `PlanetBuilder.styleFor` (`:139`) switches on `planet.terrain` only, and
+there are five branches for nine worlds:
+
+| Style | Worlds |
+|---|---|
+| Desert | **Tatooine, Korriban** |
+| Urban (default) | **Coruscant, Taris, Nar Shaddaa** |
+| Forest/Swamp | **Tython, Ord Mantell, Dromund Kaas** |
+| Ice | Hoth |
+| Ocean | *(unused since Kamino was cut)* |
+
+And a "style" is only `buildingColors`, floor counts, a `domed` flag, a window
+colour and a scatter kind. The *geometry* — `buildBuilding` (`:307`), a stack of
+tiered boxes with window strips — is the same on all nine. So Korriban is
+literally Tatooine with different sand, and the boys can see it.
+
+This is Phase 3.1's prefab work, and this finding **promotes it above 3b**. The
+fix is not more terrain branches; it is that a planet declares an *architecture*
+independent of its ground, and prefabs carry real shapes. Sith pylons and
+ziggurats are not adobe domes with a red tint.
+
+**B3. Everything charges you on sight from a very long way off.** Half of this
+is already solved and half is real:
+
+- **Line of sight already exists.** `NPCBrain.hasLineOfSight` (`:278`) raycasts
+  from the NPC to the target and excludes both models. Do not build it again.
+- What is wrong is **range**. `findTarget` defaults to `sightRange or 120`
+  studs, and the authored values run 120–300: SithLord **300**, Jedi 260, Sith
+  220, ImperialCommando 240. At 300 studs an NPC starts running before it is a
+  recognisable shape on screen. A prior fix already pulled one archetype down
+  from 260 to 150 with a comment about "opening fire from the next district
+  over" — that fix was right and was not applied broadly enough.
+- And `isEnemy` (`:294`) **short-circuits on `Behavior.Aggressive`** before
+  reading faction reputation, so those archetypes are hostile to everyone
+  always. Already recorded as a hazard; this is the second time it has produced
+  a visible bug.
+
+Wanted, in rough order of value: a **detection ramp** rather than a boolean —
+awareness builds with proximity, facing and whether you are moving, so there is
+a moment to back away; **rear/flank arcs** so LOS means a cone rather than a
+sphere; and **stealth as an actual input** (crouch, cover, sprinting is loud).
+That last one is what makes B4 mean something.
+
+**B5. Six of the nineteen skills do nothing at all.** Found while reviewing the
+trees. `Config/Progression.luau` defines 19 skills; grepping each `effect.stat`
+for a reader outside `Progression.luau` and `SkillTreeController.luau` finds
+**none** for:
+
+| Stat | Skill | Why |
+|---|---|---|
+| `ShipSpeedMult` | Throttle Control | no ships |
+| `ShipTurnMult` | Manoeuvring | no ships |
+| `ShipShield` | Shield Harmonics | no ships |
+| `FuelCostMult` | Navigator | travel is priced by fare, not fuel |
+| `PushPower` | Force Push | the power itself is unimplemented |
+| `SliceTier` | Slicer | nothing in the world is sliceable |
+| `RepairMult` | Field Repair | no ship hull to repair |
+
+**The entire Piloting tree is inert** — a player can sink 20 points into it and
+gain nothing, and the UI happily sells them. Two of Engineering's four are dead
+too. This is failure mode #1 again (a system with no reader), and it is the
+worst instance so far because the player *pays* for it.
+
+Immediate mitigation: mark dead skills as locked/"coming soon" in
+`SkillTreeController` so points cannot be wasted, or refund and hide the tree
+until Phase 2b ships. Proper fix is §4.3 below.
+
+**B4. Ord Mantell has no missions.** The board reads "No work going on this
+planet right now." It is the Conscript prologue world and has zero entries in
+`Missions`. Same failure family as §1.2's dead POIs: nothing errors, the world
+is just empty when you arrive.
+
+### New scope
+
+**N1. Disguise outfits.** Outfits already carry stat mods and level gates
+(`Config/Outfits.luau`), so the data model has room. Design: an outfit declares
+a `disguiseFaction`; `NPCBrain.isEnemy` consults it before deciding; it fails
+under scrutiny — proximity to officers, drawing a weapon, being seen in a
+restricted zone, or a species mismatch the costume can't hide (a Wookiee in
+Imperial armour). Pairs with B3's detection ramp: a disguise should raise the
+threshold, not zero it.
+
+**N2. Non-lethal outcomes — jail.** Correct, and it is the missing half of the
+morality system. Right now every encounter resolves in a corpse, which
+contradicts the "decently dark, but you always have agency" tone in CAMPAIGN §6.
+Design sketch: security-faction NPCs **subdue** rather than kill at 0 HP; you
+wake in a cell with your gear confiscated, a fine to pay, a sentence to wait
+out, or a way to break out — three exits, each rewarding a different tree
+(credits / patience / Scoundrel or Scrapper skills). A bounty/heat value per
+faction drives it, which is also finally a *reader* for faction reputation
+(currently written and never read — a standing gap).
+
+**N3. Terrain variability.** Ground is a flat slab today. Wanted: mountains,
+canyons, rivers where the world justifies them — Korriban's valley of tombs is
+a *valley*, Taris is a ruined city under a shattered skyline, Ord Mantell has
+swamp and water, Tython has hills and rivers, Nar Shaddaa has no ground at all.
+This is a `PlanetDef` heightfield or Roblox Terrain pass and it should land with
+3.1 so prefabs are placed onto real ground rather than a plane.
+
+**N4. Paths, and how you cross a world.** A 3000x3000 slab with a 520-radius
+town means most of the map is a walk across nothing. Two answers and we probably
+want both: **authored paths** — roads, catwalks, ridge lines — that make the
+wilderness legible and give a reason to leave them; and **vehicles** —
+speeders/swoops for ground worlds, which is the natural home for the Scrapper
+and Scoundrel signature chains. Nar Shaddaa and Coruscant are the forcing case:
+a vertical city genuinely has no walkable ground, so it needs platforms, lifts
+and air traffic or it needs a flier.
+
+**N5. Cities built out properly.** The standing request from day one, restated:
+better designs, **indoor spaces you can enter**, more detail. Interiors are the
+biggest single jump in perceived quality and are currently zero — every landmark
+is a solid exterior. Suggest: a prefab may declare an interior, entered by a
+door trigger, built as its own local space. Cantina, shop, barracks, tomb,
+apartment. That also gives dialogue and vendors somewhere to happen that isn't
+a street corner.
+
+**N6. An economy, not just a wallet.** The largest new ask, and it is really
+five features:
+
+1. **More ways to earn** than mission rewards and loot: salvage, courier runs,
+   bounties, gambling, crafting.
+2. **Property.** Buy and sell homes. A home is also the natural place to hang
+   the "ship interior customization" wish from `note.txt` — same system, one
+   is parked.
+3. **A market with moving prices.** A "stock market of sorts": commodity prices
+   per planet that drift and react, so buying spice cheap on Nar Shaddaa and
+   selling it on Coruscant is a *trade route*. This is a better fit than equities
+   and it makes travel (Phase 2) economically meaningful instead of a toll.
+4. **Player-to-player trading**, Diablo-style. Blocked on the same data-model
+   change as rolled affixes: `profile.inventory` is `{[id]: count}` and cannot
+   represent two different rolls of one item, let alone move one between
+   players. **This is now the second feature blocked on that change — do it
+   early.**
+5. **Loans**, with the debtor who does not pay and the mission that follows.
+   This is genuinely good: it is a *generator* for radiant missions (Phase 4.0)
+   with a built-in reason to care about the target, and it converts the economy
+   into content instead of a number that goes up.
+
+Sequencing note: 1 and 3 are cheap and can ride along with Phase 3. 2 and 5 want
+persistence and are Phase 4. 4 is gated on the inventory rework, which should
+happen before rolled loot regardless.
+
+---
+
 ## Design direction — Diablo-style (decided 2026-08-14)
 
 The target is an action-RPG loop: kill things, level, spend points, find better
@@ -410,7 +585,18 @@ The mechanism, designed in [PLANETS.md](PLANETS.md) §2. Four pieces:
   fails silently.
 
 Wilderness stays generated. A hand-authored 3000x3000 map is not worth it, and
-scattered boulders are fine out there.
+scattered boulders are fine out there — but it needs **shape**: see playtest N3
+(mountains, canyons, rivers) and N4 (paths). A flat plane with boulders reads as
+nothing at all once you have seen it on three worlds.
+
+Two additions from the 2026-08-15 playtest, both belonging here:
+
+- **Architecture is not terrain.** A planet must declare its building family
+  separately from its ground type, or Korriban stays Tatooine in a red filter
+  (B2). This is the prefab work above, with the switch moved off `terrain`.
+- **Prefabs may declare an interior** (N5), entered by a door trigger and built
+  as its own space. Zero landmarks are enterable today and this is the single
+  biggest jump in how finished the world feels.
 
 ### 3.2 The eight worlds — **[todo]**
 Contents specified per planet in [PLANETS.md](PLANETS.md) §3. Build order is
@@ -481,7 +667,8 @@ level 10 for 7,500 credits; the vendor entry becomes a hilt component instead.
 
 ## Phase 4 — RPG depth
 
-- ~~Skill tree UI~~ — **done**, see 1.5
+- ~~Skill tree UI~~ — **done**, see 1.5. The *contents* of the trees are not:
+  see 4.3, and B5 in the playtest findings
 - Loot drops with rolled affixes, and the `profile.inventory` change they need
 - ~~Per-zone level bands~~ — moved into 3.1, where districts declare a `band`.
   Still owed here: the "you are underlevelled" warning on crossing into one
@@ -504,6 +691,63 @@ Roughly 150 lines against `NPCArchetypes`, `Planets` and `Missions`, no
 infrastructure, and it produces content indefinitely. The 15 authored missions
 become the story spine; radiant ones fill the world between them. Best built
 after 3.1, so districts have a `band` to draw a difficulty from.
+
+### 4.3 Skill trees, properly — **[todo]**
+Raised 2026-08-15: *"the skill trees need to be incredibly well thought out and
+align with the objectives and gameplay."* Correct. The UI is done (1.5) and the
+**content is not**. What exists is 19 skills across 4 trees where:
+
+- Every skill is `maxRank = 5`.
+- Every skill is a **flat linear passive** — `+6% per rank`, `+15 HP per rank`.
+  There is not one branch point, one either/or, one skill that changes how you
+  play rather than how big your numbers are.
+- One skill (`ForcePush`) claims to unlock an ability. It doesn't (B5).
+- Six do nothing at all (B5).
+- `requires` is a single-parent chain, so a "tree" is really four short ladders.
+  There is no reason to ever stop partway, so every build converges.
+
+Max level and point income need checking against this too: if the points
+available across the whole game exceed the points needed to max everything
+useful, there is no *choice*, only an order.
+
+**What good looks like** — the design targets, in priority order:
+
+1. **Actives, not just passives.** A tree should hand you *verbs*: Force Push,
+   Force Pull, Lightning, Saber Throw, a grenade, a stim, a slicer spike, a
+   scanner ping, a droid companion. A point that gives you a new button is worth
+   ten that give you +6%. This is also what makes the Diablo comparison honest —
+   Diablo's trees are almost entirely abilities and ability *modifiers*.
+2. **Real choice points.** Mutually exclusive nodes (a saber form that trades
+   defence for damage), capstones that cost most of a tree, and prerequisites
+   that fan out rather than chain. If two players at level 30 have the same
+   sheet, the tree failed.
+3. **Alignment on the Force tree.** Light and dark branches, gated by
+   `alignment` from 3b.2 — which is currently a value with almost nothing
+   reading it. Lightning vs. healing is the oldest and best example in the
+   setting, and it makes 3b.2 pay for itself.
+4. **Complementary co-op.** The long-standing goal (Jedi + soldier). Express it
+   as skills whose *effect lands on your teammate* — a mark that raises everyone's
+   damage on a target, a shield you throw, a revive. Two players should be more
+   than twice one player. Four trees for four origins is the right skeleton; what
+   is missing is the connective tissue.
+5. **Skills that open the world, not just win fights.** Slicing a door, a
+   persuade check in dialogue, a disguise that holds (N1), spotting a hidden
+   cache, negotiating a better loan (N6). Every one of these is a `Condition` in
+   dialogue or a check in an interaction, and they are what make a build feel
+   like a *character*.
+
+**Hard rule going forward, from B5: a skill is not added to `Progression.luau`
+until something reads its stat.** Cheapest enforcement is a boot-time check —
+a table of stat → "who consumes this", validated like `Factions.validate`.
+
+**Sequencing.** This is a big design pass and it depends on things that do not
+exist yet: abilities need a cooldown/resource system and input bindings, the
+Force tree needs `alignment` (3b.2), the Piloting tree needs ships (2b), and
+world-opening skills need §3.1's interiors and terminals. So: do the B5
+mitigation now, write the full tree design alongside CAMPAIGN's signature
+chains (3b.5) since they answer the same question — *why specialize?* — and
+implement after 3.1. Design goes in a new `SKILLS.md` when it is written; this
+section is the brief.
 
 ### 4.1 Analytics — **[todo]**
 The cheapest item on this roadmap that measurably improves the game, and the
