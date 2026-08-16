@@ -472,6 +472,47 @@ three. Different lists is a bug, and a bad one.
 5. **Esc** ends the conversation and returns control.
 6. Shoot a shopkeeper dead, then try to trade with the corpse. Refused.
 
+### 8.1 Choices that stick — **new, never played**
+
+Alignment and flags landed 2026-08-16. Before this the game could not remember
+anything you *decided*, only what you had finished, so all of this is unplayed.
+`thereisnocow` reaches level 12, which is where the fork opens.
+
+1. **The number exists and has a name.** Open **K**. Top right of the header
+   reads a band and a signed figure — `Unaligned  (+0)` on a fresh character.
+   It is on the skills panel and deliberately not on the HUD.
+2. **A conversation can move it.** Find a **Cartel Enforcer** on the Nar Shaddaa
+   Promenade collecting a debt. Two of the replies cost or earn alignment;
+   pick one. A toast reports the change, and **K** shows the new figure.
+3. **It happens once.** Talk to the *same* enforcer again. Both paying replies
+   are gone — the free `Not my business.` exit stays. Then talk to a
+   **different** enforcer (there are eighteen on that Promenade). The paying
+   replies must be gone there too. **If any enforcer still offers them, that is
+   the exploit this whole system was built to make impossible** — the boys will
+   find it in about four minutes.
+4. **Crossing a band says so.** Keep taking the same kind of choice until the
+   figure crosses ±100. A second toast reads `You are becoming Decent.` (or
+   `Callous.`). Only band changes announce themselves, not every point.
+5. **The fork.** At level 12 on Coruscant the board offers **both** *Loyalty
+   Check* (an officer wants the underlevels cleared) and *The Warning* (a
+   smuggler wants them emptied first). Take one and finish it. **The other must
+   disappear from the board**, and the reason on it, if it shows one, is the
+   deliberately vague *"Not the road you took"*.
+6. **The world knows.** After that mission, talk to an **Imperial Officer** and
+   a **Civilian** on Coruscant. Each has a line that only exists because of
+   which one you took. Two characters who took opposite paths should hear
+   different sentences from the same NPC.
+7. **The prologues are remembered.** Finish your origin's prologue, then find a
+   **Researcher**. They should say something about the specific thing you saw —
+   the intake form, the second copy of the paperwork, the fourteen crates. One
+   line only; they must not stack.
+
+*(A missing line here is almost always a **flag id typo**, and that class of
+bug is supposed to be impossible now: `Config/Flags.luau` declares every flag
+and both `Missions.validate` and `Dialogue.validate` check them at boot. So
+check the server log at startup **first** — if it is silent, the flag is fine
+and the condition is what is wrong.)*
+
 ---
 
 ## 9. Combat and progression
@@ -578,6 +619,11 @@ The only checks that cannot be done in one sitting.
    its catalogue id.
 6. A bag that is **over** the cap comes back **whole**, not truncated, and
    simply refuses the next drop. *(Deliberate: `load` never applies the cap.)*
+7. **Alignment and flags survive.** The figure in **K** is what it was, and the
+   choice from §8.1 is still closed — the enforcer does not offer to be paid a
+   second time after a rejoin.
+8. **A save from before 2026-08-16 loads.** It has neither field; it should come
+   back at `Unaligned  (+0)` with no flags rather than erroring.
 
 ---
 

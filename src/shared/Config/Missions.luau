@@ -22,6 +22,7 @@
 ]]
 
 local Factions = require(script.Parent.Factions)
+local Flags = require(script.Parent.Flags)
 local Items = require(script.Parent.Items)
 local MissionKinds = require(script.Parent.MissionKinds)
 local Planets = require(script.Parent.Planets)
@@ -114,6 +115,16 @@ def({
 		credits = 180,
 		rep = { Empire = 40 },
 		items = { StimPack = 2 },
+		--[[
+			No alignment. All four prologues end in a discovery rather than a
+			decision, and moving the axis for something the player was only
+			shown would teach them it drifts on its own.
+
+			The flag is the point: this is the first loose thread of The Quiet,
+			and from here the world can say one careful line to the character
+			who pulled it. See Config/Flags.luau.
+		]]
+		flags = { "SawTheIntakeForm" },
 	},
 })
 
@@ -155,6 +166,7 @@ def({
 		credits = 180,
 		rep = { Republic = 40 },
 		items = { StimPack = 2 },
+		flags = { "SawBothCopies" },
 	},
 	next = "OrdPayAndRations",
 })
@@ -197,6 +209,7 @@ def({
 		credits = 180,
 		rep = { Independent = 40 },
 		items = { StimPack = 2 },
+		flags = { "OwesNobody" },
 	},
 	next = "TatDustAndDroids",
 })
@@ -238,6 +251,7 @@ def({
 		credits = 180,
 		rep = { Independent = 40 },
 		items = { StimPack = 2 },
+		flags = { "HeardNineRemember" },
 	},
 })
 
@@ -448,6 +462,7 @@ def({
 		credits = 2200,
 		rep = { Republic = 400, Empire = -300 },
 		skillPoints = 1,
+		flags = { "HasTheManifest" },
 	},
 	timeLimit = 600,
 	next = "CorTheLongFall",
@@ -491,22 +506,44 @@ def({
 		rep = { Republic = 600, Empire = -450 },
 		weapon = "DC15A",
 		skillPoints = 1,
+		-- The first alignment in the game that is not a dialogue choice: this
+		-- mission ends with a frightened person alive who would not have been.
+		-- Small, because it was also a job somebody paid you for.
+		alignment = 60,
+		flags = { "InformantSaved" },
 	},
 	next = "TarWhatTheyKept",
 })
+
+--[[
+	THE UNDERLEVELS FORK
+
+	The first place in the game where taking one job deletes another.
+
+	Both start from the same fact -- an Imperial officer is paying for names
+	out of the Underlevels -- and each forbids the other's flag, so whichever
+	the player does first is the one that happened. Neither is presented as
+	the correct answer and neither is locked behind alignment: this is where
+	alignment comes FROM.
+
+	Deliberately at level 12, well inside the first evening. A consequence
+	system the player meets in the fortieth hour is a consequence system they
+	will never find out they have.
+]]
 
 def({
 	id = "CorLoyaltyCheck",
 	displayName = "Loyalty Check",
 	summary = "An officer wants dissidents in the Underlevels made quiet.",
-	briefing = "There is sedition growing under the plate. The Empire rewards those who prune it early.",
-	debriefing = "Efficient. The Empire notices efficiency.",
+	briefing = "There is sedition growing under the plate. The Empire rewards those who prune it early. Eight names, and I do not need them written down.",
+	debriefing = "Efficient. The Empire notices efficiency. It notices very little else, which you may find is the useful part.",
 	kind = "Side",
 	faction = "Empire",
 	planet = "Coruscant",
 	giver = "ImperialOfficer",
 	minLevel = 12,
 	requiredRep = 200,
+	forbidsFlag = { "WarnedTheUnderlevels" },
 	objectives = {
 		{
 			kind = Objective.Reach,
@@ -521,6 +558,55 @@ def({
 		credits = 1600,
 		rep = { Empire = 350 },
 		items = { StimPack = 4 },
+		-- Larger than The Long Fall's +60 is negative, and it should be. That
+		-- one saved a stranger as a side effect of a job; this one is eight
+		-- people killed for a list, on purpose, for money.
+		alignment = -220,
+		flags = { "PrunedTheUnderlevels" },
+	},
+})
+
+def({
+	id = "CorTheWarning",
+	displayName = "The Warning",
+	summary = "The same officer is buying names. Get under the plate first and tell them.",
+	briefing = "You heard him same as I did. He is paying by the head and there are people down there who still think the treaty means something. I cannot go -- half the Underlevels owe me money and the other half know my face. Go down, tell them, and be somewhere else when his people arrive. They will arrive.",
+	debriefing = "Four families out before the commandos came through, and they came through. You will not get paid for this by anyone who matters. I am telling you now so you are not waiting for it.",
+	kind = "Side",
+	faction = "Republic",
+	planet = "Coruscant",
+	giver = "Smuggler",
+	minLevel = 12,
+	forbidsFlag = { "PrunedTheUnderlevels" },
+	objectives = {
+		{
+			kind = Objective.Reach,
+			target = "Underlevels",
+			planet = "Coruscant",
+			description = "Descend to the Underlevels",
+		},
+		{
+			kind = Objective.TalkTo,
+			target = "Civilian",
+			count = 4,
+			description = "Warn four households before the list is bought",
+		},
+		{
+			kind = Objective.Kill,
+			target = "ImperialCommando",
+			count = 3,
+			description = "Hold the stairwell while they clear out",
+		},
+	},
+	rewards = {
+		-- Worse paid than Loyalty Check and worth more XP, which is the whole
+		-- argument: the right thing costs money and teaches you something.
+		xp = 1100,
+		credits = 700,
+		rep = { Republic = 250, Empire = -400 },
+		items = { StimPack = 4 },
+		alignment = 220,
+		flags = { "WarnedTheUnderlevels" },
 	},
 })
 
@@ -755,6 +841,7 @@ def({
 		credits = 6000,
 		rep = { Republic = 800, Empire = -600 },
 		skillPoints = 2,
+		flags = { "SawLot9" },
 	},
 	next = "KorTheTomb",
 })
@@ -874,6 +961,11 @@ def({
 		rep = { Republic = 2000, Jedi = 800, Empire = -1500 },
 		weapon = "SaberPurple",
 		skillPoints = 3,
+		-- The largest single swing in the game so far, and it should be: this
+		-- is the end of the spine, and what was in that tomb had been eating
+		-- people for a decade.
+		alignment = 200,
+		flags = { "TombOpened" },
 	},
 })
 
@@ -1162,6 +1254,10 @@ end
 -- twice. See the check itself for why this refusal is the one that hides.
 local NOT_YOUR_ORIGIN = "Not your story"
 
+-- Stands in for an absent `requiresFlag`/`forbidsFlag` so the loops below do
+-- not need a nil check each. Never written to.
+local EMPTY_FLAGS: { string } = {}
+
 --[[
 	Whether a player may take a mission right now.
 
@@ -1174,6 +1270,8 @@ function Missions.canAccept(
 	profile: {
 		level: number,
 		origin: string,
+		alignment: number,
+		flags: { [string]: boolean },
 		factionRep: { [string]: number },
 		missions: {
 			active: { [string]: any },
@@ -1226,6 +1324,40 @@ function Missions.canAccept(
 				return false, `Requires "{prereqDef and prereqDef.displayName or prereq}"`
 			end
 		end
+	end
+
+	--[[
+		Grouped under one reason on purpose.
+
+		"Requires: you warned the Underlevels" would tell a player who pruned
+		them that the fork existed and that they took the other road, which is
+		the one thing a consequence should never announce. `boardFor` still
+		greys these out rather than hiding them -- a door you can see is shut
+		is a story; a door that was never drawn is nothing -- but what is
+		behind it stays behind it.
+	]]
+	local function pathClosed(): boolean
+		for _, flagId in m.requiresFlag or EMPTY_FLAGS do
+			if not profile.flags[flagId] then
+				return true
+			end
+		end
+		for _, flagId in m.forbidsFlag or EMPTY_FLAGS do
+			if profile.flags[flagId] then
+				return true
+			end
+		end
+		return false
+	end
+	if pathClosed() then
+		return false, "Not the road you took"
+	end
+
+	if m.minAlignment and profile.alignment < m.minAlignment then
+		return false, "You are not the person this needs"
+	end
+	if m.maxAlignment and profile.alignment > m.maxAlignment then
+		return false, "You are not the person this needs"
 	end
 
 	if m.repeatable and m.cooldown and completedCount then
@@ -1314,6 +1446,10 @@ function Missions.scaledRewards(missionId: string, playerLevel: number, creditMu
 		items = r.items,
 		weapon = r.weapon,
 		skillPoints = r.skillPoints,
+		-- Passed straight through. Scaling a consequence by how long the
+		-- player took to get to it would be nonsense.
+		alignment = r.alignment,
+		flags = r.flags,
 	}
 end
 
@@ -1367,6 +1503,24 @@ function Missions.validate(): { string }
 			for _, prereq in m.requires do
 				if not defs[prereq] then
 					table.insert(problems, `{id}: prerequisite "{prereq}" does not exist`)
+				end
+			end
+		end
+		--[[
+			An undeclared flag is worse here than in a conversation: on a gate
+			it silently deletes the mission for everybody (`requiresFlag`) or
+			for nobody (`forbidsFlag`), and as a reward it writes a key no
+			condition can ever match. Three lists, one check.
+		]]
+		local flagLists: { { list: { string }?, role: string } } = {
+			{ list = m.requiresFlag, role = "requires" },
+			{ list = m.forbidsFlag, role = "forbids" },
+			{ list = m.rewards.flags, role = "sets" },
+		}
+		for _, entry in flagLists do
+			for _, flagId in entry.list or EMPTY_FLAGS do
+				if not Flags.exists(flagId) then
+					table.insert(problems, `{id}: {entry.role} undeclared flag "{flagId}"`)
 				end
 			end
 		end

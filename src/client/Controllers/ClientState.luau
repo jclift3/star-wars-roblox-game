@@ -32,6 +32,8 @@ export type Profile = {
 	skills: { [string]: number },
 	origin: string,
 	originChosen: boolean,
+	alignment: number,
+	flags: { [string]: boolean },
 	faction: string,
 	factionRep: { [string]: number },
 	currentPlanet: string,

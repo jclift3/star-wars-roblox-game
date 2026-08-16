@@ -24,7 +24,9 @@ local Net = require(Shared.Core.Net)
 local Inventory = require(Shared.Core.Inventory)
 local Signal = require(Shared.Core.Signal)
 local Progression = require(Shared.Config.Progression)
+local Alignment = require(Shared.Config.Alignment)
 local Factions = require(Shared.Config.Factions)
+local Flags = require(Shared.Config.Flags)
 local Outfits = require(Shared.Config.Outfits)
 
 local ServiceLoader = require(Shared.Core.ServiceLoader)
@@ -291,6 +293,58 @@ function ProgressionService.awardRep(player: Player, factionId: string, delta: n
 			notify(player, `{faction.displayName}: demoted to {rank.name}`, "Demotion")
 		end
 		ProgressionService.rankChanged:fire(player, id, newRank, oldRank)
+	end
+end
+
+--[[
+	Moves the character and records what they did, in one call.
+
+	The two travel together because they are two halves of one event: a choice
+	that is worth an alignment swing is almost always a choice somebody should
+	be able to mention later, and doing them separately means a decision that
+	moved the needle but left no record of why.
+
+	ANNOUNCED, AND THE BAND MORE LOUDLY THAN THE NUMBER
+	The player is told every shift, because a value that only surfaces the day
+	it locks a door is a value they will experience as the game being unfair.
+	Crossing into a new band is a separate, louder line: the number is
+	bookkeeping, the band is who they have become.
+
+	Unknown flags are dropped rather than written. `Dialogue.validate` and
+	`Missions.validate` already say so at boot, and a profile is the wrong
+	place to find out.
+]]
+function ProgressionService.awardAlignment(player: Player, delta: number, flags: { string }?)
+	local raise: { string } = flags or {}
+	local before: number? = nil
+	local after: number? = nil
+
+	data().update(player, function(profile: PlayerProfile)
+		before = profile.alignment
+		profile.alignment = Alignment.clamp(profile.alignment + delta)
+		after = profile.alignment
+
+		for _, id in raise do
+			if Flags.exists(id) then
+				profile.flags[id] = true
+			else
+				warn(`[ProgressionService] undeclared flag "{id}"`)
+			end
+		end
+	end)
+
+	local prev, curr = before, after
+	if not prev or not curr or curr == prev then
+		return
+	end
+
+	local moved = curr - prev
+	notify(player, string.format("Alignment %+d", moved), if moved > 0 then "Light" else "Dark")
+
+	local oldBand = Alignment.bandFor(prev)
+	local newBand = Alignment.bandFor(curr)
+	if newBand.name ~= oldBand.name then
+		notify(player, `You are becoming {newBand.name}.`, "Alignment")
 	end
 end
 

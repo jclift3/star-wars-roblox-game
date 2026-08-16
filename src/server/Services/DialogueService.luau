@@ -29,6 +29,7 @@ local Players = game:GetService("Players")
 
 local Shared = game:GetService("ReplicatedStorage"):WaitForChild("Shared")
 local Dialogue = require(Shared.Config.Dialogue)
+local Flags = require(Shared.Config.Flags)
 local Missions = require(Shared.Config.Missions)
 local NPCArchetypes = require(Shared.Config.NPCArchetypes)
 local Net = require(Shared.Core.Net)
@@ -62,6 +63,11 @@ type Resolved = {
 	next: string?,
 	action: string?,
 	missionId: string?,
+	-- Carried through the session rather than re-read from the tree on
+	-- selection: the client answers with an index, so the only honest source
+	-- for what that index costs is the list the server actually sent.
+	alignment: number?,
+	sets: { string }?,
 }
 
 type Session = {
@@ -83,6 +89,10 @@ end
 
 local function missions()
 	return ServiceLoader.get("MissionService")
+end
+
+local function progression()
+	return ServiceLoader.get("ProgressionService")
 end
 
 --------------------------------------------------------------------------------
@@ -110,21 +120,21 @@ end
 ]]
 local function resolveChoices(profile: any, session: Session, node: Dialogue.Node): { Resolved }
 	local out: { Resolved } = {}
-	local rep = profile.factionRep[session.faction] or 0
 	local archetype = NPCArchetypes.get(session.archetypeId)
+
+	local ctx: Dialogue.Context = {
+		origin = profile.origin,
+		level = profile.level,
+		rep = profile.factionRep[session.faction] or 0,
+		alignment = profile.alignment,
+		flags = profile.flags,
+		activeMissions = profile.missions.active,
+		completedMissions = profile.missions.completed,
+	}
 
 	local authored: { Dialogue.Choice } = node.choices or {}
 	for _, choice in authored do
-		if
-			not Dialogue.meets(
-				choice.condition,
-				profile.origin,
-				profile.level,
-				rep,
-				profile.missions.active,
-				profile.missions.completed
-			)
-		then
+		if not Dialogue.meets(choice.condition, ctx) then
 			continue
 		end
 		if choice.action == Action.Shop then
@@ -142,6 +152,8 @@ local function resolveChoices(profile: any, session: Session, node: Dialogue.Nod
 			kind = choice.action,
 			next = choice.next,
 			action = choice.action,
+			alignment = choice.alignment,
+			sets = choice.sets,
 		})
 	end
 
@@ -319,6 +331,18 @@ function DialogueService.choose(player: Player, index: number)
 		return
 	end
 
+	--[[
+		The consequence lands before anything else the choice does.
+
+		A branch that walks on to another node would otherwise build that
+		node's context from the profile as it was a moment ago, so a line
+		conditioned on the flag you just set would not appear until the next
+		conversation -- which reads as the flag not working.
+	]]
+	if choice.alignment or choice.sets then
+		progression().awardAlignment(player, choice.alignment or 0, choice.sets)
+	end
+
 	-- Accepting is done before the panel closes so the refusal, if there is
 	-- one, reaches the player while they are still looking at the speaker.
 	if choice.missionId and choice.action == Action.Leave then
@@ -341,7 +365,7 @@ end
 --------------------------------------------------------------------------------
 
 function DialogueService.init()
-	for _, problem in Dialogue.validate(Missions.exists, Origins.exists) do
+	for _, problem in Dialogue.validate(Missions.exists, Origins.exists, Flags.exists) do
 		warn(`[DialogueService] dialogue config: {problem}`)
 	end
 

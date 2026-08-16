@@ -890,11 +890,28 @@ Deliberately *not* done:
   something that moves no number — precisely the failure B5 was cleaned up to
   stop. Revisit with Phase 2b.
 
-### 3b.2 Alignment — **[todo]**
+### 3b.2 Alignment — **[done 2026-08-16]**
 `PlayerProfile.alignment`, clamped -1000..1000, moved by dialogue and mission
-resolution rather than by combat. Gates the deep Force nodes, the saber crystal
-colours already sitting in `Weapons.luau`, and the endings. Deliberately
-separate from `factionRep` — a Sith at +800 alignment is the interesting case.
+resolution rather than by combat. Deliberately separate from `factionRep` — a
+Sith at +800 alignment is the interesting case.
+
+`Config/Alignment.luau` owns the range and the seven bands (Merciless →
+Selfless) that turn the number into a word; `ProgressionService.awardAlignment`
+is the only mutation, and it notifies on the band *changing* rather than on
+every point, because a value that reports itself constantly is a score and this
+is supposed to be a description. `Choice.alignment` and `Rewards.alignment` are
+the two ways to move it.
+
+It shows on the skills panel (**K**), not the HUD: it is a character sheet
+number, and a value whose first appearance is a locked Force node reads as the
+game breaking. Gating the deep Force nodes and the crystal colours is still to
+come with the tree contents (§4.3) and the signature chains (3b.5).
+
+**One rule is enforced at boot rather than trusted.** A dialogue choice that
+pays alignment and can be taken twice is a button the player farms — there are
+eighteen Cartel enforcers on the Promenade. `Dialogue.validate` now refuses any
+choice with a non-zero `alignment` unless it also `sets` a flag that its own
+`condition.notFlag` excludes.
 
 ### 3b.3 Acts, chapters and a journal — **[todo]**
 Nearly free: `MissionDef` already has `requires`, `next`, `minLevel` and
@@ -902,9 +919,38 @@ Nearly free: `MissionDef` already has `requires`, `next`, `minLevel` and
 correctly wired `requires` graph. Needs `MissionDef.act`, and a journal view —
 the board is a to-do list, and a mystery needs a record of what happened.
 
-### 3b.4 Flags — **[todo]**
-`PlayerProfile.flags: { [string]: boolean }` plus a `flag` dialogue condition.
-One field, and it is the whole of branching.
+### 3b.4 Flags — **[done 2026-08-16]**
+`PlayerProfile.flags: { [string]: boolean }` plus `flag`/`notFlag` dialogue
+conditions. One field, and it is the whole of branching.
+
+A map and not an array because a profile is DataStore-serialised *and*
+replicated and neither survives a sparse one — the same reason `Inventory` is
+keyed by uid.
+
+The field alone would have been the third instance of this codebase's favourite
+bug: a mission writing `SawTheIntakeForm` and a conversation reading
+`SawTheIntakeFrom`, producing a line that never appears, which is
+indistinguishable from a line nobody wrote. So flags are *declared* in
+`Config/Flags.luau` with a note saying who sets each one and who reads it, and
+`Missions.validate` and `Dialogue.validate` check every id at boot.
+`DataService.migrate` drops undeclared flags on load — a flag deleted from
+Config is a flag that stops being true.
+
+What a flag is *not* is mission completion: `profile.missions.completed`
+already records that, and a flag duplicating it is a second source of truth
+that will eventually disagree. A flag is the part of a mission its id cannot
+express — which way it went.
+
+Missions read them too (`requiresFlag`, `forbidsFlag`, `minAlignment`,
+`maxAlignment`) and write them (`Rewards.flags`). The refusal reason for a
+closed path is deliberately vague — *"Not the road you took"* — because the
+board should not enumerate the branch you didn't take.
+
+**First fork, at level 12.** `CorLoyaltyCheck` (kill the dissidents for the
+Empire) and `CorTheWarning` (get them out first) each forbid the other's flag,
+and Coruscant then talks to you differently for the rest of the game. It is
+early on purpose: a consequence system the player meets in the fortieth hour is
+a consequence system they will never find out they have.
 
 ### 3b.5 Signature chains — **[todo]**
 **A lightsaber is built, not bought** (decided 2026-08-14), which forced the same
@@ -1048,9 +1094,9 @@ useful, there is no *choice*, only an order.
    that fan out rather than chain. If two players at level 30 have the same
    sheet, the tree failed.
 3. **Alignment on the Force tree.** Light and dark branches, gated by
-   `alignment` from 3b.2 — which is currently a value with almost nothing
-   reading it. Lightning vs. healing is the oldest and best example in the
-   setting, and it makes 3b.2 pay for itself.
+   `alignment` from 3b.2 — which now exists and moves, but which nothing in the
+   tree reads yet. Lightning vs. healing is the oldest and best example in the
+   setting, and it is what will make 3b.2 pay for itself.
 4. **Complementary co-op.** The long-standing goal (Jedi + soldier). Express it
    as skills whose *effect lands on your teammate* — a mark that raises everyone's
    damage on a target, a shield you throw, a revive. Two players should be more

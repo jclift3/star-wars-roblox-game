@@ -28,6 +28,7 @@ local Players = game:GetService("Players")
 local UserInputService = game:GetService("UserInputService")
 
 local Shared = game:GetService("ReplicatedStorage"):WaitForChild("Shared")
+local Alignment = require(Shared.Config.Alignment)
 local Net = require(Shared.Core.Net)
 local Palette = require(Shared.Config.Palette)
 local Panels = require(Shared.Core.Panels)
@@ -61,6 +62,7 @@ local PIP_COUNT = Progression.MAX_NODE_RANK
 local screen: ScreenGui
 local root: Frame
 local subtitleLabel: TextLabel
+local alignmentLabel: TextLabel
 local xpFill: Frame
 local xpLabel: TextLabel
 local listFrame: ScrollingFrame
@@ -226,6 +228,15 @@ local function buildHeader(parent: Frame)
 	subtitleLabel = text("Subtitle", parent, 13, DIM)
 	subtitleLabel.Position = UDim2.fromOffset(18, 40)
 	subtitleLabel.Size = UDim2.new(1, -70, 0, 18)
+
+	-- Right of the title, above the XP figure: the two numbers that describe
+	-- the character rather than the fight sit in the same column.
+	alignmentLabel = text("Alignment", parent, 14, DIM)
+	alignmentLabel.Font = Enum.Font.GothamBold
+	alignmentLabel.TextXAlignment = Enum.TextXAlignment.Right
+	alignmentLabel.AnchorPoint = Vector2.new(1, 0)
+	alignmentLabel.Position = UDim2.new(1, -52, 0, 18)
+	alignmentLabel.Size = UDim2.fromOffset(260, 22)
 
 	local track = Instance.new("Frame")
 	track.Name = "XpTrack"
@@ -470,6 +481,19 @@ function render()
 		subtitleLabel.Text = `Level {profile.level}  ·  {points} skill point{plural}`
 		subtitleLabel.TextColor3 = if points > 0 then ACCENT else DIM
 
+		--[[
+			Alignment lives on the skills panel and not the HUD.
+
+			It is a character sheet number, not a combat one, and this is the
+			panel a player opens to ask who they are rather than how they are
+			doing. It is here at all because a value that first announces
+			itself by locking a Force node is a value the player will
+			experience as the game breaking.
+		]]
+		local band = Alignment.bandFor(profile.alignment)
+		alignmentLabel.Text = string.format("%s  (%+d)", band.name, profile.alignment)
+		alignmentLabel.TextColor3 = band.colour
+
 		local needed = Progression.xpForNextLevel(profile.level)
 		if needed == math.huge then
 			xpFill.Size = UDim2.fromScale(1, 1)
@@ -480,6 +504,7 @@ function render()
 		end
 	else
 		subtitleLabel.Text = "Loading..."
+		alignmentLabel.Text = ""
 		xpLabel.Text = ""
 		xpFill.Size = UDim2.fromScale(0, 1)
 	end

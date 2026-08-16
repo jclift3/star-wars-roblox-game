@@ -33,7 +33,9 @@ local Types = require(Shared.Types)
 local Signal = require(Shared.Core.Signal)
 local Net = require(Shared.Core.Net)
 local Inventory = require(Shared.Core.Inventory)
+local Alignment = require(Shared.Config.Alignment)
 local Factions = require(Shared.Config.Factions)
+local Flags = require(Shared.Config.Flags)
 local Origins = require(Shared.Config.Origins)
 local Planets = require(Shared.Config.Planets)
 
@@ -113,6 +115,8 @@ local function defaultProfile(): PlayerProfile
 		-- chooses is never one that cannot get somewhere.
 		origin = Origins.DEFAULT,
 		originChosen = false,
+		alignment = Alignment.START,
+		flags = {},
 		faction = Factions.DEFAULT,
 		factionRep = rep,
 		factionRankPaid = paid,
@@ -191,6 +195,27 @@ local function migrate(saved: any): PlayerProfile
 	end
 	if type(saved.equipped) == "table" then
 		base.equipped = saved.equipped
+	end
+	-- Clamped on the way in rather than trusted: the bounds have moved once
+	-- already in this project's life and a saved value outside them would put
+	-- the player in a band `Alignment.bandFor` cannot name.
+	if type(saved.alignment) == "number" then
+		base.alignment = Alignment.clamp(saved.alignment)
+	end
+	--[[
+		Copied key by key, skipping any flag that is no longer declared.
+
+		Taking the table wholesale would keep a retired flag alive forever in
+		every old save, so `Flags.validate`-style checks would pass while the
+		data disagreed. A flag deleted from Config is a flag that stops being
+		true, which is the only reading that matches what the author did.
+	]]
+	if type(saved.flags) == "table" then
+		for id, value in saved.flags do
+			if value == true and Flags.exists(id) then
+				base.flags[id] = true
+			end
+		end
 	end
 	if type(saved.unlockedShips) == "table" then
 		base.unlockedShips = saved.unlockedShips
@@ -429,6 +454,8 @@ local function clientView(profile: PlayerProfile)
 		skills = profile.skills,
 		origin = profile.origin,
 		originChosen = profile.originChosen,
+		alignment = profile.alignment,
+		flags = profile.flags,
 		faction = profile.faction,
 		factionRep = profile.factionRep,
 		currentPlanet = profile.currentPlanet,

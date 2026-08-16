@@ -53,6 +53,21 @@ export type PlayerProfile = {
 	-- would either never appear or appear again for anyone who chose the
 	-- default on purpose.
 	originChosen: boolean,
+	--[[
+		-1000 to +1000, moved by what the character chooses rather than by what
+		they kill. Deliberately not derivable from `factionRep`: see
+		Config/Alignment.luau for why the two have to be able to disagree.
+	]]
+	alignment: number,
+	--[[
+		Things this character has done that the world is allowed to remember.
+
+		A map rather than an array for the same reason `inventory` is: a
+		profile is DataStore-serialised and replicated, and neither survives a
+		sparse array. Keys are declared in Config/Flags.luau -- an undeclared
+		one is a condition that can never be true and no error anywhere.
+	]]
+	flags: { [string]: boolean },
 	faction: string,
 	factionRep: { [string]: number },
 	-- Highest rank index each faction has already paid a stipend for. Rep can

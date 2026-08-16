@@ -73,6 +73,19 @@ export type Condition = {
 	missionActive: string?,
 	missionCompleted: string?,
 	missionNotCompleted: string?,
+	--[[
+		Something the character did, from Config/Flags.luau.
+
+		This is the whole of branching, and it is why a conversation can be
+		about the player rather than at them: the difference between a line
+		that fires because you are level 14 and a line that fires because you
+		walked out of that tomb is the difference between a game that knows
+		you exist and one that does not.
+	]]
+	flag: string?,
+	notFlag: string?,
+	minAlignment: number?,
+	maxAlignment: number?,
 }
 
 export type Choice = {
@@ -80,6 +93,39 @@ export type Choice = {
 	next: string?, -- node id; nil ends the conversation
 	action: string?, -- one of Action
 	condition: Condition?,
+	--[[
+		WHAT PICKING THIS COSTS YOU
+
+		`alignment` shifts the character; `sets` raises flags. Both are applied
+		by the server when the choice is taken, and both are why a dialogue
+		tree is more than a menu -- a branch that changes nothing outside the
+		conversation is a branch the player is right to stop reading.
+
+		Deliberately no way to *lower* a flag. A thing you did stays done.
+	]]
+	alignment: number?,
+	sets: { string }?,
+}
+
+--[[
+	Everything a condition is allowed to ask about.
+
+	Passed as one record rather than eight positional arguments: `meets` grew
+	from three checks to eleven, and the call site had reached the point where
+	swapping `level` and `rep` would have type-checked cleanly and been wrong
+	in a way nothing could catch.
+]]
+export type Context = {
+	origin: string,
+	level: number,
+	-- Standing with the SPEAKER's faction, not a whole table: a conversation
+	-- has an opinion about one faction, and passing the map would invite a
+	-- condition that quietly means a different one.
+	rep: number,
+	alignment: number,
+	flags: { [string]: boolean },
+	activeMissions: { [string]: any },
+	completedMissions: { [string]: number },
 }
 
 export type Node = {
@@ -273,6 +319,24 @@ def({
 					next = "salvage",
 					condition = { origin = "Scrapper" },
 				},
+				--[[
+					Civilians are the archetype that spawns in the largest
+					numbers on every world, which already made them the right
+					place for the four origin lines. It makes them the right
+					place for this too: the Underlevels fork is a thing the
+					player did to people, and the people are the ones who
+					should still be talking about it.
+				]]
+				{
+					text = "You know who I am.",
+					next = "grateful",
+					condition = { flag = "WarnedTheUnderlevels" },
+				},
+				{
+					text = "You know who I am.",
+					next = "frightened",
+					condition = { flag = "PrunedTheUnderlevels" },
+				},
 				LEAVE,
 			},
 		},
@@ -309,6 +373,20 @@ def({
 			lines = {
 				"Everything. That is the problem -- if it were worth anything somebody would already have taken it.",
 				"There is a machine under the east wall nobody has fixed in nine years. If you fix it I will not tell anyone it was you.",
+			},
+			choices = { LEAVE },
+		},
+		grateful = {
+			lines = {
+				"My cousin was on that list. She is on a freighter now and she does not know your name either, which is how she stays on it.",
+				"We do. Nobody says it where the plate can hear, so this is the whole of your thank you. Take it, it cost more than it sounds.",
+			},
+			choices = { LEAVE },
+		},
+		frightened = {
+			lines = {
+				"I know who you are. I am going to keep walking now, and you are going to let me, because I am not on any list and I would like to stay that way.",
+				"Please do not talk to me in the street. -- No. I am not being rude. I am being careful, and you are the reason.",
 			},
 			choices = { LEAVE },
 		},
@@ -368,6 +446,20 @@ def({
 	},
 })
 
+--[[
+	The one conversation in the game that costs the player something.
+
+	An enforcer has somebody against a wall over four hundred credits, and the
+	player can pay it, walk past it, or enjoy it. It is small on purpose: the
+	fork that teaches a player their choices are real should be the cheapest
+	one in the game, not the climax.
+
+	BOTH BRANCHES CLOSE BOTH DOORS
+	Each condition carries `notFlag` for its own outcome AND the other's, so
+	the moment happens once per character rather than once per enforcer -- and
+	there are eighteen of these on the Nar Shaddaa Promenade alone. See
+	Config/Flags.luau; `validate` enforces the half of this that is a rule.
+]]
 def({
 	id = "CartelEnforcer",
 	nodes = {
@@ -380,6 +472,11 @@ def({
 			choices = {
 				WORK,
 				{ text = "I can be useful.", next = "useful", condition = { minRep = -50 } },
+				{
+					text = "Who is that against the wall?",
+					next = "debt",
+					condition = { notFlag = "MetTheDebtor" },
+				},
 				LEAVE,
 			},
 		},
@@ -388,6 +485,51 @@ def({
 				"Everybody is useful once. Twice is how you get a name around here.",
 			},
 			choices = { WORK, LEAVE },
+		},
+		debt = {
+			lines = {
+				"Him? Four hundred, eleven weeks late. He has a very good reason and I have heard it twice. Third time I stop listening with my ears.",
+				"Nobody. He was nobody eleven weeks ago too, he just had four hundred credits then.",
+			},
+			choices = {
+				--[[
+					`MetTheDebtor` is what makes this happen once; the other
+					flag is what the world remembers about it. Both branches
+					raise the first, so either answer shuts the door -- one
+					`notFlag` cannot exclude two outcomes, and giving the
+					moment its own flag is cheaper and clearer than making
+					conditions take lists.
+				]]
+				{
+					text = "The debt is mine. Take it out of what I am owed.",
+					next = "paid",
+					alignment = 90,
+					sets = { "MetTheDebtor", "PaidTheStrangersDebt" },
+					condition = { notFlag = "MetTheDebtor" },
+				},
+				{
+					text = "Do not let me interrupt.",
+					next = "watched",
+					alignment = -90,
+					sets = { "MetTheDebtor", "LetThemBreakHisHands" },
+					condition = { notFlag = "MetTheDebtor" },
+				},
+				-- Walking away is free and stays available: refusing to decide
+				-- is a legitimate answer and should not be worth alignment.
+				{ text = "Not my business.", action = Action.Leave },
+			} :: { Choice },
+		},
+		paid = {
+			lines = {
+				"Huh. Written off, then. -- Do not do that again where people can see you. It gets around, and then everyone here is eleven weeks late.",
+			},
+			choices = { LEAVE },
+		},
+		watched = {
+			lines = {
+				"No, you would not. -- Stand further back. It goes further than people expect.",
+			},
+			choices = { LEAVE },
 		},
 	},
 })
@@ -412,6 +554,19 @@ def({
 					next = "loyal",
 					condition = { minRep = 100 },
 				},
+				-- The other half of the Underlevels fork. An officer who knows
+				-- exactly what you did either way is the cheapest possible
+				-- proof to the player that the choice was recorded.
+				{
+					text = "About the Underlevels.",
+					next = "pruned",
+					condition = { flag = "PrunedTheUnderlevels" },
+				},
+				{
+					text = "About the Underlevels.",
+					next = "warned",
+					condition = { flag = "WarnedTheUnderlevels" },
+				},
 				{ text = "Just passing through.", action = Action.Leave },
 			},
 		},
@@ -420,6 +575,18 @@ def({
 				"Your record is noted. Order is not maintained by sentiment, but it is maintained by people like you.",
 			},
 			choices = { WORK, LEAVE },
+		},
+		pruned = {
+			lines = {
+				"Eight, and quietly. -- You will find the second list easier than the first. Everyone does. That is not a warning, it is a recruitment figure.",
+			},
+			choices = { WORK, LEAVE },
+		},
+		warned = {
+			lines = {
+				"Four households, empty, in the hour before we arrived. -- I do not need to know how. I need to know that you know I know. Good. We understand each other and neither of us has said anything actionable.",
+			},
+			choices = { LEAVE },
 		},
 	},
 })
@@ -587,6 +754,41 @@ def({
 			choices = {
 				WORK,
 				{ text = "What are you growing here?", next = "growing" },
+				--[[
+					THE PART THE PLAYER ACTUALLY FEELS
+
+					Everything above this line is machinery. This is what it
+					was for: a line that exists because of something this
+					character did, offered by somebody who was not there when
+					they did it. A stranger who knows what you found is the
+					difference between a world and a set.
+
+					Ordered narrowest first. Conditions do not rank
+					themselves -- `resolveChoices` keeps every choice that
+					qualifies -- so the later thread has to be written above
+					the earlier one or the player is offered both and the
+					story appears to be running backwards.
+				]]
+				{
+					text = "The man in the tomb was requisitioning people.",
+					next = "afterTomb",
+					condition = { flag = "TombOpened" },
+				},
+				{
+					text = "Lot 9 was not a warehouse.",
+					next = "lot9",
+					condition = { flag = "SawLot9", notFlag = "TombOpened" },
+				},
+				{
+					text = "There is a form for collecting acolytes.",
+					next = "intake",
+					condition = { flag = "SawTheIntakeForm", notFlag = "SawLot9" },
+				},
+				{
+					text = "A droid on Taris counted fourteen crates to one buyer.",
+					next = "fourteen",
+					condition = { flag = "HeardNineRemember", notFlag = "SawLot9" },
+				},
 				LEAVE,
 			},
 		},
@@ -595,6 +797,30 @@ def({
 				"Whatever is ordered. We are very good at it, and we have never once been asked whether we should be.",
 			},
 			choices = { LEAVE },
+		},
+		afterTomb = {
+			lines = {
+				"I know what you did. Everyone in this building knows, and not one of us has said the word out loud yet. -- The requisitions stopped. That is the first good news in nine years and I do not trust it, because the forms are still printed.",
+			},
+			choices = { WORK, LEAVE },
+		},
+		lot9 = {
+			lines = {
+				"No. It was a shelf. -- I want you to notice that nothing in there was dead. That is the part I cannot put in a report, because a report has a field for cause and there is no cause, only an absence where a person's talent used to sit.",
+			},
+			choices = { WORK, LEAVE },
+		},
+		intake = {
+			lines = {
+				"Of course there is. There is a form for everything, and a form means it happened often enough to be worth printing. -- Ask yourself who ordered the print run, not who signed the copy.",
+			},
+			choices = { WORK, LEAVE },
+		},
+		fourteen = {
+			lines = {
+				"Fourteen is a shipment. One is an accident and fourteen is a schedule. -- Whoever ordered them was not experimenting. They already knew what they wanted and how much of it.",
+			},
+			choices = { WORK, LEAVE },
 		},
 	},
 })
@@ -623,40 +849,45 @@ end
 --[[
 	Whether a player satisfies a choice's condition.
 
-	`rep` is the player's standing with the speaker's faction, passed in rather
-	than looked up so this stays a pure function the client could also run if a
-	preview is ever wanted.
+	A pure function over `ctx` rather than a lookup, so the client could also
+	run it if a preview is ever wanted -- and so the server can build the
+	context once per conversation instead of once per choice.
 ]]
-function Dialogue.meets(
-	condition: Condition?,
-	origin: string,
-	level: number,
-	rep: number,
-	activeMissions: { [string]: any },
-	completedMissions: { [string]: number }
-): boolean
+function Dialogue.meets(condition: Condition?, ctx: Context): boolean
 	if not condition then
 		return true
 	end
-	if condition.origin and condition.origin ~= origin then
+	if condition.origin and condition.origin ~= ctx.origin then
 		return false
 	end
-	if condition.minLevel and level < condition.minLevel then
+	if condition.minLevel and ctx.level < condition.minLevel then
 		return false
 	end
-	if condition.minRep and rep < condition.minRep then
+	if condition.minRep and ctx.rep < condition.minRep then
 		return false
 	end
-	if condition.maxRep and rep > condition.maxRep then
+	if condition.maxRep and ctx.rep > condition.maxRep then
 		return false
 	end
-	if condition.missionActive and not activeMissions[condition.missionActive] then
+	if condition.missionActive and not ctx.activeMissions[condition.missionActive] then
 		return false
 	end
-	if condition.missionCompleted and not completedMissions[condition.missionCompleted] then
+	if condition.missionCompleted and not ctx.completedMissions[condition.missionCompleted] then
 		return false
 	end
-	if condition.missionNotCompleted and completedMissions[condition.missionNotCompleted] then
+	if condition.missionNotCompleted and ctx.completedMissions[condition.missionNotCompleted] then
+		return false
+	end
+	if condition.flag and not ctx.flags[condition.flag] then
+		return false
+	end
+	if condition.notFlag and ctx.flags[condition.notFlag] then
+		return false
+	end
+	if condition.minAlignment and ctx.alignment < condition.minAlignment then
+		return false
+	end
+	if condition.maxAlignment and ctx.alignment > condition.maxAlignment then
 		return false
 	end
 	return true
@@ -669,7 +900,11 @@ end
 	not exist is a conversation that dead-ends silently, and the player has no
 	way to tell that from an author's deliberate full stop.
 ]]
-function Dialogue.validate(missionExists: (string) -> boolean, originExists: (string) -> boolean): { string }
+function Dialogue.validate(
+	missionExists: (string) -> boolean,
+	originExists: (string) -> boolean,
+	flagExists: (string) -> boolean
+): { string }
 	local problems = {}
 
 	for id, tree in defs do
@@ -694,10 +929,60 @@ function Dialogue.validate(missionExists: (string) -> boolean, originExists: (st
 				if choice.action and not VALID_ACTIONS[choice.action] then
 					table.insert(problems, `{id}.{nodeId}: choice {i} has unknown action "{choice.action}"`)
 				end
-				-- A choice that neither walks anywhere nor does anything just
-				-- closes the panel, which is almost never what was meant.
-				if not choice.next and not choice.action then
+				--[[
+					A choice that neither walks anywhere nor does anything just
+					closes the panel, which is almost never what was meant --
+					unless it moves the character, in which case ending the
+					conversation on the decision is exactly the point.
+				]]
+				if not choice.next and not choice.action and not choice.alignment and not choice.sets then
 					table.insert(problems, `{id}.{nodeId}: choice {i} has neither next nor action`)
+				end
+
+				--[[
+					An undeclared flag is written to a profile nothing reads and
+					no condition can ever match, which looks precisely like a
+					branch the author forgot to finish. Same check on both
+					sides, because either half being misspelt breaks the pair.
+				]]
+				local sets: { string } = choice.sets or {}
+				for _, flagId in sets do
+					if not flagExists(flagId) then
+						table.insert(problems, `{id}.{nodeId}: choice {i} sets undeclared flag "{flagId}"`)
+					end
+				end
+
+				--[[
+					AN ALIGNMENT CHOICE MUST BE ABLE TO CLOSE ITSELF
+
+					A conversation can be reopened as often as the player
+					likes, and archetypes spawn in the dozens -- eighteen
+					Cartel enforcers stand on one Nar Shaddaa street. A choice
+					that pays alignment and cannot become unavailable is
+					therefore a button that pays alignment forever, and this
+					game is played by two brothers in one room who will find
+					it within the hour.
+
+					The fix is a convention -- set a flag, condition on
+					`notFlag` for it -- and a convention nothing checks is a
+					convention that holds until the day somebody is in a
+					hurry. So it is checked.
+				]]
+				if choice.alignment and choice.alignment ~= 0 then
+					local guard = choice.condition and choice.condition.notFlag
+					local guarded = false
+					for _, flagId in sets do
+						if flagId == guard then
+							guarded = true
+						end
+					end
+					if not guarded then
+						table.insert(
+							problems,
+							`{id}.{nodeId}: choice {i} moves alignment but can be taken again `
+								.. "(needs a flag in 'sets' matched by 'condition.notFlag')"
+						)
+					end
 				end
 
 				local c = choice.condition
@@ -724,6 +1009,16 @@ function Dialogue.validate(missionExists: (string) -> boolean, originExists: (st
 					if c.origin ~= nil and not originExists(c.origin) then
 						table.insert(problems, `{id}.{nodeId}: choice {i} names unknown origin "{c.origin}"`)
 					end
+					local function checkFlag(named: string?)
+						if named ~= nil and not flagExists(named) then
+							table.insert(
+								problems,
+								`{id}.{nodeId}: choice {i} reads undeclared flag "{named}"`
+							)
+						end
+					end
+					checkFlag(c.flag)
+					checkFlag(c.notFlag)
 				end
 			end
 		end

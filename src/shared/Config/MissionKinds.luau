@@ -62,6 +62,18 @@ export type Rewards = {
 	items: { [string]: number }?,
 	weapon: string?,
 	skillPoints: number?,
+	--[[
+		Not rewards so much as consequences, but they are handed out at the
+		same moment and by the same code, and a second "consequences" table
+		beside this one would be two things to forget instead of one.
+
+		`alignment` is the character the mission made you; `flags` is what
+		finishing it means the world now knows. Neither is scaled by level --
+		`scaledRewards` exists so an outlevelled mission is not worthless, and
+		a decision is not worth more because you took your time.
+	]]
+	alignment: number?,
+	flags: { string }?,
 }
 
 export type MissionDef = {
@@ -81,6 +93,21 @@ export type MissionDef = {
 	minLevel: number,
 	requiredRep: number?, -- with `faction`
 	requires: { string }?, -- mission ids that must be completed first
+	--[[
+		Gates on what the character did, not on what they finished.
+
+		`requires` can only ask whether a mission was completed, so a fork --
+		you either pruned the Underlevels or you warned them -- has no way to
+		lead anywhere different. These do: `requiresFlag` needs all of them,
+		`forbidsFlag` needs none.
+
+		The alignment bounds are the same idea one axis over, and are what
+		eventually make a Force chain refuse a character who has been kind.
+	]]
+	requiresFlag: { string }?,
+	forbidsFlag: { string }?,
+	minAlignment: number?,
+	maxAlignment: number?,
 	--[[
 		Only this origin may take the mission. nil means anybody.
 

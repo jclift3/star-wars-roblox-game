@@ -107,6 +107,13 @@ local function grantRewards(player: Player, missionId: string)
 		end
 	end
 
+	-- What the mission made of the character, and what the world now knows
+	-- they did. Skipped entirely when a mission asks for neither, so the
+	-- ordinary bounty does not fire an alignment notification saying +0.
+	if rewards.alignment or rewards.flags then
+		progression().awardAlignment(player, rewards.alignment or 0, rewards.flags)
+	end
+
 	data().update(player, function(p: PlayerProfile)
 		if rewards.items then
 			for itemId, count in rewards.items do
