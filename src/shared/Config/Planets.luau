@@ -20,6 +20,24 @@
 ]]
 
 local Palette = require(script.Parent.Palette)
+--[[
+	Required outright, which is safe in this direction only.
+
+	NPCArchetypes pulls Species, Costumes and Weapons, none of which touch this
+	file, so there is no cycle -- but the reverse is not true, which is why
+	`rollLevel` and `hostileIn` over there take bare structural types rather
+	than importing ours.
+
+	Worth the edge for two things a string could not do: `Behavior.Aggressive`
+	in the spawn tables below is a constant the checker sees rather than a
+	spelling nobody verifies, and `validate` can compare an archetype's level
+	range against the band of the district it was placed in.
+]]
+local NPCArchetypes = require(script.Parent.NPCArchetypes)
+-- Pulls Types and nothing else, so it is safe from anywhere. Used by the XP
+-- budget check in `validate`, which is the only place the curve and the world
+-- are ever compared.
+local Progression = require(script.Parent.Progression)
 
 local Planets = {}
 
@@ -259,6 +277,11 @@ def({
 	},
 	spawns = {
 		{ archetype = "Jawa", count = 14, zone = "Wastes" },
+		-- Claim-jumpers working the Jawas' scrap, and the reason this district
+		-- exists in the level curve at all: the Wastes band 10-15, and the
+		-- stretch from 10 to 16 was the thinnest in the galaxy -- about a
+		-- third of the XP per sweep that level 17 could reach.
+		{ archetype = "Smuggler", count = 10, zone = "Wastes", behavior = NPCArchetypes.Behavior.Aggressive },
 		{ archetype = "MoistureFarmer", count = 8, zone = "Farmstead" },
 		{ archetype = "Civilian", count = 22, zone = "Town" },
 		{ archetype = "Merchant", count = 5, zone = "Market" },
@@ -267,9 +290,22 @@ def({
 		-- Level 5-16 and aggressive at 180 studs, against a level 1 story
 		-- objective standing in the same sand, is not a difficulty curve.
 		{ archetype = "TuskenRaider", count = 12, zone = "DuneSea" },
+		-- The raid the farmers keep talking about. Bands 8-13, which is the
+		-- step between the town missions and the Dune Sea -- and it used not
+		-- to exist: you left Anchorhead around level 6 and the next thing on
+		-- the planet that would fight you was nine levels further out.
+		{ archetype = "TuskenRaider", count = 8, zone = "Farmstead" },
 		{ archetype = "ImperialTrooper", count = 10, zone = "Town" },
-		{ archetype = "CartelEnforcer", count = 6, zone = "Palace" },
-		{ archetype = "BountyHunter", count = 3, zone = "Cantina" },
+		{
+			archetype = "CartelEnforcer",
+			count = 6,
+			zone = "Palace",
+			behavior = NPCArchetypes.Behavior.Aggressive,
+		},
+		-- Out of the cantina. They band 18-45 and the cantina bands 5-10, so
+		-- every hunter in Anchorhead was pinned to the archetype's floor and
+		-- standing somewhere the story sends a level 5 player.
+		{ archetype = "BountyHunter", count = 3, zone = "DuneSea" },
 	},
 	pointsOfInterest = {
 		--[[
@@ -394,10 +430,40 @@ def({
 		-- objectives to have anything to count.
 		{ archetype = "ImperialOfficer", count = 4, zone = "Works" },
 		{ archetype = "ImperialTrooper", count = 14, zone = "Works" },
-		{ archetype = "ImperialCommando", count = 4, zone = "Skylane" },
+		-- The escort proper, and the thing The Long Fall tells you to clear off
+		-- the skybridge. It has always been the mission's Kill target; it just
+		-- used to stand there until you shot first.
+		{
+			archetype = "ImperialCommando",
+			count = 6,
+			zone = "Skylane",
+			behavior = NPCArchetypes.Behavior.Aggressive,
+		},
 		{ archetype = "RepublicPilot", count = 5, zone = "Plaza" },
 		{ archetype = "JediKnight", count = 3, zone = "TempleRuin" },
 		{ archetype = "Smuggler", count = 6, zone = "Underlevels" },
+		--[[
+			The two outer districts, which until now held three quest givers
+			and six smugglers between them.
+
+			Nobody has a writ to be picking over the Temple ruin and everybody
+			is, so it is the one place on the capital where an Imperial squad
+			will shoot rather than file a complaint. The Underlevels are worse
+			and quieter: hunters working a district the Republic stopped
+			policing about a century ago.
+		]]
+		{
+			archetype = "ImperialCommando",
+			count = 8,
+			zone = "TempleRuin",
+			behavior = NPCArchetypes.Behavior.Aggressive,
+		},
+		{
+			archetype = "BountyHunter",
+			count = 10,
+			zone = "Underlevels",
+			behavior = NPCArchetypes.Behavior.Aggressive,
+		},
 	},
 	pointsOfInterest = {
 		{
@@ -499,9 +565,36 @@ def({
 		{ archetype = "RepublicPilot", count = 8, zone = "Hangar" },
 		{ archetype = "Civilian", count = 10, zone = "Base" },
 		{ archetype = "ProtocolDroid", count = 4, zone = "Hangar" },
-		{ archetype = "ImperialScout", count = 14, zone = "Graveyard" },
-		{ archetype = "ImperialCommando", count = 3, zone = "Graveyard" },
-		{ archetype = "BountyHunter", count = 3, zone = "Fissure" },
+		--[[
+			Both sides are salvaging the same wrecks and neither filed for the
+			claim, so past the wire everything on this planet shoots.
+
+			It did not before: the Republic base was the whole of Hoth's
+			population that would react to you at all, and the Graveyard and
+			the Fissure -- the two districts the entire planet exists for --
+			held seventeen NPCs who watched you walk past.
+		]]
+		{
+			archetype = "ImperialScout",
+			count = 14,
+			zone = "Graveyard",
+			behavior = NPCArchetypes.Behavior.Aggressive,
+		},
+		{
+			archetype = "ImperialCommando",
+			count = 6,
+			zone = "Graveyard",
+			behavior = NPCArchetypes.Behavior.Aggressive,
+		},
+		-- Fourteen, because the Fissure is one of only three districts in the
+		-- galaxy that band into the forties and the XP budget check will not
+		-- pass without them. Whoever went down there first is still down there.
+		{
+			archetype = "BountyHunter",
+			count = 14,
+			zone = "Fissure",
+			behavior = NPCArchetypes.Behavior.Aggressive,
+		},
 	},
 	pointsOfInterest = {
 		{
@@ -589,8 +682,24 @@ def({
 		{ archetype = "RepublicSecurity", count = 10, zone = "Spaceport" },
 		{ archetype = "RepublicVeteran", count = 6, zone = "Gnarls" },
 		-- Nothing here is fortified, and the Empire has noticed. Patrols probe
-		-- the Gnarls; the Order calls it a training opportunity.
-		{ archetype = "ImperialTrooper", count = 10, zone = "Gnarls" },
+		-- the Gnarls; the Order calls it a training opportunity. They shoot on
+		-- sight, which is what "probe" means and what the Repel the Assault
+		-- objective has always assumed -- it just used to require you to start
+		-- the fight yourself.
+		{
+			archetype = "ImperialTrooper",
+			count = 10,
+			zone = "Gnarls",
+			behavior = NPCArchetypes.Behavior.Aggressive,
+		},
+		-- And what the patrols are escorting. The Forge Ridge is the far edge
+		-- of the planet and had nothing on it at all.
+		{
+			archetype = "SithHonourGuard",
+			count = 8,
+			zone = "ForgeRidge",
+			behavior = NPCArchetypes.Behavior.Aggressive,
+		},
 	},
 	pointsOfInterest = {
 		{
@@ -677,11 +786,38 @@ def({
 		{ archetype = "Jawa", count = 8, zone = "Dig" },
 		{ archetype = "Researcher", count = 6, zone = "Dig" },
 		{ archetype = "ProtocolDroid", count = 4, zone = "Dig" },
-		{ archetype = "Smuggler", count = 8, zone = "SinkingSector" },
+		-- Scavengers who got to the Sinking Sector first and do not intend to
+		-- share it. The Camp and the Dig stay peaceful on purpose: the
+		-- Scrapper prologue sends a level 1 player into the Dig, and the
+		-- "your level is too low" banner is gated on a district holding
+		-- something aggressive.
+		{
+			archetype = "Smuggler",
+			count = 8,
+			zone = "SinkingSector",
+			behavior = NPCArchetypes.Behavior.Aggressive,
+		},
+		-- Collecting on behalf of whoever is left to collect from.
+		{
+			archetype = "CartelEnforcer",
+			count = 6,
+			zone = "SinkingSector",
+			behavior = NPCArchetypes.Behavior.Aggressive,
+		},
 		-- Czerka's security, which is a euphemism.
-		{ archetype = "WarDroid", count = 10, zone = "Lot9" },
-		{ archetype = "CartelEnforcer", count = 6, zone = "Undercity" },
-		{ archetype = "ImperialCommando", count = 4, zone = "Undercity" },
+		{ archetype = "WarDroid", count = 10, zone = "Lot9", behavior = NPCArchetypes.Behavior.Aggressive },
+		{
+			archetype = "CartelEnforcer",
+			count = 6,
+			zone = "Undercity",
+			behavior = NPCArchetypes.Behavior.Aggressive,
+		},
+		{
+			archetype = "ImperialCommando",
+			count = 4,
+			zone = "Undercity",
+			behavior = NPCArchetypes.Behavior.Aggressive,
+		},
 	},
 	pointsOfInterest = {
 		{
@@ -763,17 +899,47 @@ def({
 		{ id = "Wastes", distance = 2.6 },
 	},
 	spawns = {
-		{ archetype = "SithAcolyte", count = 18, zone = "Academy" },
+		--[[
+			Your classmates, and not your problem yet.
+
+			The Academy bands 1-12 and these are the Acolyte origin's spawn
+			point, so eighteen aggressive level 22 Sith stood on the exact
+			square metre a new Acolyte opens their eyes on. Overridden to
+			Guard: they will still fight if you start it, which is what the
+			duelling-pit missions want, and they will not open with it.
+		]]
+		{ archetype = "SithAcolyte", count = 18, zone = "Academy", behavior = NPCArchetypes.Behavior.Guard },
 		{ archetype = "ImperialTrooper", count = 10, zone = "Academy" },
 		{ archetype = "Civilian", count = 16, zone = "Dreshdae" },
 		{ archetype = "Merchant", count = 4, zone = "Dreshdae" },
 		{ archetype = "Researcher", count = 4, zone = "Dreshdae" },
-		{ archetype = "SithHonourGuard", count = 8, zone = "Valley" },
-		{ archetype = "SithLord", count = 1, zone = "Tombs" },
-		{ archetype = "ImperialCommando", count = 6, zone = "Tombs" },
+		{
+			archetype = "SithHonourGuard",
+			count = 8,
+			zone = "Valley",
+			behavior = NPCArchetypes.Behavior.Aggressive,
+		},
 		-- Stand-ins for tuk'ata and shyracks until the game has a non-humanoid
-		-- rig. Same job: the thing in the wastes that kills you.
-		{ archetype = "WarDroid", count = 14, zone = "Wastes" },
+		-- rig. Same job: the thing out of town that kills you. Pulled in from
+		-- the Wastes, which band 35-46 -- eleven levels past a war droid's
+		-- ceiling even after widening it -- to the Valley, which they fit.
+		{ archetype = "WarDroid", count = 14, zone = "Valley", behavior = NPCArchetypes.Behavior.Aggressive },
+		{
+			archetype = "ImperialCommando",
+			count = 6,
+			zone = "Tombs",
+			behavior = NPCArchetypes.Behavior.Aggressive,
+		},
+		-- Out to the Wastes with him. He is level 40-50 and the Tombs band
+		-- 27-38, so the planet's single most dangerous thing was spawning
+		-- two levels under the guards posted in front of it.
+		{ archetype = "SithLord", count = 1, zone = "Wastes" },
+		{
+			archetype = "SithHonourGuard",
+			count = 14,
+			zone = "Wastes",
+			behavior = NPCArchetypes.Behavior.Aggressive,
+		},
 	},
 	pointsOfInterest = {
 		{
@@ -855,16 +1021,37 @@ def({
 		{ archetype = "Smuggler", count = 16, zone = "Docks" },
 		{ archetype = "Merchant", count = 10, zone = "Market" },
 		{ archetype = "CartelEnforcer", count = 18, zone = "Promenade" },
-		{ archetype = "BountyHunter", count = 10, zone = "Docks" },
+		{
+			archetype = "BountyHunter",
+			count = 10,
+			zone = "Docks",
+			behavior = NPCArchetypes.Behavior.Aggressive,
+		},
 		{ archetype = "ProtocolDroid", count = 6, zone = "Market" },
 		-- The Empire has no writ on a Hutt moon, which is exactly why it keeps
 		-- a garrison at the docks -- and why there is a standing bounty on the
-		-- uniform. Without them the open contract counts nothing.
-		{ archetype = "ImperialTrooper", count = 16, zone = "Docks" },
+		-- uniform. Without them the open contract counts nothing. Aggressive
+		-- because a garrison with a price on its head does not wait to be
+		-- addressed, and because the contract is fifteen kills and used to
+		-- require you to throw the first punch fifteen times.
+		{
+			archetype = "ImperialTrooper",
+			count = 16,
+			zone = "Docks",
+			behavior = NPCArchetypes.Behavior.Aggressive,
+		},
 		-- The refugee sector needs somebody living in it, or the mission that
 		-- sends you there is a walk to an empty marker.
 		{ archetype = "Jawa", count = 6, zone = "Refuge" },
 		{ archetype = "Civilian", count = 14, zone = "Refuge" },
+		-- And somebody preying on them. The Refuge bands 37-45 and was the
+		-- softest district on the moon, which is backwards for its far edge.
+		{
+			archetype = "BountyHunter",
+			count = 12,
+			zone = "Refuge",
+			behavior = NPCArchetypes.Behavior.Aggressive,
+		},
 	},
 	pointsOfInterest = {
 		{
@@ -936,10 +1123,18 @@ def({
 		{ archetype = "Merchant", count = 2, zone = "Village" },
 		-- Frightened, and not grateful. They have been liberated three times.
 		{ archetype = "Civilian", count = 18, zone = "Village" },
-		-- Stand-in for the Separatist Militia archetype, which does not exist
-		-- yet: poorly armed irregulars are the closest thing the roster has.
-		{ archetype = "Smuggler", count = 14, zone = "Fields" },
-		{ archetype = "Smuggler", count = 8, zone = "Wilds" },
+		--[[
+			Stand-in for the Separatist Militia archetype, which does not exist
+			yet: poorly armed irregulars are the closest thing the roster has.
+
+			They shoot. This is a civil war and they are the other side of it,
+			and it is the Conscript's home world -- the four districts here
+			band 1-3, 2-4, 3-5 and 4-6, which is the gentlest slope in the
+			galaxy and had nothing standing on it. The Garrison and the
+			Village stay safe.
+		]]
+		{ archetype = "Smuggler", count = 14, zone = "Fields", behavior = NPCArchetypes.Behavior.Aggressive },
+		{ archetype = "Smuggler", count = 8, zone = "Wilds", behavior = NPCArchetypes.Behavior.Aggressive },
 	},
 	pointsOfInterest = {
 		{
@@ -1012,9 +1207,23 @@ def({
 		{ archetype = "ImperialTrooper", count = 22, zone = "KaasCity" },
 		{ archetype = "Civilian", count = 20, zone = "KaasCity" },
 		{ archetype = "Merchant", count = 4, zone = "KaasCity" },
-		{ archetype = "SithHonourGuard", count = 10, zone = "NexusRoad" },
+		{
+			archetype = "SithHonourGuard",
+			count = 10,
+			zone = "NexusRoad",
+			behavior = NPCArchetypes.Behavior.Aggressive,
+		},
 		{ archetype = "ImperialCommando", count = 8, zone = "NexusRoad" },
-		{ archetype = "SithAcolyte", count = 10, zone = "DarkTemple" },
+		-- Honour Guard rather than acolytes at the Dark Temple: this is the
+		-- last district in the game, banding 48-50, and an acolyte tops out
+		-- at 38. The endgame world's endgame district was spawning enemies
+		-- ten levels under it.
+		{
+			archetype = "SithHonourGuard",
+			count = 10,
+			zone = "DarkTemple",
+			behavior = NPCArchetypes.Behavior.Aggressive,
+		},
 		{ archetype = "SithLord", count = 2, zone = "DarkTemple" },
 	},
 	pointsOfInterest = {
@@ -1221,10 +1430,61 @@ function Planets.validate(): { string }
 				end
 			end
 		end
+		local aggressive = 0
 		for _, rule in p.spawns do
 			if rule.zone and not seen[rule.zone] then
 				table.insert(problems, `{id}: spawn "{rule.archetype}" names undeclared zone "{rule.zone}"`)
+				continue
 			end
+			if not NPCArchetypes.exists(rule.archetype) then
+				continue
+			end
+			local a = NPCArchetypes.get(rule.archetype)
+			if (rule.behavior or a.behavior) ~= NPCArchetypes.Behavior.Aggressive then
+				continue
+			end
+			aggressive += rule.count
+
+			--[[
+				An archetype that cannot reach the band of its own district.
+
+				`rollLevel` clamps the band into the archetype's range, so a
+				mismatch does not error -- it pins every spawn to one end and
+				the district quietly fills with enemies at the wrong level. The
+				2026-08-16 audit found war droids capped at 12 standing in
+				Korriban's level 35-46 Wastes and aggressive level 22 Sith
+				acolytes in its level 1-12 Academy, which is where the Acolyte
+				origin wakes up.
+
+				Only asked of Aggressive spawns. A quest giver's level is a
+				number on a nameplate, and Ord Mantell's Republic veteran is
+				meant to out-rank the level 1-6 world he hands missions out on.
+			]]
+			if rule.zone then
+				local band = Planets.bandFor(id, rule.zone)
+				if a.maxLevel < band.min or a.minLevel > band.max then
+					table.insert(
+						problems,
+						`{id}: "{rule.archetype}" is level {a.minLevel}-{a.maxLevel} but "{rule.zone}" bands {band.min}-{band.max}`
+					)
+				end
+			end
+		end
+
+		--[[
+			A world with nothing that will fight you.
+
+			The whole level-band design -- distance out of town means danger --
+			assumes danger exists, and `Radiant` will not compose a Cull mission
+			for a district without it. Six of the nine planets failed this on
+			2026-08-16: 812 NPCs in the galaxy and 43 of them hostile, which is
+			why the playtest report was "I'm not exactly seeing enemies".
+
+			Non-Aggressive archetypes only fight at Hostile reputation, and a
+			new character starts every faction at neutral, so they do not count.
+		]]
+		if aggressive == 0 then
+			table.insert(problems, `{id}: nothing on this planet is Aggressive, so there is nothing to fight`)
 		end
 		for _, poi in p.pointsOfInterest do
 			if poi.zone and not seen[poi.zone] then
@@ -1232,6 +1492,65 @@ function Planets.validate(): { string }
 			end
 		end
 	end
+
+	--[[
+		THE XP BUDGET
+
+		Whether the galaxy actually contains enough to fight to reach the level
+		cap -- checked level by level, not in total.
+
+		`Progression.xpForNextLevel` is a formula and the world is a pile of
+		spawn tables, and until 2026-08-16 nothing ever compared the two. The
+		curve asked for 1,040,647 XP to reach 50 while every hostile NPC in
+		existence was worth 21,480 between them, so the cap sat about fifty
+		clearances of the entire galaxy past the end of the story. That is the
+		arithmetic under the playtest note that levelling did not feel logical,
+		and it is exactly the failure mode this codebase keeps producing: two
+		systems that are each internally consistent and never introduced.
+
+		For each level, sums the reward of every Aggressive spawn whose district
+		bands within `REACH` levels of it -- what a player at that level can
+		walk to and be attacked by -- and requires that to cover one level's
+		worth of XP.
+
+		ONE, not some comfortable multiple. NPCs respawn, so a player can clear
+		the same district repeatedly; the honest floor is that a single sweep of
+		everything in range is not *already* short. Authored missions (about
+		33,000 XP across all 25) and radiant postings sit on top of this and are
+		deliberately not counted, so the real curve is gentler than the check.
+	]]
+	local REACH = 3
+	local reachable = table.create(Progression.MAX_LEVEL, 0)
+	for id, p in defs do
+		for _, rule in p.spawns do
+			if not NPCArchetypes.exists(rule.archetype) then
+				continue
+			end
+			local a = NPCArchetypes.get(rule.archetype)
+			if (rule.behavior or a.behavior) ~= NPCArchetypes.Behavior.Aggressive then
+				continue
+			end
+			local band = if rule.zone
+				then Planets.bandFor(id, rule.zone)
+				else { min = p.minLevel, max = p.maxLevel }
+			local worth = rule.count * a.xpReward
+			local from = math.max(1, band.min - REACH)
+			local to = math.min(Progression.MAX_LEVEL, band.max + REACH)
+			for level = from, to do
+				reachable[level] += worth
+			end
+		end
+	end
+	for level = 1, Progression.MAX_LEVEL - 1 do
+		local need = Progression.xpForNextLevel(level)
+		if reachable[level] < need then
+			table.insert(
+				problems,
+				`level {level} costs {need} XP but only {reachable[level]} is reachable within {REACH} levels of it`
+			)
+		end
+	end
+
 	table.sort(problems)
 	return problems
 end

@@ -130,22 +130,6 @@ local function giverFor(p: Planets.PlanetDef): string?
 	return best
 end
 
---- The first archetype that spawns hostile in `zoneId`, if any.
-local function hostileIn(p: Planets.PlanetDef, zoneId: string): string?
-	for _, rule in p.spawns do
-		if rule.zone ~= zoneId or not NPCArchetypes.exists(rule.archetype) then
-			continue
-		end
-		-- A rule may override the archetype's default, and the override is
-		-- what actually spawns.
-		local behavior = rule.behavior or NPCArchetypes.get(rule.archetype).behavior
-		if behavior == NPCArchetypes.Behavior.Aggressive then
-			return rule.archetype
-		end
-	end
-	return nil
-end
-
 local function poiIn(p: Planets.PlanetDef, zoneId: string): Planets.PointOfInterest?
 	for _, poi in p.pointsOfInterest do
 		if poi.zone == zoneId then
@@ -212,7 +196,7 @@ local function buildPlanet(p: Planets.PlanetDef)
 		local poi = poiIn(p, zone.id)
 		local id = `{Radiant.PREFIX}{p.id}:{zone.id}:`
 
-		local hostile = hostileIn(p, zone.id)
+		local hostile = NPCArchetypes.hostileIn(p.spawns, zone.id)
 		if hostile then
 			local enemy = NPCArchetypes.get(hostile).displayName
 			add({

@@ -59,6 +59,14 @@ Dialogue.GENERATED_PREFIX = "@"
 	has an opinion about.
 ]]
 export type Condition = {
+	--[[
+		Offered only to one origin.
+
+		The cheap half of making the four origins felt: a stranger on the
+		street can have one line that only a Scrapper would ever think to
+		say, without a second tree written for the other three.
+	]]
+	origin: string?,
 	minLevel: number?,
 	minRep: number?,
 	maxRep: number?,
@@ -245,6 +253,26 @@ def({
 			choices = {
 				WORK,
 				{ text = "Heard anything worth knowing?", next = "rumour" },
+				--[[
+					One line each, and only ever one of them on screen: the
+					menu is no longer for anybody, but it is different for
+					everybody. Put on the Civilian because the Civilian is
+					the archetype that spawns in the largest numbers on
+					every world, so this is the origin the player is
+					reminded of most often for the least authoring.
+				]]
+				{ text = "You are afraid of me.", next = "afraid", condition = { origin = "Acolyte" } },
+				{
+					text = "I grew up in a block like this one.",
+					next = "block",
+					condition = { origin = "Conscript" },
+				},
+				{ text = "Who do you owe?", next = "owing", condition = { origin = "Scoundrel" } },
+				{
+					text = "Anything round here worth pulling apart?",
+					next = "salvage",
+					condition = { origin = "Scrapper" },
+				},
 				LEAVE,
 			},
 		},
@@ -253,6 +281,34 @@ def({
 				"Patrols are thicker than they were. Somebody upset somebody, and it was not me.",
 				"They say there is work down at the docks. They also say the last three who took it did not come back.",
 				"Nothing worth the trouble of telling you. Sorry.",
+			},
+			choices = { LEAVE },
+		},
+		afraid = {
+			lines = {
+				"Yes. Everyone is. You will find that stops being useful to you sooner than you think.",
+				"My grandmother was afraid of your Academy and she never saw it. I have seen it. So.",
+			},
+			choices = { LEAVE },
+		},
+		block = {
+			lines = {
+				"Then you know why nobody here waves. Good. It saves me explaining it.",
+				"Everybody grew up in a block like this one. Not everybody came back wearing that.",
+			},
+			choices = { LEAVE },
+		},
+		owing = {
+			lines = {
+				"Everyone. That is not a joke, it is a filing system.",
+				"Less than I did last year, and I did nothing differently, which frightens me.",
+			},
+			choices = { LEAVE },
+		},
+		salvage = {
+			lines = {
+				"Everything. That is the problem -- if it were worth anything somebody would already have taken it.",
+				"There is a machine under the east wall nobody has fixed in nine years. If you fix it I will not tell anyone it was you.",
 			},
 			choices = { LEAVE },
 		},
@@ -573,6 +629,7 @@ end
 ]]
 function Dialogue.meets(
 	condition: Condition?,
+	origin: string,
 	level: number,
 	rep: number,
 	activeMissions: { [string]: any },
@@ -580,6 +637,9 @@ function Dialogue.meets(
 ): boolean
 	if not condition then
 		return true
+	end
+	if condition.origin and condition.origin ~= origin then
+		return false
 	end
 	if condition.minLevel and level < condition.minLevel then
 		return false
@@ -609,7 +669,7 @@ end
 	not exist is a conversation that dead-ends silently, and the player has no
 	way to tell that from an author's deliberate full stop.
 ]]
-function Dialogue.validate(missionExists: (string) -> boolean): { string }
+function Dialogue.validate(missionExists: (string) -> boolean, originExists: (string) -> boolean): { string }
 	local problems = {}
 
 	for id, tree in defs do
@@ -659,6 +719,11 @@ function Dialogue.validate(missionExists: (string) -> boolean): { string }
 					checkMission(c.missionActive)
 					checkMission(c.missionCompleted)
 					checkMission(c.missionNotCompleted)
+					-- A misspelt origin is a line no character can ever be
+					-- shown, which reads exactly like a line nobody wrote.
+					if c.origin ~= nil and not originExists(c.origin) then
+						table.insert(problems, `{id}.{nodeId}: choice {i} names unknown origin "{c.origin}"`)
+					end
 				end
 			end
 		end

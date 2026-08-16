@@ -210,6 +210,12 @@ test** — seven districts across levels 1–20, so every step outward is visibl
    that district and check its level against the range you were shown. **If
    those disagree, that is the bug** — both come from `Planets.bandFor`, so
    they cannot disagree unless something is reading the wrong zone.
+4. Walk a level 1 Scrapper into Taris's **Dig**. The band still reads 4–13,
+   but there is **no red and no TURN BACK** — the only things spawned there
+   are Jawas, researchers and a droid. *(Fixed 2026-08-16 off a playtest: the
+   band is derived from distance out of town, which is right for danger and
+   wrong for errands, so the alarm is now gated on the district actually
+   holding something aggressive. The Scrapper prologue sends you here.)*
 
 ### 4.3 Levels rise as you walk out
 
@@ -225,7 +231,11 @@ test** — seven districts across levels 1–20, so every step outward is visibl
    Their bands should still step outward rather than collapsing to one number.
    *(`BAND_MIN_WIDTH` is 2.)*
 5. Watch the Output window at boot for `zone "..." has an inverted band` or
-   `... is outside the planet's ...`. Neither should appear.
+   `... is outside the planet's ...`. Neither should appear. Since 2026-08-16
+   three more lines can show up there, and each is a real finding: `"X" is level
+   a-b but "Zone" bands c-d` (an archetype that cannot reach its own district),
+   `nothing on this planet is Aggressive`, and `level N costs X XP but only Y is
+   reachable`. See §9.2 and §9.3.
 
 ---
 
@@ -326,6 +336,29 @@ fires on its own; against a live save, wipe the profile or use a new account.
    world; if a future origin's home world is above level 1, `Origins.validate`
    says so in the output window at boot.
 
+### 6.1a Prologues and origin-only lines — **new, never played**
+
+The payoff for 6.1: the origin has to change the first hour, not a line of stat
+text. Do this on the character you just made.
+
+1. **M** on your home world. Exactly one prologue is on the board and it is
+   yours — *The Empty Bunk* on Korriban, *The Other Copy* on Ord Mantell, *The
+   Manifest* on Tatooine, *The Sealed Crate* on Taris.
+2. **The other three are not listed at all**, not greyed out. Check the two
+   worlds that carry somebody else's prologue: an Acolyte on Tatooine must not
+   see *The Manifest* anywhere on the board. A locked entry you can never unlock
+   is worse than no entry — that is why this one refusal hides.
+3. Take it and finish it. Three objectives, no combat, and the tracker names the
+   points of interest. On Ord Mantell and Tatooine it hands off to that world's
+   existing level-1 chain (*Pay and Rations*, *Dust and Droids*).
+4. Talk to any **Civilian**, on any planet. One line in the menu is written for
+   your origin and only yours — "You are afraid of me." for the Acolyte, "Who do
+   you owe?" for the Scoundrel. Check a second character sees a different one and
+   never both.
+5. If a prologue or a line names an origin that does not exist, `Missions.validate`
+   and `Dialogue.validate` say so at boot. Nothing else would: the mission would
+   simply be absent from every board and the line from every menu.
+
 ### 6.2 Faction standing — **new, never played**
 
 Reputation already decided who shoots you, which missions exist and how NPCs
@@ -379,6 +412,23 @@ worlds out of nine buries the one that matters.
 
 **Known open — do not file these:** the Escort / Survive / Slice / Destroy
 objective kinds have no server reader.
+
+### 7.0a Finding the thing you were sent for — **changed 2026-08-16**
+
+The playtest report was "I'm seeing no way to salvage… I went to the way point
+but doesn't instruct me what I should be doing". Three things changed.
+
+1. Accept a mission with a **Collect** step. Follow the waypoint. It now names
+   the **nearest crate**, not the landmark — walk it all the way down and you
+   end up standing on an item, not in an empty courtyard.
+2. Each crate carries a **floating name tag** readable through walls from about
+   140 studs. From the landmark you should be able to see where the pile is
+   without hunting. **If you can reach 0 studs on the beacon and still not see
+   a tag, that is the bug.**
+3. The **E** prompt now reaches 18 studs rather than 12. You should not have to
+   nudge about to find the exact spot that lights it up, even under an overhang.
+4. Take one. The counter moves, and after 45 seconds another appears — the pile
+   is shared and refills, so both of you can work the same one.
 
 ### 7.1 Radiant missions — **new, never played**
 
@@ -462,6 +512,53 @@ three. Different lists is a bug, and a bad one.
 **Known open — do not file:** 6 of 19 skills still have no reader, the whole
 Piloting tree included. They now show **COMING SOON** and refuse the point
 rather than taking it — that refusal *is* the correct behaviour.
+
+### 9.2 There is something to fight — **changed 2026-08-16**
+
+The playtest report was *"I'm not exactly seeing enemies or anything so I'm not
+sure why my level would be too low"*, and it was literally true: 812 NPCs
+existed in the galaxy and **43** of them would ever attack you. Six of the nine
+worlds contained nothing hostile at all. That is now **271 across all nine**, so
+these steps are the ones most likely to find something wrong.
+
+1. **Every planet has a fight on it.** Walk out of town on each world in turn.
+   Somewhere past the middle district something should shoot at you without
+   being provoked. If a planet is still peaceful all the way to its edge, that
+   is a bug — and `Planets.validate` should have said so in the output log at
+   server start, so check there first.
+2. **Town is still safe.** Anchorhead, Kaas City, Fort Garnik's garrison, the
+   Dreshdae spaceport, Aurek Base and the Tython temple should all be places you
+   can stand still in. **A hostile inside a hub is a bug.**
+3. **The Sith Academy on Korriban is safe.** This one matters most: it is where
+   the Acolyte origin opens its eyes, and eighteen aggressive level 22 Sith used
+   to be standing on that exact spot. They will still duel you if you swing
+   first. They must not open with it.
+4. **The Taris Dig is safe** — see §4.2. The Scrapper prologue goes there.
+5. **Levels rise as you walk out and the enemies match.** Check a nameplate in
+   each district of one planet. Korriban runs Academy 1–12, Dreshdae 9–20,
+   Valley 19–30, Tombs 27–38, Wastes 35–46. *(An enemy pinned to exactly the
+   same level everywhere in a district means its archetype cannot reach that
+   band — the old war droids capped at 12 while standing in a 35–46 zone.)*
+
+### 9.3 The levelling curve — **changed 2026-08-16**
+
+Reaching level 50 used to cost **1,040,647 XP** while the entire galaxy was
+worth 21,480 a sweep. It now costs about **380,000**, and the galaxy pays about
+100,000 a sweep plus 33,000 in authored missions.
+
+1. `thereisnocow` no longer needs to exist to see the mid game. Play a fresh
+   character and just do the story. **Levels 1–10 should arrive quickly** — the
+   first is 100 XP and the tenth about 1,900.
+2. **No stretch should feel like a wall.** The old thin spot was 10–16, where
+   the reachable content was about a third of what level 17 could reach. It is
+   filled now (Tatooine's Wastes and the Taris Sinking Sector both got hostile
+   scavengers). If levelling stalls hard somewhere, **write down the level** —
+   that number is the whole bug report.
+3. At the cap end, expect a grind: 43 is the tightest level in the game at about
+   1.2 sweeps of everything in range. That is intended; it is the Diablo part.
+4. `Planets.validate` checks the curve against the world **at every level** on
+   boot. A `level N costs X XP but only Y is reachable` line in the log means
+   the content moved out from under the curve — that is a real finding.
 
 ---
 

@@ -22,14 +22,29 @@ Progression.MAX_NODE_RANK = 5
 --[[
 	XP required to advance FROM `level` to level+1.
 
-	Quadratic-ish curve: cheap early so the first hour is generous, steepening
-	toward the cap. Level 2 costs 100, level 10 about 1.5k, level 50 about 90k.
+	Cheap early so the first hour is generous, steepening toward the cap. Level
+	2 costs 100, level 10 about 1.9k, level 50 about 17k, and the whole climb
+	from 1 to 50 costs a little under 380,000.
+
+	THIS NUMBER IS A BUDGET, NOT A FEEL
+
+	The old curve was `100 * level^1.6 + 50 * level`, and its own docstring
+	claimed level 50 cost 90k when it actually cost 53k and the full climb cost
+	1,040,647. Nobody noticed because nothing compared it to anything. What the
+	galaxy actually pays is roughly 100,000 XP for killing every hostile in it
+	once, plus 33,000 for all 25 authored missions -- so the old cap was about
+	ten clearances of the entire galaxy past the end of the story, which is the
+	arithmetic behind the playtest note that levelling did not feel logical.
+
+	This one costs about seventeen. `Planets.validate` now checks the two
+	against each other at boot, per level band, so the curve cannot quietly
+	outrun the content again -- see the XP budget check over there.
 ]]
 function Progression.xpForNextLevel(level: number): number
 	if level >= Progression.MAX_LEVEL then
 		return math.huge
 	end
-	return math.floor(100 * (level ^ 1.6) + 50 * level)
+	return math.floor(30 * (level ^ 1.6) + 70 * level)
 end
 
 --- Total cumulative XP needed to reach `level` from scratch.

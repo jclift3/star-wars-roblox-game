@@ -81,6 +81,14 @@ export type MissionDef = {
 	minLevel: number,
 	requiredRep: number?, -- with `faction`
 	requires: { string }?, -- mission ids that must be completed first
+	--[[
+		Only this origin may take the mission. nil means anybody.
+
+		This is what makes four prologues affordable: each one is written for
+		a character the author knows everything about -- where they woke up,
+		who raised them, what they owe -- instead of for a stranger.
+	]]
+	origin: string?,
 
 	objectives: { ObjectiveDef },
 	rewards: Rewards,

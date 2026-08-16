@@ -18,10 +18,11 @@
 	WHAT IT POINTS AT
 	The first incomplete objective of the first active mission that resolves to
 	somewhere in the world. Reach and Deliver name a point of interest directly;
-	Kill resolves through the archetype's spawn zone, which is the closest thing
-	to "where those things live" the config knows. Objectives that resolve to
-	nowhere (Collect, TalkTo) are skipped rather than guessed at -- a confidently
-	wrong arrow is worse than no arrow.
+	Collect points at the nearest crate actually lying on the ground; Kill
+	resolves through the archetype's spawn zone, which is the closest thing to
+	"where those things live" the config knows. Objectives that resolve to
+	nowhere (TalkTo) are skipped rather than guessed at -- a confidently wrong
+	arrow is worse than no arrow.
 
 	Deliberately read-only: everything here comes from the replicated profile and
 	the world markers the server already built. Nothing is asked of the server.
@@ -83,6 +84,35 @@ local function poiPart(planetId: string, poiId: string): BasePart?
 	return if part and part:IsA("BasePart") then part else nil
 end
 
+--[[
+	The nearest pickup of `itemId` that PickupService has put on this planet.
+
+	Reported from the 2026-08-16 playtest: the waypoint read "12 studs" while
+	the player stood on the landmark and could not see a thing. Pickups scatter
+	up to PickupService.SCATTER studs past the landmark's skirt and their prompt
+	only reaches 12, so pointing at the landmark can leave you a good 40 studs
+	short with the beacon already saying you have arrived.
+]]
+local function pickupPart(planetId: string, itemId: string, from: Vector3): BasePart?
+	local root = Workspace:FindFirstChild("Pickups")
+	local planetFolder = root and root:FindFirstChild(planetId)
+	if not planetFolder then
+		return nil
+	end
+	local best: BasePart? = nil
+	local bestDistance = math.huge
+	for _, child in planetFolder:GetChildren() do
+		if child.Name ~= itemId or not child:IsA("BasePart") then
+			continue
+		end
+		local distance = (child.Position - from).Magnitude
+		if distance < bestDistance then
+			best, bestDistance = child, distance
+		end
+	end
+	return best
+end
+
 --- The first patrol point of a named zone.
 local function zonePart(planetId: string, zoneName: string): BasePart?
 	local root = Workspace:FindFirstChild("Zones")
@@ -112,7 +142,7 @@ local function zoneForArchetype(planetId: string, archetype: string): string?
 	return nil
 end
 
-local function partForObjective(planetId: string, obj: Missions.ObjectiveDef): BasePart?
+local function partForObjective(planetId: string, obj: Missions.ObjectiveDef, from: Vector3): BasePart?
 	local kind = obj.kind
 	if kind == Missions.Objective.Reach and obj.target then
 		return poiPart(planetId, obj.target)
@@ -120,10 +150,16 @@ local function partForObjective(planetId: string, obj: Missions.ObjectiveDef): B
 	if kind == Missions.Objective.Deliver and obj.destination then
 		return poiPart(planetId, obj.destination)
 	end
-	-- Collect points at where PickupService puts the items, not at the item
-	-- itself: the pile moves as it is looted and respawned, the place does not.
-	if kind == Missions.Objective.Collect and obj.at then
-		return poiPart(planetId, obj.at)
+	-- Collect points at an actual crate, and only falls back to the landmark
+	-- when the planet has not been stocked yet -- "go here" is not an
+	-- instruction when the thing you came for is 40 studs further out in the
+	-- dark and the beacon has stopped counting down.
+	if kind == Missions.Objective.Collect and obj.target then
+		local pickup = pickupPart(planetId, obj.target, from)
+		if pickup then
+			return pickup
+		end
+		return if obj.at then poiPart(planetId, obj.at) else nil
 	end
 	if kind == Missions.Objective.Kill and obj.target then
 		local zone = zoneForArchetype(planetId, obj.target)
@@ -139,7 +175,7 @@ end
 	`profile.missions.active` is a hash map, and iterating it directly would let
 	the arrow flip between two missions at random.
 ]]
-local function resolveTarget()
+local function resolveTarget(from: Vector3)
 	targetPart = nil
 	targetLabel = ""
 
@@ -169,7 +205,7 @@ local function resolveTarget()
 			if obj.hidden and done == 0 then
 				continue
 			end
-			local part = partForObjective(profile.currentPlanet, obj)
+			local part = partForObjective(profile.currentPlanet, obj, from)
 			if part then
 				targetPart = part
 				targetLabel = obj.description
@@ -275,18 +311,24 @@ local function hide()
 end
 
 local function update(dt: number)
-	sinceResolve += dt
-	if sinceResolve >= RESOLVE_INTERVAL then
-		sinceResolve = 0
-		resolveTarget()
-	end
-
-	local part = targetPart
 	local camera = Workspace.CurrentCamera
 	local character = player.Character
 	local root = character and character:FindFirstChild("HumanoidRootPart")
+	if not camera or not root or not root:IsA("BasePart") then
+		hide()
+		return
+	end
 
-	if not part or not part.Parent or not camera or not root or not root:IsA("BasePart") then
+	-- Resolved from where the player is standing, because a Collect objective
+	-- points at the nearest crate and which one that is changes as they walk.
+	sinceResolve += dt
+	if sinceResolve >= RESOLVE_INTERVAL then
+		sinceResolve = 0
+		resolveTarget(root.Position)
+	end
+
+	local part = targetPart
+	if not part or not part.Parent then
 		hide()
 		return
 	end

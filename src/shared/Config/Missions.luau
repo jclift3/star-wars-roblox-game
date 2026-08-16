@@ -26,6 +26,10 @@ local Items = require(script.Parent.Items)
 local MissionKinds = require(script.Parent.MissionKinds)
 local Planets = require(script.Parent.Planets)
 local NPCArchetypes = require(script.Parent.NPCArchetypes)
+-- Required outright rather than passed into `validate` the way Progression is:
+-- Origins is small, and it already requires Planets and Factions, both of
+-- which this file requires too, so there is no cycle to break.
+local Origins = require(script.Parent.Origins)
 local Radiant = require(script.Parent.Radiant)
 local Weapons = require(script.Parent.Weapons)
 
@@ -48,6 +52,194 @@ local function def(m: MissionDef): MissionDef
 	defs[m.id] = m
 	return m
 end
+
+--------------------------------------------------------------------------------
+-- Origin prologues -- one per origin, on that origin's home world
+--------------------------------------------------------------------------------
+
+--[[
+	The first thing any character does, and the only content gated on `origin`.
+
+	FOUR SHORT ONES RATHER THAN ONE BRANCHING ONE
+	Each is written for somebody the author knows everything about: where they
+	woke up, who raised them, what they owe. That is the whole reason the
+	creation screen was worth building -- a choice that changes the first hour
+	is a choice; a choice that changes a line of stat text is a menu.
+
+	They are deliberately the smallest missions in the file. Three objectives,
+	no combat, level 1, and each hands off to the world's existing opening
+	chain where there is one. A prologue that outstays its welcome is the
+	thing every player of the second character will resent.
+
+	`boardFor` hides the other three rather than greying them out: an origin
+	is answered once and never again, so the refusal would never stop being
+	true. See `canAccept`.
+]]
+
+def({
+	id = "KorTheEmptyBunk",
+	displayName = "The Empty Bunk",
+	summary = "Sennat's bed has been reassigned and nobody will say his name. Find out who cleared it.",
+	briefing = "You are the acolyte who keeps asking. Fine -- ask properly. The intake records are in the Academy and they are not guarded, because nobody has ever wanted them. Bring me what is written about the bunk in the third dormitory, and I will tell you what is not.",
+	debriefing = "He was not expelled and he did not die. He was collected, and the form for it already existed, which means he was not the first. You may go now. Come back when you are strong enough for the answer to be any use to you.",
+	kind = "Story",
+	faction = "Empire",
+	planet = "Korriban",
+	giver = "Researcher",
+	origin = "Acolyte",
+	minLevel = 1,
+	objectives = {
+		{
+			kind = Objective.Collect,
+			target = "ResearchData",
+			at = "SithAcademy",
+			count = 3,
+			description = "Take the intake records from the Academy",
+		},
+		{
+			kind = Objective.TalkTo,
+			target = "Civilian",
+			count = 3,
+			description = "Ask in Dreshdae who empties a bunk",
+		},
+		{
+			kind = Objective.Deliver,
+			target = "ResearchData",
+			destination = "Dreshdae",
+			description = "Bring the records back to Dreshdae",
+		},
+	},
+	rewards = {
+		xp = 150,
+		credits = 180,
+		rep = { Empire = 40 },
+		items = { StimPack = 2 },
+	},
+})
+
+def({
+	id = "OrdTheOtherCopy",
+	displayName = "The Other Copy",
+	summary = "Your enlistment file says you volunteered. Go and find the block it says you volunteered from.",
+	briefing = "New ones always want their file. Here is what is in it: you signed, you were fifteen, and the block was cleared lawfully. Here is what I will tell you once and not again -- there were two copies of that form, and the village kept theirs. Walk down and read it before somebody tidier than me does.",
+	debriefing = "Now you have seen both. Neither is a lie exactly, which is the part that will keep you up. Draw your kit. You are a soldier this morning whatever you were last year.",
+	kind = "Story",
+	faction = "Republic",
+	planet = "OrdMantell",
+	giver = "RepublicVeteran",
+	origin = "Conscript",
+	minLevel = 1,
+	objectives = {
+		{
+			kind = Objective.Collect,
+			target = "ResearchData",
+			at = "FortGarnik",
+			count = 2,
+			description = "Pull your enlistment file from the fort",
+		},
+		{
+			kind = Objective.Reach,
+			target = "DrelliadVillage",
+			planet = "OrdMantell",
+			description = "Walk down to the village the block was cleared for",
+		},
+		{
+			kind = Objective.TalkTo,
+			target = "Civilian",
+			count = 3,
+			description = "Ask who else signed that year",
+		},
+	},
+	rewards = {
+		xp = 150,
+		credits = 180,
+		rep = { Republic = 40 },
+		items = { StimPack = 2 },
+	},
+	next = "OrdPayAndRations",
+})
+
+def({
+	id = "TatTheManifest",
+	displayName = "The Manifest",
+	summary = "Two crates came off the freighter that are not on the paperwork. Move them before anyone counts.",
+	briefing = "You read the manifest. I know, because you have not stopped looking at the door since. Here is the useful half of that talent: there are two crates on the field that nobody wrote down, and the man they belong to is on Nar Shaddaa and does not know yet. Get them to the Dry Well and you are a person who does me favours instead of a person who owes me one.",
+	debriefing = "Clean. No names, no receipt, and the crates were never there. Your parents' debt is still your parents' debt -- but this planet does not know your family, and that is worth more than it sounds.",
+	kind = "Story",
+	faction = "Independent",
+	planet = "Tatooine",
+	giver = "Smuggler",
+	origin = "Scoundrel",
+	minLevel = 1,
+	objectives = {
+		{
+			kind = Objective.Collect,
+			target = "SpiceCrate",
+			at = "Anchorhead",
+			count = 2,
+			description = "Take the two crates that are not on the manifest",
+		},
+		{
+			kind = Objective.Reach,
+			target = "DuneCantina",
+			planet = "Tatooine",
+			description = "Get across town to the Dry Well",
+		},
+		{
+			kind = Objective.Deliver,
+			target = "SpiceCrate",
+			destination = "DuneCantina",
+			description = "Hand the crates over and stay for one drink",
+		},
+	},
+	rewards = {
+		xp = 150,
+		credits = 180,
+		rep = { Independent = 40 },
+		items = { StimPack = 2 },
+	},
+	next = "TatDustAndDroids",
+})
+
+def({
+	id = "TarTheSealedCrate",
+	displayName = "The Sealed Crate",
+	summary = "Ordo-9 remembers delivering containers like yours. Get enough power into him to finish the sentence.",
+	briefing = "MEMORY SECTOR NINE IS INTACT AND UNPOWERED. I HAVE CARRIED THIS SHAPE BEFORE. I HAVE CARRIED FOURTEEN OF THIS SHAPE BEFORE. THE REST OF THE SENTENCE REQUIRES TWO COUPLINGS FROM THE DIG AND I WOULD LIKE YOU TO WANT TO HEAR IT.",
+	debriefing = "FOURTEEN, AND ALL OF THEM TO THE SAME BUYER, AND NONE OF THEM CAME BACK. I HAVE ALSO RECOVERED THE PART WHERE I DID NOT ASK WHAT WAS INSIDE. I AM SORRY. I AM TOLD THAT IS THE CORRECT THING TO SAY AND I FIND THAT I MEAN IT.",
+	kind = "Story",
+	faction = "Independent",
+	planet = "Taris",
+	giver = "ProtocolDroid",
+	origin = "Scrapper",
+	minLevel = 1,
+	objectives = {
+		{
+			kind = Objective.Collect,
+			target = "PowerCoupling",
+			at = "TheDig",
+			count = 2,
+			description = "Salvage two couplings out of the spoil heap",
+		},
+		{
+			kind = Objective.TalkTo,
+			target = "ProtocolDroid",
+			description = "Let Ordo-9 finish the sentence",
+		},
+		{
+			kind = Objective.Reach,
+			target = "ResettlementCamp",
+			planet = "Taris",
+			description = "Take what he said back to the camp",
+		},
+	},
+	rewards = {
+		xp = 150,
+		credits = 180,
+		rep = { Independent = 40 },
+		items = { StimPack = 2 },
+	},
+})
 
 --------------------------------------------------------------------------------
 -- Tatooine -- the opening chain
@@ -966,6 +1158,10 @@ function Missions.exists(id: string): boolean
 	return defs[id] ~= nil
 end
 
+-- Compared by `boardFor`, so it is a constant rather than a literal written
+-- twice. See the check itself for why this refusal is the one that hides.
+local NOT_YOUR_ORIGIN = "Not your story"
+
 --[[
 	Whether a player may take a mission right now.
 
@@ -977,6 +1173,7 @@ function Missions.canAccept(
 	missionId: string,
 	profile: {
 		level: number,
+		origin: string,
 		factionRep: { [string]: number },
 		missions: {
 			active: { [string]: any },
@@ -997,6 +1194,16 @@ function Missions.canAccept(
 	local completedCount = profile.missions.completed[missionId]
 	if completedCount and not m.repeatable then
 		return false, "Already completed"
+	end
+
+	--[[
+		Checked before level, because it is the one refusal that will never
+		stop being true. Everything below this is a lock the player can pick
+		by playing; an origin is answered once at creation and never again,
+		so `boardFor` hides these rather than greying them out.
+	]]
+	if m.origin and m.origin ~= profile.origin then
+		return false, NOT_YOUR_ORIGIN
 	end
 
 	if profile.level < m.minLevel then
@@ -1056,9 +1263,10 @@ function Missions.boardFor(
 			continue
 		end
 		local ok, reason = Missions.canAccept(m.id, profile, now)
-		-- "Already completed" is the one refusal worth hiding: a finished
-		-- one-shot is clutter, not a goal.
-		if ok or reason ~= "Already completed" then
+		-- Two refusals are worth hiding rather than greying out: a finished
+		-- one-shot is clutter, and another origin's story is a goal this
+		-- character can never reach.
+		if ok or (reason ~= "Already completed" and reason ~= NOT_YOUR_ORIGIN) then
 			table.insert(out, { mission = m, locked = not ok, reason = reason })
 		end
 	end
@@ -1142,6 +1350,15 @@ function Missions.validate(): { string }
 			table.insert(problems, `{id}: giver "{m.giver}" is not interactable`)
 		elseif not Planets.spawnsArchetype(m.planet, m.giver) then
 			table.insert(problems, `{id}: giver "{m.giver}" does not spawn on {m.planet}`)
+		end
+		--[[
+			An origin nobody can be is a mission nobody can take, and
+			`boardFor` hides exactly this refusal -- so a typo here does not
+			grey an entry out, it deletes the mission from the game with no
+			error anywhere.
+		]]
+		if m.origin and not Origins.exists(m.origin) then
+			table.insert(problems, `{id}: unknown origin "{m.origin}"`)
 		end
 		if m.next and not defs[m.next] then
 			table.insert(problems, `{id}: next mission "{m.next}" does not exist`)

@@ -29,6 +29,7 @@ local RunService = game:GetService("RunService")
 local Workspace = game:GetService("Workspace")
 
 local Shared = game:GetService("ReplicatedStorage"):WaitForChild("Shared")
+local NPCArchetypes = require(Shared.Config.NPCArchetypes)
 local Panels = require(Shared.Core.Panels)
 local Planets = require(Shared.Config.Planets)
 local ServiceLoader = require(Shared.Core.ServiceLoader)
@@ -122,7 +123,19 @@ end
 
 local function announce(planetId: string, zoneId: string, level: number)
 	local band = Planets.bandFor(planetId, zoneId)
-	local under = Planets.underlevelled(level, band)
+	--[[
+		A district with nothing aggressive in it is never a warning.
+
+		`bandFor` derives the range from how far out of town a district sits,
+		which is right for danger and wrong for errands: Taris's Dig is a
+		spoil heap full of Jawas and archaeologists at level 4-13, and a
+		level 1 Scrapper walking into the one their own prologue sent them to
+		was told YOU ARE LEVEL 1 -- TURN BACK. Reported from the 2026-08-16
+		playtest. The band is still shown, because it is still true; it just
+		stops being an alarm when there is nothing there to be alarmed by.
+	]]
+	local hostile = NPCArchetypes.hostileIn(Planets.get(planetId).spawns, zoneId) ~= nil
+	local under = hostile and Planets.underlevelled(level, band)
 
 	nameLabel.Text = prettify(zoneId)
 	nameLabel.TextColor3 = if under then DANGER else TEXT

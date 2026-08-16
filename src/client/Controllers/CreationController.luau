@@ -164,6 +164,25 @@ local function build()
 	screen.Enabled = false
 	screen.Parent = player:WaitForChild("PlayerGui")
 
+	--[[
+		An opaque sheet over the whole viewport, behind the panel.
+
+		The character is spawned and standing on a planet before this screen
+		is answered -- it has to be, because the answer is what decides which
+		planet to move them to. So the first thing a new player saw was
+		Tatooine behind the question "who were you", which both spoils the
+		Scoundrel's answer and makes the other three look wrong. Reported
+		from the 2026-08-16 playtest.
+	]]
+	local scrim = Instance.new("Frame")
+	scrim.Name = "Scrim"
+	scrim.BackgroundColor3 = Color3.new(0, 0, 0)
+	scrim.BackgroundTransparency = 0
+	scrim.BorderSizePixel = 0
+	scrim.Size = UDim2.fromScale(1, 1)
+	scrim.ZIndex = 0
+	scrim.Parent = screen
+
 	local root = Instance.new("Frame")
 	root.Name = "Panel"
 	root.AnchorPoint = Vector2.new(0.5, 0.5)

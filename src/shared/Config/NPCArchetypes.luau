@@ -122,8 +122,17 @@ def({
 	speciesPool = pool({ Human = 1 }),
 	behavior = Behavior.Patrol,
 	holdsGround = true,
+	--[[
+		A wide range on purpose, and the reason `rollLevel` narrows by district.
+
+		The same uniform stands in Anchorhead's market and on the Tython ridge
+		line, and it used to cap at 12 -- so the Tython patrol spawned eighteen
+		levels under the ground it was standing on, and `Planets.validate` now
+		says so. One archetype spanning the galaxy is the intended shape: the
+		band decides how hard this particular trooper is, not the roster.
+	]]
 	minLevel = 3,
-	maxLevel = 12,
+	maxLevel = 35,
 	baseHealth = 90,
 	healthPerLevel = 6,
 	walkSpeed = 10,
@@ -151,8 +160,10 @@ def({
 	speciesPool = pool({ Human = 1 }),
 	behavior = Behavior.Patrol,
 	holdsGround = true,
+	-- Reaches Hoth's Starship Graveyard (28-37), which is the only place they
+	-- are posted and was eight levels past their old ceiling.
 	minLevel = 8,
-	maxLevel = 20,
+	maxLevel = 37,
 	baseHealth = 120,
 	healthPerLevel = 7,
 	walkSpeed = 10,
@@ -229,8 +240,10 @@ def({
 	speciesPool = pool({ Human = 1 }),
 	behavior = Behavior.Guard,
 	holdsGround = true,
+	-- Up to the cap: these hold the Nexus Road and the Dark Temple, which band
+	-- 47-50, and there is nothing above them to promote the job to.
 	minLevel = 28,
-	maxLevel = 42,
+	maxLevel = 50,
 	baseHealth = 320,
 	healthPerLevel = 12,
 	walkSpeed = 8,
@@ -456,8 +469,10 @@ def({
 		let him open fire from the next district over.
 	]]
 	behavior = Behavior.Guard,
+	-- Hoth's Fissure and Nar Shaddaa's Refuge both band into the forties, and
+	-- a hunter who takes contracts that far out is the whole point of them.
 	minLevel = 18,
-	maxLevel = 36,
+	maxLevel = 45,
 	baseHealth = 260,
 	healthPerLevel = 10,
 	walkSpeed = 12,
@@ -483,7 +498,9 @@ def({
 	costume = "Smuggler",
 	speciesPool = pool({ Human = 6, Twilek = 2, Rodian = 2, Wookiee = 1 }),
 	behavior = Behavior.Wander,
-	minLevel = 8,
+	-- Down to 3 so the Ord Mantell irregulars -- a level 1-6 world, and the
+	-- Conscript's first fight -- are not all pinned to the archetype's floor.
+	minLevel = 3,
 	maxLevel = 24,
 	baseHealth = 140,
 	healthPerLevel = 7,
@@ -698,8 +715,10 @@ def({
 	speciesPool = pool({ WarDroid = 1 }),
 	behavior = Behavior.Patrol,
 	holdsGround = true,
+	-- Czerka's Lot 9 (15-21) and Korriban's Valley (19-30) both run past the
+	-- old ceiling of 12, which pinned every droid in them to one number.
 	minLevel = 2,
-	maxLevel = 12,
+	maxLevel = 24,
 	baseHealth = 55,
 	healthPerLevel = 4,
 	walkSpeed = 10,
@@ -770,6 +789,43 @@ function NPCArchetypes.rollLevel(id: string, rng: Random?, band: { min: number, 
 		return rng:NextInteger(low, high)
 	end
 	return math.random(low, high)
+end
+
+--[[
+	The first archetype in `spawns` that will actually attack you in `zoneId`,
+	or nil if the district holds nothing hostile at all.
+
+	Lives here because Behavior does, and it is asked by two callers that have
+	nothing else in common: Radiant, deciding whether a district can carry a
+	Cull mission, and ZoneController, deciding whether a level band is a
+	warning or just a fact. A district of Jawas and archaeologists is not
+	dangerous however far out of town it sits, and telling a level 1 Scrapper
+	to TURN BACK from the dig their own prologue sent them to is the version
+	of that mistake the 2026-08-16 playtest actually hit.
+
+	`spawns` is typed structurally rather than as `Planets.SpawnRule` for the
+	same reason `rollLevel` takes a bare band: the planet configs lean on this
+	file, so it must not require them back. Luau table types are invariant, so
+	the shape has to name every field of a SpawnRule even though only three are
+	read -- a field added there and not here is a type error at the call sites,
+	which is the loud failure and the one we want.
+]]
+function NPCArchetypes.hostileIn(
+	spawns: { { archetype: string, count: number, zone: string?, behavior: string? } },
+	zoneId: string
+): string?
+	for _, rule in spawns do
+		if rule.zone ~= zoneId or not NPCArchetypes.exists(rule.archetype) then
+			continue
+		end
+		-- A rule may override the archetype's default, and the override is
+		-- what actually spawns.
+		local behavior = rule.behavior or NPCArchetypes.get(rule.archetype).behavior
+		if behavior == Behavior.Aggressive then
+			return rule.archetype
+		end
+	end
+	return nil
 end
 
 function NPCArchetypes.healthFor(id: string, level: number): number

@@ -32,6 +32,7 @@ local Dialogue = require(Shared.Config.Dialogue)
 local Missions = require(Shared.Config.Missions)
 local NPCArchetypes = require(Shared.Config.NPCArchetypes)
 local Net = require(Shared.Core.Net)
+local Origins = require(Shared.Config.Origins)
 local ServiceLoader = require(Shared.Core.ServiceLoader)
 local Shops = require(Shared.Config.Shops)
 
@@ -117,6 +118,7 @@ local function resolveChoices(profile: any, session: Session, node: Dialogue.Nod
 		if
 			not Dialogue.meets(
 				choice.condition,
+				profile.origin,
 				profile.level,
 				rep,
 				profile.missions.active,
@@ -339,7 +341,7 @@ end
 --------------------------------------------------------------------------------
 
 function DialogueService.init()
-	for _, problem in Dialogue.validate(Missions.exists) do
+	for _, problem in Dialogue.validate(Missions.exists, Origins.exists) do
 		warn(`[DialogueService] dialogue config: {problem}`)
 	end
 

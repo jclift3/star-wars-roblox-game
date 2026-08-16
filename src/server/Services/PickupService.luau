@@ -48,6 +48,14 @@ local PickupService = {
 local RESPAWN_DELAY = 45
 -- How far from the point of interest pickups scatter.
 local SCATTER = 26
+-- How far off the name tag is legible. Comfortably past SCATTER plus the
+-- widest landmark's skirt, so a crate is named from the moment you arrive at
+-- the landmark rather than once you are on top of it.
+local TAG_DISTANCE = 140
+-- Reach of the prompt. Generous on purpose: these lie in rubble and under
+-- overhangs, and hunting for the exact stud that lights the prompt up is not
+-- the game.
+local PROMPT_DISTANCE = 18
 -- Spare copies beyond what the objective asks for, so two players collecting
 -- at once do not have to wait on the respawn timer.
 local SPARES = 2
@@ -207,11 +215,39 @@ local function makePickup(rule: SpawnRule, parent: Folder, anchor: BasePart, rng
 	light.Range = 16
 	light.Parent = part
 
+	--[[
+		A name over it, drawn through whatever it is lying under.
+
+		The glow only reaches 16 studs and the prompt only 12, so a crate in
+		the shadow of a rubble slab was invisible until you were already
+		standing on it -- the 2026-08-16 playtest report was "I went to the
+		way point but doesn't instruct me what I should be doing". A tag that
+		draws through geometry is what turns "somewhere near here" into a
+		thing you can walk at.
+	]]
+	local tag = Instance.new("BillboardGui")
+	tag.Name = "Tag"
+	tag.AlwaysOnTop = true
+	tag.Size = UDim2.fromOffset(160, 18)
+	tag.StudsOffsetWorldSpace = Vector3.new(0, 3, 0)
+	tag.MaxDistance = TAG_DISTANCE
+	tag.Parent = part
+
+	local tagLabel = Instance.new("TextLabel")
+	tagLabel.BackgroundTransparency = 1
+	tagLabel.Font = Enum.Font.GothamBold
+	tagLabel.TextSize = 13
+	tagLabel.TextColor3 = item.colour
+	tagLabel.TextStrokeTransparency = 0.4
+	tagLabel.Text = item.displayName
+	tagLabel.Size = UDim2.fromScale(1, 1)
+	tagLabel.Parent = tag
+
 	local prompt = Instance.new("ProximityPrompt")
 	prompt.ActionText = item.verb
 	prompt.ObjectText = item.displayName
 	prompt.HoldDuration = 0.4
-	prompt.MaxActivationDistance = 12
+	prompt.MaxActivationDistance = PROMPT_DISTANCE
 	prompt.RequiresLineOfSight = false
 	prompt.Parent = part
 

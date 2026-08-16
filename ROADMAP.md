@@ -28,8 +28,9 @@ out to be the same story one more time: the jump was already written and had no
 caller.
 
 What is missing now is not wiring. It is that the nine planets are the same
-generator in nine colours (Phase 3), and that the character you are has no
-moment where you choose it (Phase 3b.1).
+generator in nine colours (Phase 3). Phase 3b.1 closed on 2026-08-16: the
+character you are is chosen, once, on a screen that will not let you past it,
+and the choice reaches missions and conversations as well as the star map.
 
 ---
 
@@ -839,7 +840,7 @@ Phase 2a, so this is no longer blocked.
 The story, specified in [CAMPAIGN.md](CAMPAIGN.md). Mostly content, but four
 small system changes have to land first.
 
-### 3b.1 Origin — **[partly done]**
+### 3b.1 Origin — **[done]**
 `PlayerProfile.origin` and `Config/Origins.luau` landed with Phase 2a, which
 needed them to price a jump.
 
@@ -858,14 +859,36 @@ every character one. Two things fell out of it:
   level 12 world and a character begins at 1. `Origins.validate` now refuses
   any home world above minLevel 1, so the next one cannot ship quietly.
 
-Still outstanding:
-- an `origin: string?` field on `ObjectiveDef` and on the dialogue `Condition`.
-  That is what makes four prologues affordable: one mission and one conversation
-  can serve all four origins and say something different to each.
-- **seeding the first skill point** into the origin's tree is deliberately *not*
-  done. Every Piloting node is `unimplemented` until ships exist, so a Scoundrel
-  would be handed a rank in something that moves no number — precisely the
-  failure B5 was cleaned up to stop. Revisit with Phase 2b.
+**Gating done 2026-08-16, with the content that reads it.** `MissionDef.origin`
+and a dialogue `Condition.origin`, each refused by its `validate()` when it names
+an origin that does not exist — a misspelt one is a mission or a line no
+character can ever be shown, which reads exactly like one nobody wrote.
+
+`canAccept` checks origin *before* level, and `boardFor` **hides** that refusal
+instead of greying it out. Every other lock is one the player can pick by
+playing; an origin is answered once and never again, so another origin's story
+on your board would be a goal you can see and never reach.
+
+Shipped alongside, so neither field is another system with no reader:
+- **four prologues**, one per origin on its home world — `KorTheEmptyBunk`,
+  `OrdTheOtherCopy`, `TatTheManifest`, `TarTheSealedCrate`. Three objectives
+  each, no combat, level 1, handing off to that world's existing opening chain
+  where there is one. Deliberately the smallest missions in the file: a prologue
+  that outstays its welcome is what a player resents on their second character.
+- **four origin-only lines on the `Civilian` tree**, the archetype that spawns in
+  the largest numbers on every world. Only one is ever on screen, so the menu is
+  no longer for anybody and different for everybody.
+
+Deliberately *not* done:
+- **`ObjectiveDef.origin`.** `progress` is keyed by an objective's index, so a
+  per-origin step would have to be *skipped* rather than filtered out — a rule in
+  `isComplete`, in `MissionService`'s hidden-objective walk, and in all three
+  client renderers. Four separate prologues need none of it. Revisit only if a
+  *shared* mission ever wants to ask four characters four different things.
+- **seeding the first skill point** into the origin's tree. Every Piloting node
+  is `unimplemented` until ships exist, so a Scoundrel would be handed a rank in
+  something that moves no number — precisely the failure B5 was cleaned up to
+  stop. Revisit with Phase 2b.
 
 ### 3b.2 Alignment — **[todo]**
 `PlayerProfile.alignment`, clamped -1000..1000, moved by dialogue and mission
@@ -891,7 +914,8 @@ five-part chains running levels 12–34, specified in [CAMPAIGN.md](CAMPAIGN.md)
 
 This is the long-standing "what is the reason to specialize?" question finally
 answered — not a bigger number at rank 5, but an object. It needs no new
-machinery beyond `MissionDef.origin` from 3b.1 and `alignment` from 3b.2, which
+machinery beyond `MissionDef.origin` (shipped with 3b.1) and `alignment` from
+3b.2, which
 is what determines the crystal's colour and gives `SaberBlue/Green/Purple/Red` a
 meaning at last.
 
