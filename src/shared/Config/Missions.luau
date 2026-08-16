@@ -23,84 +23,24 @@
 
 local Factions = require(script.Parent.Factions)
 local Items = require(script.Parent.Items)
+local MissionKinds = require(script.Parent.MissionKinds)
 local Planets = require(script.Parent.Planets)
 local NPCArchetypes = require(script.Parent.NPCArchetypes)
+local Radiant = require(script.Parent.Radiant)
 local Weapons = require(script.Parent.Weapons)
 
 local Missions = {}
 
---- Canonical objective kinds. MissionService switches on exactly these.
-local Objective: { [string]: string } = {
-	Kill = "Kill", -- kill `count` NPCs of archetype `target`
-	Collect = "Collect", -- pick up `count` of item `target`
-	TalkTo = "TalkTo", -- speak to the NPC tagged `target`
-	Reach = "Reach", -- enter the point of interest `target`
-	Deliver = "Deliver", -- carry item `target` to NPC/POI `destination`
-	Escort = "Escort", -- keep NPC `target` alive to `destination`
-	Survive = "Survive", -- stay alive `count` seconds in `target` zone
-	Slice = "Slice", -- slice terminal `target`; needs the Slicer skill
-	Destroy = "Destroy", -- destroy `count` of object `target`
-}
+-- The shape of a mission lives in MissionKinds so that Radiant can name it
+-- without requiring this file back. Re-exported here because this is where
+-- everything already looks for it.
+local Objective = MissionKinds.Objective
+local VALID_KINDS = MissionKinds.VALID_KINDS
 Missions.Objective = Objective
 
--- Set form, for validating a kind that arrives as a plain string.
-local VALID_KINDS: { [string]: boolean } = {}
-for _, kind in Objective do
-	VALID_KINDS[kind] = true
-end
-
-export type ObjectiveDef = {
-	kind: string,
-	target: string?,
-	destination: string?,
-	-- Point of interest where this objective's work happens. Required for
-	-- Collect: it is where PickupService puts the items, and without it the
-	-- objective is a scavenger hunt across 3000 studs with no clue attached.
-	at: string?,
-	count: number?,
-	planet: string?,
-	description: string,
-	-- Hidden objectives are not shown until a prior one completes, so a twist
-	-- stays a twist instead of being spoiled by the tracker.
-	hidden: boolean?,
-	optional: boolean?,
-}
-
-export type Rewards = {
-	xp: number,
-	credits: number,
-	rep: { [string]: number }?,
-	items: { [string]: number }?,
-	weapon: string?,
-	skillPoints: number?,
-}
-
-export type MissionDef = {
-	id: string,
-	displayName: string,
-	summary: string,
-	-- Flavour shown by the giver when the mission is offered.
-	briefing: string,
-	-- Shown on turn-in. Worth writing: it is the only payoff for reading.
-	debriefing: string?,
-
-	kind: string, -- "Story" | "Side" | "Bounty" | "Delivery" | "Repeatable"
-	faction: string,
-	planet: string,
-	giver: string, -- NPC archetype id, or a named NPC tag
-
-	minLevel: number,
-	requiredRep: number?, -- with `faction`
-	requires: { string }?, -- mission ids that must be completed first
-
-	objectives: { ObjectiveDef },
-	rewards: Rewards,
-
-	repeatable: boolean?,
-	cooldown: number?, -- seconds before a repeatable can be retaken
-	timeLimit: number?, -- seconds; nil = untimed
-	next: string?, -- follow-up mission id
-}
+export type ObjectiveDef = MissionKinds.ObjectiveDef
+export type Rewards = MissionKinds.Rewards
+export type MissionDef = MissionKinds.MissionDef
 
 local defs: { [string]: MissionDef } = {}
 
@@ -993,6 +933,27 @@ def({
 
 --------------------------------------------------------------------------------
 
+--[[
+	Fold in the generated missions.
+
+	Merged into `defs` rather than resolved on demand so that every reader
+	downstream -- `boardFor`, `validate`, `Missions.ids`, and through that
+	`PickupService`'s spawn table -- treats them as missions and needs to know
+	nothing. Generation is pure, so this table is identical on the server and
+	on every client, which is what lets the board be sent as bare ids.
+]]
+local loadProblems: { string } = {}
+for id, m in Radiant.all() do
+	-- An authored mission that took a generated id would be replaced here
+	-- without a word, and `boardFor`'s rotation would then hide it most days.
+	-- Reported through `validate` rather than thrown, like every other config
+	-- fault: a bad mission should not stop the game booting.
+	if defs[id] then
+		table.insert(loadProblems, `{id}: authored id collides with a generated one`)
+	end
+	defs[id] = m
+end
+
 Missions.defs = defs
 
 function Missions.get(id: string): MissionDef
@@ -1077,9 +1038,21 @@ function Missions.boardFor(
 	profile: any,
 	now: number
 ): { { mission: MissionDef, locked: boolean, reason: string? } }
+	-- Every generated mission for this planet exists all the time; only a few
+	-- are pinned up on any given day. Without this the authored missions --
+	-- the actual story -- would be a handful of entries under a wall of
+	-- bounties.
+	local posted: { [string]: boolean } = {}
+	for _, id in Radiant.postedOn(planet, now) do
+		posted[id] = true
+	end
+
 	local out = {}
 	for _, m in defs do
 		if m.planet ~= planet then
+			continue
+		end
+		if Radiant.isRadiant(m.id) and not posted[m.id] then
 			continue
 		end
 		local ok, reason = Missions.canAccept(m.id, profile, now)
@@ -1144,7 +1117,7 @@ end
 	player has no way to tell that from a hard one.
 ]]
 function Missions.validate(): { string }
-	local problems = {}
+	local problems = table.clone(loadProblems)
 	for id, m in defs do
 		if not Planets.exists(m.planet) then
 			table.insert(problems, `{id}: unknown planet "{m.planet}"`)

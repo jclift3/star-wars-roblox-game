@@ -56,12 +56,15 @@ published place under another account.
 | --- | --- |
 | `thereisnocow` | 10,000 credits and level 12 |
 | `greedisgood` | One drop of each rarity, Common through Legendary |
-| `rollreport` | Samples 5,000 drops and prints a histogram. Output window, not a toast |
+| `iseedeadpeople` | Samples 5,000 drops and prints a histogram. Output window, not a toast |
+| `showmethemoney` | Prints every radiant mission on every planet and which are posted today. Output window |
 | `iamacolyte` / `iamconscript` / `iamscoundrel` / `iamscrapper` | Sets your origin, which is the only way to see the four travel profiles until a character-creation screen exists |
 
-`greedisgood` and `rollreport` exist because they are the closest thing to a
-test this project can run: one reaches states normal play needs a thousand
-kills to see, the other checks the drop maths without playing at all.
+The three printing codes are the closest thing to a test this project can run:
+`greedisgood` reaches states normal play needs a thousand kills to see,
+`iseedeadpeople` checks the drop maths without playing at all, and
+`showmethemoney` shows what the mission generator actually composed — none of
+which can be checked by reading the tables they came from.
 
 ---
 
@@ -297,8 +300,35 @@ late.
    actually took, and the payout is against that return, not the request. A
    double payment here means somebody paid against the request again.)*
 
-**Known open — do not file these:** Dromund Kaas has no missions at all, and
-the Escort / Survive / Slice / Destroy objective kinds have no server reader.
+**Known open — do not file these:** the Escort / Survive / Slice / Destroy
+objective kinds have no server reader.
+
+### 7.1 Radiant missions — **new, never played**
+
+Generated from the spawn tables and points of interest, so every planet has some
+— including the four that shipped with none. Their names are **Thinning the
+&lt;district&gt;**, **Salvage from &lt;place&gt;** and **Survey: &lt;place&gt;**.
+
+1. Run `showmethemoney` first and read the output window. Every planet should
+   list some. Look for anything silly — a Survey of somewhere you can see from
+   the giver, a district with nothing in it, a giver who makes no sense for the
+   job. **That output is the actual test**; the rest of this section is
+   confirming the world matches it.
+2. **M** on Tatooine. Three generated missions sit alongside the authored ones.
+   Take a **Thinning the …** one and check the enemy it names really does spawn
+   in that district.
+3. Take a **Salvage from …** one. The items are on the ground at the place it
+   names, and the delivery point is in town.
+4. Take a **Survey: …** one. It is somewhere out past the edge of town, not
+   next door.
+5. Finish one and re-open the board. It says **Available again in N min**
+   rather than vanishing — they are repeatable on an hour's cooldown.
+6. Talk to the giver the printout named. The same missions are offered in
+   conversation, not only on the board.
+
+**Same postings for both players.** Rotation is per day, not per player, on
+purpose: if you and your brother stand at the same board you must see the same
+three. Different lists is a bug, and a bad one.
 
 ---
 
@@ -364,9 +394,9 @@ Do not spend time filing these. They are on the roadmap.
 - No character-creation screen, so every profile is `Origins.DEFAULT`
   ("Scoundrel"). The cheat codes are the workaround.
 - Faction reputation is awarded and never read back by anything.
-- No level bands on zones, so no "you are underlevelled" warning on entry.
-  Walking outward does not reliably mean walking into harder things yet.
 - The skill trees are all passives. Nothing rewards specialising.
+- Radiant missions have no authored dialogue of their own — the giver offers
+  them, but the briefing text is generated and the same shape every time.
 - `MONETIZATION_STRATEGY.md` is stale legacy and describes a game that no
   longer exists.
 

@@ -879,8 +879,12 @@ level 10 for 7,500 credits; the vendor entry becomes a hilt component instead.
 - ~~A bag cap, and selling or destroying a roll you do not want~~ — **done**,
   same section. Vendor buy-back exists now, so a shop is a shop in both
   directions
-- ~~Per-zone level bands~~ — moved into 3.1, where districts declare a `band`.
-  Still owed here: the "you are underlevelled" warning on crossing into one
+- ~~Per-zone level bands, and the "you are underlevelled" warning on crossing
+  into one~~ — **done**, `542abb7`. Derived from `ZoneDef.distance` rather than
+  waiting on 3.1's tile grid, so `Planets.bandFor` answers "how hard is it
+  here?" for every district on all nine planets today
+- ~~Radiant missions composed from the tables that already exist~~ — **done**,
+  see 4.0. The four planets that shipped with no missions at all now have some
 - Weapon mods / attachments layered onto `Config/Weapons.luau`
 - Faction reputation consequences. Missions already award rep
   (`rep = { Republic = 120, Empire = -180 }`) and nothing reads it back.
@@ -889,17 +893,45 @@ level 10 for 7,500 credits; the vendor entry becomes a hilt component instead.
 - ~~Is a lightsaber bought or earned?~~ **Built, over five quests** — and every
   other origin got a signature chain to match. See 3b.5
 
-### 4.0 Radiant missions — **[todo]**
-A generator that composes missions from tables that already exist: an archetype
-× a point of interest × an objective template × a level band, seeded per player
-per day. Diablo's bounties and Skyrim's radiant quests, and the concrete answer
-to "make new missions with existing characters at specific locations
-dynamically" — see "Where data lives" above.
+### 4.0 Radiant missions — **[done]**
+~~A generator that composes missions from tables that already exist: an
+archetype × a point of interest × an objective template × a level band, seeded
+per player per day.~~ Built as `Shared/Config/Radiant.luau`. Three templates —
+**Cull** (kill 6 of whatever spawns hostile in a district), **Salvage** (recover
+4 of something from a point of interest and haul it back to town) and **Survey**
+(reach a place out in the wilderness) — composed against every district of every
+planet. The 15 authored missions are the story spine; these fill the world
+between them, and four planets that had no missions at all now have some.
 
-Roughly 150 lines against `NPCArchetypes`, `Planets` and `Missions`, no
-infrastructure, and it produces content indefinitely. The 15 authored missions
-become the story spine; radiant ones fill the world between them. Best built
-after 3.1, so districts have a `band` to draw a difficulty from.
+Three decisions worth keeping:
+
+- **Generation is pure and happens once at require time**, and the results are
+  folded straight into `Missions.defs`. That is load-bearing rather than tidy:
+  `MissionService` sends the board as a list of bare *ids* and the client
+  resolves each one out of `Missions` itself, so a generator that consulted the
+  clock or a `Random` would hand the client an id it could not look up. It also
+  means every downstream reader — `boardFor`, `validate`, `Missions.ids`, and
+  through that `PickupService`'s pickup spawn table — needed no changes at all.
+- **Ids are `@r:<planet>:<zone>:<template>`**, prefixed like Dialogue's
+  generated node ids. Stable and bounded, because `profile.missions.completed`
+  is keyed by id and outlives any change here; one keyed by date would grow
+  forever and mean nothing on read-back.
+- **Rotation is per day, not per player**, which is where this deliberately
+  departs from the line above. A mission board is a place in the world — two
+  players standing at the same one and reading different postings is a bug
+  however it got there, and it makes "go take the bounty I just took"
+  impossible to say out loud. Which matters here specifically, because this
+  game is played by two brothers in the same room. `Radiant.POSTED_PER_DAY = 3`
+  and the window advances by one a day, so the board is recognisable from
+  yesterday and still eventually shows everything.
+
+The one piece of scaffolding this needed: `Objective` and the three mission
+types moved out to `Config/MissionKinds.luau`, because `Radiant` names them and
+`Missions` requires `Radiant`. `Missions` re-exports every name, so no existing
+caller changed.
+
+`showmethemoney` (`DevService`) prints every generated mission and today's
+postings — the offline test, same reasoning as `iseedeadpeople`.
 
 ### 4.3 Skill trees, properly — **[todo]**
 Raised 2026-08-15: *"the skill trees need to be incredibly well thought out and

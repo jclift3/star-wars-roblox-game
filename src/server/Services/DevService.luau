@@ -24,12 +24,14 @@
 	They are derived from `Origins.ids()`, so a fifth origin gets a code for
 	free and a renamed one cannot leave a dead code behind.
 
-	THE LOOT CODES ARE THE TEST SUITE
-	`greedisgood` and `iseedeadpeople` exist because rarity is a long tail and
-	there is no way to run Luau outside Roblox. One hands you a drop of every
-	rarity so the colours and names can be looked at; the other samples five
-	thousand kills and prints the distribution. Between them they cover what a
-	unit test would, for a fraction of the harness.
+	THE PRINTING CODES ARE THE TEST SUITE
+	`greedisgood`, `iseedeadpeople` and `showmethemoney` exist because there is
+	no way to run Luau outside Roblox, and the three things this game generates
+	-- rarity, affix rolls and radiant missions -- are all things you cannot
+	check by reading the tables they came from. One hands you a drop of every
+	rarity, one samples five thousand kills, one prints every generated
+	mission. Between them they cover what a unit test would, for a fraction of
+	the harness.
 
 	HOW YOU ENTER ONE
 	Type it in the normal Roblox chat. `Player.Chatted` still fires server-side
@@ -49,7 +51,9 @@ local Inventory = require(Shared.Core.Inventory)
 local Affixes = require(Shared.Config.Affixes)
 local Loot = require(Shared.Config.Loot)
 local Origins = require(Shared.Config.Origins)
+local Planets = require(Shared.Config.Planets)
 local Progression = require(Shared.Config.Progression)
+local Radiant = require(Shared.Config.Radiant)
 local ServiceLoader = require(Shared.Core.ServiceLoader)
 
 type PlayerProfile = Types.PlayerProfile
@@ -230,6 +234,52 @@ codes.iseedeadpeople = function(player: Player)
 	end
 
 	tell(player, `{drops} drops in {SAMPLES} kills at level {level}. See the output window.`)
+end
+
+--[[
+	Every generated mission, planet by planet, and which are posted today.
+
+	Same reasoning as `iseedeadpeople`. `Radiant` composes its missions out of
+	the spawn tables, the points of interest and the level bands, and the only
+	way to find out what nine planets' worth of that actually reads like -- a
+	Jawa issuing Republic bounties, a district with nothing to do in it, a
+	Survey of somewhere three studs from the giver -- is to make it print.
+
+	`Missions.validate` already catches the ids that do not resolve. This
+	catches the ones that resolve to something silly, which nothing can.
+]]
+codes.showmethemoney = function(player: Player)
+	local now = os.time()
+	local total = 0
+	print(`\n=== radiant missions (day {math.floor(now / Radiant.DAY)}) ===`)
+	for _, planetId in Planets.ids() do
+		local posted: { [string]: boolean } = {}
+		for _, id in Radiant.postedOn(planetId, now) do
+			posted[id] = true
+		end
+
+		-- Sorted, so two runs -- or the server and a client -- diff by eye.
+		local ids: { string } = {}
+		for id, m in Radiant.all() do
+			if m.planet == planetId then
+				table.insert(ids, id)
+			end
+		end
+		table.sort(ids)
+
+		print(`{planetId}: {#ids} generated, {#Radiant.postedOn(planetId, now)} posted`)
+		total += #ids
+		for _, id in ids do
+			local m = Radiant.all()[id]
+			print(`  {if posted[id] then "*" else " "} lv{m.minLevel} {m.displayName}  <- {m.giver}`)
+			for _, obj in m.objectives do
+				print(`      {obj.description}`)
+			end
+		end
+	end
+	print(`total: {total}`)
+
+	tell(player, `{total} radiant missions across {#Planets.ids()} worlds. See the output window.`)
 end
 
 -- One per origin: `iamacolyte`, `iamconscript`, `iamscoundrel`, `iamscrapper`.
