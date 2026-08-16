@@ -2452,17 +2452,49 @@ local function landmarkFor(poi: Planets.PointOfInterest): LandmarkDef
 	return LANDMARKS[poi.landmark or poi.kind] or OUTPOST
 end
 
---- Builds the structure for one point of interest, and signs it.
+--- The rotation that turns a builder's +X into `facing`.
+--- Both callers need it: the building turns by it, and so does anything
+--- expressed as an offset from the building's own front.
+local function facingAngle(facing: Vector3): number
+	return -math.atan2(facing.Z, facing.X)
+end
+
+--[[
+	Builds the structure for one point of interest, aims its door, and signs it.
+
+	EVERY BUILDER PUTS ITS DOOR ON +X
+	`roundWall` leaves out the segment at angle zero and `roomShell` splits its
+	+X wall into two jambs and a lintel; neither takes a bearing, because a
+	shell with a hole in one known side is far simpler to write -- and to keep
+	right -- than one that has to work out which segments a doorway of a given
+	width covers. The cost of that simplicity was that every door in the game
+	faced world east: the road out of town arrived at whichever wall happened
+	to be nearest and the entrance was round the side.
+
+	Turning the finished model pays that cost once, here, instead of in eight
+	builders. It is a Model rather than a Folder for exactly this reason --
+	`PivotTo` is the only thing in the file that needs one.
+]]
 local function buildLandmark(
 	parent: Instance,
 	poi: Planets.PointOfInterest,
 	def: LandmarkDef,
 	position: Vector3,
+	facing: Vector3,
 	style: Style,
 	rng: Random
 )
-	local site = folder(poi.id, parent)
+	local site = Instance.new("Model")
+	site.Name = poi.id
+	site.Parent = parent
 	local top = def.build(site, position, style, rng)
+
+	-- Pivot about the position the builder was given, not the bounding-box
+	-- centre Roblox would pick: the landmark has to stay where it was placed,
+	-- and its marker and its road are both aimed at that exact point.
+	site.WorldPivot = CFrame.new(position)
+	site:PivotTo(CFrame.new(position) * CFrame.Angles(0, facingAngle(facing), 0))
+
 	-- Roughly where the structure stops being a shape and starts being a
 	-- speck: a cantina announces itself across its own street, a spaceport
 	-- across the district.
@@ -2581,12 +2613,62 @@ end
 -- Markers
 --------------------------------------------------------------------------------
 
--- How far a zone's three patrol points spread around its centre.
+-- How far a zone's patrol points spread around its centre, at the smallest
+-- population. Districts with more people in them get proportionally more room.
 local ZONE_SPREAD = 70
 
 -- Far enough out that the widest landmark clears the patrol ring. A building
 -- standing on a waypoint is a building with NPCs walking into it.
 local LANDMARK_OFFSET = ZONE_SPREAD * 2.2
+
+--[[
+	How many NPCs one patrol point is expected to hold.
+
+	Every district used to get three points and a seventy-stud ring regardless
+	of whether six merchants or forty-four civilians were assigned to it. Nar
+	Shaddaa's Promenade is 26 Civilians plus 18 CartelEnforcers at `distance =
+	0` -- so the biggest crowd on the moon stood inside a circle two hundred
+	studs across, centred on the plaza the player lands on. Every planet's
+	first district is at distance 0 and every planet's first district is its
+	most populous, so every planet did this.
+]]
+local ZONE_POINT_LOAD = 6
+
+-- More than this and a district stops being a district. Twelve points at the
+-- reach below already spans most of a settlement.
+local ZONE_POINTS_MAX = 12
+
+--[[
+	The nearest ground inside a settlement that is certainly clear, and the
+	shape of it.
+
+	A point chosen by angle and distance lands inside a house about as often as
+	not: `buildSettlement` fills most of every block and leaves the rest as its
+	yard. The street grid is the one part of town guaranteed to be empty --
+	every footprint is inset by `STREET_WIDTH` and `buildStreets` paves what is
+	left -- so moving the point onto the nearer of the two street lines through
+	it costs at most half a block and puts it somewhere a person can stand.
+
+	Returns a box lying *along* that street rather than a square, so a busy
+	district reads as people spread down a street instead of a knot at a
+	junction.
+]]
+local function ontoStreet(origin: Vector3, at: Vector3): (Vector3, Vector3)
+	-- Streets run on block boundaries, at `(line - 0.5) * BLOCK_SIZE`.
+	local function nearestLine(v: number): number
+		return (math.round(v / BLOCK_SIZE + 0.5) - 0.5) * BLOCK_SIZE
+	end
+
+	local dx = at.X - origin.X
+	local dz = at.Z - origin.Z
+	local lineX, lineZ = nearestLine(dx), nearestLine(dz)
+
+	if math.abs(lineX - dx) <= math.abs(lineZ - dz) then
+		-- Snapped in X, so the street runs along Z.
+		return Vector3.new(origin.X + lineX, at.Y, at.Z), Vector3.new(STREET_WIDTH, 1, BLOCK_SIZE)
+	end
+	return Vector3.new(at.X, at.Y, origin.Z + lineZ), Vector3.new(BLOCK_SIZE, 1, STREET_WIDTH)
+end
 
 --[[
 	Emits spawn, zone and POI markers.
@@ -2622,7 +2704,20 @@ local function buildMarkers(
 
 	-- Kept so points of interest can be dropped into their district below.
 	local centres: { [string]: Vector3 } = {}
+	-- And how far that district's waypoints run out, so a landmark can be put
+	-- past them rather than on top of one.
+	local reaches: { [string]: number } = {}
 	local count = math.max(1, #planet.zones)
+
+	-- How crowded each district is meant to be. Read off the spawn rules
+	-- rather than authored on the zone, so a planet that gains a spawn rule
+	-- gains the room to put those people in. See ZONE_POINT_LOAD.
+	local population: { [string]: number } = {}
+	for _, rule in planet.spawns do
+		if rule.zone then
+			population[rule.zone] = (population[rule.zone] or 0) + rule.count
+		end
+	end
 
 	for index, def in planet.zones do
 		-- Districts are fanned around the compass rather than stacked on one
@@ -2639,16 +2734,30 @@ local function buildMarkers(
 		centres[def.id] = centre
 
 		local zone = folder(def.id, zoneRoot)
+		local points = math.clamp(math.ceil((population[def.id] or 0) / ZONE_POINT_LOAD), 3, ZONE_POINTS_MAX)
+		-- Linear in the number of points, so the ring grows about as fast as
+		-- the crowd does rather than falling behind it.
+		local reach = ZONE_SPREAD * (points / 3)
+		reaches[def.id] = reach
+
 		local baseAngle = rng:NextNumber(0, math.pi * 2)
-		for point = 1, 3 do
-			local spokeAngle = baseAngle + (point - 1) * (math.pi * 2 / 3)
-			local spread = rng:NextNumber(ZONE_SPREAD * 0.4, ZONE_SPREAD)
+		for point = 1, points do
+			local spokeAngle = baseAngle + (point - 1) * (math.pi * 2 / points)
+			local spread = rng:NextNumber(reach * 0.4, reach)
 			local position = centre
 				+ Vector3.new(math.cos(spokeAngle) * spread, 0, math.sin(spokeAngle) * spread)
+			local size = Vector3.new(60, 1, 60)
+
 			if not planet.hasWalkableGround and #anchors > 0 then
 				position = anchors[rng:NextInteger(1, #anchors)]
+			elseif (position - origin).Magnitude < SETTLEMENT_RADIUS then
+				position, size = ontoStreet(origin, position)
 			end
-			marker(zone, `Point{point}`, position + Vector3.new(0, 3, 0), Vector3.new(60, 1, 60))
+
+			-- Zero-padded because NPCService sorts these by name to build the
+			-- patrol route, and Point10 sorts between Point1 and Point2 --
+			-- which turns a walk round the district into a zigzag across it.
+			marker(zone, `Point{string.format("%02d", point)}`, position + Vector3.new(0, 3, 0), size)
 		end
 	end
 
@@ -2701,7 +2810,9 @@ local function buildMarkers(
 
 	for index, poi in planet.pointsOfInterest do
 		local position
+		local def = landmarkFor(poi)
 		local centre = if poi.zone then centres[poi.zone] else nil
+		local ring = (if poi.zone then reaches[poi.zone] else nil) or 0
 		--[[
 			Each landmark gets its own slice of the compass, the way the
 			districts already do, instead of a free-for-all bearing.
@@ -2716,17 +2827,17 @@ local function buildMarkers(
 
 		if centre then
 			-- Outside the patrol ring, so the landmark is among its people
-			-- without standing on top of one of their waypoints.
-			position = centre
-				+ Vector3.new(math.cos(angle) * LANDMARK_OFFSET, 0, math.sin(angle) * LANDMARK_OFFSET)
+			-- without standing on top of one of their waypoints. The ring is
+			-- as wide as the district is crowded, so the offset has to be
+			-- read off it rather than being the one constant it used to be.
+			local offset = math.max(LANDMARK_OFFSET, ring + def.radius)
+			position = centre + Vector3.new(math.cos(angle) * offset, 0, math.sin(angle) * offset)
 		else
 			-- No district named: fall back to an even circle. Honest rather
 			-- than wrong -- it is somewhere, just nowhere in particular.
 			local distance = SETTLEMENT_RADIUS * 0.55
 			position = origin + Vector3.new(math.cos(angle) * distance, 0, math.sin(angle) * distance)
 		end
-
-		local def = landmarkFor(poi)
 
 		if not planet.hasWalkableGround then
 			-- No ground at all: a platform or nowhere, so any platform will
@@ -2754,7 +2865,18 @@ local function buildMarkers(
 			end
 		end
 
-		buildLandmark(landmarkRoot, poi, def, position, style, rng)
+		--[[
+			The front faces the way you arrive from.
+
+			Out of town that is the road, which is drawn along this same
+			bearing a few dozen lines below; in town it is the plaza, which is
+			where the street grid and the signpost send you from. Either way
+			the thing a player walks up to is the door.
+		]]
+		local inbound = Vector3.new(origin.X - position.X, 0, origin.Z - position.Z)
+		local facing = if inbound.Magnitude > 1 then inbound.Unit else Vector3.new(1, 0, 0)
+
+		buildLandmark(landmarkRoot, poi, def, position, facing, style, rng)
 		table.insert(reached, { kind = poi.kind, at = position })
 
 		-- Standing room indoors, added to the district the landmark belongs
@@ -2762,10 +2884,15 @@ local function buildMarkers(
 		-- then drops whatever it picks to the floor, so a box the size of
 		-- the room would put people on the tables and behind the bar.
 		if def.interior and poi.zone then
+			-- Turned with the building. The offset is written in the
+			-- builder's own frame -- the Base's is +X, meaning "just inside
+			-- the door" -- so leaving it in world space would put the
+			-- standing room outside a rotated building, in a wall.
+			local inside = CFrame.Angles(0, facingAngle(facing), 0) * def.interior
 			marker(
 				folder(poi.zone, zoneRoot),
 				"Inside",
-				position + def.interior + Vector3.new(0, 3, 0),
+				position + inside + Vector3.new(0, 3, 0),
 				Vector3.new(16, 1, 16)
 			)
 		end
