@@ -300,9 +300,26 @@ route, so a cantina gets drinkers and the guards outside walk in and back out
 again without a line of new AI. A room nobody is in is a room, not a place;
 furniture was the cheap half of the job.
 
+**Second playtest, and the lesson worth keeping: furniture is not slabs.** The
+first pass built a bunk as one flat box and a briefing table as another, and
+from inside the room they read as black rectangles floating against the wall —
+the user's words were *"whats with the random blocks?"*. Anything the eye is
+meant to *name* needs the part that holds it up: legs under a table, posts under
+a bunk, a stem and a shade above a lamp, banding and skids on a crate, coping
+and buttresses on a compound wall. Three or four parts each. The same rule
+retired the base's bare 164-stud wall slabs, which had the same problem outdoors.
+
 Still open: ordinary settlement buildings are still solid, and shops, tombs and
 apartments have no interiors. Neither needs new machinery — `roundWall` and
 `roomShell` plus an `interior` offset is the whole pattern.
+
+**Finding the place at all.** Also from the second playtest: *"I have no idea
+where the cantina is."* Roads answer "where does this go" once you are standing
+on one, and a landmark's own sign is deliberately short-ranged so signs do not
+outrun the fog — so nothing answered the question a player actually asks. There
+is now a **finger-post in the plaza**: one arm per landmark, turned to its
+bearing, labelled. It sits at the one spot everybody passes through. Not enough
+on its own — a "points of interest" layer on the galaxy map is the other half.
 
 **N6. An economy, not just a wallet.** The largest new ask, and it is really
 five features:

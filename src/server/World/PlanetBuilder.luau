@@ -1398,9 +1398,44 @@ local ROOM_HEIGHT = 22
 -- coplanar surfaces z-fight. See the ROAD_LIFT notes.
 local FLOOR_Y = 0.5
 
---- A ceiling lamp: the light, and something visible to hang it from.
+--[[
+	FURNITURE IS NOT SLABS
+
+	The first pass built a bunk as one flat box and a table as another, which
+	from inside the room read as black rectangles floating against the wall --
+	not furniture, just parts. Anything an eye is meant to name needs the bit
+	that holds it up: legs under a table, posts under a bunk, a stem above a
+	lamp. Three or four parts each, and the room stops being a box with
+	rubbish in it.
+]]
+
+--- A ceiling lamp: stem, shade, and a bulb under the shade rather than a
+--- glowing ball hanging in mid-air, which reads as a small indoor sun.
 local function ceilingLamp(parent: Instance, position: Vector3, color: Color3, range: number)
-	local bulb = ball(parent, CFrame.new(position), Vector3.new(5, 5, 5), color, Enum.Material.Neon)
+	cylinder(
+		parent,
+		CFrame.new(position + Vector3.new(0, 3, 0)) * UPRIGHT,
+		Vector3.new(6, 1, 1),
+		Palette.DarkMetal,
+		Enum.Material.Metal
+	).Name =
+		"LampStem"
+	cylinder(
+		parent,
+		CFrame.new(position) * UPRIGHT,
+		Vector3.new(1.5, 9, 9),
+		Palette.DarkMetal,
+		Enum.Material.Metal
+	).Name =
+		"LampShade"
+
+	local bulb = ball(
+		parent,
+		CFrame.new(position - Vector3.new(0, 1.5, 0)),
+		Vector3.new(3, 3, 3),
+		color,
+		Enum.Material.Neon
+	)
 	bulb.Name = "Lamp"
 	bulb.CanCollide = false
 
@@ -1409,6 +1444,106 @@ local function ceilingLamp(parent: Instance, position: Vector3, color: Color3, r
 	light.Range = range
 	light.Brightness = 2.2
 	light.Parent = bulb
+end
+
+--- A table: top, and the legs that stop it being a slab in mid-air.
+local function table_(parent: Instance, base: Vector3, size: Vector3, color: Color3, material: Enum.Material)
+	local height = size.Y
+	block(
+		parent,
+		CFrame.new(base + Vector3.new(0, height, 0)),
+		Vector3.new(size.X, 1.5, size.Z),
+		color,
+		material
+	).Name =
+		"Table"
+	for _, x in { -1, 1 } do
+		for _, z in { -1, 1 } do
+			block(
+				parent,
+				CFrame.new(
+					base + Vector3.new(x * (size.X * 0.5 - 1.5), height * 0.5, z * (size.Z * 0.5 - 1.5))
+				),
+				Vector3.new(1.5, height, 1.5),
+				Palette.DarkMetal,
+				Enum.Material.Metal
+			).Name =
+				"Leg"
+		end
+	end
+end
+
+--- A double bunk: corner posts the whole height, two frames, and bedding, so
+--- it reads as somewhere a soldier sleeps rather than as two black shelves.
+local function bunk(parent: Instance, base: Vector3, blanket: Color3)
+	for _, x in { -1, 1 } do
+		for _, z in { -1, 1 } do
+			block(
+				parent,
+				CFrame.new(base + Vector3.new(x * 8.4, 8, z * 4.4)),
+				Vector3.new(1.4, 16, 1.4),
+				Palette.WornSteel,
+				Enum.Material.Metal
+			).Name =
+				"BunkPost"
+		end
+	end
+
+	for _, y in { 4, 11 } do
+		block(
+			parent,
+			CFrame.new(base + Vector3.new(0, y, 0)),
+			Vector3.new(18, 1, 10),
+			Palette.WornSteel,
+			Enum.Material.Metal
+		).Name =
+			"BunkFrame"
+		block(
+			parent,
+			CFrame.new(base + Vector3.new(0, y + 1.4, 0)),
+			Vector3.new(17, 1.8, 9),
+			Palette.HullWhite,
+			Enum.Material.Fabric
+		).Name =
+			"Mattress"
+		block(
+			parent,
+			CFrame.new(base + Vector3.new(-3, y + 1.8, 0)),
+			Vector3.new(10, 1.6, 9.4),
+			blanket,
+			Enum.Material.Fabric
+		).Name =
+			"Blanket"
+		block(
+			parent,
+			CFrame.new(base + Vector3.new(7, y + 2, 0)),
+			Vector3.new(3.5, 1.6, 6),
+			Palette.HullWhite,
+			Enum.Material.Fabric
+		).Name =
+			"Pillow"
+	end
+end
+
+--- A footlocker: a box with a lid, which is the difference between a chest
+--- and a cube.
+local function footlocker(parent: Instance, base: Vector3)
+	block(
+		parent,
+		CFrame.new(base + Vector3.new(0, 2.5, 0)),
+		Vector3.new(6, 5, 8),
+		Palette.DarkMetal,
+		Enum.Material.DiamondPlate
+	).Name =
+		"Footlocker"
+	block(
+		parent,
+		CFrame.new(base + Vector3.new(0, 5.5, 0)),
+		Vector3.new(6.6, 1.2, 8.6),
+		Palette.WornSteel,
+		Enum.Material.Metal
+	).Name =
+		"Lid"
 end
 
 --[[
@@ -1883,7 +2018,8 @@ local function buildCantina(parent: Instance, base: Vector3, style: Style, rng: 
 	glow.Brightness = 2
 	glow.Parent = sign
 
-	-- The bar, opposite the door, so walking in points you at it.
+	-- The bar, opposite the door, so walking in points you at it. Overhang
+	-- and a foot rail: the two details that say "bar" rather than "wall".
 	block(
 		parent,
 		CFrame.new(base + Vector3.new(-16, 5, 0)),
@@ -1892,6 +2028,24 @@ local function buildCantina(parent: Instance, base: Vector3, style: Style, rng: 
 		Enum.Material.WoodPlanks
 	).Name =
 		"Counter"
+	block(
+		parent,
+		CFrame.new(base + Vector3.new(-15, 10.5, 0)),
+		Vector3.new(9, 1.4, 44),
+		dark,
+		Enum.Material.Wood
+	).Name =
+		"CounterTop"
+	cylinder(
+		parent,
+		-- Lying along Z, so it is turned about Y rather than the usual
+		-- quarter turn about Z that stands a cylinder up.
+		CFrame.new(base + Vector3.new(-11, 2, 0)) * CFrame.Angles(0, math.pi * 0.5, 0),
+		Vector3.new(42, 1.6, 1.6),
+		Palette.WornSteel,
+		Enum.Material.Metal
+	).Name =
+		"FootRail"
 	block(
 		parent,
 		CFrame.new(base + Vector3.new(-27, 8, 0)),
@@ -1968,9 +2122,43 @@ local function buildBase(parent: Instance, base: Vector3, style: Style, rng: Ran
 		{ offset = Vector3.new(reach, 9, -reach * 0.6), size = Vector3.new(6, 18, reach * 0.8) },
 		{ offset = Vector3.new(reach, 9, reach * 0.6), size = Vector3.new(6, 18, reach * 0.8) },
 	}
+	--[[
+		Each side is a slab plus a coping course and buttresses down its
+		length. A bare 164-stud slab standing on open sand does not read as a
+		wall -- it reads as a stray block, which is exactly how it looked in
+		the first playtest. The buttresses give it a rhythm and the coping
+		gives it a top, and between them the eye names it.
+	]]
 	for _, side in sides do
 		block(parent, CFrame.new(base + side.offset), side.size, wallColor, Enum.Material.Concrete).Name =
 			"Wall"
+		block(
+			parent,
+			CFrame.new(base + side.offset + Vector3.new(0, 10, 0)),
+			Vector3.new(side.size.X + 3, 2.5, side.size.Z + 3),
+			Palette.Gunmetal,
+			Enum.Material.Concrete
+		).Name =
+			"Coping"
+
+		-- Along whichever axis this side is long, and facing outwards.
+		local alongX = side.size.X > side.size.Z
+		local run = if alongX then side.size.X else side.size.Z
+		local out = if alongX then math.sign(side.offset.Z) else math.sign(side.offset.X)
+		local count = math.max(2, math.floor(run / 42))
+
+		for i = 0, count do
+			local along = (i / count - 0.5) * (run - 10)
+			local step = if alongX then Vector3.new(along, -1, out * 3) else Vector3.new(out * 3, -1, along)
+			block(
+				parent,
+				CFrame.new(base + side.offset + step),
+				if alongX then Vector3.new(7, 16, 10) else Vector3.new(10, 16, 7),
+				wallColor,
+				Enum.Material.Concrete
+			).Name =
+				"Buttress"
+		end
 	end
 
 	-- The keep is a barracks you can walk into, and its door faces the gate,
@@ -1989,34 +2177,31 @@ local function buildBase(parent: Instance, base: Vector3, style: Style, rng: Ran
 	-- table: enough that the room says who sleeps here.
 	for i = -1, 1 do
 		local at = base + Vector3.new(-22, 0, i * 17)
-		for _, bunkY in { 5, 12 } do
-			block(
-				parent,
-				CFrame.new(at + Vector3.new(0, bunkY, 0)),
-				Vector3.new(18, 2, 10),
-				Palette.Gunmetal,
-				Enum.Material.Metal
-			).Name =
-				"Bunk"
-		end
-		block(
-			parent,
-			CFrame.new(at + Vector3.new(13, 3, 0)),
-			Vector3.new(6, 6, 8),
-			Palette.DarkMetal,
-			Enum.Material.DiamondPlate
-		).Name =
-			"Footlocker"
+		bunk(parent, at, wallColor)
+		footlocker(parent, at + Vector3.new(13, 0, 0))
 	end
-	block(
+
+	table_(
 		parent,
-		CFrame.new(base + Vector3.new(8, 5, 0)),
-		Vector3.new(20, 2, 14),
-		Palette.DarkMetal,
+		base + Vector3.new(8, 0, 0),
+		Vector3.new(20, 5, 14),
+		Palette.WornSteel,
 		Enum.Material.Metal
-	).Name =
-		"BriefingTable"
-	ceilingLamp(parent, base + Vector3.new(0, ROOM_HEIGHT - 4, 0), style.windowColor, 55)
+	)
+	-- What a briefing table is for. Faint, and it does not collide, so it
+	-- reads as projected rather than as a slab resting on the furniture.
+	local holo = block(
+		parent,
+		CFrame.new(base + Vector3.new(8, 9, 0)),
+		Vector3.new(16, 4, 10),
+		style.windowColor,
+		Enum.Material.Neon
+	)
+	holo.Name = "Hologram"
+	holo.CanCollide = false
+	holo.Transparency = 0.65
+
+	ceilingLamp(parent, base + Vector3.new(0, ROOM_HEIGHT - 5, 0), style.windowColor, 55)
 
 	for _, corner in { Vector3.new(-reach, 0, -reach), Vector3.new(-reach, 0, reach) } do
 		cylinder(
@@ -2039,18 +2224,34 @@ local function buildBase(parent: Instance, base: Vector3, style: Style, rng: Ran
 	end
 
 	-- Something parked inside, so the compound looks used.
-	block(
-		parent,
-		-- Off to one side of the yard. It used to be allowed to land half
-		-- inside the keep -- which now means half inside a room -- or across
-		-- the line from the gate to the keep door, which is now a way in.
-		CFrame.new(base + Vector3.new(rng:NextNumber(46, 64), 5, rng:NextNumber(24, 44)))
-			* CFrame.Angles(0, rng:NextNumber(0, math.pi), 0),
-		Vector3.new(26, 10, 14),
-		Palette.Gunmetal,
-		Enum.Material.Metal
-	).Name =
-		"Crate"
+	-- Off to one side of the yard. It used to be allowed to land half inside
+	-- the keep -- which now means half inside a room -- or across the line
+	-- from the gate to the keep door, which is now a way in.
+	local yard = CFrame.new(base + Vector3.new(rng:NextNumber(46, 64), 5, rng:NextNumber(24, 44)))
+		* CFrame.Angles(0, rng:NextNumber(0, math.pi), 0)
+	block(parent, yard, Vector3.new(26, 10, 14), Palette.Gunmetal, Enum.Material.Metal).Name = "Crate"
+	-- Banding and feet. One dark box on open sand is not a supply crate, it
+	-- is a mystery object, and the eye reads it as a mistake.
+	for _, x in { -8, 0, 8 } do
+		block(
+			parent,
+			yard * CFrame.new(x, 0, 0),
+			Vector3.new(2.5, 10.6, 14.6),
+			Palette.WornSteel,
+			Enum.Material.Metal
+		).Name =
+			"Band"
+	end
+	for _, x in { -10, 10 } do
+		block(
+			parent,
+			yard * CFrame.new(x, -4.5, 0),
+			Vector3.new(4, 3, 15),
+			Palette.DarkMetal,
+			Enum.Material.Metal
+		).Name =
+			"Skid"
+	end
 
 	return ROOM_HEIGHT + 20
 end
@@ -2254,6 +2455,79 @@ local function buildLandmark(
 end
 
 --------------------------------------------------------------------------------
+-- Signpost
+--------------------------------------------------------------------------------
+
+--[[
+	A finger-post in the plaza naming every landmark on the planet and
+	pointing at it.
+
+	Roads answer "where does this go" once you are already standing on one.
+	They do not answer "where is the cantina", which is the question a player
+	actually asks: a landmark's own sign gives up a few hundred studs out --
+	deliberately, so signs do not outrun the fog -- and a town is wider than
+	that. One post at the town centre with an arm per place, each turned to
+	its bearing, answers it from the one spot everybody passes through, and
+	is the sort of thing a frontier town would have anyway.
+]]
+local function buildSignpost(parent: Instance, at: Vector3, places: { { name: string, at: Vector3 } })
+	if #places == 0 then
+		return
+	end
+
+	local post = folder("Signpost", parent)
+	local height = 12 + #places * 5
+
+	cylinder(
+		post,
+		CFrame.new(at + Vector3.new(0, height * 0.5, 0)) * UPRIGHT,
+		Vector3.new(height, 3, 3),
+		Palette.SmugglerBrown,
+		Enum.Material.WoodPlanks
+	).Name =
+		"Post"
+
+	for index, place in places do
+		local bearing = Vector3.new(place.at.X - at.X, 0, place.at.Z - at.Z)
+		if bearing.Magnitude < 1 then
+			continue
+		end
+		local facing = bearing.Unit
+		-- A CFrame turned by t about Y sends its local +X to
+		-- (cos t, 0, -sin t), so pointing +X along a bearing of `a` needs -a.
+		local angle = -math.atan2(facing.Z, facing.X)
+		local y = height - 4 - (index - 1) * 5
+
+		local arm = block(
+			post,
+			CFrame.new(at + facing * 9 + Vector3.new(0, y, 0)) * CFrame.Angles(0, angle, 0),
+			Vector3.new(18, 3.5, 1.2),
+			Palette.SmugglerBrown,
+			Enum.Material.WoodPlanks
+		)
+		arm.Name = "Arm"
+		arm.CanCollide = false
+
+		local gui = Instance.new("BillboardGui")
+		gui.Name = "Sign"
+		gui.Size = UDim2.fromOffset(230, 26)
+		gui.MaxDistance = 260
+		gui.LightInfluence = 0
+		gui.Parent = arm
+
+		local label = Instance.new("TextLabel")
+		label.Size = UDim2.fromScale(1, 1)
+		label.BackgroundTransparency = 1
+		label.Font = Enum.Font.GothamBold
+		label.TextSize = 16
+		label.TextColor3 = Palette.HullWhite
+		label.TextStrokeTransparency = 0.35
+		label.Text = place.name
+		label.Parent = gui
+	end
+end
+
+--------------------------------------------------------------------------------
 -- Markers
 --------------------------------------------------------------------------------
 
@@ -2332,8 +2606,9 @@ local function buildMarkers(
 	poiRoot:ClearAllChildren()
 	local landmarkRoot = folder("Landmarks", root)
 	-- Collected as each landmark settles on a position, because where they
-	-- end up is decided below and nothing knows it until then.
-	local reached: { Vector3 } = {}
+	-- end up is decided below and nothing knows it until then. Roads and the
+	-- signpost both read it.
+	local reached: { { name: string, at: Vector3 } } = {}
 
 	--[[
 		Open ground that has been given to something.
@@ -2430,7 +2705,7 @@ local function buildMarkers(
 		end
 
 		buildLandmark(landmarkRoot, poi, def, position, style, rng)
-		table.insert(reached, position)
+		table.insert(reached, { name = poi.displayName, at = position })
 
 		-- Standing room indoors, added to the district the landmark belongs
 		-- to. Small on purpose: NPCService scatters within a zone part and
@@ -2469,16 +2744,18 @@ local function buildMarkers(
 		around, and a road you can see the whole length of is the navigation.
 	]]
 	if planet.hasWalkableGround then
+		buildSignpost(root, origin + Vector3.new(26, 0, 26), reached)
+
 		local roads = folder("Roads", root)
 		local color, material = roadLook(planet)
-		for index, destination in reached do
-			local bearing = destination - origin
+		for index, place in reached do
+			local bearing = place.at - origin
 			local flat = Vector3.new(bearing.X, 0, bearing.Z)
 			if flat.Magnitude > SETTLEMENT_RADIUS then
 				pave(
 					roads,
 					origin + flat.Unit * (SETTLEMENT_RADIUS * 0.94),
-					destination,
+					place.at,
 					color,
 					material,
 					-- Radials all leave the same ring, so two landmarks on
