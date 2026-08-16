@@ -93,8 +93,12 @@ DataService.profileChanged = Signal.new()
 
 local function defaultProfile(): PlayerProfile
 	local rep = {}
+	local paid = {}
 	for _, id in Factions.ids() do
 		rep[id] = 0
+		-- Rank 1 is the bottom of every ladder and pays nothing, so starting
+		-- here means the first real promotion is the first payout.
+		paid[id] = 1
 	end
 
 	return {
@@ -110,6 +114,7 @@ local function defaultProfile(): PlayerProfile
 		origin = Origins.DEFAULT,
 		faction = Factions.DEFAULT,
 		factionRep = rep,
+		factionRankPaid = paid,
 		homePlanet = Planets.STARTING_PLANET,
 		currentPlanet = Planets.STARTING_PLANET,
 		lastTravelAt = 0,
@@ -196,6 +201,21 @@ local function migrate(saved: any): PlayerProfile
 		for id, value in saved.factionRep do
 			if type(value) == "number" and Factions.exists(id) then
 				base.factionRep[id] = value
+			end
+		end
+	end
+
+	-- Seeded from the rep that was just merged, not from the bottom of the
+	-- ladder: a profile saved before stipends existed already holds its ranks,
+	-- and paying it for all of them on the next login would be a windfall for
+	-- standing it earned under the old rules.
+	for id, value in base.factionRep do
+		base.factionRankPaid[id] = Factions.rankIndexFor(id, value)
+	end
+	if type(saved.factionRankPaid) == "table" then
+		for id, value in saved.factionRankPaid do
+			if type(value) == "number" and Factions.exists(id) then
+				base.factionRankPaid[id] = value
 			end
 		end
 	end

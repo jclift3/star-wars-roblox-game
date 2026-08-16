@@ -50,6 +50,11 @@ export type PlayerProfile = {
 	origin: string,
 	faction: string,
 	factionRep: { [string]: number },
+	-- Highest rank index each faction has already paid a stipend for. Rep can
+	-- fall and be earned again, so without this a player could yo-yo one
+	-- faction's standing across a threshold and be paid for the promotion
+	-- every time.
+	factionRankPaid: { [string]: number },
 	homePlanet: string,
 	currentPlanet: string,
 	-- os.time of the last jump, so a travel cooldown survives a rejoin rather

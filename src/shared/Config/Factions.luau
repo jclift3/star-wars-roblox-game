@@ -238,12 +238,18 @@ function Factions.areEnemies(a: string, b: string): boolean
 end
 
 --[[
-	Cross-checks every faction's home world against the planet config.
+	Cross-checks every faction's home world against the planet config, and every
+	rank ladder against the assumptions the rest of the game makes about it.
 
 	`homePlanet` is a plain string that nothing read until travel needed it, so
 	when the galaxy was re-dated two factions quietly pointed at worlds that had
 	been deleted -- and the symptom would have been a fast-travel destination
 	that does not exist rather than an error.
+
+	The ladder checks are here because `rankFor`, `rankIndexFor` and the stipend
+	payout all walk `ranks` as an ascending list and none of them would notice
+	an entry out of order: a ladder sorted wrongly hands the player the wrong
+	title and pays them for the wrong rank, quietly and forever.
 
 	Takes the existence check as an argument because Planets already reads
 	Factions for `controllingFaction`, and requiring it back would be a cycle.
@@ -257,6 +263,23 @@ function Factions.validate(planetExists: (string) -> boolean): { string }
 		for otherId in def.spillover do
 			if not defs[otherId] then
 				table.insert(problems, `{id}: spillover to unknown faction "{otherId}"`)
+			end
+		end
+
+		if #def.ranks == 0 then
+			table.insert(problems, `{id}: has no ranks, so nobody has a standing with it`)
+		elseif def.ranks[1].repRequired ~= 0 then
+			table.insert(
+				problems,
+				`{id}: bottom rank needs {def.ranks[1].repRequired} rep, so a new player has none`
+			)
+		end
+		for index = 2, #def.ranks do
+			if def.ranks[index].repRequired <= def.ranks[index - 1].repRequired then
+				table.insert(
+					problems,
+					`{id}: rank "{def.ranks[index].name}" is not above "{def.ranks[index - 1].name}"`
+				)
 			end
 		end
 	end

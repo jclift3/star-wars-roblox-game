@@ -33,6 +33,7 @@
 local Shared = game:GetService("ReplicatedStorage"):WaitForChild("Shared")
 local Types = require(Shared.Types)
 local Net = require(Shared.Core.Net)
+local Factions = require(Shared.Config.Factions)
 local Origins = require(Shared.Config.Origins)
 local Planets = require(Shared.Config.Planets)
 local ServiceLoader = require(Shared.Core.ServiceLoader)
@@ -69,12 +70,32 @@ end
 -- Quotes
 --------------------------------------------------------------------------------
 
+--[[
+	Where the player stands with the faction that runs a world.
+
+	Reputation decided three things -- who opens fire (`NPCBrain.isEnemy`),
+	which missions are on the board (`Missions.canAccept`) and how an NPC
+	greets you (`DialogueService`) -- and the player could see none of it. The
+	galaxy map is where it belongs rather than in a screen of its own: a
+	standing is only ever a reason to go somewhere or stay away.
+]]
+export type Standing = {
+	faction: string, -- display name, not the id
+	rank: string,
+	--- Hostile / Neutral / Friendly, as `NPCBrain` will read it on arrival.
+	attitude: string,
+	rep: number,
+	--- Both nil at the top of the ladder.
+	nextRank: string?,
+	nextAt: number?,
+}
+
 export type Destination = {
 	id: string,
 	displayName: string,
 	description: string,
 	region: string,
-	controllingFaction: string,
+	standing: Standing,
 	minLevel: number,
 	maxLevel: number,
 	credits: number,
@@ -84,6 +105,21 @@ export type Destination = {
 	--- Nil when the player may go. Otherwise the reason they may not.
 	locked: string?,
 }
+
+local function standingFor(profile: PlayerProfile, factionId: string): Standing
+	local def = Factions.get(factionId)
+	local rep = profile.factionRep[factionId] or 0
+	local index = Factions.rankIndexFor(factionId, rep)
+	local ahead = def.ranks[index + 1]
+	return {
+		faction = def.displayName,
+		rank = def.ranks[index].name,
+		attitude = Factions.attitudeToward(factionId, profile.factionRep),
+		rep = rep,
+		nextRank = if ahead then ahead.name else nil,
+		nextAt = if ahead then ahead.repRequired else nil,
+	}
+end
 
 --- Seconds left before this profile may travel again.
 local function cooldownLeft(profile: PlayerProfile, now: number): number
@@ -125,7 +161,7 @@ local function galaxyFor(player: Player, profile: PlayerProfile): { Destination 
 			displayName = planet.displayName,
 			description = planet.description,
 			region = planet.region,
-			controllingFaction = planet.controllingFaction,
+			standing = standingFor(profile, planet.controllingFaction),
 			minLevel = planet.minLevel,
 			maxLevel = planet.maxLevel,
 			credits = passage.credits,

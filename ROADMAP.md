@@ -229,8 +229,19 @@ Design sketch: security-faction NPCs **subdue** rather than kill at 0 HP; you
 wake in a cell with your gear confiscated, a fine to pay, a sentence to wait
 out, or a way to break out — three exits, each rewarding a different tree
 (credits / patience / Scoundrel or Scrapper skills). A bounty/heat value per
-faction drives it, which is also finally a *reader* for faction reputation
-(currently written and never read — a standing gap).
+faction drives it, which is another *reader* for faction reputation.
+
+*Correction, 2026-08-16.* Reputation was never the dead system this said it
+was — `NPCBrain.isEnemy`, `Missions.canAccept` and `DialogueService` all read
+it. What was dead was the player's view of it, and `Rank.creditStipend`, which
+was declared on all 34 ranks and paid by nothing. Standing now shows on the
+galaxy map beside the fare (attitude in words and colour, plus where you are on
+the ladder), a promotion pays the stipends for every rank it crossed, and
+`profile.factionRankPaid` stops the same rank paying twice. `Factions.validate`
+gained the ladder checks the payout depends on — non-empty, starting at 0,
+strictly ascending — since a ladder out of order pays the wrong rank silently.
+Testable via `strengthandhonor`, which goes through `awardRep` so one code
+exercises spillover, promotion and payout together.
 
 **N3. Terrain variability.** Ground is a flat slab today. Wanted: mountains,
 canyons, rivers where the world justifies them — Korriban's valley of tombs is

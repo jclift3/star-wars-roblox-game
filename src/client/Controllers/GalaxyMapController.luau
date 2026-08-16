@@ -51,13 +51,23 @@ local BAD = Color3.fromRGB(198, 78, 78)
 
 local TOGGLE_KEY = Enum.KeyCode.G
 
+--- Where the player stands with whoever runs the world. See TravelService.
+type Standing = {
+	faction: string,
+	rank: string,
+	attitude: string,
+	rep: number,
+	nextRank: string?,
+	nextAt: number?,
+}
+
 --- One destination, exactly as TravelService.Destination describes it.
 type Destination = {
 	id: string,
 	displayName: string,
 	description: string,
 	region: string,
-	controllingFaction: string,
+	standing: Standing,
 	minLevel: number,
 	maxLevel: number,
 	credits: number,
@@ -83,7 +93,7 @@ local listFrame: ScrollingFrame
 local detailTitle: TextLabel
 local detailRegion: TextLabel
 local detailBody: TextLabel
-local detailBand: TextLabel
+local detailStanding: TextLabel
 local detailFare: TextLabel
 local detailNote: TextLabel
 local actionButton: TextButton
@@ -169,9 +179,11 @@ local function buildDetailPane(parent: Frame)
 	detailBody.Size = UDim2.new(1, 0, 0, 104)
 	detailBody.TextWrapped = true
 
-	detailBand = text("Band", pane, 13, TEXT)
-	detailBand.Position = UDim2.fromOffset(0, 164)
-	detailBand.Size = UDim2.new(1, 0, 0, 20)
+	-- Takes the line the level band used to have; the band moved up to join the
+	-- region, since both are facts about the place and this one is about you.
+	detailStanding = text("Standing", pane, 13, TEXT)
+	detailStanding.Position = UDim2.fromOffset(0, 164)
+	detailStanding.Size = UDim2.new(1, 0, 0, 20)
 
 	detailFare = text("Fare", pane, 15, GOOD)
 	detailFare.Font = Enum.Font.GothamBold
@@ -271,7 +283,7 @@ local function renderDetail()
 		detailTitle.Text = "Nothing selected"
 		detailRegion.Text = ""
 		detailBody.Text = ""
-		detailBand.Text = ""
+		detailStanding.Text = ""
 		detailFare.Text = ""
 		detailNote.Text = ""
 		actionButton.Visible = false
@@ -279,9 +291,20 @@ local function renderDetail()
 	end
 
 	detailTitle.Text = dest.displayName
-	detailRegion.Text = `{dest.region}  ·  {dest.controllingFaction} space`
+	detailRegion.Text = `{dest.region}  ·  Levels {dest.minLevel}-{dest.maxLevel}`
 	detailBody.Text = dest.description
-	detailBand.Text = `Levels {dest.minLevel}-{dest.maxLevel}`
+
+	-- Attitude is spelled out only when it is not Neutral: the useful signal is
+	-- "they will shoot you" or "they will deal with you", and printing Neutral
+	-- on eight worlds out of nine would bury both.
+	local standing = dest.standing
+	local ladder = if standing.nextAt then `  ·  {standing.rep}/{standing.nextAt}` else ""
+	local mood = if standing.attitude == "Neutral" then "" else `  ·  {string.upper(standing.attitude)}`
+	detailStanding.Text = `{standing.faction}: {standing.rank}{mood}{ladder}`
+	detailStanding.TextColor3 = if standing.attitude == "Hostile"
+		then BAD
+		elseif standing.attitude == "Friendly" then GOOD
+		else TEXT
 
 	if dest.current then
 		detailFare.Text = "You are here"
@@ -336,7 +359,10 @@ local function renderList()
 		local tag = text("Tag", row, 12, DIM)
 		tag.Position = UDim2.fromOffset(12, 25)
 		tag.Size = UDim2.new(1, -120, 0, 16)
-		tag.Text = `{dest.region}  ·  Levels {dest.minLevel}-{dest.maxLevel}`
+		local mood = if dest.standing.attitude == "Neutral"
+			then ""
+			else `  ·  {string.upper(dest.standing.attitude)}`
+		tag.Text = `{dest.region}  ·  Levels {dest.minLevel}-{dest.maxLevel}{mood}`
 
 		local status = text("Status", row, 13, DIM)
 		status.TextXAlignment = Enum.TextXAlignment.Right

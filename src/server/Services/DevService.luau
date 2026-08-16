@@ -33,6 +33,9 @@
 	mission. Between them they cover what a unit test would, for a fraction of
 	the harness.
 
+	`strengthandhonor` is there for the opposite reason: reputation is not hard
+	to read, it is just too slow to reach by playing to test what hangs off it.
+
 	HOW YOU ENTER ONE
 	Type it in the normal Roblox chat. `Player.Chatted` still fires server-side
 	under TextChatService, and using it means this feature needs no client code,
@@ -51,6 +54,7 @@ local Inventory = require(Shared.Core.Inventory)
 local Affixes = require(Shared.Config.Affixes)
 local Loot = require(Shared.Config.Loot)
 local Origins = require(Shared.Config.Origins)
+local Factions = require(Shared.Config.Factions)
 local Planets = require(Shared.Config.Planets)
 local Progression = require(Shared.Config.Progression)
 local Radiant = require(Shared.Config.Radiant)
@@ -173,6 +177,31 @@ codes.greedisgood = function(player: Player)
 		end
 	end
 	tell(player, `{given} items, one of each rarity. Open your bag.`)
+end
+
+--[[
+	Promotes you with whoever runs the world you are standing on.
+
+	Reputation is the slowest thing in the game to move by playing -- a rank is
+	several missions, and the hostile end is only reachable by murdering your
+	way through a garrison. That makes everything hanging off it (the stipend,
+	the galaxy map's standing line, who opens fire) effectively untestable.
+
+	It deliberately goes through `awardRep` rather than writing the number, so
+	one code exercises the whole chain: spillover pushes the local faction's
+	enemies *down* as it pushes the locals up, which is the half you would
+	otherwise never see, and the promotion pays out on the way past.
+]]
+local REP_STEP = 2000
+
+codes.strengthandhonor = function(player: Player)
+	local profile = data().get(player)
+	if not profile then
+		return
+	end
+	local faction = Planets.get(profile.currentPlanet).controllingFaction
+	progression().awardRep(player, faction, REP_STEP)
+	tell(player, `+{REP_STEP} with the {Factions.get(faction).displayName}, and their enemies noticed.`)
 end
 
 --[[

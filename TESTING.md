@@ -58,6 +58,7 @@ published place under another account.
 | `greedisgood` | One drop of each rarity, Common through Legendary |
 | `iseedeadpeople` | Samples 5,000 drops and prints a histogram. Output window, not a toast |
 | `showmethemoney` | Prints every radiant mission on every planet and which are posted today. Output window |
+| `strengthandhonor` | +2,000 reputation with whoever runs the planet you are standing on, and the matching drop with their enemies |
 | `iamacolyte` / `iamconscript` / `iamscoundrel` / `iamscrapper` | Sets your origin, which is the only way to see the four travel profiles until a character-creation screen exists |
 
 The three printing codes are the closest thing to a test this project can run:
@@ -297,6 +298,40 @@ late.
 6. Travel while wearing and wielding rolled gear. You keep both (this overlaps
    3.3, and it is worth doing twice).
 
+### 6.1 Faction standing — **new, never played**
+
+Reputation already decided who shoots you, which missions exist and how NPCs
+greet you, and the player could see none of it; every rank also carried a
+`creditStipend` that nothing had ever paid. Both were live systems the player
+had no evidence of.
+
+1. **G**, and pick any world. Under the description is a **standing line**:
+   `Sith Empire: Recruit  ·  0/250`. On a fresh character every world reads as
+   the bottom rank of whoever runs it, in plain white.
+2. The line above it now reads `{region}  ·  Levels {min}-{max}` — the level
+   band moved up to make room. Check the faction is named in **words** ("Sith
+   Empire"), not as an id ("Empire"), which is what it used to print.
+3. Type `strengthandhonor`. It grants 2,000 rep, which on the Empire ladder
+   clears Trooper (250), Corporal (750) and Sergeant (1,800) in one go. Expect
+   **one promotion toast naming the top rank reached, with the credits in the
+   same message** — and the total should be **all three stipends summed**
+   (100 + 250 + 500 = 850 cr), not just the last one. Watch the credit counter
+   actually move by that amount.
+4. Reopen **G**. The standing line for that world has climbed, and **at least
+   one other world has gone red and reads HOSTILE** — that is spillover, and it
+   is the half of reputation nothing else shows you.
+5. Type `strengthandhonor` **three or four more times**. Each new rank pays
+   exactly once and the amounts climb with the ladder. If a rank you already
+   hold ever pays a second time, that is the bug this was built to prevent.
+6. Travel to the world that went red. **The locals should open fire on sight** —
+   the same NPCs who ignored you before. This is the point of the whole system.
+7. Rejoin the game and check **G** again. Standing survives; and crucially, the
+   promotions you were already paid for **do not pay again on login**.
+
+Also worth one look: the row list. A hostile or friendly world says so in its
+subtitle; a neutral one says nothing, on purpose — printing "NEUTRAL" on eight
+worlds out of nine buries the one that matters.
+
 ---
 
 ## 7. Missions
@@ -427,7 +462,9 @@ Do not spend time filing these. They are on the roadmap.
 
 - No character-creation screen, so every profile is `Origins.DEFAULT`
   ("Scoundrel"). The cheat codes are the workaround.
-- Faction reputation is awarded and never read back by anything.
+- Faction reputation is spent on hostility, mission access, dialogue and the
+  rank stipend, and **nowhere else** — no vendor prices you differently, no door
+  opens because you are a Captain, and there is no jail (ROADMAP N2).
 - The skill trees are almost all flat passives. Deflection is the first one
   that changes how you play; nothing else rewards specialising yet.
 - Radiant missions have no authored dialogue of their own — the giver offers

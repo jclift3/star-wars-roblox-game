@@ -199,11 +199,55 @@ function ProgressionService.priceFor(player: Player, basePrice: number): number
 end
 
 --[[
+	Pays out the rank ladder for a promotion, and returns what it paid.
+
+	Every rank in `Config/Factions.luau` carries a `creditStipend` that nothing
+	had ever read, so a promotion was a toast and nothing else -- the ladder
+	described a career and paid like a hobby.
+
+	Rules that fall out of it being a *ladder*:
+	- **Every rank newly reached is paid**, not just the one landed on, so a
+	  mission big enough to jump two ranks is not worth less than two smaller
+	  ones.
+	- **Only ranks above the highest already paid**, which is what
+	  `factionRankPaid` is for. Rep goes down as well as up, and being paid
+	  again for climbing back is a credit printer.
+	- **Raw**, past the Scavenger multiplier: a stipend is a salary the faction
+	  sets, and `creditStipend` should be the number the player is handed.
+]]
+local function stipendFor(player: Player, factionId: string, newRank: number): number
+	local profile = data().get(player)
+	if not profile then
+		return 0
+	end
+
+	local paid = profile.factionRankPaid[factionId] or 1
+	if newRank <= paid then
+		return 0
+	end
+
+	local def = Factions.get(factionId)
+	local total = 0
+	for index = paid + 1, math.min(newRank, #def.ranks) do
+		total += def.ranks[index].creditStipend
+	end
+
+	data().update(player, function(p: PlayerProfile)
+		p.factionRankPaid[factionId] = newRank
+	end)
+	if total <= 0 then
+		return 0
+	end
+	return ProgressionService.awardCredits(player, total, true)
+end
+
+--[[
 	Applies a reputation change, including its spillover to other factions.
 
-	Announces rank changes in either direction. A silent demotion after a
-	massacre is worse than no reputation system at all -- the player has to see
-	the consequence to connect it to the cause.
+	Announces rank changes in either direction, and pays the stipend for a
+	promotion. A silent demotion after a massacre is worse than no reputation
+	system at all -- the player has to see the consequence to connect it to the
+	cause.
 ]]
 function ProgressionService.awardRep(player: Player, factionId: string, delta: number)
 	if delta == 0 or not Factions.exists(factionId) then
@@ -240,7 +284,9 @@ function ProgressionService.awardRep(player: Player, factionId: string, delta: n
 		local faction = Factions.get(id)
 		local rank = Factions.rankFor(id, newRep)
 		if newRank > oldRank then
-			notify(player, `{faction.displayName}: promoted to {rank.name}`, "Promotion")
+			local stipend = stipendFor(player, id, newRank)
+			local paid = if stipend > 0 then ` (+{stipend} cr)` else ""
+			notify(player, `{faction.displayName}: promoted to {rank.name}{paid}`, "Promotion")
 		else
 			notify(player, `{faction.displayName}: demoted to {rank.name}`, "Demotion")
 		end
