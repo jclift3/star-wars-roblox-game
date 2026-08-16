@@ -18,6 +18,7 @@
 ]]
 
 local Shared = game:GetService("ReplicatedStorage"):WaitForChild("Shared")
+local Affixes = require(Shared.Config.Affixes)
 local Factions = require(Shared.Config.Factions)
 local Origins = require(Shared.Config.Origins)
 local Planets = require(Shared.Config.Planets)
@@ -73,6 +74,13 @@ function WorldService.init()
 	-- rules are read every time anybody opens the galaxy map.
 	for _, problem in Origins.validate(Progression.hasTree) do
 		warn(`[WorldService] origin config: {problem}`)
+	end
+
+	-- Checked against the stat table itself: an affix whose stat nothing reads
+	-- is a drop that shows the player a number and then does nothing with it,
+	-- which is the exact failure the skill tree already shipped once.
+	for _, problem in Affixes.validate(Progression.baseStats) do
+		warn(`[WorldService] affix config: {problem}`)
 	end
 
 	WorldService.ensure(Planets.STARTING_PLANET)
