@@ -1365,6 +1365,160 @@ local function buildVerticalCity(
 end
 
 --------------------------------------------------------------------------------
+-- Interiors
+--------------------------------------------------------------------------------
+
+--[[
+	Somewhere to go in.
+
+	Every landmark was a solid exterior. You walked up to the cantina, found a
+	painted-on doorway, and walked around the outside of it -- which is most
+	of why a town read as scenery rather than as a place.
+
+	Interiors are built *in place*: the room is inside the building's own
+	footprint, on the same ground, at the same coordinates. The alternative --
+	a separate space you teleport into -- would need its own instance
+	machinery, and would silently break everything that assumes an NPC and a
+	player who can see each other are in the same world: pathfinding,
+	waypoints, line of sight, and the proximity prompts vendors and dialogue
+	run on. Built in place, none of those has to learn that interiors exist.
+
+	The rule that keeps it cheap: **a building with an interior is built as a
+	shell from the start.** Nothing is hollowed out afterwards, so there is
+	never a solid version and a hollow version of the same wall to keep in
+	step.
+]]
+
+local WALL_THICKNESS = 3
+-- The camera sits behind and above the character, so a room at head height
+-- is a room you play from inside the ceiling. 22 studs is the shortest that
+-- stays comfortable.
+local ROOM_HEIGHT = 22
+-- Floors sit slightly proud of the ground for the same reason roads do: two
+-- coplanar surfaces z-fight. See the ROAD_LIFT notes.
+local FLOOR_Y = 0.5
+
+--- A ceiling lamp: the light, and something visible to hang it from.
+local function ceilingLamp(parent: Instance, position: Vector3, color: Color3, range: number)
+	local bulb = ball(parent, CFrame.new(position), Vector3.new(5, 5, 5), color, Enum.Material.Neon)
+	bulb.Name = "Lamp"
+	bulb.CanCollide = false
+
+	local light = Instance.new("PointLight")
+	light.Color = color
+	light.Range = range
+	light.Brightness = 2.2
+	light.Parent = bulb
+end
+
+--[[
+	A round wall, built from straight segments, with one segment left out for
+	the door.
+
+	Leaving out a segment rather than working out which ones fall inside a
+	doorway of a given width means the opening is however wide one chord is,
+	and the caller does not get to choose -- but it also means there is no
+	arithmetic that can round the wrong way and seal the building. At 16
+	segments the gap comes out near 14 studs on a cantina, which is a double
+	door. The missing segment is always index 0, so a caller aims the doorway
+	by deciding which way is +X.
+]]
+local function roundWall(
+	parent: Instance,
+	base: Vector3,
+	radius: number,
+	height: number,
+	color: Color3,
+	material: Enum.Material
+)
+	local segments = 16
+	-- Chord of one segment, widened so neighbours overlap at the corners
+	-- instead of leaving a slot you can see daylight through.
+	local width = 2 * radius * math.sin(math.pi / segments) * 1.2
+
+	for i = 1, segments - 1 do
+		local angle = (i / segments) * math.pi * 2
+		local at = base + Vector3.new(math.cos(angle) * radius, height * 0.5, math.sin(angle) * radius)
+		block(
+			parent,
+			CFrame.new(at) * CFrame.Angles(0, -angle, 0),
+			Vector3.new(WALL_THICKNESS, height, width),
+			color,
+			material
+		).Name =
+			"Wall"
+	end
+end
+
+--[[
+	A rectangular room shell: floor, ceiling, and four walls with a doorway
+	in the middle of the +X side.
+
+	`size` is the outside footprint, so a caller can drop a shell where a
+	solid block used to stand and have the building keep the silhouette it
+	had.
+]]
+local function roomShell(
+	parent: Instance,
+	base: Vector3,
+	size: Vector3,
+	color: Color3,
+	material: Enum.Material
+)
+	local halfX, halfZ = size.X * 0.5, size.Z * 0.5
+	local height = size.Y
+
+	block(
+		parent,
+		CFrame.new(base + Vector3.new(0, FLOOR_Y, 0)),
+		Vector3.new(size.X, 1, size.Z),
+		color:Lerp(Color3.new(0, 0, 0), 0.35),
+		Enum.Material.Slate
+	).Name =
+		"Floor"
+	block(
+		parent,
+		CFrame.new(base + Vector3.new(0, height, 0)),
+		Vector3.new(size.X, WALL_THICKNESS, size.Z),
+		color,
+		material
+	).Name =
+		"Ceiling"
+
+	for _, side in
+		{
+			{ at = Vector3.new(-halfX, height * 0.5, 0), size = Vector3.new(WALL_THICKNESS, height, size.Z) },
+			{ at = Vector3.new(0, height * 0.5, -halfZ), size = Vector3.new(size.X, height, WALL_THICKNESS) },
+			{ at = Vector3.new(0, height * 0.5, halfZ), size = Vector3.new(size.X, height, WALL_THICKNESS) },
+		}
+	do
+		block(parent, CFrame.new(base + side.at), side.size, color, material).Name = "Wall"
+	end
+
+	-- The entrance wall: two jambs and a lintel. Splitting it here rather
+	-- than punching a hole afterwards is the shell rule in miniature.
+	local jamb = (size.Z - 16) * 0.5
+	for _, sign in { -1, 1 } do
+		block(
+			parent,
+			CFrame.new(base + Vector3.new(halfX, height * 0.5, sign * (16 + jamb) * 0.5)),
+			Vector3.new(WALL_THICKNESS, height, jamb),
+			color,
+			material
+		).Name =
+			"Jamb"
+	end
+	block(
+		parent,
+		CFrame.new(base + Vector3.new(halfX, height - 3, 0)),
+		Vector3.new(WALL_THICKNESS, 8, 16),
+		color,
+		material
+	).Name =
+		"Lintel"
+end
+
+--------------------------------------------------------------------------------
 -- Landmarks
 --------------------------------------------------------------------------------
 
@@ -1638,48 +1792,73 @@ local function buildSpaceport(parent: Instance, base: Vector3, style: Style, rng
 	return 92
 end
 
---- A low drum with a lit sign and a doorway you can actually walk into.
+--[[
+	A low drum you can walk into: bar, tables, and a lit sign over the door.
+
+	The first interior, and the obvious one to be first. A cantina is where
+	the genre puts its conversations, and it is where this game's vendors and
+	dialogue already happen -- until now, on the pavement outside a building
+	that had no inside.
+]]
 local function buildCantina(parent: Instance, base: Vector3, style: Style, rng: Random): number
 	local wall = style.buildingColors[rng:NextInteger(1, #style.buildingColors)]
+	local dark = wall:Lerp(Color3.new(0, 0, 0), 0.45)
+	local radius = 37
 
+	roundWall(parent, base, radius, ROOM_HEIGHT, wall, Enum.Material.Concrete)
 	cylinder(
 		parent,
-		CFrame.new(base + Vector3.new(0, 13, 0)) * UPRIGHT,
-		Vector3.new(26, 74, 74),
-		wall,
-		Enum.Material.Concrete
+		CFrame.new(base + Vector3.new(0, FLOOR_Y, 0)) * UPRIGHT,
+		Vector3.new(1, radius * 2 - 2, radius * 2 - 2),
+		dark,
+		Enum.Material.Slate
 	).Name =
-		"Hall"
-	ball(
+		"Floor"
+	cylinder(
 		parent,
-		CFrame.new(base + Vector3.new(0, 26, 0)),
-		Vector3.new(74, 30, 74),
-		wall,
+		CFrame.new(base + Vector3.new(0, ROOM_HEIGHT + 1, 0)) * UPRIGHT,
+		Vector3.new(2, radius * 2 + 2, radius * 2 + 2),
+		dark,
 		Enum.Material.Concrete
 	).Name =
-		"Roof"
+		"Ceiling"
 
-	-- Entrance: a stub porch with a dark doorway, so the front is obvious.
+	-- The dome's equator sits on the wall head, so only its upper half shows
+	-- and the silhouette is unchanged from when this was a solid building.
+	-- It does not collide: the ceiling under it is the real surface.
+	local roof = ball(
+		parent,
+		CFrame.new(base + Vector3.new(0, ROOM_HEIGHT, 0)),
+		Vector3.new(radius * 2 + 2, 24, radius * 2 + 2),
+		wall,
+		Enum.Material.Concrete
+	)
+	roof.Name = "Roof"
+	roof.CanCollide = false
+
+	-- Entrance: posts and a canopy, framing the gap the wall left at +X.
+	for _, side in { -1, 1 } do
+		block(
+			parent,
+			CFrame.new(base + Vector3.new(radius + 4, 8, side * 9)),
+			Vector3.new(12, 16, 4),
+			wall,
+			Enum.Material.Concrete
+		).Name =
+			"Post"
+	end
 	block(
 		parent,
-		CFrame.new(base + Vector3.new(38, 9, 0)),
-		Vector3.new(18, 18, 26),
+		CFrame.new(base + Vector3.new(radius + 4, 17, 0)),
+		Vector3.new(14, 2, 22),
 		wall,
 		Enum.Material.Concrete
 	).Name =
-		"Porch"
-	block(
-		parent,
-		CFrame.new(base + Vector3.new(47, 7, 0)),
-		Vector3.new(2, 14, 12),
-		Palette.ImperialBlack,
-		Enum.Material.SmoothPlastic
-	).Name =
-		"Doorway"
+		"Canopy"
 
 	local sign = block(
 		parent,
-		CFrame.new(base + Vector3.new(47, 21, 0)),
+		CFrame.new(base + Vector3.new(radius + 4, 21, 0)),
 		Vector3.new(1.5, 7, 22),
 		style.windowColor,
 		Enum.Material.Neon
@@ -1693,7 +1872,75 @@ local function buildCantina(parent: Instance, base: Vector3, style: Style, rng: 
 	glow.Brightness = 2
 	glow.Parent = sign
 
-	return 44
+	-- The bar, opposite the door, so walking in points you at it.
+	block(
+		parent,
+		CFrame.new(base + Vector3.new(-16, 5, 0)),
+		Vector3.new(5, 10, 42),
+		Palette.SmugglerBrown,
+		Enum.Material.WoodPlanks
+	).Name =
+		"Counter"
+	block(
+		parent,
+		CFrame.new(base + Vector3.new(-27, 8, 0)),
+		Vector3.new(3, 16, 38),
+		dark,
+		Enum.Material.Metal
+	).Name =
+		"Shelf"
+	for i = -3, 3 do
+		local bottle = cylinder(
+			parent,
+			CFrame.new(base + Vector3.new(-25, 13, i * 5)) * UPRIGHT,
+			Vector3.new(5, 2, 2),
+			style.windowColor,
+			Enum.Material.Neon
+		)
+		bottle.Name = "Bottle"
+		bottle.CanCollide = false
+	end
+
+	-- Tables around the floor. The bearings skip due -X, which is the bar,
+	-- and are pulled off due +X, which is the walk in from the door.
+	for _, bearing in { 30, 90, 270, 330 } do
+		local angle = math.rad(bearing)
+		local at = base + Vector3.new(math.cos(angle) * 22, 0, math.sin(angle) * 22)
+
+		cylinder(
+			parent,
+			CFrame.new(at + Vector3.new(0, 4, 0)) * UPRIGHT,
+			Vector3.new(8, 3, 3),
+			Palette.DarkMetal,
+			Enum.Material.Metal
+		).Name =
+			"TablePost"
+		cylinder(
+			parent,
+			CFrame.new(at + Vector3.new(0, 8.5, 0)) * UPRIGHT,
+			Vector3.new(1.5, 13, 13),
+			Palette.SmugglerBrown,
+			Enum.Material.WoodPlanks
+		).Name =
+			"Table"
+
+		for stool = 1, 3 do
+			local around = angle + stool * (math.pi * 2 / 3)
+			cylinder(
+				parent,
+				CFrame.new(at + Vector3.new(math.cos(around) * 11, 3, math.sin(around) * 11)) * UPRIGHT,
+				Vector3.new(6, 6, 6),
+				dark,
+				Enum.Material.Metal
+			).Name =
+				"Stool"
+		end
+	end
+
+	ceilingLamp(parent, base + Vector3.new(0, ROOM_HEIGHT - 3, 0), style.windowColor, 60)
+	ceilingLamp(parent, base + Vector3.new(-18, ROOM_HEIGHT - 3, 0), style.windowColor, 40)
+
+	return ROOM_HEIGHT + 14
 end
 
 --- A walled compound. Whoever holds it wants you to come in by the gate.
@@ -1715,22 +1962,50 @@ local function buildBase(parent: Instance, base: Vector3, style: Style, rng: Ran
 			"Wall"
 	end
 
+	-- The keep is a barracks you can walk into, and its door faces the gate,
+	-- so the way in from outside runs straight through to the way inside.
+	roomShell(parent, base, Vector3.new(70, ROOM_HEIGHT, 56), wallColor, Enum.Material.Concrete)
 	block(
 		parent,
-		CFrame.new(base + Vector3.new(0, 22, 0)),
-		Vector3.new(70, 44, 56),
-		wallColor,
-		Enum.Material.Concrete
-	).Name =
-		"Keep"
-	block(
-		parent,
-		CFrame.new(base + Vector3.new(0, 48, 0)),
+		CFrame.new(base + Vector3.new(0, ROOM_HEIGHT + 5, 0)),
 		Vector3.new(52, 8, 42),
 		Palette.Gunmetal,
 		Enum.Material.Metal
 	).Name =
 		"Parapet"
+
+	-- Bunks down the back wall with footlockers beside them, and a briefing
+	-- table: enough that the room says who sleeps here.
+	for i = -1, 1 do
+		local at = base + Vector3.new(-22, 0, i * 17)
+		for _, bunkY in { 5, 12 } do
+			block(
+				parent,
+				CFrame.new(at + Vector3.new(0, bunkY, 0)),
+				Vector3.new(18, 2, 10),
+				Palette.Gunmetal,
+				Enum.Material.Metal
+			).Name =
+				"Bunk"
+		end
+		block(
+			parent,
+			CFrame.new(at + Vector3.new(13, 3, 0)),
+			Vector3.new(6, 6, 8),
+			Palette.DarkMetal,
+			Enum.Material.DiamondPlate
+		).Name =
+			"Footlocker"
+	end
+	block(
+		parent,
+		CFrame.new(base + Vector3.new(8, 5, 0)),
+		Vector3.new(20, 2, 14),
+		Palette.DarkMetal,
+		Enum.Material.Metal
+	).Name =
+		"BriefingTable"
+	ceilingLamp(parent, base + Vector3.new(0, ROOM_HEIGHT - 4, 0), style.windowColor, 55)
 
 	for _, corner in { Vector3.new(-reach, 0, -reach), Vector3.new(-reach, 0, reach) } do
 		cylinder(
@@ -1755,7 +2030,10 @@ local function buildBase(parent: Instance, base: Vector3, style: Style, rng: Ran
 	-- Something parked inside, so the compound looks used.
 	block(
 		parent,
-		CFrame.new(base + Vector3.new(rng:NextNumber(30, 50), 5, rng:NextNumber(-40, 40)))
+		-- Off to one side of the yard. It used to be allowed to land half
+		-- inside the keep -- which now means half inside a room -- or across
+		-- the line from the gate to the keep door, which is now a way in.
+		CFrame.new(base + Vector3.new(rng:NextNumber(46, 64), 5, rng:NextNumber(24, 44)))
 			* CFrame.Angles(0, rng:NextNumber(0, math.pi), 0),
 		Vector3.new(26, 10, 14),
 		Palette.Gunmetal,
@@ -1763,7 +2041,7 @@ local function buildBase(parent: Instance, base: Vector3, style: Style, rng: Ran
 	).Name =
 		"Crate"
 
-	return 56
+	return ROOM_HEIGHT + 20
 end
 
 --- A couple of domes and a vaporator. The smallest thing worth a name.

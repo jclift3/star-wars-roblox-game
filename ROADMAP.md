@@ -278,6 +278,28 @@ door trigger, built as its own local space. Cantina, shop, barracks, tomb,
 apartment. That also gives dialogue and vendors somewhere to happen that isn't
 a street corner.
 
+*Started.* Two landmarks now have insides — the **cantina** (bar, back shelf,
+tables and stools, hanging lights, a dome that no longer collides because the
+ceiling under it is the real surface) and the **base keep**, which is a barracks
+with bunks, footlockers and a briefing table, its door lined up with the
+compound gate.
+
+Two decisions worth keeping. **Interiors are built in place**, not as a separate
+space you teleport into: same ground, same coordinates, so pathfinding,
+waypoints, line of sight, and the proximity prompts vendors and dialogue run on
+all keep working without knowing interiors exist. And **a building with an
+interior is built as a shell from the start** — nothing is hollowed out
+afterwards, so there is never a solid version and a hollow version of the same
+wall to keep in step. `roundWall` and `roomShell` in `PlanetBuilder` are the two
+shells; a third landmark should need no new machinery.
+
+Still open, and this is the half that matters: **nobody is inside yet.** NPCs
+spawn at their zone's patrol points, which are outdoors, so the cantina is a
+well-furnished empty room. Putting the vendor behind his own bar needs spawn
+points that a landmark can declare — that, not more geometry, is the next step.
+Also open: ordinary settlement buildings (still solid), and shops/tombs/
+apartments.
+
 **N6. An economy, not just a wallet.** The largest new ask, and it is really
 five features:
 
