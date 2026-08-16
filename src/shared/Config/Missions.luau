@@ -783,6 +783,215 @@ def({
 })
 
 --------------------------------------------------------------------------------
+-- Ord Mantell -- the garrison chain
+--------------------------------------------------------------------------------
+
+--[[
+	The Conscript's prologue, and the whole planet: levels 1-6, three story
+	missions and one bounty. Ord Mantell shipped with nothing at all, so a
+	world reachable from the galaxy map answered "no work going on this planet
+	right now" -- the same silent emptiness as a POI nobody points at.
+
+	Two authoring constraints this planet makes obvious.
+
+	**The giver has to stand here.** `giver` is matched against the archetype
+	id of whoever you are talking to, so a mission whose giver never spawns on
+	its own planet can only be taken from the board. Sergeant Marr is written
+	in the briefings but is a `RepublicVeteran` in the data, because named NPCs
+	do not exist yet and a giver the player cannot reach is worse than an
+	unnamed one.
+
+	**The militia are Smugglers.** Ord Mantell's separatists have no archetype
+	of their own -- `Planets.luau` already spawns Smugglers in the Fields and
+	the Wilds as the stand-in, and the Kill objectives follow that rather than
+	inventing a target that never spawns.
+
+	The beat the data cannot carry yet is the one the story turns on: the Jedi
+	liaison who goes hollow mid-firefight. No Jedi spawns on this world, so it
+	lives in the briefing and debriefing text until origins can gate content
+	(CAMPAIGN §6.1). That is the honest place for it -- better prose than a
+	fake objective.
+]]
+
+def({
+	id = "OrdPayAndRations",
+	displayName = "Pay and Rations",
+	summary = "Carry the garrison's requisition payment down to Drelliad Village.",
+	briefing = "You are new, so you get the errand. The village is owed for three months of grain we took at gunpoint and called a requisition. Walk it down there and hand it over. Try to look like an army.",
+	debriefing = "They took it. They did not thank you. Nobody here has thanked a soldier in two years, and if you understand why, you will last longer than most.",
+	kind = "Story",
+	faction = "Republic",
+	planet = "OrdMantell",
+	giver = "RepublicVeteran",
+	minLevel = 1,
+	objectives = {
+		{
+			kind = Objective.Collect,
+			target = "CreditChit",
+			at = "FortGarnik",
+			count = 3,
+			description = "Draw the pay chits from the fort",
+		},
+		{
+			kind = Objective.Reach,
+			target = "DrelliadVillage",
+			planet = "OrdMantell",
+			description = "Walk down to Drelliad Village",
+		},
+		{
+			kind = Objective.Deliver,
+			target = "CreditChit",
+			destination = "DrelliadVillage",
+			description = "Hand the payment over",
+		},
+		{
+			kind = Objective.TalkTo,
+			target = "Civilian",
+			count = 3,
+			description = "Ask the villagers what else they need",
+		},
+	},
+	rewards = {
+		xp = 200,
+		credits = 300,
+		rep = { Republic = 60 },
+		items = { StimPack = 3 },
+	},
+	next = "OrdTheHillWithNoName",
+})
+
+def({
+	id = "OrdTheHillWithNoName",
+	displayName = "The Hill With No Name",
+	summary = "Take the Savrip Fields position and get the relay working again.",
+	briefing = "We have taken that hill four times. Today we take it a fifth. It has no name, it is worth nothing, and the separatists want it because we want it. Push through the wire and get our relay talking to the fort.",
+	debriefing = "The hill is ours. Command has already stopped mentioning it. Get some rest -- you did the part they will not put in a report.",
+	kind = "Story",
+	faction = "Republic",
+	planet = "OrdMantell",
+	giver = "RepublicVeteran",
+	minLevel = 3,
+	requires = { "OrdPayAndRations" },
+	objectives = {
+		{
+			kind = Objective.Reach,
+			target = "SavripFields",
+			planet = "OrdMantell",
+			description = "Reach the trenches on the Savrip Fields",
+		},
+		{
+			kind = Objective.Kill,
+			target = "Smuggler",
+			count = 8,
+			description = "Clear the separatist irregulars off the hill",
+		},
+		{
+			kind = Objective.Collect,
+			target = "PowerCoupling",
+			at = "SavripFields",
+			count = 2,
+			description = "Salvage couplings for the relay",
+		},
+		{
+			kind = Objective.Deliver,
+			target = "PowerCoupling",
+			destination = "FortGarnik",
+			description = "Get the couplings back to Fort Garnik",
+		},
+	},
+	rewards = {
+		xp = 380,
+		credits = 550,
+		rep = { Republic = 140 },
+		weapon = "DH17",
+	},
+	next = "OrdFiledAsFatigue",
+})
+
+def({
+	id = "OrdFiledAsFatigue",
+	displayName = "Filed as Fatigue",
+	summary = "Recover the field record from the wreck in the Jagged Wilds -- and watch what command does with it.",
+	briefing = "Our liaison went down in the swamp and did not come back the way she went in. There is a medical record on that wreck and I want it in my hand before anyone else touches it. Do not read it out loud.",
+	debriefing = "The adjutant has entered it as combat fatigue and ordered you not to write it down. Keep your copy. One day someone is going to ask, and you will be the only one who can answer.",
+	kind = "Story",
+	faction = "Republic",
+	planet = "OrdMantell",
+	giver = "RepublicVeteran",
+	minLevel = 5,
+	requires = { "OrdTheHillWithNoName" },
+	objectives = {
+		{
+			kind = Objective.Reach,
+			target = "JaggedWilds",
+			planet = "OrdMantell",
+			description = "Find the wreck in the Jagged Wilds",
+		},
+		{
+			kind = Objective.Kill,
+			target = "Smuggler",
+			count = 10,
+			description = "Fight through the separatist camps",
+		},
+		{
+			kind = Objective.Collect,
+			target = "ResearchData",
+			at = "JaggedWilds",
+			count = 1,
+			description = "Recover the field record",
+		},
+		{
+			kind = Objective.Deliver,
+			target = "ResearchData",
+			destination = "FortGarnik",
+			description = "Carry it back to Fort Garnik",
+		},
+		{
+			kind = Objective.TalkTo,
+			target = "ProtocolDroid",
+			hidden = true,
+			description = "Hear what the adjutant files it as",
+		},
+	},
+	rewards = {
+		xp = 820,
+		credits = 1400,
+		rep = { Republic = 300 },
+		items = { StimPack = 5 },
+		skillPoints = 1,
+	},
+})
+
+def({
+	id = "OrdSeparatistBounty",
+	displayName = "Bounty: Separatist Irregulars",
+	summary = "The village pays per head, quietly, and would rather the fort did not know.",
+	briefing = "The fort has its war. We have men coming out of the fields at night taking what is left. We pay in coin and we do not write your name anywhere.",
+	kind = "Repeatable",
+	-- Not a Republic job. The village is paying to be left alone, by both
+	-- sides, which is the only politics anyone here has left.
+	faction = "Independent",
+	planet = "OrdMantell",
+	giver = "Merchant",
+	minLevel = 2,
+	objectives = {
+		{
+			kind = Objective.Kill,
+			target = "Smuggler",
+			count = 10,
+			description = "Kill separatist irregulars",
+		},
+	},
+	rewards = {
+		xp = 160,
+		credits = 340,
+		rep = { Independent = 25 },
+	},
+	repeatable = true,
+	cooldown = 1800,
+})
+
+--------------------------------------------------------------------------------
 
 Missions.defs = defs
 
@@ -945,6 +1154,21 @@ function Missions.validate(): { string }
 		end
 		if m.rewards.weapon and not Weapons.exists(m.rewards.weapon) then
 			table.insert(problems, `{id}: reward weapon "{m.rewards.weapon}" does not exist`)
+		end
+		--[[
+			The giver is matched against the archetype id of whoever the
+			player is talking to (DialogueService.offersFor), so a giver who
+			does not stand on the mission's own planet makes the mission
+			board the only way to take it -- and the conversation the mission
+			was written for never happens. Checked here rather than trusted,
+			because nothing errors when it is wrong.
+		]]
+		if not NPCArchetypes.exists(m.giver) then
+			table.insert(problems, `{id}: unknown giver archetype "{m.giver}"`)
+		elseif not NPCArchetypes.get(m.giver).interactable then
+			table.insert(problems, `{id}: giver "{m.giver}" is not interactable`)
+		elseif not Planets.spawnsArchetype(m.planet, m.giver) then
+			table.insert(problems, `{id}: giver "{m.giver}" does not spawn on {m.planet}`)
 		end
 		if m.next and not defs[m.next] then
 			table.insert(problems, `{id}: next mission "{m.next}" does not exist`)

@@ -1061,6 +1061,20 @@ function Planets.hasZone(planetId: string, zoneId: string): boolean
 	return false
 end
 
+--- Whether `archetypeId` appears anywhere in this planet's spawn rules.
+function Planets.spawnsArchetype(planetId: string, archetypeId: string): boolean
+	local p = defs[planetId]
+	if not p then
+		return false
+	end
+	for _, rule in p.spawns do
+		if rule.archetype == archetypeId then
+			return true
+		end
+	end
+	return false
+end
+
 --[[
 	Cross-checks every planet against the ids it references.
 

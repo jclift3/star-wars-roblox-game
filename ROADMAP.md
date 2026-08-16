@@ -43,8 +43,7 @@ because several of them make the content that already exists impossible to
 
 ### Bugs and tuning
 
-**B1, B2, B3 and B5 were fixed on 2026-08-15.** What changed is recorded inline
-below. B4 is content work and stays open.
+**All five were fixed on 2026-08-15.** What changed is recorded inline below.
 
 **B1. Three worlds are too dark to play.** — **[fixed]** Reported for Korriban, Coruscant
 and — as fog rather than darkness — Ord Mantell. Two independent causes:
@@ -188,10 +187,27 @@ a real save.
 either a reader for its stat or an `unimplemented` string.** Proper fix — making
 them real — is §4.3 below.
 
-**B4. Ord Mantell has no missions.** The board reads "No work going on this
-planet right now." It is the Conscript prologue world and has zero entries in
+**B4. Ord Mantell has no missions.** — **[fixed]** The board read "No work going on this
+planet right now." It is the Conscript prologue world and had zero entries in
 `Missions`. Same failure family as §1.2's dead POIs: nothing errors, the world
 is just empty when you arrive.
+
+*Fixed:* a four-entry garrison chain covering the planet's whole 1–6 band —
+**Pay and Rations** (1), **The Hill With No Name** (3), **Filed as Fatigue** (5)
+and a repeatable **Bounty: Separatist Irregulars** (2). It follows the beats in
+[PLANETS.md](PLANETS.md) "Ord Mantell" and uses only what the planet actually
+has: Sgt. Marr is a `RepublicVeteran` because named NPCs do not exist yet, and
+the separatists are the `Smuggler` stand-in that `Planets.luau` already spawns
+in the Fields and the Wilds. The beat the data cannot carry — the Jedi liaison
+going hollow mid-firefight — stays in the briefing text rather than becoming a
+fake objective, until origins can gate content (CAMPAIGN §6.1).
+
+Authoring this exposed a missing check, so `Missions.validate` now also
+verifies that a **giver exists, is interactable, and spawns on its own
+planet**. `giver` is matched against the archetype id of whoever you are
+talking to, so a giver who does not stand there makes the board the only way to
+take the mission and the conversation it was written for never happens — with
+nothing erroring. All seventeen pre-existing missions pass.
 
 ### New scope
 
