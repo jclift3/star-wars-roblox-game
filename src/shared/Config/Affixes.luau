@@ -349,9 +349,20 @@ local function affixCount(rolls: { [string]: number }?): number
 	return math.min(n, Affixes.MAX_AFFIXES)
 end
 
+--[[
+	The rarity at an affix count.
+
+	For anything holding the count but not the rolls -- the inventory panel is
+	sent `rarity` as a number, because a client that only draws a colour and a
+	word has no use for the roll table it came from.
+]]
+function Affixes.rarityAt(count: number): RarityDef
+	return RARITY[math.clamp(math.floor(count), 0, Affixes.MAX_AFFIXES)]
+end
+
 --- The rarity of an item with these rolls. Common when there are none.
 function Affixes.rarityOf(rolls: { [string]: number }?): RarityDef
-	return RARITY[affixCount(rolls)]
+	return Affixes.rarityAt(affixCount(rolls))
 end
 
 function Affixes.exists(stat: string): boolean

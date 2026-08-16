@@ -25,6 +25,7 @@ local Shared = game:GetService("ReplicatedStorage"):WaitForChild("Shared")
 local Types = require(Shared.Types)
 local Net = require(Shared.Core.Net)
 local Inventory = require(Shared.Core.Inventory)
+local Affixes = require(Shared.Config.Affixes)
 local Outfits = require(Shared.Config.Outfits)
 local Costumes = require(Shared.Config.Costumes)
 local Shops = require(Shared.Config.Shops)
@@ -126,6 +127,16 @@ end
 
 export type ItemEntry = {
 	kind: string, -- "Outfit" | "Weapon"
+	--[[
+		The stack this row is, not the catalogue entry it came from.
+
+		Rows are per stack, so two rolls of the same blaster are two rows and
+		only one of them is worn. Everything that acts on a row -- equipping,
+		comparing against `profile.equipped` -- keys off this. Shop stock the
+		player does not own has no stack, and uses the catalogue id, which is
+		exactly the uid it will have once bought.
+	]]
+	uid: string,
 	id: string,
 	displayName: string,
 	description: string,
@@ -135,6 +146,10 @@ export type ItemEntry = {
 	owned: boolean,
 	equipped: boolean,
 	forSale: boolean, -- stocked by the vendor the player is standing at
+	-- Affix count, 0..4. The client turns it into a colour and a word.
+	rarity: number,
+	-- Already-formatted roll lines. Empty for anything Common.
+	affixes: { string },
 	stats: { { label: string, value: string } },
 }
 
@@ -189,63 +204,74 @@ local function buildCatalogue(player: Player, profile: PlayerProfile, vendor: Ve
 
 	local markup = if shop then shop.priceMult else 1
 
-	local seenOutfit: { [string]: boolean } = {}
-	local function addOutfit(id: string)
-		if seenOutfit[id] or not Outfits.exists(id) then
+	local inv = profile.inventory
+	local seen: { [string]: boolean } = {}
+
+	local function addOutfit(uid: string, id: string)
+		if seen[uid] or not Outfits.exists(id) then
 			return
 		end
-		seenOutfit[id] = true
+		seen[uid] = true
 		local def = Outfits.get(id)
+		local rolls = Inventory.rollsOf(inv, uid)
 		table.insert(entries, {
 			kind = "Outfit",
+			uid = uid,
 			id = id,
-			displayName = def.displayName,
+			displayName = Affixes.nameFor(def.displayName, rolls),
 			description = def.description,
 			tier = def.tier,
 			requiredLevel = def.requiredLevel,
 			price = progression().priceFor(player, def.cost * markup),
-			owned = Inventory.has(profile.inventory, id) or id == Outfits.DEFAULT,
-			equipped = profile.equipped.outfit == id,
-			forSale = stockedOutfits[id] == true,
+			owned = inv[uid] ~= nil or id == Outfits.DEFAULT,
+			equipped = profile.equipped.outfit == uid,
+			-- Only the plain stack is the thing on the shelf; a rolled one is
+			-- the player's own and the vendor has never seen it.
+			forSale = uid == id and stockedOutfits[id] == true,
+			rarity = Affixes.rarityOf(rolls).affixes,
+			affixes = Affixes.describe(rolls),
 			stats = outfitStatLines(id),
 		})
 	end
 
-	local seenWeapon: { [string]: boolean } = {}
-	local function addWeapon(id: string)
-		if seenWeapon[id] or not Weapons.exists(id) then
+	local function addWeapon(uid: string, id: string)
+		if seen[uid] or not Weapons.exists(id) then
 			return
 		end
-		seenWeapon[id] = true
+		seen[uid] = true
 		local def = Weapons.get(id)
+		local rolls = Inventory.rollsOf(inv, uid)
 		table.insert(entries, {
 			kind = "Weapon",
+			uid = uid,
 			id = id,
-			displayName = def.displayName,
+			displayName = Affixes.nameFor(def.displayName, rolls),
 			description = def.description,
 			tier = def.tier,
 			requiredLevel = def.requiredLevel,
 			price = progression().priceFor(player, def.cost * markup),
-			owned = Inventory.has(profile.inventory, id) or id == Weapons.DEFAULT,
-			equipped = profile.equipped.weapon == id,
-			forSale = stockedWeapons[id] == true,
+			owned = inv[uid] ~= nil or id == Weapons.DEFAULT,
+			equipped = profile.equipped.weapon == uid,
+			forSale = uid == id and stockedWeapons[id] == true,
+			rarity = Affixes.rarityOf(rolls).affixes,
+			affixes = Affixes.describe(rolls),
 			stats = weaponStatLines(def),
 		})
 	end
 
 	-- Owned first, so the list is stable as you walk in and out of range of a
 	-- vendor: the same things stay in the same order, with stock appended.
-	addOutfit(Outfits.DEFAULT)
-	for _, id in Inventory.ids(profile.inventory) do
-		addOutfit(id)
-		addWeapon(id)
+	addOutfit(Outfits.DEFAULT, Outfits.DEFAULT)
+	for _, stack in inv do
+		addOutfit(stack.uid, stack.id)
+		addWeapon(stack.uid, stack.id)
 	end
 	if shop then
 		for _, id in shop.outfits do
-			addOutfit(id)
+			addOutfit(id, id)
 		end
 		for _, id in shop.weapons do
-			addWeapon(id)
+			addWeapon(id, id)
 		end
 	end
 
@@ -256,7 +282,13 @@ local function buildCatalogue(player: Player, profile: PlayerProfile, vendor: Ve
 		if a.tier ~= b.tier then
 			return a.tier < b.tier
 		end
-		return a.displayName < b.displayName
+		if a.displayName ~= b.displayName then
+			return a.displayName < b.displayName
+		end
+		-- Two rolls of one blaster share a name until they are decorated
+		-- differently. The uid is the only thing guaranteed to differ, and the
+		-- sort has to be a strict order or table.sort throws.
+		return a.uid < b.uid
 	end)
 
 	return entries
@@ -312,7 +344,9 @@ function ShopService.purchase(player: Player, kind: string, id: string): (boolea
 		return false, "Unknown item"
 	end
 
-	if Inventory.has(profile.inventory, id) then
+	-- Against the plain stack specifically, not the catalogue id: owning a
+	-- rolled DH17 is no reason to be refused an ordinary one off the shelf.
+	if profile.inventory[id] then
 		return false, "You already own that"
 	end
 	if profile.level < requiredLevel then
@@ -333,25 +367,31 @@ function ShopService.purchase(player: Player, kind: string, id: string): (boolea
 	return true, nil
 end
 
---- Wears an owned outfit. Returns false and a reason the player can be shown.
-function ShopService.equipOutfit(player: Player, id: string): (boolean, string?)
-	if not Outfits.exists(id) then
-		return false, "Unknown outfit"
-	end
+--[[
+	Wears an owned outfit. Returns false and a reason the player can be shown.
+
+	Takes an inventory uid, so the player can pick out one particular rolled
+	robe rather than the catalogue entry it was cut from.
+]]
+function ShopService.equipOutfit(player: Player, uid: string): (boolean, string?)
 	local profile = data().get(player)
 	if not profile then
 		return false, "Profile not loaded"
 	end
+	local id = Inventory.idOf(profile.inventory, uid)
+	if not id or not Outfits.exists(id) then
+		return false, "Unknown outfit"
+	end
 	-- The starting outfit is always available, the same way fists always are.
-	if id ~= Outfits.DEFAULT and not Inventory.has(profile.inventory, id) then
+	if uid ~= Outfits.DEFAULT and not profile.inventory[uid] then
 		return false, "You do not own that"
 	end
-	if profile.equipped.outfit == id then
+	if profile.equipped.outfit == uid then
 		return true, nil
 	end
 
 	data().update(player, function(p: PlayerProfile)
-		p.equipped.outfit = id
+		p.equipped.outfit = uid
 	end)
 	ServiceLoader.get("PlayerService").refreshOutfit(player)
 

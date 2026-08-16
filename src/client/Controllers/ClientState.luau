@@ -55,9 +55,22 @@ function ClientState.get(): Profile?
 	return profile
 end
 
---- The equipped weapon id, or nil while the profile is still loading.
+--[[
+	The equipped weapon's *catalogue* id, or nil while the profile is loading.
+
+	`equipped.weapon` names a stack, which for a rolled blaster is `DH17#2`.
+	Callers want the entry in `Config.Weapons` that says how it shoots, so the
+	resolution happens once here rather than at every call site.
+]]
 function ClientState.equippedWeapon(): string?
-	return profile and profile.equipped.weapon
+	local p = profile
+	return p and Inventory.idOf(p.inventory, p.equipped.weapon)
+end
+
+--- What the equipped weapon rolled, if anything. Nil for a plain one.
+function ClientState.equippedWeaponRolls(): Inventory.Rolls?
+	local p = profile
+	return p and Inventory.rollsOf(p.inventory, p.equipped.weapon)
 end
 
 function ClientState.init()

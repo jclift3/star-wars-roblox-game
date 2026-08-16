@@ -26,6 +26,7 @@ local UserInputService = game:GetService("UserInputService")
 
 local Shared = game:GetService("ReplicatedStorage"):WaitForChild("Shared")
 local Net = require(Shared.Core.Net)
+local Affixes = require(Shared.Config.Affixes)
 local Palette = require(Shared.Config.Palette)
 local Panels = require(Shared.Core.Panels)
 local ServiceLoader = require(Shared.Core.ServiceLoader)
@@ -50,8 +51,17 @@ local TOGGLE_KEY = Enum.KeyCode.B
 
 type StatLine = { label: string, value: string }
 
+--[[
+	Mirrors `ShopService.ItemEntry`.
+
+	A row is one *stack*, so `uid` and not `id` is what identifies it: two rolls
+	of the same blaster are two rows, and picking the wrong key would select
+	both and equip whichever the server saw first. `id` is still what a
+	purchase names, because you buy a catalogue entry, not somebody's stack.
+]]
 type ItemEntry = {
 	kind: string,
+	uid: string,
 	id: string,
 	displayName: string,
 	description: string,
@@ -61,6 +71,8 @@ type ItemEntry = {
 	owned: boolean,
 	equipped: boolean,
 	forSale: boolean,
+	rarity: number,
+	affixes: { string },
 	stats: { StatLine },
 }
 
@@ -268,12 +280,12 @@ local function entriesFor(kind: string): { ItemEntry }
 end
 
 local function selectedEntry(): ItemEntry?
-	local id = selected[activeTab]
-	if not id then
+	local uid = selected[activeTab]
+	if not uid then
 		return nil
 	end
 	for _, item in entriesFor(activeTab) do
-		if item.id == id then
+		if item.uid == uid then
 			return item
 		end
 	end
@@ -294,14 +306,27 @@ local function renderDetail()
 		return
 	end
 
+	local rarity = Affixes.rarityAt(item.rarity)
 	detailTitle.Text = item.displayName
+	-- Coloured by rarity rather than the panel accent, because the colour is
+	-- the fastest read in the whole panel: orange means stop and look.
+	detailTitle.TextColor3 = if item.rarity > 0 then rarity.color else ACCENT
 	detailBody.Text = item.description
 
 	local lines: { string } = {}
 	for _, stat in item.stats do
 		table.insert(lines, `{stat.label}:  {stat.value}`)
 	end
+	if #item.affixes > 0 then
+		-- Separated from the base stats: what the item *is* above the line,
+		-- what this particular one rolled below it.
+		table.insert(lines, "")
+		for _, line in item.affixes do
+			table.insert(lines, line)
+		end
+	end
 	if item.requiredLevel > 1 then
+		table.insert(lines, "")
 		table.insert(lines, `Requires level {item.requiredLevel}`)
 	end
 	detailStats.Text = table.concat(lines, "\n")
@@ -354,11 +379,11 @@ local function renderList()
 
 	local items = entriesFor(activeTab)
 	for index, item in items do
-		local row = button(item.id, listFrame, "")
+		local row = button(item.uid, listFrame, "")
 		row.LayoutOrder = index
 		row.Size = UDim2.new(1, -8, 0, 46)
 		row.Text = ""
-		row.BackgroundColor3 = if selected[activeTab] == item.id then ROW_SELECTED else ROW
+		row.BackgroundColor3 = if selected[activeTab] == item.uid then ROW_SELECTED else ROW
 		row.BackgroundTransparency = 0.25
 
 		local name = text("Name", row, 14, TEXT)
@@ -376,8 +401,14 @@ local function renderList()
 		price.Position = UDim2.new(1, -12, 0, 14)
 		price.Size = UDim2.fromOffset(104, 18)
 
+		local rarity = Affixes.rarityAt(item.rarity)
 		name.Text = item.displayName
-		tag.Text = `Tier {item.tier}`
+		if item.rarity > 0 then
+			name.TextColor3 = rarity.color
+			tag.Text = `Tier {item.tier}  ·  {rarity.name}`
+		else
+			tag.Text = `Tier {item.tier}`
+		end
 
 		if item.equipped then
 			price.Text = "EQUIPPED"
@@ -394,7 +425,7 @@ local function renderList()
 		end
 
 		row.Activated:Connect(function()
-			selected[activeTab] = item.id
+			selected[activeTab] = item.uid
 			render()
 		end)
 	end
@@ -431,7 +462,7 @@ function render()
 	if not selected[activeTab] then
 		local items = entriesFor(activeTab)
 		if #items > 0 then
-			selected[activeTab] = items[1].id
+			selected[activeTab] = items[1].uid
 		end
 	end
 
@@ -496,10 +527,11 @@ function InventoryController.start()
 		if item.equipped then
 			return
 		elseif item.owned then
+			-- Equipping names the stack, buying names the catalogue entry.
 			if item.kind == "Outfit" then
-				Net.fireServer(Net.Event.EquipOutfit, item.id)
+				Net.fireServer(Net.Event.EquipOutfit, item.uid)
 			else
-				Net.fireServer(Net.Event.EquipWeapon, item.id)
+				Net.fireServer(Net.Event.EquipWeapon, item.uid)
 			end
 		else
 			Net.fireServer(Net.Event.PurchaseItem, item.kind, item.id)

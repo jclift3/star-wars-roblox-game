@@ -30,6 +30,7 @@ local Workspace = game:GetService("Workspace")
 local Shared = game:GetService("ReplicatedStorage"):WaitForChild("Shared")
 local Types = require(Shared.Types)
 local Net = require(Shared.Core.Net)
+local Inventory = require(Shared.Core.Inventory)
 local Signal = require(Shared.Core.Signal)
 local Planets = require(Shared.Config.Planets)
 local Costumes = require(Shared.Config.Costumes)
@@ -239,7 +240,7 @@ function PlayerService.refreshOutfit(player: Player)
 	if not character or not profile then
 		return
 	end
-	applyOutfit(character, profile.equipped.outfit)
+	applyOutfit(character, Inventory.idOf(profile.inventory, profile.equipped.outfit))
 	-- Outfits carry stats, so speed and health have to be re-derived too.
 	progression().invalidate(player)
 	applyStats(player, character)
@@ -285,7 +286,7 @@ local function onCharacterAdded(player: Player, character: Model)
 	-- anything else so the player never sees the wrong world.
 	character:PivotTo(spawnCFrameFor(profile.currentPlanet))
 
-	applyOutfit(character, profile.equipped.outfit)
+	applyOutfit(character, Inventory.idOf(profile.inventory, profile.equipped.outfit))
 	applyStats(player, character)
 	applyGravity(character, planet.gravity)
 	startRegen(player, character)

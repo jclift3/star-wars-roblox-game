@@ -32,7 +32,9 @@ local Types = require(Shared.Types)
 local Net = require(Shared.Core.Net)
 local Inventory = require(Shared.Core.Inventory)
 local Signal = require(Shared.Core.Signal)
+local Affixes = require(Shared.Config.Affixes)
 local Weapons = require(Shared.Config.Weapons)
+local Loot = require(Shared.Config.Loot)
 local Factions = require(Shared.Config.Factions)
 local WeaponModel = require(Shared.Rig.WeaponModel)
 local ServiceLoader = require(Shared.Core.ServiceLoader)
@@ -56,6 +58,12 @@ local FIRE_RATE_GRACE = 0.06
 
 local lastFireAt: { [Player]: number } = {}
 local lastSwingAt: { [Player]: number } = {}
+
+-- Unseeded on purpose. Loot is the one thing in this game that must not be
+-- reproducible: the planets are generated from fixed seeds so that every
+-- player sees the same world, and a drop table on a fixed seed would mean
+-- every player got the same blaster in the same order.
+local lootRng = Random.new()
 
 CombatService.damaged = Signal.new()
 CombatService.killed = Signal.new()
@@ -222,6 +230,25 @@ function CombatService.onKilled(target: Model, info: DamageInfo)
 	data().update(killer, function(p: PlayerProfile)
 		p.stats.kills += 1
 	end)
+
+	--[[
+		Loot last, so a drop is the final line in the notification stack and
+		the one the player is still reading. Levelled off the NPC, not the
+		killer -- see the note on `Loot.rollDrop`.
+	]]
+	local drop = Loot.rollDrop(lootRng, npcLevel)
+	if drop then
+		data().update(killer, function(p: PlayerProfile)
+			Inventory.add(p.inventory, drop.id, 1, drop.rolls)
+		end)
+		-- A rolled outfit or weapon changes nothing until it is equipped, so
+		-- there is no cache to invalidate here.
+		-- The toast's kind IS the rarity, so the colour it is drawn in comes
+		-- from the same table the inventory panel reads and the two cannot
+		-- disagree about what orange means.
+		local rarity = Affixes.rarityOf(drop.rolls)
+		Net.fireClient(Net.Event.Notify, killer, `{rarity.name}: {Loot.nameOf(drop)}`, rarity.name)
+	end
 end
 
 --------------------------------------------------------------------------------
@@ -327,7 +354,9 @@ local function onFireWeapon(player: Player, origin: Vector3, direction: Vector3)
 
 	-- The weapon is whatever the SERVER has recorded as equipped. A client
 	-- claiming to fire a weapon it does not own gets nothing.
-	local weaponId = profile.equipped.weapon
+	-- `equipped` names a carried stack, so a rolled blaster resolves back to
+	-- the catalogue entry that says how it shoots.
+	local weaponId = Inventory.idOf(profile.inventory, profile.equipped.weapon)
 	if not weaponId or not Weapons.exists(weaponId) then
 		return
 	end
@@ -388,7 +417,9 @@ local function onSaberSwing(player: Player)
 	if not profile then
 		return
 	end
-	local weaponId = profile.equipped.weapon
+	-- `equipped` names a carried stack, so a rolled blaster resolves back to
+	-- the catalogue entry that says how it shoots.
+	local weaponId = Inventory.idOf(profile.inventory, profile.equipped.weapon)
 	if not weaponId or not Weapons.exists(weaponId) then
 		return
 	end
@@ -538,22 +569,29 @@ function CombatService.init()
 		validate = Net.check.none,
 	})
 
-	Net.onServerEvent(Net.Event.EquipWeapon, function(player: Player, weaponId: string)
-		if not Weapons.exists(weaponId) then
-			return
-		end
+	Net.onServerEvent(Net.Event.EquipWeapon, function(player: Player, uid: string)
 		local profile = data().get(player)
 		if not profile then
 			return
 		end
-		-- Owned means "in inventory". Fists are always available.
-		if weaponId ~= Weapons.DEFAULT and not Inventory.has(profile.inventory, weaponId) then
+		-- The client names a carried stack, not a catalogue entry, so a rolled
+		-- blaster equips as itself rather than as the idea of a DH17.
+		local weaponId = Inventory.idOf(profile.inventory, uid)
+		if not weaponId or not Weapons.exists(weaponId) then
+			return
+		end
+		-- Owned means "this exact stack is in the bag". Fists are the
+		-- exception: always available, never carried.
+		if uid ~= Weapons.DEFAULT and not profile.inventory[uid] then
 			Net.fireClient(Net.Event.Notify, player, "You do not have that weapon", "Error")
 			return
 		end
 		data().update(player, function(p)
-			p.equipped.weapon = weaponId
+			p.equipped.weapon = uid
 		end)
+		-- A weapon can carry rolled affixes, so swapping one changes the
+		-- player's stats the same way changing an outfit does.
+		progression().invalidate(player)
 
 		if player.Character then
 			WeaponModel.equip(player.Character, weaponId)
@@ -574,7 +612,7 @@ function CombatService.start()
 	-- held, so the weapon survives death and travel without the client asking.
 	ServiceLoader.get("PlayerService").characterReady
 		:connect(function(_player: Player, character: Model, profile)
-			local weaponId = profile.equipped.weapon
+			local weaponId = Inventory.idOf(profile.inventory, profile.equipped.weapon)
 			if weaponId and Weapons.exists(weaponId) then
 				WeaponModel.equip(character, weaponId)
 			end

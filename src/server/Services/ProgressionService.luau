@@ -21,6 +21,7 @@ local Players = game:GetService("Players")
 local Shared = game:GetService("ReplicatedStorage"):WaitForChild("Shared")
 local Types = require(Shared.Types)
 local Net = require(Shared.Core.Net)
+local Inventory = require(Shared.Core.Inventory)
 local Signal = require(Shared.Core.Signal)
 local Progression = require(Shared.Config.Progression)
 local Factions = require(Shared.Config.Factions)
@@ -53,6 +54,33 @@ end
 -- Stats
 --------------------------------------------------------------------------------
 
+--[[
+	Everything the player's gear contributes: the outfit's authored stats, plus
+	whatever the equipped outfit and weapon rolled.
+
+	`equipped` holds inventory uids, not catalogue ids -- for a plain item the
+	two are the same string, which is why nothing needed changing when stacks
+	arrived, but a rolled item is `DH17#2` and only the stack knows it is a
+	DH17.
+
+	Cloned before anything is folded in, because `Outfits.statsFor` hands back
+	the config's own table: adding a roll to it in place would permanently
+	rewrite that outfit for every player on the server.
+]]
+local function gearStats(profile): { [string]: number }
+	local inv = profile.inventory
+	local extra = table.clone(Outfits.statsFor(Inventory.idOf(inv, profile.equipped.outfit)))
+	for _, uid in { profile.equipped.outfit, profile.equipped.weapon } do
+		local rolls = Inventory.rollsOf(inv, uid)
+		if rolls then
+			for stat, delta in rolls do
+				extra[stat] = (extra[stat] or 0) + delta
+			end
+		end
+	end
+	return extra
+end
+
 --- The player's folded stat table. Cheap to call; cached until skills change.
 function ProgressionService.getStats(player: Player): { [string]: number }
 	local cached = statCache[player]
@@ -61,10 +89,11 @@ function ProgressionService.getStats(player: Player): { [string]: number }
 	end
 	local profile = data().get(player)
 	-- Worn gear stacks with skills. Anything that changes the equipped outfit
-	-- must call `invalidate`, or the player keeps the old armour's numbers.
+	-- OR WEAPON must call `invalidate`, or the player keeps the old gear's
+	-- numbers -- weapons carry stats now that they can roll affixes.
 	local stats = Progression.computeStats(
 		profile and profile.skills or {},
-		Outfits.statsFor(profile and profile.equipped.outfit)
+		if profile then gearStats(profile) else nil
 	)
 	statCache[player] = stats
 	return stats

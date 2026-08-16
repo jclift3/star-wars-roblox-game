@@ -67,6 +67,30 @@ function Inventory.has(inv: Inventory, id: string, n: number?): boolean
 end
 
 --[[
+	The catalogue id behind a uid -- what `profile.equipped` holds.
+
+	Falls back to the uid itself when no stack matches, which is correct rather
+	than lenient: a plain item's uid *is* its catalogue id, and fists are
+	equipped without ever being owned, so there is nothing to look up.
+]]
+function Inventory.idOf(inv: Inventory, uid: string?): string?
+	if not uid then
+		return nil
+	end
+	local stack = inv[uid]
+	return if stack then stack.id else uid
+end
+
+--- What a specific carried item rolled, if anything.
+function Inventory.rollsOf(inv: Inventory, uid: string?): Rolls?
+	if not uid then
+		return nil
+	end
+	local stack = inv[uid]
+	return stack and stack.rolls
+end
+
+--[[
 	The distinct catalogue ids carried, sorted.
 
 	Sorted because callers render it: an inventory panel whose rows reshuffle

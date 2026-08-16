@@ -23,7 +23,9 @@ local TweenService = game:GetService("TweenService")
 
 local Shared = game:GetService("ReplicatedStorage"):WaitForChild("Shared")
 local Net = require(Shared.Core.Net)
+local Affixes = require(Shared.Config.Affixes)
 local Palette = require(Shared.Config.Palette)
+local Weapons = require(Shared.Config.Weapons)
 local Missions = require(Shared.Config.Missions)
 local Planets = require(Shared.Config.Planets)
 local Progression = require(Shared.Config.Progression)
@@ -310,7 +312,17 @@ local function refreshProfile()
 		then Planets.get(profile.currentPlanet).displayName
 		else profile.currentPlanet
 
-	weaponLabel.Text = profile.equipped.weapon or "Unarmed"
+	-- Not `equipped.weapon` itself: that is a stack uid, and a rolled blaster's
+	-- uid is `DH17#2`. The player is holding a Vicious DH-17, so say so.
+	local weaponId = state().equippedWeapon()
+	if weaponId and Weapons.exists(weaponId) then
+		local rolls = state().equippedWeaponRolls()
+		weaponLabel.Text = Affixes.nameFor(Weapons.get(weaponId).displayName, rolls)
+		weaponLabel.TextColor3 = if rolls then Affixes.rarityOf(rolls).color else DIM
+	else
+		weaponLabel.Text = "Unarmed"
+		weaponLabel.TextColor3 = DIM
+	end
 
 	refreshTracker()
 end
@@ -328,6 +340,13 @@ local KIND_COLOURS: { [string]: Color3 } = {
 	MissionComplete = Palette.SaberGreen,
 	MissionFailed = Color3.fromRGB(220, 90, 90),
 }
+
+-- A loot toast names its rarity as its kind, so the colours come from the
+-- rarity table rather than being written out a second time here.
+for count = 1, Affixes.MAX_AFFIXES do
+	local rarity = Affixes.rarityAt(count)
+	KIND_COLOURS[rarity.name] = rarity.color
+end
 
 local function toast(message: string, kind: string?)
 	local frame = panel("Toast", toastList)
