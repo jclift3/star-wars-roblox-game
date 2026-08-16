@@ -236,6 +236,17 @@ swamp and water, Tython has hills and rivers, Nar Shaddaa has no ground at all.
 This is a `PlanetDef` heightfield or Roblox Terrain pass and it should land with
 3.1 so prefabs are placed onto real ground rather than a plane.
 
+*Partly done — the skyline half.* `buildRelief` puts mesas, ridges or hills in
+a ring outside the play area, keyed off `terrain` (nothing on Urban worlds,
+where the horizon should be city). Nine worlds no longer share one straight
+horizon, which is most of what "they all look the same at a distance" was.
+
+**The walkable floor is still one flat slab, deliberately.** Every placement in
+`PlanetBuilder` assumes ground at y = 0 — buildings, spawn markers, landmarks,
+scatter — so real elevation is not a change to the ground, it is a change to
+how five other things find their footing, and it wants the layout system (3.1)
+underneath it. Rivers want the same. Do not call N3 done.
+
 **N4. Paths, and how you cross a world.** A 3000x3000 slab with a 520-radius
 town means most of the map is a walk across nothing. Two answers and we probably
 want both: **authored paths** — roads, catwalks, ridge lines — that make the
@@ -244,6 +255,20 @@ speeders/swoops for ground worlds, which is the natural home for the Scrapper
 and Scoundrel signature chains. Nar Shaddaa and Coruscant are the forcing case:
 a vertical city genuinely has no walkable ground, so it needs platforms, lifts
 and air traffic or it needs a flier.
+
+*Partly done — the paths half.* The settlement always left gaps between blocks
+but never paved them, so a "street" was the same dirt as everywhere else and a
+town read as buildings dropped on a plain. `buildStreets` paves the grid
+(cut to the chord of the town circle, since the town is round and a square grid
+over it runs streets out past the last house), and `buildMarkers` runs one road
+from the town edge to every landmark standing outside it. Roads start at the
+edge rather than the plaza on purpose: drawn from the centre they would cut
+through whichever houses stood on the bearing, and inside the walls the street
+grid already is the road.
+
+That makes **following a road a navigation method that needs no UI**, and the
+things roads lead to are the Reach objectives. Still open: vehicles, and the
+vertical-city case, which is the harder half of this item.
 
 **N5. Cities built out properly.** The standing request from day one, restated:
 better designs, **indoor spaces you can enter**, more detail. Interiors are the

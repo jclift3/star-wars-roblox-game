@@ -43,6 +43,14 @@ local SETTLEMENT_RADIUS = 520
 local BLOCK_SIZE = 130
 local STREET_WIDTH = 26
 
+-- Paving sits just proud of the ground, flush with the plaza slab, so a road
+-- and the square it leaves from are one continuous surface to walk on.
+local ROAD_Y = 0.25
+local ROAD_THICKNESS = 1
+-- Narrower than the gap between blocks: the leftover is a verge, and a road
+-- that exactly fills its gap reads as a floor rather than as a road.
+local ROAD_WIDTH = 18
+
 local TOWER_BASE_Y = -400
 local SKYLANE_STEP = 220
 
@@ -876,8 +884,183 @@ local function styleFor(planet: Planets.PlanetDef): Style
 end
 
 --------------------------------------------------------------------------------
+-- Roads
+--------------------------------------------------------------------------------
+
+--[[
+	Somewhere to walk.
+
+	The settlement always had streets in the sense that it left gaps between
+	blocks, but a gap is not a road: it is the same ground as everywhere else,
+	so a town read as buildings dropped on a plain and there was no clue which
+	way anything was. Paving the gaps costs sixteen parts and turns the same
+	layout into a place with a direction.
+
+	Roads also answer "how do I find anything". One runs from the plaza to
+	every landmark on the planet, so following a road is a navigation method
+	that needs no UI -- and the landmarks it reaches are the Reach objectives.
+]]
+
+--- Ground you have paved: the planet's own colour, darker, packed hard.
+local function roadLook(planet: Planets.PlanetDef): (Color3, Enum.Material)
+	local terrain = planet.terrain
+	if terrain == "Urban" then
+		return planet.groundColor:Lerp(Color3.new(0, 0, 0), 0.35), Enum.Material.Concrete
+	elseif terrain == "Ice" then
+		-- Cleared, not covered. A path through snow is the dark line in it.
+		return planet.groundColor:Lerp(Color3.new(0, 0, 0), 0.4), Enum.Material.Ice
+	elseif terrain == "Desert" then
+		return planet.groundColor:Lerp(Color3.new(0, 0, 0), 0.22), Enum.Material.Sand
+	end
+	return planet.groundColor:Lerp(Color3.new(0, 0, 0), 0.3), Enum.Material.Ground
+end
+
+--- One straight run of paving between two points on the ground plane.
+local function pave(parent: Instance, from: Vector3, to: Vector3, color: Color3, material: Enum.Material)
+	local flatFrom = Vector3.new(from.X, ROAD_Y, from.Z)
+	local flatTo = Vector3.new(to.X, ROAD_Y, to.Z)
+	local run = (flatTo - flatFrom).Magnitude
+	if run < 1 then
+		return
+	end
+
+	local road = block(
+		parent,
+		CFrame.lookAt((flatFrom + flatTo) * 0.5, flatTo),
+		-- lookAt points -Z along the run, so length is the Z component.
+		Vector3.new(ROAD_WIDTH, ROAD_THICKNESS, run),
+		color,
+		material
+	)
+	road.Name = "Road"
+end
+
+--[[
+	The street grid inside town.
+
+	Lines are laid on the *boundaries* between blocks rather than through
+	their centres, which is where `buildSettlement` already leaves its margin,
+	and each is cut to the chord of the settlement circle at that offset. The
+	town is round, so a square grid over it would run streets out into empty
+	desert past the last house.
+]]
+local function buildStreets(parent: Instance, planet: Planets.PlanetDef, origin: Vector3)
+	local streets = folder("Streets", parent)
+	local color, material = roadLook(planet)
+	local reach = math.floor(SETTLEMENT_RADIUS / BLOCK_SIZE)
+
+	for line = -reach, reach + 1 do
+		local offset = (line - 0.5) * BLOCK_SIZE
+		if math.abs(offset) >= SETTLEMENT_RADIUS then
+			continue
+		end
+		local half = math.sqrt(SETTLEMENT_RADIUS ^ 2 - offset ^ 2)
+
+		pave(
+			streets,
+			origin + Vector3.new(offset, 0, -half),
+			origin + Vector3.new(offset, 0, half),
+			color,
+			material
+		)
+		pave(
+			streets,
+			origin + Vector3.new(-half, 0, offset),
+			origin + Vector3.new(half, 0, offset),
+			color,
+			material
+		)
+	end
+end
+
+--------------------------------------------------------------------------------
 -- Ground and scatter
 --------------------------------------------------------------------------------
+
+--[[
+	Shape on the horizon.
+
+	The walkable floor is a single flat slab and stays one for now -- every
+	placement in this file assumes ground at y = 0, so real elevation is a
+	change to how buildings, spawns and landmarks find their footing, not a
+	change to the ground. What was cheap and missing is a *skyline*: nine
+	worlds whose horizon was the same straight line, which is most of why
+	they felt like the same world at a distance.
+
+	So: relief outside the play area, sized to be read rather than climbed.
+	Deliberately nothing on Urban worlds, where the horizon should be city.
+]]
+local RELIEF: { [string]: string } = {
+	Desert = "Mesa",
+	Ice = "Ridge",
+	Volcanic = "Ridge",
+	Forest = "Hill",
+	Swamp = "Hill",
+}
+
+local function buildRelief(parent: Instance, planet: Planets.PlanetDef, origin: Vector3, rng: Random)
+	local kind = RELIEF[planet.terrain]
+	if not kind then
+		return
+	end
+
+	local hills = folder("Relief", parent)
+	local color = planet.rockColor or planet.groundColor
+	local material = if kind == "Ridge" and planet.terrain == "Ice"
+		then Enum.Material.Glacier
+		elseif kind == "Mesa" then Enum.Material.Sandstone
+		else Enum.Material.Rock
+
+	local count = rng:NextInteger(14, 18)
+	for i = 1, count do
+		-- Evenly spaced with jitter, so the ring is a range of hills rather
+		-- than a fence with regular posts.
+		local angle = (i - 1) * (math.pi * 2 / count) + rng:NextNumber(-0.14, 0.14)
+		local distance = rng:NextNumber(1120, 1300)
+		local base = origin + Vector3.new(math.cos(angle) * distance, 0, math.sin(angle) * distance)
+		local width = rng:NextNumber(220, 400)
+
+		if kind == "Hill" then
+			-- A hill is the scatter mound at ten times the size: the shape
+			-- was right, only ever the scale was wrong.
+			local height = width * rng:NextNumber(0.5, 0.8)
+			local mound = ball(
+				hills,
+				CFrame.new(base + Vector3.new(0, height * 0.1, 0))
+					* CFrame.Angles(0, rng:NextNumber(0, math.pi), 0),
+				Vector3.new(width, height, width * rng:NextNumber(0.8, 1.3)),
+				color,
+				material
+			)
+			mound.Name = "Hill"
+			continue
+		end
+
+		-- Mesas and ridges are both stacked, shrinking slabs -- the same
+		-- trick the skyline uses, which is what makes them read as one
+		-- object from a long way off. A mesa is squat, a ridge is not.
+		local tiers = rng:NextInteger(2, 4)
+		local tierHeight = if kind == "Mesa" then width * 0.3 else width * 0.62
+		local y = -20 -- buried, so no seam shows where the slab ends
+		local w, d = width, width * rng:NextNumber(0.6, 1.1)
+
+		for tier = 1, tiers do
+			local height = tierHeight * (1 - (tier - 1) * 0.2)
+			local slab = block(
+				hills,
+				CFrame.new(base + Vector3.new(0, y + height * 0.5, 0))
+					* CFrame.Angles(0, angle + rng:NextNumber(-0.2, 0.2), 0),
+				Vector3.new(w, height, d),
+				color,
+				material
+			)
+			slab.Name = kind
+			y += height
+			w *= 0.74
+			d *= 0.74
+		end
+	end
+end
 
 local function buildGround(parent: Instance, planet: Planets.PlanetDef, origin: Vector3)
 	local material = if planet.terrain == "Desert"
@@ -1029,6 +1212,8 @@ local function buildSettlement(
 		Enum.Material.Slate
 	)
 	plaza_.Name = "Plaza"
+
+	buildStreets(town, planet, origin)
 
 	local reach = math.floor(SETTLEMENT_RADIUS / BLOCK_SIZE)
 	for gx = -reach, reach do
@@ -1835,6 +2020,9 @@ local function buildMarkers(
 	local poiRoot = folder(planetId, folder("POI", Workspace))
 	poiRoot:ClearAllChildren()
 	local landmarkRoot = folder("Landmarks", root)
+	-- Collected as each landmark settles on a position, because where they
+	-- end up is decided below and nothing knows it until then.
+	local reached: { Vector3 } = {}
 
 	--[[
 		Open ground that has been given to something.
@@ -1931,6 +2119,7 @@ local function buildMarkers(
 		end
 
 		buildLandmark(landmarkRoot, poi, def, position, style, rng)
+		table.insert(reached, position)
 		-- The marker is sized to the landmark rather than to a fixed box, so
 		-- everything measuring against it -- "have I reached this", "where do
 		-- the pickups go" -- scales with the building instead of guessing.
@@ -1940,6 +2129,31 @@ local function buildMarkers(
 			position + Vector3.new(0, 3, 0),
 			Vector3.new(def.radius * 2, 20, def.radius * 2)
 		)
+	end
+
+	--[[
+		A road out of town to every landmark that stands outside it.
+
+		It starts at the edge of the settlement, not at the plaza. Drawn from
+		the centre it would be a straight line across a grid of buildings,
+		cutting through whichever houses stood on the bearing -- inside the
+		walls the street grid is already the road, and out here there is
+		nothing to cut through. Landmarks that took a yard in town get
+		nothing, correctly: they are on a street already.
+
+		Straight, because a curve would have to know what it was curving
+		around, and a road you can see the whole length of is the navigation.
+	]]
+	if planet.hasWalkableGround then
+		local roads = folder("Roads", root)
+		local color, material = roadLook(planet)
+		for _, destination in reached do
+			local bearing = destination - origin
+			local flat = Vector3.new(bearing.X, 0, bearing.Z)
+			if flat.Magnitude > SETTLEMENT_RADIUS then
+				pave(roads, origin + flat.Unit * (SETTLEMENT_RADIUS * 0.94), destination, color, material)
+			end
+		end
 	end
 
 	local spawnFolder = folder(planetId, folder("Spawns", Workspace))
@@ -1986,6 +2200,7 @@ function PlanetBuilder.build(planetId: string)
 
 	if planet.hasWalkableGround then
 		buildGround(root, planet, origin)
+		buildRelief(root, planet, origin, rng)
 		anchors = buildSettlement(root, planet, origin, style, rng)
 		buildScatter(root, planet, origin, style, rng)
 	else
