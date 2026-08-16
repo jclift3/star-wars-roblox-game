@@ -321,6 +321,16 @@ is now a **finger-post in the plaza**: one arm per landmark, turned to its
 bearing, labelled. It sits at the one spot everybody passes through. Not enough
 on its own — a "points of interest" layer on the galaxy map is the other half.
 
+The first version of it got two things wrong, both in one screenshot: *"it'd be
+great if the actual writing was there rather than floating words. Also, I don't
+see cantina here."* The labels were BillboardGuis, and a BillboardGui always
+turns to face the camera — so six of them on one post are six lines of text
+stacked in mid-air, attached to none of the planks. They are SurfaceGuis now,
+painted on both faces of the arm. And the cantina *was* there, labelled "The Dry
+Well", which is no help to somebody hunting for a cantina: signs now lead with
+the kind, and only the building's own nameplate leads with the name, since
+standing in front of it you can already see what it is.
+
 **N6. An economy, not just a wallet.** The largest new ask, and it is really
 five features:
 
