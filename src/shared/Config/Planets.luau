@@ -464,12 +464,48 @@ def({
 		-- outskirts. The ordering is what matters rather than the scale:
 		-- this is still the difficulty dial, and the Dune Sea is still the
 		-- far edge with the Tuskens on it.
+		--[[
+			THE ONE PLACE ON THIS PLANET A LEVEL 1 CHARACTER CAN FIGHT
+
+			Reported from play, 2026-08-17: *"I should be able to discover
+			random tasks or go out of camp to combat raiders."* The nearest
+			district here that held anything aggressive was the Farmstead,
+			which bands 8-13, and `Radiant` only writes a Cull where
+			something is aggressive -- so a new Tatooine character had the
+			story missions and nothing else.
+
+			**This is the one district in the game that needs `band`.** On
+			Korriban and Taris the fix was a `distance = 0` rectangle drawn
+			just outside the gate, because both of those grids draw ground
+			outside their wall. Anchorhead's does not: it is 26 cells square
+			and every cell of it is inside the wall. A district with no
+			`cells` is placed radially at `distance * SETTLEMENT_RADIUS`, and
+			the wall alone reaches 416 studs -- so anywhere outside it is
+			`distance` 0.85 or more, which derives a band of 8 or worse.
+
+			Which is exactly the disagreement `bandFor` documents `band` for.
+			The Boneyard is where Anchorhead pushes its dead machines over
+			the lip and forgets them. It is a hundred yards from the north
+			gate and it is full of children and thieves. It is *outside*
+			without being *far*, and the two are not the same fact.
+		]]
+		{ id = "Boneyard", distance = 0.95, band = { min = 1, max = 6 } },
 		{ id = "Farmstead", distance = 0.8 },
 		{ id = "Wastes", distance = 1.05 },
 		{ id = "Palace", distance = 1.3 },
 		{ id = "DuneSea", distance = 1.6 },
 	},
 	spawns = {
+		-- Claim-jumpers again, at the bottom of the ladder this time.
+		-- `Smuggler` rolls 3-24 and the Boneyard bands 1-6, so these come
+		-- out at 3-6: the first thing on Tatooine that will fight you and
+		-- the first thing you can beat.
+		{
+			archetype = "Smuggler",
+			count = 10,
+			zone = "Boneyard",
+			behavior = NPCArchetypes.Behavior.Aggressive,
+		},
 		{ archetype = "Jawa", count = 14, zone = "Wastes" },
 		-- Claim-jumpers working the Jawas' scrap, and the reason this district
 		-- exists in the level curve at all: the Wastes band 10-15, and the
@@ -548,6 +584,15 @@ def({
 			kind = "Outpost",
 			description = "Forty vaporators and one family, on the edge of the Dune Sea.",
 			zone = "Farmstead",
+		},
+		{
+			id = "Boneyard",
+			displayName = "The Boneyard",
+			kind = "Ruin",
+			-- Gives the district a POI, which is what makes `Radiant` write
+			-- a Salvage here as well as a Cull.
+			description = "Vaporators, speeders and one hauler, all of them stripped. Anchorhead's answer to a graveyard.",
+			zone = "Boneyard",
 		},
 		{
 			id = "SandcrawlerWreck",
@@ -1206,7 +1251,26 @@ def({
 			expects a particular job from a person standing in a mess tent.
 		]]
 		{ id = "Depot", distance = 0, cells = { from = Vector2.new(16, 2), to = Vector2.new(23, 9) } },
-		{ id = "Dig", distance = 0.5, cells = { from = Vector2.new(2, 12), to = Vector2.new(23, 22) } },
+		--[[
+			The first three rows past the gate, taken off the top of the Dig
+			and given something to fight in them. Same reasoning as
+			Korriban's TombApproach, which has the note: `distance` is a
+			difficulty dial, so 0 bands this at the planet's floor, and
+			`Radiant` writes a Cull for any district holding something
+			Aggressive. Declared before the Dig because `cells` rectangles
+			are resolved in order.
+
+			The Scrapper prologue still walks a level 1 player through here
+			on the way to the Dig, and that is now the point rather than the
+			risk: the district bands 1-7 and the droids in it roll 2-7, so
+			the walk out of camp is the first fight instead of a corridor.
+
+			Rows 12-14 hold three tower blocks and nothing else -- no yards,
+			no lamps, no halls -- so there is no anchor here for the builder
+			to hand out as a player spawn, and no shopfront to staff.
+		]]
+		{ id = "SpoilLine", distance = 0, cells = { from = Vector2.new(2, 12), to = Vector2.new(23, 14) } },
+		{ id = "Dig", distance = 0.5, cells = { from = Vector2.new(2, 15), to = Vector2.new(23, 22) } },
 		{ id = "SinkingSector", distance = 1.2 },
 		{ id = "Lot9", distance = 1.8 },
 		{ id = "Undercity", distance = 2.4 },
@@ -1218,6 +1282,28 @@ def({
 		-- shopfronts drawn on the camp's east side. The count is the number
 		-- of parts the district has, not a guess at how busy it should look.
 		{ archetype = "Merchant", count = 5, zone = "Depot" },
+		--[[
+			Czerka's survey droids, still working a claim Czerka abandoned,
+			and claim-jumpers working the droids.
+
+			`WarDroid` rolls 2-24 and `Smuggler` 3-24; the SpoilLine bands
+			1-7, so they come out at 2-7 and 3-7 -- the only fight in the
+			galaxy a freshly made character can walk to. Reported from play,
+			2026-08-17: *"I don't have any other missions I can complete or a
+			means to level up."*
+		]]
+		{
+			archetype = "WarDroid",
+			count = 6,
+			zone = "SpoilLine",
+			behavior = NPCArchetypes.Behavior.Aggressive,
+		},
+		{
+			archetype = "Smuggler",
+			count = 6,
+			zone = "SpoilLine",
+			behavior = NPCArchetypes.Behavior.Aggressive,
+		},
 		{ archetype = "Jawa", count = 8, zone = "Dig" },
 		{ archetype = "Researcher", count = 6, zone = "Dig" },
 		{ archetype = "ProtocolDroid", count = 4, zone = "Dig" },
@@ -1261,6 +1347,18 @@ def({
 			kind = "Outpost",
 			description = "The Republic's optimistic little colony. Prefab huts, one water plant, and a sign with a slogan on it.",
 			zone = "Camp",
+			drawn = true,
+		},
+		{
+			id = "SpoilLine",
+			displayName = "The Spoil Line",
+			kind = "Ruin",
+			-- `Radiant` writes a Salvage only for a district that has a POI
+			-- and is not the hub, so this second entry is the difference
+			-- between one repeatable mission out here and two.
+			description = "Where the Dig throws what it cannot sell. Three survey towers and a very great deal of rust.",
+			zone = "SpoilLine",
+			-- The towers on rows 12-14 are already on the grid.
 			drawn = true,
 		},
 		{
@@ -1431,6 +1529,37 @@ def({
 			the honour guard.
 		]]
 		{ id = "Academy", distance = 0, cells = { from = Vector2.new(2, 2), to = Vector2.new(20, 9) } },
+		--[[
+			THE FIRST FIGHT, AND WHY IT IS AT DISTANCE 0
+
+			Reported from play, 2026-08-17: *"I don't have any other missions
+			I can complete or a means to level up. I should be able to
+			discover random tasks or go out of camp to combat raiders."*
+
+			The Academy bands 1-12 and is deliberately peaceful -- it is the
+			Acolyte's spawn point. The only road out was the Valley, which
+			bands 19-30. So the nearest thing on this planet that would fight
+			a level 1 character was eighteen levels above them, and because
+			`Radiant` only writes a Cull where something is `Aggressive`, the
+			one district every Acolyte lives in generated no repeatable work
+			either. Two story missions at 3 and 7, then nothing until 19.
+
+			`distance` is a difficulty dial and not a map coordinate -- the
+			Valley already sits at 1.4 between two districts at 0 and 0.6 --
+			so this takes 0 to band at the planet's own floor. It is the same
+			same-distance split the Bazaar is, for the same reason: the
+			rectangle decides where, `distance` decides how hard.
+
+			**It takes the first four tomb facades and no anchors.** Rows
+			11-14 are road and Tower, so there is nothing here the builder
+			hands out as a player spawn, which is what keeps a fresh Acolyte
+			from waking up in the middle of it.
+		]]
+		{
+			id = "TombApproach",
+			distance = 0,
+			cells = { from = Vector2.new(3, 11), to = Vector2.new(19, 14) },
+		},
 		{ id = "Dreshdae", distance = 0.6, cells = { from = Vector2.new(2, 22), to = Vector2.new(12, 28) } },
 		--[[
 			Split off Dreshdae at the same distance, so it bands identically
@@ -1443,7 +1572,10 @@ def({
 			nothing but merchants cannot be staffed by anyone else.
 		]]
 		{ id = "Bazaar", distance = 0.6, cells = { from = Vector2.new(13, 22), to = Vector2.new(20, 28) } },
-		{ id = "Valley", distance = 1.4, cells = { from = Vector2.new(3, 11), to = Vector2.new(19, 21) } },
+		-- Gives up rows 11-14 to the TombApproach above. It keeps the second
+		-- pair of facades and the far half of the avenue, which is still the
+		-- long walk the Act 4 payoff wants.
+		{ id = "Valley", distance = 1.4, cells = { from = Vector2.new(3, 15), to = Vector2.new(19, 21) } },
 		{ id = "Tombs", distance = 2.0 },
 		{ id = "Wastes", distance = 2.6 },
 	},
@@ -1473,6 +1605,25 @@ def({
 			level 1 character into it. Reported from play, 2026-08-17.
 		]]
 		{ archetype = "Researcher", count = 4, zone = "Academy" },
+		--[[
+			The same classmates, one gate further out, with the safety off.
+
+			`SithAcolyte` is `Aggressive` in its own archetype -- the Academy
+			rule above is the exception, not this one -- and it rolls 2-14,
+			which clamps into the TombApproach's 1-12 band without pinning.
+			That is the whole fix: `Radiant` writes a Cull wherever something
+			is Aggressive, so this one rule posts a repeatable level 1 hunt
+			outside the door of the district every Acolyte spawns in.
+
+			It is also the honest version of Korriban. The Academy does not
+			forbid students killing each other; it forbids doing it indoors.
+		]]
+		{
+			archetype = "SithAcolyte",
+			count = 10,
+			zone = "TombApproach",
+			behavior = NPCArchetypes.Behavior.Aggressive,
+		},
 		{ archetype = "Civilian", count = 16, zone = "Dreshdae" },
 		{ archetype = "Researcher", count = 4, zone = "Dreshdae" },
 		-- Six for five places: three points on the avenue and the two
@@ -1528,6 +1679,18 @@ def({
 			kind = "Market",
 			description = "The one settlement. A Czerka office, a cantina, and the only vendor on the planet.",
 			zone = "Dreshdae",
+			drawn = true,
+		},
+		{
+			id = "TombApproach",
+			displayName = "The Lower Approach",
+			kind = "Ruin",
+			-- A POI here is not decoration. `Radiant` writes a Salvage only
+			-- for a district that has one and is not the hub, so this is
+			-- what turns one repeatable mission into two.
+			description = "The first four facades, robbed centuries ago. Acolytes settle things here where the Overseers cannot see.",
+			zone = "TombApproach",
+			-- The facades are the `tttt` blocks on rows 12-14. Already drawn.
 			drawn = true,
 		},
 		{
@@ -2207,6 +2370,47 @@ end
 ]]
 function Planets.underlevelled(level: number, band: Band): boolean
 	return band.min - level > Planets.UNDERLEVELLED_BY
+end
+
+--[[
+	The level of the weakest thing on this planet that will attack you, or nil
+	if nothing will.
+
+	Not `minLevel` of the archetype and not `band.min` of the district: the
+	number an NPC can actually roll, which is the two of them clamped
+	together. That distinction is the entire reason this function exists.
+	A district can band 1-12 and still contain nothing under level 5, because
+	`rollLevel` clamps the band into the archetype's range -- so "the band
+	starts at 1" is not the same claim as "there is a level 1 fight here",
+	and only the second one is any use to a new character.
+
+	Asked by `Origins.validate`, which cannot compute it: it would need
+	NPCArchetypes, and this module already has it.
+]]
+function Planets.lowestHostileLevel(planetId: string): number?
+	local p = defs[planetId]
+	if not p then
+		return nil
+	end
+	local lowest: number? = nil
+	for _, rule in p.spawns do
+		if not NPCArchetypes.exists(rule.archetype) then
+			continue
+		end
+		local a = NPCArchetypes.get(rule.archetype)
+		-- Anything else fights only at Hostile reputation, which a new
+		-- character does not have with anyone. See the `aggressive == 0`
+		-- check in `validate` for the same reasoning at planet scale.
+		if (rule.behavior or a.behavior) ~= NPCArchetypes.Behavior.Aggressive then
+			continue
+		end
+		local band = if rule.zone then Planets.bandFor(planetId, rule.zone) else nil
+		local low = if band then math.clamp(band.min, a.minLevel, a.maxLevel) else a.minLevel
+		if not lowest or low < lowest then
+			lowest = low
+		end
+	end
+	return lowest
 end
 
 --- Whether `archetypeId` appears anywhere in this planet's spawn rules.

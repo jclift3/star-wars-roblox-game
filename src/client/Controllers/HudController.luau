@@ -18,6 +18,7 @@
 	is what the player will still have tomorrow.
 ]]
 
+local GuiService = game:GetService("GuiService")
 local Players = game:GetService("Players")
 local TweenService = game:GetService("TweenService")
 
@@ -167,11 +168,43 @@ local function buildStatusPanel()
 	weaponLabel.AnchorPoint = Vector2.new(1, 0)
 end
 
+--[[
+	Keeps a top-anchored frame clear of Roblox's own topbar.
+
+	This `ScreenGui` sets `IgnoreGuiInset`, so y = 0 is the very top of the
+	screen -- which is where the unibar and the player list are. Reported from
+	play, 2026-08-17: *"I cant see the shortcuts as they are partially hidden
+	by the other menu."*
+
+	`GuiService.TopbarInset` is the region Roblox has reserved, and it is not
+	a constant: it changes with platform, and it changes when the player
+	expands the unibar. So it is read *and then watched*, rather than baked in
+	as the 36 that happens to be true on a desktop today.
+]]
+local belowTopbar: (frame: GuiObject, x: UDim) -> ()
+do
+	local anchored: { { frame: GuiObject, x: UDim } } = {}
+
+	local function place()
+		local top = GuiService.TopbarInset.Max.Y + 10
+		for _, held in anchored do
+			held.frame.Position = UDim2.new(held.x.Scale, held.x.Offset, 0, top)
+		end
+	end
+
+	function belowTopbar(frame: GuiObject, x: UDim)
+		table.insert(anchored, { frame = frame, x = x })
+		place()
+	end
+
+	GuiService:GetPropertyChangedSignal("TopbarInset"):Connect(place)
+end
+
 local function buildTracker()
 	local root = panel("Tracker", screen)
-	root.Position = UDim2.new(1, -16, 0, 16)
 	root.Size = UDim2.fromOffset(280, 0)
 	root.AnchorPoint = Vector2.new(1, 0)
+	belowTopbar(root, UDim.new(1, -16))
 	root.AutomaticSize = Enum.AutomaticSize.Y
 	root.Visible = false
 
@@ -194,11 +227,11 @@ local function buildToasts()
 	local root = Instance.new("Frame")
 	root.Name = "Toasts"
 	root.BackgroundTransparency = 1
-	root.Position = UDim2.new(0.5, 0, 0, 24)
 	root.AnchorPoint = Vector2.new(0.5, 0)
 	root.Size = UDim2.fromOffset(420, 0)
 	root.AutomaticSize = Enum.AutomaticSize.Y
 	root.Parent = screen
+	belowTopbar(root, UDim.new(0.5, 0))
 
 	local layout = Instance.new("UIListLayout")
 	layout.SortOrder = Enum.SortOrder.LayoutOrder
@@ -231,15 +264,19 @@ end
 	It never hides. An always-visible legend is a small permanent cost against
 	a player who does not know the game has a skill tree, and the two brothers
 	play in one room: whichever of them reads it first tells the other.
+
+	It sits under `belowTopbar` for the reason documented there: the unibar
+	was covering the first two entries, which is the whole legend for a
+	player who reads left to right and stops.
 ]]
 local function buildLegend()
 	local root = Instance.new("Frame")
 	root.Name = "Legend"
 	root.BackgroundTransparency = 1
-	root.Position = UDim2.fromOffset(16, 16)
 	root.Size = UDim2.fromOffset(0, 20)
 	root.AutomaticSize = Enum.AutomaticSize.X
 	root.Parent = screen
+	belowTopbar(root, UDim.new(0, 16))
 
 	local layout = Instance.new("UIListLayout")
 	layout.FillDirection = Enum.FillDirection.Horizontal

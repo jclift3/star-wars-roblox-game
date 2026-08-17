@@ -273,6 +273,42 @@ function Origins.validate(treeExists: (string) -> boolean): { string }
 				`{id}: home planet "{o.homePlanet}" starts at level {Planets.get(o.homePlanet).minLevel}`
 			)
 		end
+		--[[
+			SOMEWHERE TO FIGHT ON DAY ONE
+
+			Reported from play, 2026-08-17: *"I don't have any other missions
+			I can complete or a means to level up. I should be able to
+			discover random tasks or going out of camp to combat raiders."*
+
+			The world was not short of enemies -- Korriban had forty-three of
+			them -- it was short of enemies a level 1 Acolyte could reach.
+			The nearest aggressive district on his home world banded 19-30,
+			and because `Radiant` composes a Cull only for a district holding
+			something aggressive, the district he spawns in generated no
+			repeatable work either. Two story missions, then a wall.
+
+			So this is checked on home worlds specifically, not on all nine.
+			Nar Shaddaa opening at level 12 is correct; Korriban opening at
+			level 19 for the character who *starts* there is not.
+
+			`UNDERLEVELLED_BY` is the tolerance because it is already the
+			game's own answer to "how far under is too far" -- the same
+			number `ZoneController` uses to decide whether to put a TURN BACK
+			banner on the screen. A home world that trips this check is a
+			home world whose first fight the game itself would warn you off.
+		]]
+		if Planets.exists(o.homePlanet) then
+			local floor = Planets.get(o.homePlanet).minLevel
+			local lowest = Planets.lowestHostileLevel(o.homePlanet)
+			if not lowest then
+				table.insert(problems, `{id}: home planet "{o.homePlanet}" has nothing hostile on it at all`)
+			elseif lowest - floor > Planets.UNDERLEVELLED_BY then
+				table.insert(
+					problems,
+					`{id}: home planet "{o.homePlanet}" opens at level {floor} but its weakest enemy is level {lowest}`
+				)
+			end
+		end
 		if not Factions.exists(o.faction) then
 			table.insert(problems, `{id}: unknown faction "{o.faction}"`)
 		end

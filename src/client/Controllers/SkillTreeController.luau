@@ -479,8 +479,25 @@ local function renderList()
 
 	local profile = state().get()
 
-	for index, def in Progression.nodesInTree(activeTab) do
+	--[[
+		Indentation is the tree.
+
+		Reported from play, 2026-08-17: *"what do you mean by force tree? I'm
+		not seeing a tree anywhere."* The prerequisites were always there --
+		Force Sensitive gates eight of the nine nodes under it -- but this
+		list sorted by level and drew every node flush left, so the shape was
+		invisible and the word "tree" in the descriptions was a promise the
+		screen did not keep.
+
+		`Progression.treeRows` orders the nodes parent-first and hands back a
+		depth. All that is left to do is move each row's text in by it and
+		put an elbow in front, which is the cheapest possible drawing of a
+		tree and the only one that survives a node being added tomorrow.
+	]]
+	for index, entry in Progression.treeRows(activeTab) do
+		local def = entry.def
 		local rank = if profile then profile.skills[def.id] or 0 else 0
+		local indent = entry.depth * 18
 
 		local row = button(def.id, listFrame, "")
 		row.LayoutOrder = index
@@ -489,15 +506,32 @@ local function renderList()
 		row.BackgroundColor3 = if selected[activeTab] == def.id then ROW_SELECTED else ROW
 		row.BackgroundTransparency = 0.25
 
+		-- Its own label rather than a prefix on the name, so it stays put
+		-- when the name greys out or turns red.
+		if entry.depth > 0 then
+			local elbow = text("Elbow", row, 14, DIM)
+			elbow.Position = UDim2.fromOffset(12 + indent - 14, 7)
+			elbow.Size = UDim2.fromOffset(14, 18)
+			elbow.Text = "└"
+		end
+
 		local name = text("Name", row, 14, if rank > 0 then TEXT else DIM)
 		name.Font = Enum.Font.GothamBold
-		name.Position = UDim2.fromOffset(12, 7)
-		name.Size = UDim2.new(1, -110, 0, 18)
+		name.Position = UDim2.fromOffset(12 + indent, 7)
+		name.Size = UDim2.new(1, -110 - indent, 0, 18)
 		name.Text = def.displayName
 
 		local tag = text("Tag", row, 12, DIM)
-		tag.Position = UDim2.fromOffset(12, 25)
-		tag.Size = UDim2.new(1, -110, 0, 16)
+		tag.Position = UDim2.fromOffset(12 + indent, 25)
+		tag.Size = UDim2.new(1, -110 - indent, 0, 16)
+
+		--- The name of the prerequisite this row does not have yet, if any.
+		local needs: string? = nil
+		local parent = if def.requires then def.requires[1] else nil
+		if profile and parent and (profile.skills[parent] or 0) < 1 then
+			local parentDef = Progression.nodes[parent]
+			needs = if parentDef then parentDef.displayName else parent
+		end
 
 		-- The level gate is the only thing on a row that can be a hard no, so
 		-- it is the only requirement worth the space; everything else is in
@@ -518,6 +552,13 @@ local function renderList()
 			name.TextColor3 = DIM
 		elseif profile and profile.level < def.requiredLevel then
 			tag.Text = `Requires level {def.requiredLevel}`
+			tag.TextColor3 = BAD
+		-- The branch above this row, said out loud. The indent shows *that*
+		-- a node hangs off another one; it does not show that the one above
+		-- has not been bought yet, and that is the half a player needs when
+		-- they are looking at a node they cannot have.
+		elseif needs then
+			tag.Text = `Needs {needs}`
 			tag.TextColor3 = BAD
 		else
 			-- A gate node has no stat to name, so the row says what it is for

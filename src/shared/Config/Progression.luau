@@ -888,6 +888,61 @@ function Progression.nodesInTree(tree: SkillId): { SkillNode }
 	return out
 end
 
+--[[
+	The same nodes, arranged as the tree they actually are.
+
+	Reported from play, 2026-08-17: *"what do you mean by force tree? I'm not
+	seeing a tree anywhere."* Which was fair. `requires` has always been real
+	-- eight of the Force tree's ten nodes hang off Force Sensitive, and Juyo
+	and Ataru hang off Lightsaber Form -- but `nodesInTree` sorts by level and
+	then name, so the panel drew a ladder. The structure existed and the
+	player was the only person who could not see it.
+
+	Depth-first from the roots, so a node's children are the rows directly
+	underneath it and `depth` is how far to indent. Siblings keep the level-
+	then-name order `nodesInTree` establishes, so the ladder reading survives
+	inside each branch.
+
+	A node with two prerequisites is filed under the first of them, and a
+	prerequisite cycle would drop nodes off the end entirely. `validate`
+	already rejects a cycle, and nothing in the game has two prerequisites --
+	if either changes this is where it shows up.
+]]
+function Progression.treeRows(tree: SkillId): { { def: SkillNode, depth: number } }
+	local children: { [string]: { SkillNode } } = {}
+	local roots: { SkillNode } = {}
+
+	for _, def in Progression.nodesInTree(tree) do
+		local parent = if def.requires then def.requires[1] else nil
+		local parentDef = if parent then nodes[parent] else nil
+		if parent and parentDef and parentDef.tree == tree then
+			local bucket = children[parent]
+			if not bucket then
+				bucket = {}
+				children[parent] = bucket
+			end
+			table.insert(bucket, def)
+		else
+			table.insert(roots, def)
+		end
+	end
+
+	local out: { { def: SkillNode, depth: number } } = {}
+	local function walk(def: SkillNode, depth: number)
+		table.insert(out, { def = def, depth = depth })
+		local bucket = children[def.id]
+		if bucket then
+			for _, child in bucket do
+				walk(child, depth + 1)
+			end
+		end
+	end
+	for _, root in roots do
+		walk(root, 0)
+	end
+	return out
+end
+
 Progression.TREES = { "Combat", "Piloting", "Force", "Engineering" } :: { SkillId }
 
 function Progression.hasTree(tree: string): boolean
