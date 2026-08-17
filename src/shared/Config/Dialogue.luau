@@ -51,6 +51,11 @@ end
 --- Marks a node id as generated rather than authored. See the header.
 Dialogue.GENERATED_PREFIX = "@"
 
+-- Stood in for an absent `minStat`/`maxStat`. Annotated and hoisted because
+-- `x or {}` written inline types as a union that generalized iteration will
+-- not walk -- see luau-gotchas.
+local EMPTY_BOUNDS: { [string]: number } = {}
+
 --[[
 	Requirements for a choice to be offered at all.
 
@@ -86,6 +91,32 @@ export type Condition = {
 	notFlag: string?,
 	minAlignment: number?,
 	maxAlignment: number?,
+	--[[
+		WHAT THE CHARACTER CAN DO, NOT WHAT THEY HAVE DONE
+
+		Everything above this asks about history -- where you started, what
+		you finished, who you have become. None of it could ask the one
+		question an RPG conversation most wants to ask, which is whether you
+		are the sort of person who could open that door. So a build was
+		something that happened in fights and nowhere else, and the skill
+		tree could not put a single word on screen.
+
+		Keyed by stat name from `Progression.baseStats`, so this reaches
+		anything a skill or a piece of gear moves and needs no new field per
+		skill: `minStat = { SliceTier = 2 }` is a line only a slicer hears,
+		`maxStat = { PriceMult = 0.85 }` is one only somebody who has haggled
+		his way down to it does.
+
+		Two maps rather than one, because half these stats are better when
+		they go down. Maps rather than a `stat`/`value` pair so a condition
+		cannot be written half-way, and so one line can want two things.
+
+		`Dialogue.validate` checks every key against the live-stat table, so
+		a condition on a stat nothing reads -- or on a typo -- is a boot
+		warning rather than a line that never appears.
+	]]
+	minStat: { [string]: number }?,
+	maxStat: { [string]: number }?,
 }
 
 export type Choice = {
@@ -126,6 +157,10 @@ export type Context = {
 	flags: { [string]: boolean },
 	activeMissions: { [string]: any },
 	completedMissions: { [string]: number },
+	-- The folded result of skills plus equipped gear, exactly as every other
+	-- system sees it: a condition asks what the character can do right now,
+	-- not what they bought, so taking off the coat can close a door.
+	stats: { [string]: number },
 }
 
 export type Node = {
@@ -249,12 +284,26 @@ def({
 			choices = {
 				WORK,
 				{ text = "Who runs this town?", next = "town" },
+				-- Tier 3 is the middle of the map, so this is a line a
+				-- committed slicer earns rather than one that turns up.
+				{
+					text = "Your cargo seals are Czerka. So is the override on them.",
+					next = "seals",
+					condition = { minStat = { SliceTier = 3 } },
+				},
 				LEAVE,
-			},
+			} :: { Choice },
 		},
 		town = {
 			lines = {
 				"Officially? The Empire. Actually? Whoever the Hutts are paying this month. Do not confuse the two out loud.",
+			},
+			choices = { LEAVE },
+		},
+		seals = {
+			lines = {
+				"You are the third person to notice that and the first one still standing. Sit down. Say nothing else.",
+				"Everybody's seals are Czerka. That is the trick. You are supposed to think that means it is Czerka's.",
 			},
 			choices = { LEAVE },
 		},
@@ -270,12 +319,48 @@ def({
 				"Everything is honest and everything is for sale. Rare combination.",
 				"You break it, you have bought it. You buy it, you can break it all you like.",
 			},
+			--[[
+				The two stat-gated lines in the game a player is most likely
+				to meet first. Merchants stand on seven worlds, so a Scrapper
+				who bought Slicer or Haggler hears the difference on the next
+				street rather than in an hour's time -- which is the only way
+				a build ever gets felt outside a fight.
+
+				Flavour only, deliberately: neither pays alignment nor sets a
+				flag, so neither has to be closable, and a skill that changes
+				what people say to you is worth having before it is worth
+				anything. The discount itself is already `PriceMult`'s job.
+			]]
 			choices = {
 				TRADE,
 				WORK,
+				{
+					text = "Your ledger pad is sitting there unlocked. That is a choice.",
+					next = "ledger",
+					condition = { minStat = { SliceTier = 1 } },
+				},
+				{
+					text = "We both know what that is worth. Try the other number.",
+					next = "haggle",
+					condition = { maxStat = { PriceMult = 0.9 } },
+				},
 				{ text = "Where does all this come from?", next = "supply" },
 				LEAVE,
+			} :: { Choice },
+		},
+		ledger = {
+			lines = {
+				"It is not unlocked, it is -- ah. It is unlocked. Do not touch the second column, that one is not mine.",
+				"You people always look at the pad first. Everyone else looks at the rifles.",
 			},
+			choices = { TRADE, LEAVE },
+		},
+		haggle = {
+			lines = {
+				"The other number is for family. Fine. Today you are family. Do not tell the family.",
+				"You have done this before. I hate that. Take it, take it, before I remember what it cost me.",
+			},
+			choices = { TRADE, LEAVE },
 		},
 		supply = {
 			lines = {
@@ -1546,6 +1631,18 @@ function Dialogue.meets(condition: Condition?, ctx: Context): boolean
 	if condition.maxAlignment and ctx.alignment > condition.maxAlignment then
 		return false
 	end
+	-- An unknown stat reads as 0 rather than failing, which is what an
+	-- unbought skill is worth. `validate` is what catches the typo.
+	for stat, least in condition.minStat or EMPTY_BOUNDS do
+		if (ctx.stats[stat] or 0) < least then
+			return false
+		end
+	end
+	for stat, most in condition.maxStat or EMPTY_BOUNDS do
+		if (ctx.stats[stat] or 0) > most then
+			return false
+		end
+	end
 	return true
 end
 
@@ -1559,7 +1656,11 @@ end
 function Dialogue.validate(
 	missionExists: (string) -> boolean,
 	originExists: (string) -> boolean,
-	flagExists: (string) -> boolean
+	flagExists: (string) -> boolean,
+	-- Passed in rather than required, for the same reason the other three
+	-- are: Progression is a large config and this file is required by the
+	-- client, and a predicate is the whole of what is wanted from it.
+	statIsLive: (string) -> boolean
 ): { string }
 	local problems = {}
 
@@ -1675,6 +1776,26 @@ function Dialogue.validate(
 					end
 					checkFlag(c.flag)
 					checkFlag(c.notFlag)
+					--[[
+						A stat nothing reads is a line that fires on a number
+						the player cannot change, and a misspelt one reads as
+						0 forever -- so `minStat = { SlicerTier = 2 }` would
+						be a door that never opens and never errors. Checked
+						against the same live-stat table skills and affixes
+						are, so all three agree on what counts as real.
+					]]
+					local function checkStats(bounds: { [string]: number }?, role: string)
+						for stat in bounds or EMPTY_BOUNDS do
+							if not statIsLive(stat) then
+								table.insert(
+									problems,
+									`{id}.{nodeId}: choice {i} {role} on "{stat}", which nothing reads`
+								)
+							end
+						end
+					end
+					checkStats(c.minStat, "gates")
+					checkStats(c.maxStat, "caps")
 				end
 			end
 		end

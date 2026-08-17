@@ -191,6 +191,11 @@ them real — is §4.3 below.
 *Follow-up 2026-08-16:* the rule was applied by hand, so it **missed two**, and
 `Progression.validate()` now checks it at boot instead of trusting it. See §4.3.
 
+*Follow-up 2026-08-17:* `SliceTier` came off this table — `TerminalService` and
+`Dialogue`'s `minStat` both read it (§4.3 target 5). **Engineering has one dead
+node left**, `Field Repair`, and it is waiting on ships like the whole Piloting
+tree above it.
+
 **B4. Ord Mantell has no missions.** — **[fixed]** The board read "No work going on this
 planet right now." It is the Conscript prologue world and had zero entries in
 `Missions`. Same failure family as §1.2's dead POIs: nothing errors, the world
@@ -1363,7 +1368,8 @@ the crystal's colour, and flags (3b.4) carry the fork forward. What it needed
 was **the discipline to build inside those five working objective kinds** —
 `Kill`, `Collect`, `TalkTo`, `Reach`, `Deliver`. `Escort`, `Survive`, `Slice`
 and `Destroy` are declared in `MissionKinds` and reported by nothing, so a chain
-written around one is a chain that cannot be finished.
+written around one is a chain that cannot be finished. *(`Slice` became real on
+2026-08-17 — §4.3 target 5 — but only ever as an **optional** step.)*
 
 **The forks, and where they sit.** Not always at part 5. The Scoundrel's is
 *first* — the debt is what the chain is about, so answering it is the price of
@@ -1500,7 +1506,7 @@ caller changed.
 `showmethemoney` (`DevService`) prints every generated mission and today's
 postings — the offline test, same reasoning as `iseedeadpeople`.
 
-### 4.3 Skill trees, properly — **[targets 1-3 done 2026-08-16, 4 done 2026-08-17; 5 open]**
+### 4.3 Skill trees, properly — **[targets 1-3 done 2026-08-16, 4 and 5 done 2026-08-17]**
 Raised 2026-08-15: *"the skill trees need to be incredibly well thought out and
 align with the objectives and gameplay."* Correct. The UI is done (1.5) and the
 **content is not**. What exists is 19 skills across 4 trees where:
@@ -1754,7 +1760,57 @@ yet dead — which touches respawn, aggro, mission failure and the death handlin
 in `PlayerService`. The mark and the barrier deliver the target's actual claim
 without it. Worth doing when there is a reason to change death.
 
-Still open: **5** (skills that open the world).
+#### Target 5 — skills that open the world, built 2026-08-17
+The brief: *"Slicing a door, a persuade check in dialogue... Every one of these
+is a `Condition` in dialogue or a check in an interaction, and they are what make
+a build feel like a **character**."*
+
+**The gap, stated precisely.** `Slicer` was one of the two remaining nodes
+carrying an `unimplemented` reason: five ranks of `SliceTier` that nothing in the
+game read, on a tree the Scrapper is pushed toward at creation. And the
+`Objective.Slice` kind had been declared in `MissionKinds` since the mission
+system was written without one mission ever using it, because there was nothing
+in the world to slice.
+
+- **Terminals are derived, never listed.** `Config/Terminals.luau` requires only
+  `Planets` and walks it: every POI whose `kind` is one of five secured kinds
+  (Spaceport, Base, Outpost, Ruin, Temple — Cantina and Market are deliberately
+  not) carries exactly one terminal. **The terminal's id is the POI's id**, which
+  collapses three problems into none: a `Slice` objective names a place the same
+  way `Reach` already does, `Missions.validate` can check it with machinery that
+  exists, and there is no second namespace to keep in step with the first. Tier
+  comes from the district's level band against the galaxy's own ceiling, so
+  adding a planet re-tiers the map instead of going stale.
+- **`TerminalService` puts a console at the POI at a deterministic angle**
+  derived from the id — never rolled. The brothers play in one room and shared
+  world state has to read the same for both. The same reason the 600s cooldown
+  and the spent state are the *world's*, not each player's.
+- **A locked terminal advertises its own tier**, and the refusal names the exact
+  rank that would have opened it. This is the 2026-08-17 playtest lesson —
+  *finished but unreachable is not finished* — applied before it could bite: a
+  skill that opens a door nobody knows is a door is a dead skill.
+- **Every `Slice` objective must be `optional`, and `Missions.validate` refuses
+  one that is not.** Slicer is one node of one of four trees, gated at level 6,
+  and there is no respec. A required slice is a mission three quarters of
+  characters are permanently stuck inside. Slicing is a door the Scrapper opens
+  and everyone else walks past — which is the point of the target, not a
+  compromise on it.
+- **The first authored one is on `TarWhoBuysCrates`** (Scrapper chain, Taris,
+  `minLevel` 7 — one level past Slicer's gate): the first thing in the game a
+  skill *opens* rather than *wins*.
+- **`Dialogue.Condition` gained `minStat` and `maxStat`**, maps rather than
+  pairs so a condition cannot be half-written, and two maps rather than one
+  because half the stat table is better when it goes down (`PriceMult`). The
+  context reads `ProgressionService.getStats`, not the profile — the same table
+  combat reads, so a line offering something the character cannot do cannot
+  appear. `Dialogue.validate` checks each named stat against `LIVE_STATS`, the
+  same registry `Affixes` is checked against. Three lines exist so far: two on
+  the Merchant (a slicer sees the unlocked ledger; a haggler is invited to try
+  the other number) and one on the Smuggler at tier 3.
+
+Targets 1-5 are done. What §4.3 still wants is the *volume* — three stat-gated
+dialogue lines is a proof, not a body of work — and that is content, written
+alongside the campaign, not another system.
 
 ### 4.1 Analytics — **[todo]**
 The cheapest item on this roadmap that measurably improves the game, and the

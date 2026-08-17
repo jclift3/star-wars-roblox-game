@@ -35,6 +35,7 @@ local Missions = require(Shared.Config.Missions)
 local NPCArchetypes = require(Shared.Config.NPCArchetypes)
 local Net = require(Shared.Core.Net)
 local Origins = require(Shared.Config.Origins)
+local Progression = require(Shared.Config.Progression)
 local ServiceLoader = require(Shared.Core.ServiceLoader)
 local Shops = require(Shared.Config.Shops)
 
@@ -130,7 +131,12 @@ end
 	keeps no shop, and a Work line is dropped when they have nothing to offer.
 	Offering a button that answers "actually, no" is worse than not offering it.
 ]]
-local function resolveChoices(profile: any, session: Session, node: Dialogue.Node): { Resolved }
+local function resolveChoices(
+	player: Player,
+	profile: any,
+	session: Session,
+	node: Dialogue.Node
+): { Resolved }
 	local out: { Resolved } = {}
 	local archetype = NPCArchetypes.get(session.archetypeId)
 
@@ -142,6 +148,11 @@ local function resolveChoices(profile: any, session: Session, node: Dialogue.Nod
 		flags = profile.flags,
 		activeMissions = profile.missions.active,
 		completedMissions = profile.missions.completed,
+		-- Skills folded together with the equipped outfit, which is why this
+		-- comes from ProgressionService rather than off the profile: it is
+		-- the same table combat reads, so a line that says "you could open
+		-- that" cannot be shown to somebody who could not.
+		stats = progression().getStats(player),
 	}
 
 	local authored: { Dialogue.Choice } = node.choices or {}
@@ -268,7 +279,7 @@ local function goTo(player: Player, session: Session, nodeId: string)
 			return
 		end
 		line = node.lines[rng:NextInteger(1, #node.lines)]
-		choices = resolveChoices(profile, session, node)
+		choices = resolveChoices(player, profile, session, node)
 	end
 
 	-- A node whose every choice was filtered out would otherwise leave the
@@ -385,7 +396,10 @@ end
 --------------------------------------------------------------------------------
 
 function DialogueService.init()
-	for _, problem in Dialogue.validate(Missions.exists, Origins.exists, Flags.exists) do
+	local function statIsLive(stat: string): boolean
+		return Progression.LIVE_STATS[stat] ~= nil
+	end
+	for _, problem in Dialogue.validate(Missions.exists, Origins.exists, Flags.exists, statIsLive) do
 		warn(`[DialogueService] dialogue config: {problem}`)
 	end
 

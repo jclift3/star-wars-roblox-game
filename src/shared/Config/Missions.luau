@@ -37,6 +37,8 @@ local NPCArchetypes = require(script.Parent.NPCArchetypes)
 -- which this file requires too, so there is no cycle to break.
 local Origins = require(script.Parent.Origins)
 local Radiant = require(script.Parent.Radiant)
+-- Terminals requires only Planets, which this file already requires.
+local Terminals = require(script.Parent.Terminals)
 local Weapons = require(script.Parent.Weapons)
 
 local Missions = {}
@@ -477,6 +479,28 @@ def({
 			target = "Merchant",
 			count = 3,
 			description = "Ask three traders whose series that is",
+		},
+		--[[
+			THE FIRST THING IN THE GAME A SKILL OPENS RATHER THAN WINS
+
+			Optional, and it has to be -- see the rule in `validate`. Slicer
+			is level 6 and this mission is level 7, so a Scrapper who spent
+			their first Engineering point on it walks up to the dig's old
+			site console and reads the shipping log off it directly, and
+			everybody else does the errand the long way round and never finds
+			out the console was a thing. That difference is the whole of
+			ROADMAP 4.3 target 5.
+
+			The Dig is a Ruin in a district banding low, so it is a tier 1
+			lock: the cheapest rank of the cheapest world-opening skill, put
+			where the origin that would buy it is already standing.
+		]]
+		{
+			kind = Objective.Slice,
+			target = "TheDig",
+			planet = "Taris",
+			optional = true,
+			description = "Slice the dig's site console for the shipping log",
 		},
 	},
 	rewards = {
@@ -3174,6 +3198,36 @@ function Missions.validate(): { string }
 						problems,
 						`{id}: objective {i} collects at unknown POI "{obj.at}" on {m.planet}`
 					)
+				end
+			end
+			--[[
+				A Slice objective names a point of interest that carries a
+				terminal, and must be optional.
+
+				The first half is the same check Reach gets, one table over:
+				`Terminals` derives what is sliceable from the POI's kind and
+				district, so an objective naming somewhere with no lock is an
+				objective that can never complete.
+
+				The second half is a design rule worth enforcing rather than
+				remembering. Slicer is one node of one of four trees, it
+				cannot be bought before level 6, and there is no respec -- so
+				a required Slice step is a mission that a Sith Acolyte can
+				accept and is then stuck inside forever. Optional keeps it
+				what it should be: a door the Scrapper can open and the rest
+				of the party walks past.
+			]]
+			if obj.kind == Objective.Slice then
+				if not obj.target then
+					table.insert(problems, `{id}: objective {i} slices nothing in particular`)
+				elseif not Terminals.at(m.planet, obj.target) then
+					table.insert(
+						problems,
+						`{id}: objective {i} slices "{obj.target}", which carries no terminal on {m.planet}`
+					)
+				end
+				if not obj.optional then
+					table.insert(problems, `{id}: objective {i} slices but is not optional`)
 				end
 			end
 			if

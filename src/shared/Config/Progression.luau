@@ -549,13 +549,10 @@ node({
 	id = "Slicer",
 	tree = "Engineering",
 	displayName = "Slicer",
-	description = "Unlocks slicing terminals and locked doors. +1 tier per rank.",
+	description = "Opens tier 1 security locks, +1 tier per rank. Every rank opens places the others cannot go.",
 	maxRank = 5,
 	requiredLevel = 6,
 	effect = { stat = "SliceTier", perRank = 1 },
-	-- Nothing in the world is sliceable yet; terminals and locked doors come
-	-- with the interiors in ROADMAP 3.1.
-	unimplemented = "Needs sliceable terminals — not in the game yet",
 })
 --[[
 	A heal with no Force behind it, and the only one three of the four origins
@@ -598,8 +595,10 @@ node({
 	character can hold all three.
 
 	Engineering's requirement is the lowest of the three because it is the
-	only tree with dead nodes in it (Slicer, Field Repair), and charging 18
-	would mean buying two skills that do nothing to reach it.
+	only tree with a dead node in it, and charging 18 would mean buying a
+	skill that does nothing to reach it. It was two dead nodes until
+	`TerminalService` gave Slicer something to open; Field Repair is still
+	waiting on ships, so this stays at 12.
 ]]
 node({
 	id = "KitDiscipline",
@@ -703,6 +702,10 @@ local LIVE_STATS: { [string]: string } = {
 	HealPower = "AbilityService.use (ForceMend / FieldStim)",
 	MarkPower = "AbilityService.strike (MarkTarget) -> CombatService.mark",
 	ShieldPower = "AbilityService.cast (ForceBarrier) -> CombatService.shield",
+	-- The only stat in this table that does not change a number in a fight.
+	-- It decides whether a console in the world will open at all, and whether
+	-- a shopkeeper has a back room he will mention.
+	SliceTier = "TerminalService.slice (lock tier) / DialogueService (minStat)",
 }
 
 Progression.LIVE_STATS = LIVE_STATS

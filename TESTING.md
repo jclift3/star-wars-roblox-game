@@ -835,8 +835,9 @@ worlds out of nine buries the one that matters.
    actually took, and the payout is against that return, not the request. A
    double payment here means somebody paid against the request again.)*
 
-**Known open — do not file these:** the Escort / Survive / Slice / Destroy
-objective kinds have no server reader.
+**Known open — do not file these:** the Escort / Survive / Destroy objective
+kinds have no server reader. *(`Slice` gained one on 2026-08-17 —
+`TerminalService`. See 9.6.)*
 
 ### 7.0a Finding the thing you were sent for — **changed 2026-08-16**
 
@@ -1313,6 +1314,55 @@ respec**, so the thing being tested is mostly whether the panel tells you that
 11. Check the output window at boot for `Progression` warnings. A one-way
     exclusion, a self-exclusion, a capstone priced above what its tree holds,
     or a tree cheap enough to buy whole all report here.
+
+### 9.6 Slicing — the first skill that opens something — **new, 2026-08-17**
+
+The test of ROADMAP 4.3 target 5. Everything else in the tree makes a fight
+shorter; this decides what is in front of you. `iamscrapper` and
+`thereisnocow` set up the skill side.
+
+1. Walk to a **spaceport, base, outpost, ruin or temple** on any walkable world.
+   Just outside the building there is a lit lectern with a cyan screen, tagged
+   **`<name>  --  TIER n`** from about 140 studs. **A cantina and a market have
+   none** — five kinds of place are secured and those two are not.
+2. **Walk to it with no Slicer at all and press the prompt.** The refusal names
+   the rank: *"Tier 1 lock. Slicer rank 1 would open this; you have 0."* This is
+   the whole point of the feature — it is how a player who has never opened
+   **K** learns the tree decides what the world lets them do. A generic "you
+   cannot do that" here is a bug.
+3. Buy **Slicer** (Engineering, level 6) and slice it. The screen and the tag go
+   **red and read CRACKED**, the prompt stops appearing, you get a credits toast
+   and XP, and sometimes an item on the same odds a kill has.
+4. **Find a tier the rank cannot reach.** Terminals are tiered by their
+   district's level band against the galaxy's ceiling, so a far district's
+   console will refuse rank 1 and name rank 3 or 4. Buying the ranks is the only
+   thing that changes that.
+5. **Two players.** One brother slices; the other must see the same console go
+   **CRACKED**, and must not be able to slice it again. Then wait out
+   `Terminals.COOLDOWN` (10 minutes) and confirm it goes cyan again **for both**.
+   Spent state belongs to the world, not to a profile.
+6. **Same spot every time.** Rejoin, or travel away and back: the console is
+   where it was. The angle is derived from the place's id, never rolled — so
+   *"the one round the back of the depot"* has to stay true between two people
+   in the same room.
+7. **The optional objective.** Take `TarWhoBuysCrates` on Taris (Scrapper chain,
+   level 7). It has a step *"Slice the dig's site console for the shipping log"*
+   marked optional. Slice the console at **The Dig** and the step ticks;
+   **finish the mission without it** and it still turns in. Every Slice
+   objective in the game must be skippable — there is no respec, and a required
+   one would wall three quarters of characters permanently. `Missions.validate`
+   fails the build if one is not optional, so this is really a check that the
+   rule is still there.
+8. **Stat-gated dialogue.** With **Slicer rank 1**, talk to any **merchant**:
+   there is a line about his ledger pad being unlocked that a character without
+   the skill never sees. Take **two ranks of Haggler** (-6% each, so
+   `PriceMult` 0.88) and a second new line appears — one rank is 0.94 and is
+   deliberately not enough. At **Slicer rank 3**, a **smuggler**
+   offers a line about Czerka cargo seals. Compare against a fresh character:
+   those lines must be **absent**, not greyed.
+9. Check the output at boot for `[TerminalService]` warnings — a Slicer rank
+   count that no longer matches the tier ceiling, a galaxy with no terminals, or
+   a hardest lock nobody could ever reach all report there.
 
 ---
 

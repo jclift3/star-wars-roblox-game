@@ -26,7 +26,10 @@ local Objective: { [string]: string } = {
 	Deliver = "Deliver", -- carry item `target` to NPC/POI `destination`
 	Escort = "Escort", -- keep NPC `target` alive to `destination`
 	Survive = "Survive", -- stay alive `count` seconds in `target` zone
-	Slice = "Slice", -- slice terminal `target`; needs the Slicer skill
+	-- slice the terminal at point of interest `target`. Always `optional`:
+	-- Slicer is one node of one tree and there is no respec, so a required
+	-- one is a mission three quarters of characters get stuck inside.
+	Slice = "Slice",
 	Destroy = "Destroy", -- destroy `count` of object `target`
 }
 MissionKinds.Objective = Objective
