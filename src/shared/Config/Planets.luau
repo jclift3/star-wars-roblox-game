@@ -188,6 +188,23 @@ export type PlanetDef = {
 	architecture: string,
 	groundColor: Color3,
 	rockColor: Color3?,
+
+	--[[
+		The Roblox terrain material this world's land is made of.
+
+		Required on every world with `hasWalkableGround`, and **no two of them
+		may share one**, which is a stranger rule than it looks and the reason
+		this is a declared field rather than a lookup from `terrain`.
+
+		There is exactly one `Workspace.Terrain` for the whole place and
+		`Terrain:SetMaterialColor` is a property *of that instance*, not of a
+		region. Tatooine and Korriban are both "Desert", so a lookup by terrain
+		kind would give them both Sand — and whichever world was walked into
+		second would repaint the first one's dunes. The failure is silent,
+		remote, and only visible after travelling twice, which is the worst
+		combination this codebase has. `validate` refuses it instead.
+	]]
+	terrainMaterial: Enum.Material?,
 	skyTint: Color3,
 	fogColor: Color3,
 	fogStart: number,
@@ -244,6 +261,7 @@ def({
 	architecture = "Adobe",
 	groundColor = Palette.TatooineSand,
 	rockColor = Palette.TatooineRock,
+	terrainMaterial = Enum.Material.Sand,
 	skyTint = Color3.fromRGB(255, 226, 178),
 	fogColor = Color3.fromRGB(226, 200, 156),
 	fogStart = 400,
@@ -547,6 +565,7 @@ def({
 	architecture = "IceBunker",
 	groundColor = Palette.HothSnow,
 	rockColor = Palette.HothIce,
+	terrainMaterial = Enum.Material.Snow,
 	skyTint = Color3.fromRGB(206, 226, 244),
 	fogColor = Color3.fromRGB(216, 232, 244),
 	fogStart = 60,
@@ -661,6 +680,7 @@ def({
 	architecture = "JediStone",
 	groundColor = Palette.NabooGrass,
 	rockColor = Palette.NabooStone,
+	terrainMaterial = Enum.Material.Grass,
 	skyTint = Color3.fromRGB(198, 224, 255),
 	fogColor = Color3.fromRGB(186, 210, 214),
 	fogStart = 500,
@@ -762,6 +782,7 @@ def({
 	architecture = "Ruin",
 	groundColor = Palette.WornSteel,
 	rockColor = Palette.DarkMetal,
+	terrainMaterial = Enum.Material.Asphalt,
 	skyTint = Color3.fromRGB(150, 146, 138),
 	fogColor = Color3.fromRGB(132, 128, 122),
 	fogStart = 200,
@@ -880,6 +901,9 @@ def({
 	architecture = "SithZiggurat",
 	groundColor = Palette.ZabrakRust,
 	rockColor = Palette.MustafarBasalt,
+	-- Sandstone, not Sand: Korriban is the other "Desert" world and the two
+	-- may not share a material. See `terrainMaterial` on PlanetDef.
+	terrainMaterial = Enum.Material.Sandstone,
 	skyTint = Color3.fromRGB(212, 118, 78),
 	fogColor = Color3.fromRGB(140, 74, 52),
 	fogStart = 300,
@@ -1003,6 +1027,7 @@ def({
 	architecture = "NeonStack",
 	groundColor = Palette.CoruscantPlate,
 	rockColor = Palette.DarkMetal,
+	terrainMaterial = Enum.Material.Pavement,
 	skyTint = Color3.fromRGB(126, 96, 138),
 	fogColor = Color3.fromRGB(72, 58, 82),
 	fogStart = 200,
@@ -1100,6 +1125,7 @@ def({
 	architecture = "Frontier",
 	groundColor = Color3.fromRGB(88, 84, 62),
 	rockColor = Palette.SmugglerBrown,
+	terrainMaterial = Enum.Material.Mud,
 	skyTint = Color3.fromRGB(150, 156, 152),
 	fogColor = Color3.fromRGB(122, 128, 122),
 	-- Was 80/1200 with a much thicker Swamp air mix, which put a grey wall
@@ -1190,6 +1216,8 @@ def({
 	architecture = "ImperialGothic",
 	groundColor = Color3.fromRGB(52, 58, 48),
 	rockColor = Palette.ImperialBlack,
+	-- LeafyGrass, not Grass: Tython is the other "Forest" world.
+	terrainMaterial = Enum.Material.LeafyGrass,
 	skyTint = Color3.fromRGB(88, 92, 108),
 	fogColor = Color3.fromRGB(58, 62, 74),
 	fogStart = 120,
@@ -1414,6 +1442,36 @@ end
 ]]
 function Planets.validate(): { string }
 	local problems = {}
+
+	--[[
+		Two worlds made of the same terrain material.
+
+		`Terrain:SetMaterialColor` belongs to the one shared `Workspace.Terrain`
+		and is applied when a planet is first walked into, so a shared material
+		does not error and does not look wrong either -- it repaints a world you
+		are not standing on. You find out by flying back to Tatooine and
+		discovering the dunes went rust-red while you were on Korriban. Nothing
+		in the running game can report that, so it is refused here.
+	]]
+	local materialOwner: { [string]: string } = {}
+	for _, id in Planets.ids() do
+		local p = defs[id]
+		if not p.hasWalkableGround then
+			continue
+		end
+		local material = p.terrainMaterial
+		if not material then
+			table.insert(problems, `{id}: has walkable ground but no terrainMaterial`)
+			continue
+		end
+		local owner = materialOwner[material.Name]
+		if owner then
+			table.insert(problems, `{id}: terrainMaterial "{material.Name}" is already {owner}'s`)
+		else
+			materialOwner[material.Name] = id
+		end
+	end
+
 	for id, p in defs do
 		local seen: { [string]: boolean } = {}
 		for _, zone in p.zones do

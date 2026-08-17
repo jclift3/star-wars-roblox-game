@@ -291,6 +291,47 @@ coordinates, check the nameplate is visible at range, and check `Lighting`'s
 fog end. Everything is built on the first server frame; nothing is streamed in
 late.
 
+### 5.4 The ground is terrain — **new, never played**
+
+The answer to "why is everything still so blocky". Every walkable world's land
+is now voxel terrain instead of one grey plate, with hills beyond the play
+area. **The failure mode to hunt for is things buried in it.**
+
+1. Stand in the middle of town on **Tatooine**. The ground is textured sand you
+   cannot see the edge of, not a flat slab, and there is **no seam or step**
+   where the plaza paving meets it.
+2. Look at the horizon in every direction. Mesas, in the same colour family as
+   the ground, with a skirt at their bases rather than a hard corner meeting
+   the plain.
+3. Walk out past the last houses toward the **Dune Sea** (the outermost
+   district, 832 studs out). The ground stays **dead level** the whole way to
+   it. Dunes only begin past that.
+4. **The important one.** Fast-travel to **Korriban** and walk to the *Wastes*
+   (its outermost district, 1,352 studs — the furthest of any world). Its
+   landmark sits on flat ground with its base visible, and its NPCs are
+   standing **on** the ground. Nobody is waist-deep, sunk to the neck, or
+   invisible. Repeat on **Taris**' Undercity and **Tython**'s Forge Ridge.
+   *(This is the whole reason the flat radius is computed per planet. If people
+   are buried, `flatRadiusFor`'s margin is too small — a downward raycast that
+   starts inside terrain returns nothing at all.)*
+5. Drop a quest item near the edge of town and walk to it. It is on the
+   surface, not inside a swell.
+6. Shoot at the ground. Bolts stop at it. Walk up a swell — you can climb it,
+   it is not a wall.
+7. **Travel twice and look back.** Go Tatooine → Korriban → Tatooine. Tatooine's
+   sand is still Tatooine's colour. *(Both are desert worlds and
+   `Terrain:SetMaterialColor` is global, so they deliberately use different
+   materials. If the dunes come back grey-red, two planets are sharing one
+   material and `Planets.validate` should have said so at boot — check the
+   output window.)*
+8. **Hoth**: the terrain is snow and the hills are `Glacier`, but its fog is a
+   900-stud whiteout by design, so you will barely see them. That is correct.
+9. **Coruscant** has no walkable ground at all — it should be unchanged, a
+   vertical city with no terrain anywhere.
+10. Watch the frame rate on arrival at a big world (Korriban, Taris). A short
+    hitch as the planet builds is expected and happens once per world per
+    session; a sustained drop afterwards is not.
+
 ---
 
 ## 6. Travel and origins

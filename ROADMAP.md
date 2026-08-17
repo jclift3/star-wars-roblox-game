@@ -722,11 +722,13 @@ they fix the "3 minutes to walk across the map" problem immediately.
 **Current state: the worlds are procedural, not authored.** Every planet is the
 same generator with different colours.
 
-- Each planet is a **3000 x 3000 stud** slab (`PlanetBuilder.luau:39`) — roughly
-  840 m square, ~3 minutes to walk corner to corner at default walkspeed.
-- The town is a radial grid of 130-stud blocks out to a **520-stud radius**
-  (`:42-44`) — about 65 seconds across. That is ~12% of the map area.
-- Everything beyond radius 610 is empty ground with scattered boulders.
+- Each planet is a disc of Roblox terrain, sized off its own outermost district
+  — 1,502 studs on Tatooine, 2,022 on Korriban (see §3.3; it was a fixed
+  3,000-stud part slab until 2026-08-16).
+- The town is a radial grid of 130-stud blocks out to a **520-stud radius** —
+  about 65 seconds across. That is ~12% of the map area.
+- Everything beyond radius 610 is open ground with scattered boulders and,
+  outside the flat pad, hills.
 
 **Landmarks have shapes now, but not authored ones.** Until 2026-08-14 every
 point of interest was an *invisible* 40x20x40 marker: the spaceport, the cantina,
@@ -832,6 +834,47 @@ to the district that nearly killed you at level 3.
 
 **Travel is a hard dependency from the second planet onward** — satisfied by
 Phase 2a, so this is no longer blocked.
+
+### 3.3 "Why is everything still so blocky" — **[part 1 done 2026-08-16]**
+
+The user's third playtest note, in his own order behind levelling and story.
+
+**The diagnosis was not what the words suggest.** It was not lighting: Future
+technology, an `Atmosphere`, bloom, colour grading, global shadows and thirty
+declared materials were already in and doing their job. It was not really the
+buildings either. It was that **there was not one voxel of terrain in the
+game**. Every world was a flat 3,000-stud plate with a horizon made of stacked
+shrinking slabs and hundred-stud plastic spheres, and no post-processing fixes
+a landscape you can see the corners of.
+
+**Part 1 — the ground is terrain.** Done.
+
+- `PlanetDef.terrainMaterial`, required on all eight walkable worlds and
+  **unique across them**, checked by `Planets.validate`.
+  `Terrain:SetMaterialColor` is a property of the single shared
+  `Workspace.Terrain`, not of a region — so if Tatooine and Korriban both used
+  `Sand`, whichever was entered second would repaint the first one's dunes, and
+  you would only ever see it after travelling twice.
+- One `FillCylinder` per planet, its top face exactly at the origin's Y so
+  every existing height assumption still holds. Sized per world by
+  `flatRadiusFor`, not fixed: district centres run from Tatooine's 1.6 to
+  Korriban's 2.6 × the 520-stud settlement radius.
+- Hills, mesas and ridges built out of overlapping sunk `FillBall`s, which
+  merge into continuous slopes with no seam — the thing fourteen part-spheres
+  never managed. Plus low swells and, on desert and ice worlds, dunes and
+  drifts in the ground's own material.
+- **All relief is outside the flat pad**, and that is a correctness rule rather
+  than an aesthetic one: a landmark is placed at the origin's Y, and
+  `NPCService.pointOn` casts down from twelve studs above a zone marker, where
+  **a ray that begins inside terrain reports no hit at all**. A dune under a
+  district is a half-buried building whose whole population spawns underground.
+  Parts never did this, which is why nobody had met it before.
+
+**Part 2 — silhouette and detail. [todo]** Blockiness is also "no detail at any
+scale": the buildings are correct boxes with nothing on them. Trim courses,
+roof clutter, canopies, pipes, railings, aerials — cheap parts whose only job
+is to break a straight edge, added in the `shape` functions the architecture
+pass already gave each world.
 
 ---
 

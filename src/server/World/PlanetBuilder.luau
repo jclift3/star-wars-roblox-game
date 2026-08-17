@@ -36,12 +36,50 @@ local PlanetBuilder = {}
 -- Planets are laid out on a grid in one Workspace, far enough apart that no
 -- two are ever in the same streaming region.
 local PLANET_SPACING = 12000
-local GROUND_SIZE = 3000
-local GROUND_THICKNESS = 40
 
 local SETTLEMENT_RADIUS = 520
 local BLOCK_SIZE = 130
 local STREET_WIDTH = 26
+
+--[[
+	The land is Roblox terrain; everything built on it is parts.
+
+	This was the answer to the 2026-08-16 playtest note "why is everything
+	still so blocky". It was not a lighting problem -- Future technology,
+	Atmosphere, bloom and thirty materials were already in -- and it was not
+	really the buildings either. It was that **there was not one voxel of
+	terrain in the game**. Every world was a flat 3,000-stud plate with the
+	horizon made of stacked shrinking slabs and hundred-stud plastic spheres,
+	and no amount of post-processing fixes a landscape you can see the corners
+	of.
+
+	Terrain costs nothing to acquire, which matters: the project's standing
+	rule is no marketplace mesh ids, and voxel terrain is the only smooth,
+	textured, self-shadowing geometry Roblox gives away.
+
+	The plate is no longer one fixed size. The old one was a 3,000-stud square
+	on every world, which is millions of voxels and was only ever that big so
+	that the smallest world's ground reached its fog; now it is measured off
+	the planet's own districts (`flatRadiusFor`) plus the width of the relief.
+	Hoth's ends inside its 900-stud whiteout, Tython's runs to 1,866 under a
+	3,400-stud view, and neither pays for the other.
+]]
+local Terrain = Workspace.Terrain
+--[[
+	Only deep enough to look like ground from on top of it and to give the
+	sunk balls of `mound` something to merge into. Nothing on a walkable world
+	goes underground, and depth is a straight multiplier on voxel count.
+]]
+local TERRAIN_DEPTH = 16
+--[[
+	How far past the outermost district the plate runs, and the band the
+	relief occupies inside that.
+
+	The hills are `FillBall`s, which bring their own volume, so the plate does
+	not have to reach the far side of them -- only far enough that the seam
+	where it ends is behind a hill rather than in open view.
+]]
+local RELIEF_MARGIN = 450
 
 -- Paving sits just proud of the ground, flush with the plaza slab, so a road
 -- and the square it leaves from are one continuous surface to walk on.
@@ -1020,88 +1058,195 @@ local RELIEF: { [string]: string } = {
 	Swamp = "Hill",
 }
 
-local function buildRelief(parent: Instance, planet: Planets.PlanetDef, origin: Vector3, rng: Random)
+--[[
+	Raises a mound out of the terrain plate.
+
+	The trick that makes terrain worth using at all: a ball whose centre sits
+	*below* the surface only shows its cap, and where two caps overlap the
+	voxels merge into one continuous slope with no seam and no decision about
+	which one is on top. Fourteen of them in a ring stop being fourteen hills
+	and become a range, which is precisely what fourteen part-spheres never
+	managed however carefully they were placed.
+]]
+local function mound(centre: Vector3, width: number, height: number, material: Enum.Material)
+	-- Sunk by its own radius less the height wanted above ground.
+	local radius = width * 0.5
+	Terrain:FillBall(centre + Vector3.new(0, height - radius, 0), radius, material)
+end
+
+--[[
+	How far out this world's land is dead level. Nothing shapes the ground
+	inside it; all the relief is beyond it.
+
+	It is derived rather than a constant because the play area is not the same
+	size on every world. `buildMarkers` puts a district centre at
+	`ZoneDef.distance * SETTLEMENT_RADIUS`, and those go from Tatooine's Dune
+	Sea at 1.6 to Korriban's Wastes at 2.6 -- 1,352 studs, more than twice the
+	settlement. A fixed 900 would have left four worlds with their outer
+	districts standing in the hills.
+
+	And that is a real break, not a cosmetic one. A landmark is placed at the
+	origin's own Y, so a district on a swell is a building with its ground
+	floor inside the hill. Worse, `NPCService.pointOn` casts down from twelve
+	studs above the zone marker to find the floor, and **a ray that begins
+	inside terrain reports no hit at all** -- so it falls back to the height
+	the marker claimed and the district's whole population spawns underground.
+	Parts never did this, because a part the ray starts inside is a part it
+	still hits on the way out.
+
+	The margin covers the landmark's own footprint and the ring of people laid
+	out around it, both of which stand outside the centre it was given.
+]]
+local function flatRadiusFor(planet: Planets.PlanetDef): number
+	local furthest = 0
+	for _, zone in planet.zones do
+		furthest = math.max(furthest, zone.distance)
+	end
+	return math.max(900, furthest * SETTLEMENT_RADIUS + 220)
+end
+
+--[[
+	The horizon: a ring of hills, mesas or ridges, in terrain.
+
+	Ringed rather than scattered because it is scenery for a settlement in the
+	middle, and because a mountain in the middle distance is the cheapest thing
+	there is for making a flat world look like it has somewhere else in it.
+]]
+local function buildRelief(
+	planet: Planets.PlanetDef,
+	origin: Vector3,
+	flat: number,
+	ground: Enum.Material,
+	rng: Random
+)
 	local kind = RELIEF[planet.terrain]
 	if not kind then
 		return
 	end
 
-	local hills = folder("Relief", parent)
-	local color = planet.rockColor or planet.groundColor
-	local material = if kind == "Ridge" and planet.terrain == "Ice"
-		then Enum.Material.Glacier
-		elseif kind == "Mesa" then Enum.Material.Sandstone
-		else Enum.Material.Rock
+	--[[
+		Rock, not the ground material, so the hills read as a different
+		substance from the plain -- and specifically a material no *other*
+		planet has claimed, because `SetMaterialColor` is global. Rock and
+		Glacier are the two nobody walks on, so they are free to be recoloured
+		by whichever world was entered last: at 1,200 studs, through fog, the
+		hue is carrying almost nothing and the silhouette is carrying all of
+		it.
+	]]
+	local material = if planet.terrain == "Ice" then Enum.Material.Glacier else Enum.Material.Rock
+	Terrain:SetMaterialColor(material, planet.rockColor or planet.groundColor)
 
 	local count = rng:NextInteger(14, 18)
 	for i = 1, count do
 		-- Evenly spaced with jitter, so the ring is a range of hills rather
 		-- than a fence with regular posts.
 		local angle = (i - 1) * (math.pi * 2 / count) + rng:NextNumber(-0.14, 0.14)
-		local distance = rng:NextNumber(1120, 1300)
+		-- Straddling the edge of the plate, so the seam where the land stops
+		-- is inside a hill instead of a visible cliff onto nothing.
+		local distance = rng:NextNumber(flat + RELIEF_MARGIN * 0.75, flat + RELIEF_MARGIN * 1.2)
 		local base = origin + Vector3.new(math.cos(angle) * distance, 0, math.sin(angle) * distance)
 		local width = rng:NextNumber(220, 400)
 
 		if kind == "Hill" then
-			-- A hill is the scatter mound at ten times the size: the shape
-			-- was right, only ever the scale was wrong.
-			local height = width * rng:NextNumber(0.5, 0.8)
-			local mound = ball(
-				hills,
-				CFrame.new(base + Vector3.new(0, height * 0.1, 0))
-					* CFrame.Angles(0, rng:NextNumber(0, math.pi), 0),
-				Vector3.new(width, height, width * rng:NextNumber(0.8, 1.3)),
-				color,
-				material
-			)
-			mound.Name = "Hill"
+			mound(base, width, width * rng:NextNumber(0.30, 0.48), material)
 			continue
 		end
 
-		-- Mesas and ridges are both stacked, shrinking slabs -- the same
-		-- trick the skyline uses, which is what makes them read as one
-		-- object from a long way off. A mesa is squat, a ridge is not.
-		local tiers = rng:NextInteger(2, 4)
-		local tierHeight = if kind == "Mesa" then width * 0.3 else width * 0.62
-		local y = -20 -- buried, so no seam shows where the slab ends
-		local w, d = width, width * rng:NextNumber(0.6, 1.1)
-
-		for tier = 1, tiers do
-			local height = tierHeight * (1 - (tier - 1) * 0.2)
-			local slab = block(
-				hills,
-				CFrame.new(base + Vector3.new(0, y + height * 0.5, 0))
-					* CFrame.Angles(0, angle + rng:NextNumber(-0.2, 0.2), 0),
-				Vector3.new(w, height, d),
-				color,
+		if kind == "Mesa" then
+			--[[
+				A mesa is a cliff with a flat top, so it is the one landform
+				that wants the hard edge a box gives -- and terrain softens
+				it just enough to stop it reading as a crate. A skirt of
+				mounds around the base hides the corners where they meet the
+				plain, which is the only part that ever looked wrong.
+			]]
+			local height = width * rng:NextNumber(0.34, 0.52)
+			local depth = width * rng:NextNumber(0.6, 1.1)
+			Terrain:FillBlock(
+				CFrame.new(base + Vector3.new(0, height * 0.5 - 30, 0))
+					* CFrame.Angles(0, angle + rng:NextNumber(-0.3, 0.3), 0),
+				Vector3.new(width, height + 60, depth),
 				material
 			)
-			slab.Name = kind
-			y += height
-			w *= 0.74
-			d *= 0.74
+			for _ = 1, 5 do
+				local a = rng:NextNumber(0, math.pi * 2)
+				local r = width * rng:NextNumber(0.45, 0.62)
+				mound(
+					base + Vector3.new(math.cos(a) * r, 0, math.sin(a) * r),
+					width * rng:NextNumber(0.4, 0.7),
+					height * rng:NextNumber(0.2, 0.45),
+					material
+				)
+			end
+			continue
 		end
+
+		--[[
+			A ridge is a line of overlapping mounds rather than one long one,
+			so it has a crest that rises and falls. Laid across the radius --
+			tangential to the ring -- because a ridge pointing at the town
+			reads as a wall and a ridge lying along the horizon reads as
+			distance.
+		]]
+		local along = Vector3.new(-math.sin(angle), 0, math.cos(angle))
+		local steps = rng:NextInteger(4, 6)
+		for s = 1, steps do
+			local t = (s - (steps + 1) * 0.5) / steps
+			mound(
+				base + along * (t * width * 1.7),
+				width * rng:NextNumber(0.55, 0.85),
+				-- Tallest in the middle, so the ridge has a summit.
+				width
+					* rng:NextNumber(0.34, 0.58)
+					* (1 - math.abs(t) * 0.9),
+				material
+			)
+		end
+	end
+
+	-- Rolling ground between the flat pad and the hills, so the plain does not
+	-- read as a table with scenery standing on it.
+	local swells = rng:NextInteger(26, 34)
+	for _ = 1, swells do
+		local a = rng:NextNumber(0, math.pi * 2)
+		local d = rng:NextNumber(flat + 60, flat + RELIEF_MARGIN * 0.75)
+		mound(
+			origin + Vector3.new(math.cos(a) * d, 0, math.sin(a) * d),
+			rng:NextNumber(180, 340),
+			rng:NextNumber(10, 34),
+			ground
+		)
 	end
 end
 
-local function buildGround(parent: Instance, planet: Planets.PlanetDef, origin: Vector3)
-	local material = if planet.terrain == "Desert"
-		then Enum.Material.Sand
-		elseif planet.terrain == "Ice" then Enum.Material.Glacier
-		elseif planet.terrain == "Volcanic" then Enum.Material.Basalt
-		elseif planet.terrain == "Forest" then Enum.Material.Grass
-		elseif planet.terrain == "Swamp" then Enum.Material.LeafyGrass
-		elseif planet.terrain == "Ocean" then Enum.Material.Water
-		else Enum.Material.Concrete
+--[[
+	Lays the planet's land down as terrain.
 
-	local ground = block(
-		parent,
-		CFrame.new(origin - Vector3.new(0, GROUND_THICKNESS * 0.5, 0)),
-		Vector3.new(GROUND_SIZE, GROUND_THICKNESS, GROUND_SIZE),
-		planet.groundColor,
+	One `FillCylinder` for the whole disc, with its top face exactly at the
+	origin's Y so the settlement, the roads and every marker keep the height
+	they already assumed. Terrain voxels are four studs and world-aligned, and
+	planet origins are multiples of 12,000, so that top face lands on a voxel
+	boundary rather than half inside one.
+
+	The colour is `SetMaterialColor`, which is a property of the single shared
+	`Workspace.Terrain` -- see `PlanetDef.terrainMaterial` for why every walkable
+	world therefore has to own a different material, and why `Planets.validate`
+	refuses it rather than trusting it.
+]]
+local function buildGround(planet: Planets.PlanetDef, origin: Vector3, flat: number): Enum.Material
+	local material = planet.terrainMaterial or Enum.Material.Ground
+	Terrain:SetMaterialColor(material, planet.groundColor)
+
+	-- No UPRIGHT here. `Terrain:FillCylinder` runs its axis along the CFrame's
+	-- *up* vector; only Part cylinders lie along X. Turning this one a quarter
+	-- turn would lay the whole planet on its side.
+	Terrain:FillCylinder(
+		CFrame.new(origin - Vector3.new(0, TERRAIN_DEPTH * 0.5, 0)),
+		TERRAIN_DEPTH,
+		flat + RELIEF_MARGIN,
 		material
 	)
-	ground.Name = "Ground"
+	return material
 end
 
 --[[
@@ -1110,11 +1255,25 @@ end
 	Kept out of the town radius deliberately: a boulder in the middle of a
 	street is the single clearest tell that a world was generated rather than
 	designed.
+
+	**Dunes and drifts are terrain; trees and boulders stay parts.** The split
+	is the point: a dune is *the ground doing something*, so as a part it was
+	always an ellipsoid intersecting a plate at a visible seam, and as terrain
+	it merges into the surface and you cannot find where it starts. A boulder
+	or a tree is an object standing *on* the ground, and a hard edge against
+	the land is what it is supposed to have.
+
+	Which is also why the two get different distances. Parts may stand
+	anywhere from the edge of town outwards, exactly as before. Terrain may
+	not touch the flat pad at all -- see `flatRadiusFor` for what a dune under
+	a district does to the people who live in it.
 ]]
 local function buildScatter(
 	parent: Instance,
 	planet: Planets.PlanetDef,
 	origin: Vector3,
+	flat: number,
+	ground: Enum.Material,
 	style: Style,
 	rng: Random
 )
@@ -1124,11 +1283,24 @@ local function buildScatter(
 
 	local scatter = folder("Scatter", parent)
 	local rockColor = planet.rockColor or planet.groundColor
+	local shapesGround = style.scatter == "Dunes" or style.scatter == "Drifts"
 
 	for _ = 1, 140 do
 		local angle = rng:NextNumber(0, math.pi * 2)
-		local distance = rng:NextNumber(SETTLEMENT_RADIUS + 90, GROUND_SIZE * 0.46)
+		-- Either way, kept inside the edge of the plate: a tree standing past
+		-- where the land stops is a tree standing on nothing.
+		local distance = if shapesGround
+			then rng:NextNumber(flat + 40, flat + RELIEF_MARGIN * 0.8)
+			else rng:NextNumber(SETTLEMENT_RADIUS + 90, flat + RELIEF_MARGIN * 0.8)
 		local position = origin + Vector3.new(math.cos(angle) * distance, 0, math.sin(angle) * distance)
+
+		if shapesGround then
+			-- Smaller and denser than the swells they lie among, so the two
+			-- passes read as one surface at two scales rather than as a ring.
+			local width = rng:NextNumber(60, 190)
+			mound(position, width, width * rng:NextNumber(0.10, 0.20), ground)
+			continue
+		end
 
 		if style.scatter == "Trees" then
 			local height = rng:NextNumber(28, 60)
@@ -1153,20 +1325,19 @@ local function buildScatter(
 				canopy.Parent = scatter
 			end
 		else
-			-- Dunes, drifts and boulders are all the same shape with different
-			-- proportions: a squashed ellipsoid half-buried in the ground.
+			-- A boulder: an ellipsoid sitting mostly proud of the ground.
 			local width = rng:NextNumber(30, 110)
-			local height = if style.scatter == "Rocks" then width * rng:NextNumber(0.5, 1.1) else width * 0.28
+			local height = width * rng:NextNumber(0.5, 1.1)
 
-			local mound = Instance.new("Part")
-			mound.Anchored = true
-			mound.Shape = Enum.PartType.Ball
-			mound.Size = Vector3.new(width, height, width * rng:NextNumber(0.7, 1.4))
-			mound.CFrame = CFrame.new(position + Vector3.new(0, height * 0.15, 0))
+			local boulder = Instance.new("Part")
+			boulder.Anchored = true
+			boulder.Shape = Enum.PartType.Ball
+			boulder.Size = Vector3.new(width, height, width * rng:NextNumber(0.7, 1.4))
+			boulder.CFrame = CFrame.new(position + Vector3.new(0, height * 0.15, 0))
 				* CFrame.Angles(0, rng:NextNumber(0, math.pi), 0)
-			mound.Color = rockColor
-			mound.Material = if style.scatter == "Drifts" then Enum.Material.Snow else Enum.Material.Rock
-			mound.Parent = scatter
+			boulder.Color = rockColor
+			boulder.Material = Enum.Material.Rock
+			boulder.Parent = scatter
 		end
 	end
 end
@@ -3050,10 +3221,11 @@ function PlanetBuilder.build(planetId: string)
 	local anchors: { Vector3 }
 
 	if planet.hasWalkableGround then
-		buildGround(root, planet, origin)
-		buildRelief(root, planet, origin, rng)
+		local flat = flatRadiusFor(planet)
+		local ground = buildGround(planet, origin, flat)
+		buildRelief(planet, origin, flat, ground, rng)
 		anchors = buildSettlement(root, planet, origin, style, rng)
-		buildScatter(root, planet, origin, style, rng)
+		buildScatter(root, planet, origin, flat, ground, style, rng)
 	else
 		anchors = buildVerticalCity(root, planet, origin, rng)
 	end
