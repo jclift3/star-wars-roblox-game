@@ -59,7 +59,7 @@ function WorldService.init()
 	-- Before anything is built: a district named by a spawn rule but never
 	-- declared puts its NPCs nowhere in particular, and nothing downstream can
 	-- tell that from a district that is simply empty.
-	for _, problem in Planets.validate() do
+	for _, problem in Planets.validate(PlanetBuilder.prefabExists) do
 		warn(`[WorldService] planet config: {problem}`)
 	end
 

@@ -375,6 +375,51 @@ or trim you can stand on.**
     part count in the game. This pass added roughly four to eight parts per
     building on about seventy buildings.
 
+### 5.6 Anchorhead is drawn, not rolled — **new, never played**
+
+Tatooine's town is now built from an authored grid in `Planets.luau`
+(`PlanetDef.layout`) instead of the radial generator. **Every other planet
+still uses the generator and must be unchanged** — that is half of this test.
+
+Have the grid open on a second screen. It reads as a map: north is the top,
+west is the left. If something is in the wrong place, it is either the grid or
+the cell maths, and comparing the two is how you tell.
+
+1. **Tatooine.** Stand on the plaza. There is a **wall** around the town with a
+   **gate** on each of the four sides, and two wide avenues crossing where you
+   are standing. Not a round town fading into desert.
+2. Walk out through the east gate and back through the north gate. You can
+   **walk under both** — the lintel is clear of your head, and an NPC can path
+   through. *(A gate you catch on is a wall with a picture of a door on it.)*
+3. Walk the wall from the outside. It is **continuous** — no gaps between
+   segments and no seams where two stretches meet. Crenellations along the top.
+4. **The market is east of the plaza and the cantina quarter is south-west, and
+   they are there every time you rebuild.** Re-launch and check again. This is
+   the entire point of the feature; a district that has moved means `cells` is
+   not being read.
+5. Count buildings against the grid in one block. Cells that touch and share a
+   glyph are **one building** — `hh` over two rows is a house with an upstairs,
+   not four huts. Two buildings never share a wall; there is always an alley.
+6. The corner towers (grid rows 5 and 25) are visibly **taller than the houses**
+   but still adobe drums — not Coruscant spires dropped on Tatooine.
+7. **The spaceport is outside the wall**, with a road running to it from the
+   town edge. That is deliberate: it is 116 studs across and too big for a block.
+8. **The townspeople are in the town, not out at the spaceport.** Twenty-two
+   civilians and ten troopers ringed on the plaza. *(This is the specific
+   regression the authored-centre rule exists to prevent: before, a district's
+   crowd followed its landmark wherever the landmark ended up.)*
+9. Walk to the market. Traders are **inside the market rectangle**, not spilling
+   into the houses behind it — the ring is the size the grid says, not the size
+   the population says.
+10. Die and respawn a few times. Spawn points are on the plaza or in yards,
+    never inside a building or on the roadway.
+11. **Now fly to Korriban and Nar Shaddaa.** Both are exactly as they were:
+    round towns, radial street grid, jittered blocks. Nothing about this change
+    touches a planet without a `layout`.
+12. Check the output window at boot for `[WorldService] planet config:` lines.
+    A ragged row, an undeclared glyph or a district rectangle off the edge of
+    the grid all report there and nowhere else.
+
 ---
 
 ## 6. Travel and origins

@@ -106,9 +106,66 @@ export type Band = { min: number, max: number }
 	of everything that spawns in the district, so walking outward *is* walking
 	into harder things rather than merely being supposed to.
 ]]
+--[[
+	A rectangle of layout cells, inclusive at both ends.
+
+	Column then row, 1-based, matching the way the grid below is written:
+	`from = Vector2.new(4, 2)` is the fourth character of the second string.
+]]
+export type CellRect = {
+	from: Vector2,
+	to: Vector2,
+}
+
+--[[
+	A settlement drawn as a picture instead of rolled from a seed.
+
+	`PlanetBuilder` has always laid towns out radially: rings of blocks around
+	a centre, jittered by a Random. That reads as a *place* from the ground
+	but it cannot be authored -- you cannot put the cantina across the street
+	from the spaceport, or run one long road the whole way through, because
+	nobody decides where anything goes.
+
+	A `layout` is a picture of the town, one character per `cell` studs, north
+	at the top and west at the left. Row 1 column 1 is the north-west corner;
+	`grid[2]:sub(4, 4)` is the cell at column 4, row 2, which is why `CellRect`
+	is written column-then-row against everything Lua usually does.
+
+	The grid is centred on the settlement origin, so an odd-sized grid has a
+	cell exactly on it and an even-sized one has a corner there. `legend` maps
+	each glyph to a prefab id in `PlanetBuilder.PREFABS`; a glyph that appears
+	in the grid and not in the legend is open ground, which is how roads,
+	plazas and the desert outside the walls are all written as spaces.
+
+	Only worlds with a `layout` use any of this. The other eight keep the
+	radial generator, and are meant to -- an authored grid is worth writing
+	for a town you want to remember the shape of, and a waste of a day for a
+	mining camp seen once.
+]]
+export type LayoutDef = {
+	cell: number,
+	legend: { [string]: string },
+	grid: { string },
+}
+
 export type ZoneDef = {
 	id: string,
 	distance: number,
+	--[[
+		Where this district is, when the planet has an authored layout.
+
+		`distance` puts a district on a compass fan at a radius, which is the
+		right answer for wilderness -- the Dune Sea is "far out that way" and
+		nothing more needs saying. It is the wrong answer for anywhere inside
+		a town, where the market being *east of the plaza and north of the
+		docks* is the whole point and a fan cannot express it.
+
+		So both live here: a district with `cells` is a rectangle of the grid
+		and its centre is that rectangle's centre; a district without keeps
+		its ring. Outer districts are deliberately left on `distance`, because
+		authoring a 3,000-stud desert as characters would be typing sand.
+	]]
+	cells: CellRect?,
 	--[[
 		The level range here, when distance alone gets it wrong.
 
@@ -236,6 +293,17 @@ export type PlanetDef = {
 	zones: { ZoneDef },
 	spawns: { SpawnRule },
 	pointsOfInterest: { PointOfInterest },
+
+	--[[
+		An authored town, replacing the radial generator for this world only.
+
+		Absent on most planets on purpose. See `LayoutDef`: a world with one
+		gets its buildings, roads and district centres from the picture, a
+		world without keeps the rings it has always had, and both go through
+		the same marker-emitting code afterwards so nothing downstream can
+		tell which it walked into.
+	]]
+	layout: LayoutDef?,
 }
 
 local defs: { [string]: PlanetDef } = {}
@@ -287,10 +355,83 @@ def({
 	maxLevel = 20,
 	lawLevel = 0.2,
 
+	--[[
+		ANCHORHEAD, DRAWN RATHER THAN ROLLED
+
+		The first authored town in the game, and the test of whether the rest
+		are worth writing. Everything about it is a decision instead of a
+		seed: one wall with four gates, two avenues crossing at a plaza, the
+		market on the east side and the cantina quarter down in the
+		south-west, where the three inner districts below point at it.
+
+		Read it as a map. North is the top, west is the left, and touching
+		cells that share a glyph are one building -- `hh` over two rows is a
+		house with an upstairs, `WWWW` is one wall and not four posts. Two
+		houses side by side need a gap between them; that is the only rule
+		that is not obvious from looking at it.
+
+		32 studs a cell, 26 cells square: 832 studs across, which fits inside
+		the 520-stud settlement radius on the axes and stops short of the
+		dunes `buildScatter` throws down at 610. The spaceport does not appear
+		here on purpose -- it is 116 studs across, too big for any block, so
+		`buildMarkers` puts it out past the wall with a road to it, which is
+		where a landing field belongs anyway.
+	]]
+	layout = {
+		cell = 32,
+		legend = {
+			W = "Wall",
+			G = "Gate",
+			["."] = "Road",
+			P = "Plaza",
+			h = "House",
+			s = "Shop",
+			H = "Hall",
+			t = "Tower",
+			y = "Yard",
+			l = "Lamp",
+		},
+		grid = {
+			"WWWWWWWWWWWWGGWWWWWWWWWWWW",
+			"Whh s.hhh sh..hs hhh.s hhW",
+			"Whh s.hhh sh..hs hhh.s hhW",
+			"W  y .  yy  .. y  y . y  W",
+			"Whhtt.hh  hh..hh  hh.tthhW",
+			"W........................W",
+			"Whh h.hhh hh..hh hhh.h hhW",
+			"Whh h.hhh hh..hh hhh.h hhW",
+			"W yy . y  y .. y  y . yy W",
+			"Whh l.HHH hh..hh sss.ssHHW",
+			"Whh l.HHH PPPPPP sss.ssHHW",
+			"Whhhh.HHH PPPPPP sss.ssHHW",
+			"G.........PPPPPP.........G",
+			"G.........PPPPPP.........G",
+			"Whh l.hh  PPPPPP  ss.sshhW",
+			"Whhhh.hh  PPPPPP  ss.sshhW",
+			"Whh h.hh  hh..hh ss .ss hW",
+			"Whyy .yy  hh..hh  h . yhhW",
+			"Whyy .yy  hh..hh  h . yhhW",
+			"Whh l.hh  hh..hh hh .l hhW",
+			"W........................W",
+			"Why y.yy  hh..hh  hh.hh hW",
+			"Why y.yy  hh..hh  hh.hh hW",
+			"W  y . yy   .. y  y . y  W",
+			"Whhtt.hh  hh..hh  hh.tthhW",
+			"WWWWWWWWWWWWGGWWWWWWWWWWWW",
+		},
+	},
+
 	zones = {
-		{ id = "Town", distance = 0 },
-		{ id = "Market", distance = 0.3 },
-		{ id = "Cantina", distance = 0.5 },
+		--[[
+			`distance` still sets the level band -- that is what it is for,
+			and it is unchanged. `cells` only says where on the page the
+			district is, which a bearing rolled from the seed could never say:
+			the market is east of the plaza and the cantina quarter is behind
+			it to the south-west, and now it is every time.
+		]]
+		{ id = "Town", distance = 0, cells = { from = Vector2.new(10, 10), to = Vector2.new(17, 17) } },
+		{ id = "Market", distance = 0.3, cells = { from = Vector2.new(18, 10), to = Vector2.new(25, 17) } },
+		{ id = "Cantina", distance = 0.5, cells = { from = Vector2.new(3, 18), to = Vector2.new(10, 24) } },
 		-- The outer four used to run out to 2.1 -- 1092 studs, most of a
 		-- kilometre of empty sand -- which left five of this planet's six
 		-- landmarks as smudges in the fog and made the walk between
@@ -1434,13 +1575,64 @@ function Planets.spawnsArchetype(planetId: string, archetypeId: string): boolean
 end
 
 --[[
+	How many columns and rows an authored grid has.
+
+	Columns come from the longest row rather than the first, so one short line
+	reads as open ground on its east end instead of shifting the whole town
+	half a block west of where the picture says it is. `validate` still
+	reports the ragged row; this is what happens in the meantime.
+]]
+function Planets.layoutSize(layout: LayoutDef): (number, number)
+	local columns = 0
+	for _, row in layout.grid do
+		columns = math.max(columns, #row)
+	end
+	return columns, #layout.grid
+end
+
+--[[
+	Where the centre of cell (column, row) sits, relative to the settlement.
+
+	The grid is centred on the origin with north at the top, so column 1 is
+	the west edge, row 1 the north edge, and increasing row means increasing
+	Z. One function rather than two so the builder that puts a house down and
+	the marker code that decides which district the house is in cannot end up
+	half a cell apart.
+]]
+function Planets.cellOffset(layout: LayoutDef, column: number, row: number): Vector3
+	local columns, rows = Planets.layoutSize(layout)
+	local half = layout.cell
+	return Vector3.new((column - (columns + 1) / 2) * half, 0, (row - (rows + 1) / 2) * half)
+end
+
+--[[
+	The centre of a district rectangle, and how far the district reaches.
+
+	Reach is half the longer side *plus half a cell*, because the rectangle is
+	inclusive of its end cells: without the extra half, standing in the corner
+	shop of the market would not count as being in the market.
+]]
+function Planets.rectBounds(layout: LayoutDef, rect: CellRect): (Vector3, number)
+	local a = Planets.cellOffset(layout, rect.from.X, rect.from.Y)
+	local b = Planets.cellOffset(layout, rect.to.X, rect.to.Y)
+	local span = math.max(math.abs(b.X - a.X), math.abs(b.Z - a.Z))
+	return (a + b) / 2, span / 2 + layout.cell / 2
+end
+
+--[[
 	Cross-checks every planet against the ids it references.
 
 	Zone names are strings written in two places -- the spawn rules and the
 	points of interest -- and a typo in either used to produce a district that
 	silently did not exist, so its NPCs were placed nowhere in particular.
+
+	Takes `prefabExists` as an argument for the same reason `Factions.validate`
+	takes `planetExists`: the prefabs live in `PlanetBuilder`, which is a server
+	module that already requires this one, and requiring it back would be a
+	cycle -- and would drag the whole builder into every client that wants to
+	know a planet's name.
 ]]
-function Planets.validate(): { string }
+function Planets.validate(prefabExists: (string) -> boolean): { string }
 	local problems = {}
 
 	--[[
@@ -1473,6 +1665,66 @@ function Planets.validate(): { string }
 	end
 
 	for id, p in defs do
+		--[[
+			The authored grid, if this world has one.
+
+			Every mistake available here is silent when the world builds and
+			expensive to notice from the ground: a glyph the legend does not
+			know builds nothing, and nothing is exactly what open ground looks
+			like. So the space character is the *only* way to write open
+			ground, and any other unlisted glyph is reported -- otherwise a
+			typo'd `H` for `h` is a house that was never there and a bug you
+			find by counting buildings.
+		]]
+		local layout = p.layout
+		local columns, rows = 0, 0
+		if layout then
+			columns, rows = Planets.layoutSize(layout)
+			if layout.cell <= 0 then
+				table.insert(problems, `{id}: layout cell size {layout.cell} must be positive`)
+			end
+			if rows == 0 then
+				table.insert(problems, `{id}: layout has no rows`)
+			end
+			for glyph, prefab in layout.legend do
+				if #glyph ~= 1 then
+					table.insert(problems, `{id}: layout legend key "{glyph}" is not a single character`)
+				elseif glyph == " " then
+					table.insert(problems, `{id}: layout legend claims " ", which always means open ground`)
+				end
+				if not prefabExists(prefab) then
+					table.insert(problems, `{id}: layout glyph "{glyph}" names unknown prefab "{prefab}"`)
+				end
+			end
+			local used: { [string]: boolean } = {}
+			for r, line in layout.grid do
+				-- A ragged row does not error -- `layoutSize` takes the
+				-- longest -- but it shifts every cell east of it, so the
+				-- picture stops being what gets built.
+				if #line ~= columns then
+					table.insert(problems, `{id}: layout row {r} is {#line} characters, not {columns}`)
+				end
+				for c = 1, #line do
+					local glyph = line:sub(c, c)
+					used[glyph] = true
+					if glyph ~= " " and not layout.legend[glyph] then
+						table.insert(
+							problems,
+							`{id}: layout row {r} column {c} uses undeclared glyph "{glyph}"`
+						)
+					end
+				end
+			end
+			for glyph in layout.legend do
+				if not used[glyph] then
+					table.insert(
+						problems,
+						`{id}: layout legend declares "{glyph}", which never appears in the grid`
+					)
+				end
+			end
+		end
+
 		local seen: { [string]: boolean } = {}
 		for _, zone in p.zones do
 			if seen[zone.id] then
@@ -1482,6 +1734,36 @@ function Planets.validate(): { string }
 			if zone.distance < 0 then
 				table.insert(problems, `{id}: zone "{zone.id}" has negative distance`)
 			end
+
+			--[[
+				A district rectangle that is not on the grid.
+
+				`cellOffset` happily returns a position for column 40 of a
+				32-column town, and the result is a district whose spawn
+				points, NPCs and points of interest all sit in the desert
+				outside the walls -- a whole zone quietly relocated, which
+				reads as "the market is empty" rather than as an error.
+			]]
+			local cells = zone.cells
+			if cells then
+				if not layout then
+					table.insert(problems, `{id}: zone "{zone.id}" has cells but the planet has no layout`)
+				elseif
+					cells.from.X < 1
+					or cells.from.Y < 1
+					or cells.to.X > columns
+					or cells.to.Y > rows
+					or cells.from.X > cells.to.X
+					or cells.from.Y > cells.to.Y
+				then
+					table.insert(
+						problems,
+						`{id}: zone "{zone.id}" spans ({cells.from.X},{cells.from.Y})-({cells.to.X},{cells.to.Y}), `
+							.. `outside a {columns}x{rows} grid`
+					)
+				end
+			end
+
 			local band = zone.band
 			if band then
 				if band.min > band.max then

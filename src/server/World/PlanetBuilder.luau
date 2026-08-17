@@ -1780,6 +1780,296 @@ local function buildSettlement(
 end
 
 --------------------------------------------------------------------------------
+-- Authored layouts
+--------------------------------------------------------------------------------
+
+--[[
+	What one glyph of an authored grid puts on the ground.
+
+	Deliberately thin. A prefab is a footprint and a storey count handed to the
+	planet's own `style.shape` -- so an authored town on Tatooine is still
+	built out of Adobe, and the same grid dropped on Hoth would come up as
+	IceBunker. A prefab table that drew its own houses would be a tenth
+	architecture quietly ignoring the nine, and the boys would spot it in ten
+	minutes the way they spotted five styles across nine worlds.
+
+	`build` is the exception, for the handful of things no architecture has:
+	a rampart, a gate, a lamp post.
+]]
+type PrefabDef = {
+	-- Fraction of the cell rectangle the building fills. Nil builds nothing.
+	fill: number?,
+	--[[
+		Storeys, as a multiplier on the style's own range rather than a count.
+
+		Adobe is 1-2 floors and Spire is 6-14, so an absolute "a tower is five
+		storeys" would be a tower on Tatooine and a bungalow on Coruscant. A
+		multiplier means tall *for this world*, which is what the author meant.
+	]]
+	floorScale: number?,
+	-- Paving over the whole rectangle, at road height.
+	paved: boolean?,
+	--[[
+		Somewhere a landmark or a player spawn may be put.
+
+		Roads are walkable and deliberately are not offered. `claimNear` gives
+		a landmark the nearest free anchor, and a spaceport dropped in the
+		middle of the high street is worse than one in a yard behind it.
+	]]
+	anchor: boolean?,
+	build: ((Instance, Vector3, Vector2, Style) -> ())?,
+}
+
+--- A stretch of town wall, crenellated along whichever way it runs.
+local function buildRampart(parent: Instance, centre: Vector3, span: Vector2, style: Style)
+	local color = style.buildingColors[1]
+	local height = style.floorHeight * 1.5
+	local thickness = math.min(span.X, span.Y) * 0.55
+
+	local alongX = span.X >= span.Y
+	local body = if alongX
+		then Vector3.new(span.X, height, thickness)
+		else Vector3.new(thickness, height, span.Y)
+	block(parent, CFrame.new(centre + Vector3.new(0, height * 0.5, 0)), body, color, Enum.Material.Brick).Name =
+		"Rampart"
+
+	local run = if alongX then span.X else span.Y
+	local step = 14
+	for i = 0, math.max(0, math.floor(run / step) - 1) do
+		local at = -run * 0.5 + step * (i + 0.5)
+		local offset = if alongX then Vector3.new(at, height + 2, 0) else Vector3.new(0, height + 2, at)
+		local size = if alongX
+			then Vector3.new(step * 0.55, 4, thickness)
+			else Vector3.new(thickness, 4, step * 0.55)
+		block(parent, CFrame.new(centre + offset), size, color, Enum.Material.Brick).Name = "Merlon"
+	end
+end
+
+--- The break in a wall: a pier each side and a lintel over, walkable between.
+local function buildGate(parent: Instance, centre: Vector3, span: Vector2, style: Style)
+	local color = style.buildingColors[1]
+	local height = style.floorHeight * 1.5
+	local alongX = span.X >= span.Y
+	local run = if alongX then span.X else span.Y
+	local thickness = math.min(span.X, span.Y) * 0.55
+	local pier = 12
+
+	for _, side in { -1, 1 } do
+		local at = side * (run * 0.5 - pier * 0.5)
+		local offset = if alongX
+			then Vector3.new(at, (height + 8) * 0.5, 0)
+			else Vector3.new(0, (height + 8) * 0.5, at)
+		local size = if alongX
+			then Vector3.new(pier, height + 8, thickness)
+			else Vector3.new(thickness, height + 8, pier)
+		block(parent, CFrame.new(centre + offset), size, color, Enum.Material.Brick).Name = "Pier"
+	end
+
+	-- Above head height on purpose: the gateway has to be walked and pathed
+	-- through, and a lintel a character catches on is a wall with a picture
+	-- of a door on it.
+	local lintel = if alongX then Vector3.new(run, 7, thickness) else Vector3.new(thickness, 7, run)
+	block(parent, CFrame.new(centre + Vector3.new(0, height + 11, 0)), lintel, color, Enum.Material.Brick).Name =
+		"Lintel"
+end
+
+local function buildLampCell(parent: Instance, centre: Vector3, _span: Vector2, style: Style)
+	buildStreetLamp(parent, centre, style.windowColor)
+end
+
+local PREFABS: { [string]: PrefabDef } = {
+	House = { fill = 0.72, floorScale = 0.8 },
+	Hall = { fill = 0.88, floorScale = 1.0 },
+	Shop = { fill = 0.78, floorScale = 0.6 },
+	Tower = { fill = 0.55, floorScale = 1.8 },
+	Wall = { build = buildRampart },
+	Gate = { build = buildGate, paved = true },
+	Road = { paved = true },
+	Plaza = { paved = true, anchor = true },
+	Yard = { anchor = true },
+	Lamp = { anchor = true, build = buildLampCell },
+}
+
+--[[
+	Whether `id` is something a layout legend is allowed to point at.
+
+	`Planets.validate` takes this as an argument rather than requiring this
+	module: PlanetBuilder is server-only and already requires Planets, so the
+	dependency can only run one way.
+]]
+function PlanetBuilder.prefabExists(id: string): boolean
+	return PREFABS[id] ~= nil
+end
+
+type LayoutRect = { glyph: string, from: Vector2, to: Vector2 }
+
+--[[
+	Groups touching cells that share a glyph into single rectangles.
+
+	`WWWW` is one wall, not four wall segments with three seams down them, and
+	a two-by-two `HH` block is one house rather than four huts pressed
+	together. The rule an author has to hold in their head is the simple one
+	it looks like: cells that touch and match are one building, and the way to
+	write two houses is to leave a gap between them.
+
+	Greedy -- run right while the glyph holds, then down while the whole run
+	holds. That does not find the largest rectangles an L-shaped block could
+	be cut into; it finds the ones you would read off the page, which is the
+	entire reason for writing the town as a page.
+]]
+local function layoutRects(layout: Planets.LayoutDef): { LayoutRect }
+	local columns, rows = Planets.layoutSize(layout)
+
+	-- Short rows read as open ground on their east end rather than shifting
+	-- everything after them. `Planets.validate` reports the ragged row.
+	local function glyphAt(column: number, row: number): string
+		local line = layout.grid[row]
+		if not line or column > #line then
+			return " "
+		end
+		return line:sub(column, column)
+	end
+
+	local taken: { { boolean } } = {}
+	for row = 1, rows do
+		taken[row] = table.create(columns, false)
+	end
+
+	local rects: { LayoutRect } = {}
+	for row = 1, rows do
+		for column = 1, columns do
+			local glyph = glyphAt(column, row)
+			if glyph == " " or taken[row][column] then
+				continue
+			end
+
+			local right = column
+			while right < columns and glyphAt(right + 1, row) == glyph and not taken[row][right + 1] do
+				right += 1
+			end
+
+			local bottom = row
+			while bottom < rows do
+				local whole = true
+				for c = column, right do
+					if glyphAt(c, bottom + 1) ~= glyph or taken[bottom + 1][c] then
+						whole = false
+						break
+					end
+				end
+				if not whole then
+					break
+				end
+				bottom += 1
+			end
+
+			for r = row, bottom do
+				for c = column, right do
+					taken[r][c] = true
+				end
+			end
+			table.insert(
+				rects,
+				{ glyph = glyph, from = Vector2.new(column, row), to = Vector2.new(right, bottom) }
+			)
+		end
+	end
+	return rects
+end
+
+--[[
+	Builds a town from its picture instead of from the seed.
+
+	Same contract as `buildSettlement` -- returns the ground left open, and
+	everything downstream (landmarks, patrol rings, spawn markers) cannot tell
+	which of the two it was handed. That is the point of doing it this way
+	round: the authored layout is a different *source* of anchors, not a
+	different world-building pipeline, so the eight worlds without one keep
+	working untouched.
+]]
+local function buildFromLayout(
+	parent: Instance,
+	planet: Planets.PlanetDef,
+	layout: Planets.LayoutDef,
+	origin: Vector3,
+	style: Style,
+	rng: Random
+): { Vector3 }
+	local town = folder("Settlement", parent)
+	local paving = folder("Streets", town)
+	local roadColor, roadMaterial = roadLook(planet)
+
+	local open: { Vector3 } = {}
+
+	for _, rect in layoutRects(layout) do
+		local prefabId = layout.legend[rect.glyph]
+		local prefab = if prefabId then PREFABS[prefabId] else nil
+		if not prefab then
+			continue
+		end
+
+		local a = Planets.cellOffset(layout, rect.from.X, rect.from.Y)
+		local b = Planets.cellOffset(layout, rect.to.X, rect.to.Y)
+		local centre = origin + (a + b) * 0.5
+		local span = Vector2.new(math.abs(b.X - a.X) + layout.cell, math.abs(b.Z - a.Z) + layout.cell)
+
+		-- Rectangles never overlap, so one lift is enough and there is no
+		-- z-fighting to separate the way the radial street grid has.
+		if prefab.paved then
+			block(
+				paving,
+				CFrame.new(centre + Vector3.new(0, ROAD_Y + ROAD_LIFT_NS, 0)),
+				Vector3.new(span.X, ROAD_THICKNESS, span.Y),
+				roadColor,
+				roadMaterial
+			).Name =
+				"Paving"
+		end
+
+		-- Every cell of a large yard, not just its centre: a plaza that
+		-- offers one anchor is a plaza six players queue up on.
+		if prefab.anchor then
+			for column = rect.from.X, rect.to.X do
+				for row = rect.from.Y, rect.to.Y do
+					table.insert(open, origin + Planets.cellOffset(layout, column, row))
+				end
+			end
+		end
+
+		local custom = prefab.build
+		if custom then
+			custom(town, centre, span, style)
+			continue
+		end
+
+		local fill = prefab.fill
+		if not fill then
+			continue
+		end
+
+		-- Inset, so two rectangles that share an edge on the page still have
+		-- an alley between them on the ground.
+		local footprint = Vector2.new(math.max(8, span.X * fill), math.max(8, span.Y * fill))
+
+		local scale = prefab.floorScale
+		local shaped = style
+		if scale then
+			shaped = table.clone(style)
+			shaped.minFloors = math.max(1, math.round(style.minFloors * scale))
+			shaped.maxFloors = math.max(shaped.minFloors, math.round(style.maxFloors * scale))
+		end
+		shaped.shape(town, centre, footprint, shaped, rng)
+	end
+
+	-- A layout that builds nothing walkable would otherwise hand back an
+	-- empty anchor list and drop every spawn marker on the origin anyway.
+	if #open == 0 then
+		table.insert(open, origin)
+	end
+	return open
+end
+
+--------------------------------------------------------------------------------
 -- Vertical city
 --------------------------------------------------------------------------------
 
@@ -3273,12 +3563,33 @@ local function buildMarkers(
 		end
 	end
 
+	--[[
+		How big an authored district is, where one says so.
+
+		Only set for zones with `cells`. Everywhere else the ring is sized off
+		the district's population further down, which is the right answer when
+		nobody has decided where the district's edges are.
+	]]
+	local reaches: { [string]: number } = {}
+	local layout = planet.layout
+
 	for index, def in planet.zones do
 		-- Districts are fanned around the compass rather than stacked on one
 		-- bearing, so walking out of town in any direction finds something.
 		local angle = (index - 1) * (math.pi * 2 / count) + rng:NextNumber(-0.3, 0.3)
 		local radius = def.distance * SETTLEMENT_RADIUS
 		local centre = origin + Vector3.new(math.cos(angle) * radius, 0, math.sin(angle) * radius)
+
+		-- An authored district is where the grid says, not where the fan
+		-- lands. This is the whole reason `cells` exists: the market being
+		-- east of the plaza is a fact about the town, and a bearing rolled
+		-- from the seed cannot express it.
+		local cells = def.cells
+		if layout and cells then
+			local at, reach = Planets.rectBounds(layout, cells)
+			centre = origin + at
+			reaches[def.id] = reach
+		end
 
 		-- Vertical cities have no ground, so districts snap to a platform
 		-- instead of hanging in the air.
@@ -3477,7 +3788,12 @@ local function buildMarkers(
 	]]
 	for _, def in planet.zones do
 		local landmark = landmarks[def.id]
-		local centre = if landmark then landmark.at else centres[def.id]
+		local authored = reaches[def.id]
+		-- An authored district stays where it was drawn even when it has a
+		-- landmark. Anchorhead's spaceport is too big for a city block and
+		-- ends up out past the wall; following it would take all thirty-two
+		-- townspeople out to the landing field with it.
+		local centre = if landmark and not authored then landmark.at else centres[def.id]
 		local zone = folder(def.id, zoneRoot)
 		local points = math.clamp(math.ceil((population[def.id] or 0) / ZONE_POINT_LOAD), 3, ZONE_POINTS_MAX)
 		-- Linear in the number of points, so the ring grows about as fast as
@@ -3487,6 +3803,14 @@ local function buildMarkers(
 		-- to suit is what used to be done by moving the building instead.
 		local inner = math.max(reach * 0.4, (if landmark then landmark.radius else 0) + LANDMARK_CLEARANCE)
 		reach = math.max(reach, inner + ZONE_SPREAD)
+
+		-- An authored district is exactly the size of its rectangle. Sizing
+		-- it off the crowd instead would spill the market's traders into the
+		-- houses behind it, and the author drew where the market ends.
+		if authored then
+			reach = authored
+			inner = math.min(inner, reach * 0.55)
+		end
 
 		-- Published so the client can work out which district the player is
 		-- standing in. Districts are placed procedurally from the planet's
@@ -3599,7 +3923,10 @@ function PlanetBuilder.build(planetId: string)
 		local flat = flatRadiusFor(planet)
 		local ground = buildGround(planet, origin, flat)
 		buildRelief(planet, origin, flat, ground, rng)
-		anchors = buildSettlement(root, planet, origin, style, rng)
+		local layout = planet.layout
+		anchors = if layout
+			then buildFromLayout(root, planet, layout, origin, style, rng)
+			else buildSettlement(root, planet, origin, style, rng)
 		buildScatter(root, planet, origin, flat, ground, style, rng)
 	else
 		anchors = buildVerticalCity(root, planet, origin, rng)

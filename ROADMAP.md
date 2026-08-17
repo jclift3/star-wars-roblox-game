@@ -786,7 +786,7 @@ DC-15A). `Palette` colour constants still say `StormtrooperWhite` and
 `NabooGrass`; those are internal names for shades of grey and green and are the
 lowest-value thing on this list.
 
-### 3.1 The layout system — **[todo]**
+### 3.1 The layout system — **[built 2026-08-17; Anchorhead is the only grid]**
 The mechanism, designed in [PLANETS.md](PLANETS.md) §2. Four pieces:
 
 - **Prefabs.** Promote `PlanetBuilder`'s `LANDMARKS` table to
@@ -820,6 +820,51 @@ Two additions from the 2026-08-15 playtest, both belonging here:
 - **Prefabs may declare an interior** (N5), entered by a door trigger and built
   as its own space. Zero landmarks are enterable today and this is the single
   biggest jump in how finished the world feels.
+
+#### Built 2026-08-17
+**Additive, and that was the design decision.** A planet with a `layout` is
+built from its picture; a planet without keeps the radial generator it has
+always had. Both return the same thing — the list of open ground — so
+landmarks, patrol rings, POI markers and spawn points cannot tell which they
+were handed. Eight worlds are untouched while the mechanism proves out on one.
+
+- **`Planets.LayoutDef`** = `cell` (studs per glyph), `legend` (glyph → prefab
+  id), `grid` (rows, north at the top, west at the left). `ZoneDef.cells` is a
+  `CellRect` in **column-then-row** order, matching how the grid reads on the
+  page. `distance` is unchanged and still sets the level band — `cells` says
+  only *where*, which a bearing rolled from the seed could never say.
+- **Touching cells that share a glyph merge into one rectangle** (greedy right,
+  then down). `WWWW` is one wall, not four posts; `hh` over two rows is a house
+  with an upstairs. The only rule an author has to learn beyond "read it as a
+  map" is that two houses need a gap between them.
+- **A prefab is a footprint and a storey count, not geometry.** `PREFABS` (10
+  entries: House/Hall/Shop/Tower/Wall/Gate/Road/Plaza/Yard/Lamp) hands the
+  footprint to the planet's own `style.shape`, so the grid dropped on Hoth would
+  come up IceBunker. `floorScale` is a **multiplier** on the style's range, not
+  a count: Adobe is 1-2 floors and Spire is 6-14, so "a tower is five storeys"
+  would be a tower on Tatooine and a bungalow on Coruscant. Only Wall, Gate and
+  Lamp draw their own parts.
+- **`Planets.validate(prefabExists)`** — injected predicate, same trick as
+  `Factions.validate(planetExists)`. New checks: ragged row, legend key that is
+  not one character, a legend entry naming a prefab that does not exist, a
+  legend entry that never appears in the grid, **a non-space glyph the legend
+  does not declare** (space is the *only* way to write open ground, so a typo'd
+  `H` for `h` is caught instead of silently becoming a missing building), and a
+  district rectangle off the edge of the grid.
+- **Anchorhead**, 26x26 at 32 studs = 832 across: walls with four gates, two
+  avenues crossing at a plaza, market east, cantina quarter south-west. 65
+  buildings, 79 anchors. The spaceport is deliberately *not* in the grid — at
+  116 studs radius it is too big for any block, so `buildMarkers` puts it past
+  the wall with a road to it, which is where a landing field belongs.
+- **An authored district keeps its drawn centre even when it has a landmark.**
+  Previously the crowd ringed `landmark.at`; with the spaceport pushed outside
+  the wall that would have taken all thirty-two townspeople to the landing field.
+
+**Deliberately deferred:** promoting `LANDMARKS` to `src/server/World/Prefabs/`.
+Splitting the file means exporting seven local helpers plus 600 lines of
+`ARCHITECTURE` shape functions — a large mechanical refactor with no gameplay
+value at nine prefabs. `PREFABS` lives next to `LANDMARKS` until the count
+justifies the move.
 
 ### 3.2 The eight worlds — **[todo]**
 Contents specified per planet in [PLANETS.md](PLANETS.md) §3. Build order is
