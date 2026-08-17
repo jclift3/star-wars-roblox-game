@@ -574,6 +574,56 @@ persistence and are Phase 4. 4 is unblocked and can be picked up whenever.
 
 ---
 
+## Playtest findings — 2026-08-17
+
+Reported in one sentence, and it contained two unrelated failures of the same
+kind: **a system that is finished but that the player has no way to reach is not
+a system.** Both are fixed; both left a check behind, because both were the sort
+of thing that is invisible from inside the file that caused it.
+
+> *"I'm unsure how to use powers, where we see the skills tree, etc. I tried to
+> start as the acolyte and completed the first mission but I had to go to an area
+> that said level should be above 18."*
+
+**C1. Six panels reachable only by a letter nobody was told.** — **[fixed]**
+Abilities on 1-6, and B/M/J/K/G. All six worked. Nothing in the game had ever
+named one. The key moved out of each controller's private `TOGGLE_KEY` and into
+`Panels.PanelDef.toggle`, and `HudController` draws a permanent top-left legend
+by walking `Panels.ALL` — so a panel is advertised by being registered, which is
+the bargain that file already makes for input focus and mutual close. Buying an
+ability now toasts its name and its key once. See TESTING §9.0.
+
+**C2. The Acolyte's first mission walked a level 1 character down a level 19-30
+corridor.** — **[fixed]** *The Empty Bunk* sent you to Dreshdae, and the only
+road there is the Valley of the Dark Lords: 22 aggressive things, and the client
+correctly met it with **TURN BACK**. Three separate causes, each harmless alone:
+
+- The Academy had **no interactable NPC at all** — `SithAcolyte` and
+  `ImperialTrooper` are both `interactable = false` — so "ask around" had
+  nowhere in the district to happen. Czerka `Researcher`s now spawn there, which
+  is also the right piece of fiction: the form that collects an acolyte was
+  printed by a contractor.
+- `SithAcolyte` was declared **22-38 against a district banded 1-12**. It spawns
+  in exactly one place in the galaxy, so `rollLevel`'s clamp pinned every one of
+  them to an end and the Acolyte's own home world contained nothing fightable.
+  2-14 now, and `repOnKill` -25 rather than -150: six sparring matches used to
+  turn the Academy hostile to its own student.
+- **Act 2 was six missions, all on Tatooine and Ord Mantell** — the Scoundrel's
+  and the Conscript's worlds. The Acolyte and the Scrapper had *nothing* between
+  their prologue at level 2 and their signature chain at 12, which reads exactly
+  like a game that has run out. Four new missions, two per origin, both chains
+  staying in the district the origin already stands in, both ending by naming the
+  star map. That debrief is the first time the game has said travel is possible.
+
+`Missions.validate` now refuses an origin's first mission that has no `next`, or
+one whose objectives sit more than twice `UNDERLEVELLED_BY` above it. **The band
+half is deliberately scoped to prologues**: sending a player somewhere dangerous
+is a normal move and twenty existing missions do it on purpose — a general
+version of this check produced 20 false hits, including the whole Tatooine
+opening chain. It is only ever wrong for the mission nobody chose.
+
+---
+
 ## Design direction — Diablo-style (decided 2026-08-14)
 
 The target is an action-RPG loop: kill things, level, spend points, find better
@@ -988,7 +1038,7 @@ DC-15A). `Palette` colour constants still say `StormtrooperWhite` and
 `NabooGrass`; those are internal names for shades of grey and green and are the
 lowest-value thing on this list.
 
-### 3.1 The layout system — **[built 2026-08-17; Anchorhead is the only grid]**
+### 3.1 The layout system — **[done 2026-08-17; all eight worlds drawn]**
 The mechanism, designed in [PLANETS.md](PLANETS.md) §2. Four pieces:
 
 - **Prefabs.** Promote `PlanetBuilder`'s `LANDMARKS` table to
@@ -1073,11 +1123,20 @@ Splitting the file means exporting seven local helpers plus 600 lines of
 value at nine prefabs. `PREFABS` lives next to `LANDMARKS` until the count
 justifies the move.
 
-### 3.2 The eight worlds — **[todo]**
-Contents specified per planet in [PLANETS.md](PLANETS.md) §3. Build order is
-depth-first: **Tatooine completely** (layout, ~12 prefabs, banded districts,
-Act 1) as the vertical slice, then extract the layout system from what that
-taught, then Korriban, then the rest.
+### 3.2 The eight worlds — **[layouts done 2026-08-17; named prefabs still todo]**
+Contents specified per planet in [PLANETS.md](PLANETS.md) §3. Build order was
+depth-first: **Tatooine completely** as the vertical slice, then extract the
+layout system from what that taught, then Korriban, then the rest. That is what
+happened, and **every walkable world now has an authored grid with banded
+districts** (see §N5 for the eight of them and what each one was drawn around).
+
+What is left here is the *other* half of the item: **named, unique prefabs**.
+Today a grid cell hands a footprint to the planet's own `style.shape`, which is
+why one legend works on nine worlds — but it also means Anchorhead's cantina and
+Kaas City's antechambers are the same box in different colours. The per-planet
+prefab vocabularies in PLANETS.md §3 (`MoistureVaporator`, `HullSection`,
+`CitadelSpire`…) are all still unbuilt, and they are what would make a place
+recognisable rather than merely legible.
 
 The structural win: **four planets are both an origin world and a later act** —
 Korriban, Taris, Nar Shaddaa and Coruscant. That halves the worlds needing a high
@@ -1441,7 +1500,7 @@ caller changed.
 `showmethemoney` (`DevService`) prints every generated mission and today's
 postings — the offline test, same reasoning as `iseedeadpeople`.
 
-### 4.3 Skill trees, properly — **[targets 1, 2 and 3 done 2026-08-16; 4, 5 open]**
+### 4.3 Skill trees, properly — **[targets 1-3 done 2026-08-16, 4 done 2026-08-17; 5 open]**
 Raised 2026-08-15: *"the skill trees need to be incredibly well thought out and
 align with the objectives and gameplay."* Correct. The UI is done (1.5) and the
 **content is not**. What exists is 19 skills across 4 trees where:
@@ -1633,8 +1692,69 @@ playtesting says the forks feel like traps rather than choices, a paid respec at
 a vendor is the answer — and it should cost credits, not be free, or the choice
 stops being one again.
 
-Still open: **4** (co-op — the two heals are `Aura`s and reach a teammate, which
-is a start, not the answer) and **5** (skills that open the world).
+#### Target 4 — complementary co-op, built 2026-08-17
+The brief: *"skills whose effect lands on your teammate — a mark that raises
+everyone's damage on a target, a shield you throw, a revive. Two players should
+be more than twice one player."*
+
+**The gap, stated precisely.** Every one of the 21 nodes made *you* better, so
+two players were worth exactly two players. The two `Aura` heals reached a
+teammate, but only as a side effect of `Aura` being the only shape that does —
+and a heal is worth the same whether one person or three are standing in it.
+Nothing in the game was worth *more* because somebody else was there.
+
+- **Two new fields on `AbilityDef`, not two new shapes.** `mark` (a fraction
+  added to the damage **everyone** does to what it lands on) and `absorb` (a
+  pool of damage taken off allies before their health is), plus a shared
+  `duration`. Neither changes *who* an ability reaches — a mark is a Cone that
+  does not hurt, a barrier is an Aura that does not heal — so the three-shape
+  rule and the no-branch-per-ability rule both hold.
+- **`MarkTarget` is in the Combat tree**, behind `Spotter` (level 10). A co-op
+  mechanic only one origin can bring is a co-op mechanic that mostly does not
+  happen, and three of the four origins never open Force. It is the arithmetic
+  that makes it co-op: **alone it is a bad button** — one long cooldown for
+  under a third more damage — and it is worth the *party's* output, so the same
+  skill point buys more the more people are shooting.
+- **`ForceBarrier` is the Force half, and the one node in that tree with no
+  alignment on it.** Sheltering the person beside you is not a moral position,
+  and gating it would have meant the brothers could only cover each other if
+  they had made the same choice about the fork the campaign spends thirty
+  levels insisting is theirs alone.
+- **`CombatService` holds both, not `AbilityService`.** `applyDamage` is the
+  only function that sees a hit land, which makes it the only thing that can
+  read them. State next to the *writer* would have meant a getter damage has to
+  remember to call — the "server system with no entry point" failure again.
+  Weak-keyed tables, so a dead NPC's mark goes away with the NPC.
+- **Order inside `applyDamage` is load-bearing.** The mark multiplies *before*
+  armour, so it reads as "that one is easier to kill" and is worth the same to
+  whoever else is shooting; the barrier soaks *after* armour, so a heavily
+  armoured player does not get more out of the same pool than the one who
+  needed covering. A hit the barrier eats whole returns 0 and stops, like a
+  deflect — otherwise it is a floating "0" and a `damaged` signal for nothing.
+- **Nothing stacks.** A second mark takes the larger bonus and restarts the
+  clock; a second barrier does the same with what is left. Two Force users
+  alternating barriers would otherwise pile up a pool nothing could chew
+  through, and they play in the same room.
+- **The outline is `Occluded`.** A mark visible through terrain is a wallhack.
+- **Five new boot checks in `Abilities.validate`:** a timed effect with no
+  duration, a duration with nothing that lasts, an `absorb` on a non-`Aura`
+  (it would shield the enemies in front of you), a `mark` on an `Aura` (it
+  would mark your own side), and the old "does nothing" check widened from
+  three effects to five.
+- **The bar went from 4 slots to 6.** Four was sized to the number keys a
+  conversation also uses, and it happened to be exactly the most one character
+  could unlock — so nothing had ever been hidden, and a fifth ability would
+  have been a skill point spent on a button that never appears. Keys 5 and 6
+  are the bar's alone. **Seven abilities is where this stops working**, and
+  that is the point at which a loadout screen is a feature rather than a menu.
+
+**Not built: the revive.** The brief lists it third and it is the biggest of the
+three, because it needs a downed state — a character at zero health who is not
+yet dead — which touches respawn, aggro, mission failure and the death handling
+in `PlayerService`. The mark and the barrier deliver the target's actual claim
+without it. Worth doing when there is a reason to change death.
+
+Still open: **5** (skills that open the world).
 
 ### 4.1 Analytics — **[todo]**
 The cheapest item on this roadmap that measurably improves the game, and the

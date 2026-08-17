@@ -51,21 +51,47 @@ export type PanelDef = {
 		out of those checks, while still taking input focus.
 	]]
 	fullScreen: boolean,
+	--[[
+		The key that opens it, and the word the HUD's legend calls it by.
+
+		The key used to be a `TOGGLE_KEY` constant inside each controller,
+		which was fine while nothing else needed to know it. Then it turned
+		out that something did: a player who has not been told that K exists
+		does not have a skill tree, however finished the panel is. Reported
+		from play, 2026-08-17 -- "I'm unsure how to use powers, where we see
+		the skills tree".
+
+		A legend that spelled the letters out itself would be a second copy of
+		five bindings, and the wrong kind of wrong: it would keep drawing the
+		old letter after a rebind and there would be nothing to catch it. So
+		the key moves here, next to the name, and both the controller and the
+		legend read the same field.
+
+		One optional field rather than two, so a panel cannot end up with a
+		key nobody advertises or a label that opens nothing. Absent for the
+		two you never open yourself.
+	]]
+	toggle: { key: Enum.KeyCode, hint: string }?,
 }
 
 local ALL: { PanelDef } = {
-	-- Modal, and the only one with no key: it refuses `setOpen(false)` until
-	-- the character has an origin. Registered here anyway so it takes input
-	-- focus and hides the world behind it like the rest.
+	-- Modal, and one of the two with no key: it refuses `setOpen(false)`
+	-- until the character has an origin. Registered here anyway so it takes
+	-- input focus and hides the world behind it like the rest.
 	{ name = "CreationController", fullScreen = true },
-	{ name = "InventoryController", fullScreen = true },
-	{ name = "MissionBoardController", fullScreen = true },
-	{ name = "JournalController", fullScreen = true },
-	{ name = "SkillTreeController", fullScreen = true },
-	{ name = "GalaxyMapController", fullScreen = true },
+	{ name = "InventoryController", fullScreen = true, toggle = { key = Enum.KeyCode.B, hint = "GEAR" } },
+	{
+		name = "MissionBoardController",
+		fullScreen = true,
+		toggle = { key = Enum.KeyCode.M, hint = "MISSIONS" },
+	},
+	{ name = "JournalController", fullScreen = true, toggle = { key = Enum.KeyCode.J, hint = "JOURNAL" } },
+	{ name = "SkillTreeController", fullScreen = true, toggle = { key = Enum.KeyCode.K, hint = "SKILLS" } },
+	{ name = "GalaxyMapController", fullScreen = true, toggle = { key = Enum.KeyCode.G, hint = "STAR MAP" } },
 	-- 760x250 along the bottom: you keep seeing the person you are talking to,
 	-- so nothing hides for it. Picking a reply is still a click on a button in
-	-- front of someone, which is why it takes focus like the rest.
+	-- front of someone, which is why it takes focus like the rest. Opened by
+	-- walking up to somebody, so there is no key and nothing to advertise.
 	{ name = "DialogueController", fullScreen = false },
 }
 
@@ -74,6 +100,22 @@ Panels.ALL = ALL
 --------------------------------------------------------------------------------
 -- Queries
 --------------------------------------------------------------------------------
+
+--[[
+	The key that opens `name`, for the controller that owns it.
+
+	Returns an optional because the field is one, and a controller that asks
+	for a key it did not declare has a bug that should not silently bind the
+	wrong letter. The five that have one index it directly.
+]]
+function Panels.toggleKey(name: string): Enum.KeyCode?
+	for _, def in ALL do
+		if def.name == name then
+			return if def.toggle then def.toggle.key else nil
+		end
+	end
+	return nil
+end
 
 local function isOpen(def: PanelDef): boolean
 	local panel = ServiceLoader.find(def.name)

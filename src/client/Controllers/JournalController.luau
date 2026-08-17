@@ -57,7 +57,7 @@ local DIM = Color3.fromRGB(150, 158, 170)
 local FAINT = Color3.fromRGB(104, 111, 122)
 local GOOD = Color3.fromRGB(96, 190, 120)
 
-local TOGGLE_KEY = Enum.KeyCode.J
+local TOGGLE_KEY = Panels.toggleKey("JournalController")
 
 local screen: ScreenGui
 local subtitleLabel: TextLabel

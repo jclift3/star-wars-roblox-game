@@ -102,17 +102,29 @@ def({
 			count = 3,
 			description = "Take the intake records from the Academy",
 		},
+		--[[
+			Both of these used to happen in Dreshdae, and Dreshdae is at the
+			other end of the Valley -- which bands 19-30 and holds twenty-two
+			aggressive things. The first mission of the Acolyte origin sent a
+			level 1 character down it and the client met them with YOU ARE
+			LEVEL 1 -- TURN BACK. Reported from play, 2026-08-17.
+
+			The Academy has clerks now (`Planets.luau`, Korriban spawns), so
+			the prologue stays behind the wall it is set behind. See the new
+			district check in `validate`, which is the version of this that
+			does not need a playtest to find.
+		]]
 		{
 			kind = Objective.TalkTo,
-			target = "Civilian",
-			count = 3,
-			description = "Ask in Dreshdae who empties a bunk",
+			target = "Researcher",
+			count = 2,
+			description = "Ask the Academy's clerks who empties a bunk",
 		},
 		{
 			kind = Objective.Deliver,
 			target = "ResearchData",
-			destination = "Dreshdae",
-			description = "Bring the records back to Dreshdae",
+			destination = "SithAcademy",
+			description = "Take the records back to the archive",
 		},
 	},
 	rewards = {
@@ -131,6 +143,7 @@ def({
 		]]
 		flags = { "SawTheIntakeForm" },
 	},
+	next = "KorTheDuellingPits",
 })
 
 def({
@@ -257,6 +270,220 @@ def({
 		rep = { Independent = 40 },
 		items = { StimPack = 2 },
 		flags = { "HeardNineRemember" },
+	},
+	next = "TarWhatTheCratesWere",
+})
+
+--------------------------------------------------------------------------------
+-- Korriban -- the opening chain
+--------------------------------------------------------------------------------
+
+--[[
+	THE TWO ORIGINS THAT HAD NO ACT 2
+
+	Act 2 is called Small Work and it was six missions, all of them on Tatooine
+	or Ord Mantell. The Scoundrel and the Conscript wake up on those two
+	planets; the Acolyte and the Scrapper do not. So two of the four origins
+	finished their prologue at level 2 and the next thing written for them was
+	their signature chain at level 12, on a different world, with a ten-level
+	hole in between and no line of dialogue pointing anywhere.
+
+	Reported from play, 2026-08-17, and it is the more serious half of that
+	report: the TURN BACK banner is a bad five minutes, and this is the first
+	hour of half the game's characters.
+
+	Both chains are two missions, both stay in the district the origin already
+	stands in, and both end by naming Czerka and telling the player to leave
+	the planet -- which is also the only place in the game that has ever said
+	out loud that leaving is possible. See `Origins.luau`: all four travel, and
+	none of them were told.
+]]
+
+def({
+	id = "KorTheDuellingPits",
+	displayName = "The Duelling Pits",
+	summary = "Vashk has heard you asking. His answer is the practice yards.",
+	briefing = "You have carried that form around for two days and you have not once put it down and picked up a blade. I am not going to take it off you. I am going to tell you what it is worth: nothing at all, in the hands of an acolyte that anyone in this building could kill. Go to the yards. Four of them. They will not be gentle and you will not be either, and when you come back we will talk about Sennat like two people who can afford to.",
+	debriefing = "Better. Not good. -- You are waiting for me to say something about him, so here is something better than sympathy. The form had a requisition number printed on it. Numbers are issued by somebody. Go and find out by whom, and do it while you are still angry enough to be of any use.",
+	kind = "Story",
+	faction = "Empire",
+	planet = "Korriban",
+	--[[
+		Vashk rather than a clerk, and this is the first mission in the game
+		given by a named character. He stands in the Academy, he signed the
+		disposal order, and he is the reason the Acolyte's opening can be
+		about a person instead of about an errand. `Cast.get("Vashk").zone`
+		is "Academy", which is the district this whole chain stays inside.
+	]]
+	giver = "Vashk",
+	origin = "Acolyte",
+	minLevel = 3,
+	requires = { "KorTheEmptyBunk" },
+	objectives = {
+		--[[
+			The first fight any Acolyte is ever asked for, and until today
+			there was nowhere on the planet to have it: `SithAcolyte` was
+			declared level 22-38 against a district banded 1-12. See the
+			archetype in `NPCArchetypes.luau`.
+		]]
+		{
+			kind = Objective.Kill,
+			target = "SithAcolyte",
+			count = 4,
+			description = "Win four duels in the practice yards",
+		},
+		{
+			kind = Objective.TalkTo,
+			target = "Researcher",
+			count = 2,
+			optional = true,
+			description = "Ask the clerks what a requisition number is",
+		},
+	},
+	rewards = {
+		xp = 520,
+		credits = 240,
+		rep = { Empire = 30 },
+		items = { StimPack = 2 },
+	},
+	next = "KorTheRequisitionNumber",
+})
+
+def({
+	id = "KorTheRequisitionNumber",
+	displayName = "The Requisition Number",
+	summary = "The form that emptied Sennat's bunk has a number on it. Numbers are issued by somebody.",
+	briefing = "Thirty years I have signed these, and for thirty years the number has been issued from off this rock. It is a Czerka series. -- Do not look surprised. Who did you imagine keeps the ledgers of a school that teaches contempt for clerks? Pull every form in the archive carrying that series, count them, and bring me the count. In thirty years I have never had a student willing to count.",
+	debriefing = "Forty-one. -- Forty-one acolytes in thirty years, every one of them collected, every one on a Czerka series, and the company that issues it has an office on Taris and a warehouse it does not admit to owning. That is the end of what this building can tell you. -- So leave. I have signed you out. The gate is not your problem; the Valley is, and you are nineteen levels from the Valley, so do not walk. Open the star map and take a ship. The Empire moves its own for nothing, which is the only thing it has ever given you for free.",
+	kind = "Story",
+	faction = "Empire",
+	planet = "Korriban",
+	giver = "Vashk",
+	origin = "Acolyte",
+	minLevel = 7,
+	requires = { "KorTheDuellingPits" },
+	objectives = {
+		{
+			kind = Objective.Collect,
+			target = "ResearchData",
+			at = "SithAcademy",
+			count = 5,
+			description = "Pull every form in the archive on that series",
+		},
+		{
+			--[[
+				Not everyone in the building wants it counted. This is the
+				only place the chain says out loud that the Academy is a
+				party to it, and it is a fight rather than a line because
+				the player has just been taught how to win one.
+			]]
+			kind = Objective.Kill,
+			target = "SithAcolyte",
+			count = 5,
+			description = "Get past the ones who would rather you did not",
+		},
+		{
+			kind = Objective.Deliver,
+			target = "ResearchData",
+			destination = "SithAcademy",
+			description = "Bring Vashk the count",
+		},
+	},
+	rewards = {
+		xp = 1400,
+		credits = 600,
+		rep = { Empire = 50 },
+		items = { StimPack = 3 },
+	},
+})
+
+--------------------------------------------------------------------------------
+-- Taris -- the opening chain
+--------------------------------------------------------------------------------
+
+def({
+	id = "TarWhatTheCratesWere",
+	displayName = "What the Crates Were",
+	summary = "Fourteen crates went to one buyer. Nine has the shapes; the paperwork is still in the spoil heap.",
+	briefing = "PROPOSAL: I HAVE FOURTEEN SHAPES AND NO NAMES. Statement: every crate that leaves this planet leaves with a docket, and every docket ever thrown away is in the heap we are standing on, because nobody on Taris has ever thrown anything anywhere else. Request: five dockets. Qualifier: I would go myself. My left leg is a cargo-loader arm and the heap is not level.",
+	debriefing = "Result: five dockets, one consignee, zero names. Observation: the consignee field on all five contains a number and not a word. Statement: I have been carrying a number around inside me for eleven years and did not know that was what it was. Assessment: I find I do not like it.",
+	kind = "Story",
+	faction = "Independent",
+	planet = "Taris",
+	giver = "Ordo9",
+	origin = "Scrapper",
+	minLevel = 3,
+	requires = { "TarTheSealedCrate" },
+	objectives = {
+		{
+			kind = Objective.Collect,
+			target = "ResearchData",
+			at = "TheDig",
+			count = 5,
+			description = "Dig five shipping dockets out of the heap",
+		},
+		{
+			kind = Objective.TalkTo,
+			target = "Jawa",
+			count = 3,
+			description = "Ask the Jawas who buys crates that shape",
+		},
+		{
+			kind = Objective.Reach,
+			target = "ResettlementCamp",
+			planet = "Taris",
+			hidden = true,
+			description = "Take the dockets back to Nine",
+		},
+	},
+	rewards = {
+		xp = 520,
+		credits = 240,
+		rep = { Independent = 30 },
+		items = { StimPack = 2 },
+	},
+	next = "TarTheOtherName",
+})
+
+def({
+	id = "TarTheOtherName",
+	displayName = "The Other Name",
+	summary = "The consignee is a number. The camp's traders have seen it before, on their own invoices.",
+	briefing = "Query: how does a colony of four hundred people not know the name of the company that feeds it? Answer: because the company does not use one. Statement: the number on your dockets is a procurement series, and there are traders in the depot who will recognise it and pretend not to. Suggestion: bring them something they want first. Qualifier: I am aware of what I am suggesting. I was built to suggest considerably worse.",
+	debriefing = "Confirmation: Czerka Procurement. Location: a warehouse on this planet, designated Lot 9, at which I have never been and which I am nonetheless able to describe to you room by room. -- Statement: I would like to stop being surprised by myself. Assessment: unlikely. Recommendation: we do not go to Lot 9 today. We go on the day you are able to walk back out of it, and until then there is a galaxy up there and a star map that will take you to it.",
+	kind = "Story",
+	faction = "Independent",
+	planet = "Taris",
+	giver = "Ordo9",
+	origin = "Scrapper",
+	minLevel = 7,
+	requires = { "TarWhatTheCratesWere" },
+	objectives = {
+		{
+			kind = Objective.Collect,
+			target = "PowerCoupling",
+			at = "TheDig",
+			count = 4,
+			description = "Salvage something the depot will actually take",
+		},
+		{
+			kind = Objective.Deliver,
+			target = "PowerCoupling",
+			destination = "ResettlementCamp",
+			description = "Trade it across the counter and let them talk",
+		},
+		{
+			kind = Objective.TalkTo,
+			target = "Merchant",
+			count = 3,
+			description = "Ask three traders whose series that is",
+		},
+	},
+	rewards = {
+		xp = 1400,
+		credits = 600,
+		rep = { Independent = 50 },
+		items = { StimPack = 3 },
 	},
 })
 
@@ -2810,6 +3037,51 @@ function Missions.validate(): { string }
 		]]
 		if m.origin and not Origins.exists(m.origin) then
 			table.insert(problems, `{id}: unknown origin "{m.origin}"`)
+		end
+		--[[
+			THE FIRST MISSION OF AN ORIGIN, WHICH IS THE ONLY ONE NOBODY CHOSE
+
+			Two rules, and both are here rather than applied to every mission
+			on purpose.
+
+			A prologue must lead somewhere. Two of the four did not, so an
+			Acolyte and a Scrapper finished the first thing they ever did and
+			the board went empty until level 12 -- which reads exactly like a
+			game that has run out, because there is no way to tell it apart
+			from one.
+
+			And a prologue must stay in country. `KorTheEmptyBunk` sent a
+			level 1 character to Dreshdae, and the only road to Dreshdae runs
+			the length of the Valley of the Dark Lords, which bands 19-30.
+			The band check below is deliberately *not* applied to missions in
+			general: sending a player somewhere above their level is a normal
+			move and twenty existing missions do it. It is only ever wrong for
+			the mission the player did not pick, on the morning they have
+			nothing yet. Twice `UNDERLEVELLED_BY`, so it fires on a district
+			that is a different part of the game rather than on one that is
+			merely the next part.
+		]]
+		if m.origin and m.minLevel <= 1 then
+			if not m.next then
+				table.insert(problems, `{id}: is an origin's first mission and leads nowhere`)
+			end
+			for i, obj in m.objectives do
+				local poiId = if obj.kind == Objective.Reach
+					then obj.target
+					elseif obj.kind == Objective.Deliver then obj.destination
+					else obj.at
+				local poi = if poiId then Planets.getPOI(m.planet, poiId) else nil
+				local zoneId = if poi then poi.zone else nil
+				if zoneId then
+					local band = Planets.bandFor(m.planet, zoneId)
+					if band.min - m.minLevel > Planets.UNDERLEVELLED_BY * 2 then
+						table.insert(
+							problems,
+							`{id}: objective {i} sends a new character to {zoneId}, which bands {band.min}-{band.max}`
+						)
+					end
+				end
+			end
 		end
 		if m.next and not defs[m.next] then
 			table.insert(problems, `{id}: next mission "{m.next}" does not exist`)

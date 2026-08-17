@@ -58,7 +58,7 @@ local BAD = Color3.fromRGB(198, 78, 78)
 -- Not BAD: the node is buyable. This is a price, not a refusal.
 local WARN = Color3.fromRGB(214, 168, 74)
 
-local TOGGLE_KEY = Enum.KeyCode.K
+local TOGGLE_KEY = Panels.toggleKey("SkillTreeController")
 
 local PIP_COUNT = Progression.MAX_NODE_RANK
 

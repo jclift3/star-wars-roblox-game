@@ -46,7 +46,14 @@ get wrong announces itself there rather than on screen:
 | **Mouse 1** | Fire / swing. Hold for automatics, click per shot for semi-autos |
 | **E** (prompt) | Talk to an NPC |
 | **1**–**9** | Pick a dialogue reply |
-| **1**–**4** | Use an ability — but only when no panel and no conversation is open |
+| **1**–**6** | Use an ability — but only when no panel and no conversation is open |
+
+**The game now says all of this itself**, in a legend across the top-left corner
+that is built from `Panels.ALL` rather than typed out. This table is for the
+person running the tests; the legend is for the player who has never read it.
+Reported from play, 2026-08-17 — someone who had finished a mission still did
+not know the skill tree existed. If a key here and the legend ever disagree, the
+bug is in this file: `Panels.luau` is the one place either of them comes from.
 
 ### Cheat codes
 
@@ -735,6 +742,48 @@ text. Do this on the character you just made.
    and `Dialogue.validate` say so at boot. Nothing else would: the mission would
    simply be absent from every board and the line from every menu.
 
+### 6.1b The first ten levels, on all four worlds — **new, 2026-08-17**
+
+The bug this replaces was reported from play: an Acolyte finished *The Empty
+Bunk* and the next thing it asked for was in Dreshdae, which is the far end of
+the Valley of the Dark Lords — level 19-30 and twenty-two aggressive things. The
+client met a level 1 character with **TURN BACK**. Underneath it were two worse
+facts: the Academy had no NPC that could be *spoken to* at all, which is why the
+mission had to send you out; and act 2 was six missions on Tatooine and Ord
+Mantell, so the Acolyte and the Scrapper had nothing at all between level 2 and
+their signature chain at 12.
+
+Run this four times, once per origin. `iamacolyte` and friends will not do — the
+point is the board, and the board is read from where you are standing.
+
+1. Finish the prologue **without leaving the district you woke up in.** On
+   Korriban that is the Academy, on Taris the Dig. If a tracker line points at a
+   district whose banner is more than a few levels above you, that is the bug
+   coming back.
+2. On Korriban, the Academy now has **Czerka clerks** — four `Researcher`s, the
+   only people there you can press **E** on. If they are missing, objective 2 of
+   *The Empty Bunk* is unfinishable and nothing warns you.
+3. **The board is never empty.** As each mission closes, **M** and check the next
+   one is already posted: Korriban runs *The Empty Bunk* → *The Duelling Pits* →
+   *The Requisition Number*, Taris *The Sealed Crate* → *What the Crates Were* →
+   *The Other Name*. Ord Mantell and Tatooine keep their existing chains.
+4. *The Duelling Pits* asks for four duels with **Sith Acolytes**, in the Academy,
+   at level 3. Those were declared 22-38 against a district banded 1-12 and were
+   therefore unkillable *and* unavoidable; they are 2-14 now. Killing one costs
+   25 Empire reputation, not 150 — six sparring matches used to turn the Academy
+   hostile to its own student, so spar six times and check the guards still let
+   you walk.
+5. The last mission of each chain **tells you to leave the planet**, by name:
+   *The Requisition Number* and *The Other Name* both end by pointing at the star
+   map. That debrief is the only place in the game that has ever said travel is
+   possible. If it does not appear, read the debriefing text — it is the whole
+   point of the mission.
+6. `Missions.validate` now refuses a first mission that leads nowhere, and one
+   whose objectives sit in a district more than six levels above it. It only
+   applies to `minLevel <= 1` missions with an `origin`: sending a player
+   somewhere dangerous is a normal move everywhere else, and twenty missions do
+   it deliberately.
+
 ### 6.2 Faction standing — **new, never played**
 
 Reputation already decided who shoots you, which missions exist and how NPCs
@@ -1038,6 +1087,30 @@ the level gate, `showmethemoney` covers the Scoundrel's debt.
 7. Wear armour and take a hit. You take less damage.
    *(`DamageReduction` is applied in `CombatService.applyDamage`.)*
 
+### 9.0 Knowing any of this exists — **new, 2026-08-17**
+
+Reported from play: *"I'm unsure how to use powers, where we see the skills tree,
+etc."* — from a player who had already finished a mission. Six systems were
+finished and reachable only by pressing a letter nobody had been told about, and
+a keyboard has twenty-six. Do this on a **fresh character**, and read nothing
+first.
+
+1. **The top-left corner names every key**, from the moment the HUD appears:
+   `1-6 POWERS`, then `B GEAR`, `M MISSIONS`, `J JOURNAL`, `K SKILLS`,
+   `G STAR MAP`. It never hides, including in a fight.
+2. **Press each one and check it opens what it claims.** The legend is built from
+   `Panels.ALL` and the controllers read their key from the same field, so a
+   disagreement means the registry lost an entry rather than that the letter is
+   wrong — but the whole reason it is one table is that this used to be six.
+3. `1-6 POWERS` is the only hand-written entry, and it is deliberately first: the
+   ability bar is invisible until the tree unlocks something, so on a level 1
+   character that line is the only thing on screen saying powers exist.
+4. **Buy an ability in K.** A toast says *"Force Push unlocked — press 1"*, once.
+   Buying a second rank of the same node must not say it again.
+5. **Rejoin.** A character who already owns four abilities gets **no toasts** on
+   spawn. The first profile only seeds the set; announcing four things you bought
+   yesterday is noise, and it is what the naive version does.
+
 ### 9.1 Deflection — **new, never played**
 
 `DeflectChance` was a dead stat until 2026-08-16 and is now a real mechanic.
@@ -1110,7 +1183,7 @@ worth 21,480 a sweep. It now costs about **380,000**, and the galaxy pays about
 
 ### 9.4 Abilities — **new, never played**
 
-Five verbs on a 1–4 bar. Nothing here existed before; **Force Push had claimed
+Seven verbs on a 1–6 bar. Nothing here existed before; **Force Push had claimed
 to exist since the tree was written and never has.** Fastest route in is
 `iamacolyte` then `thereisnocow` for the levels and points.
 
@@ -1152,6 +1225,50 @@ to exist since the tree was written and never has.** Fastest route in is
     all.**
 12. Die with an ability on cooldown and respawn. The Force meter is **full**,
     and the bar still has your slots on it.
+13. **The bar holds six.** A Force character can now unlock Push, Barrier, one
+    half of the fork, Mark Target and Field Stim — five. Buy them all and
+    **count the slots**: five buttons, keys 1 to 5, none missing. *(It was four
+    slots until the co-op pair arrived, and four was exactly what a character
+    could hold, so nothing had ever been hidden.)*
+
+### 9.4b Two players — **new, never played, and the only section that needs both boys**
+
+ROADMAP 4.3's fourth target: **two players should be worth more than twice one.**
+Everything before this made *you* better, so a second player was worth exactly a
+second player. Run this with both of them in the same world.
+
+1. **Spotter** (Combat, level 10, behind Marksmanship) unlocks **Mark Target**.
+   It is in the Combat tree on purpose — every origin can reach it.
+2. Aim at a hostile a long way off and press it. **It is a line, not a spray**:
+   at 110 studs and eight degrees, what you were pointing at lights up with a
+   yellow outline and the man next to him does not. The outline lasts about
+   fourteen seconds.
+3. **The outline does not show through walls.** Mark someone, step behind cover,
+   and he is gone from view. *(A mark you can see through terrain is a wallhack,
+   and they will find it.)*
+4. **Alone it is a bad button.** Mark something, shoot it, and the damage numbers
+   go up by under a third for one cooldown. That is correct and it is the point.
+5. **Together it doubles.** One marks, *both* shoot. The damage numbers over
+   **the brother who did not press anything** are the ones that go up. If his
+   numbers are unchanged, the mark is being read as a buff on the caster rather
+   than a debuff on the target, which is the whole feature inverted.
+6. Mark something already marked. The clock restarts; the bonus **does not add**.
+   Try it with both players marking the same enemy — still one bonus.
+7. **Force Barrier** (Force, level 13, behind Force Sensitive) is the other half.
+   Note what it is *not* gated on: **a dark character and a light one can both
+   buy it**, which is deliberate — see the node comment.
+8. Cast it standing next to each other. **Both get a toast reading `Barrier: N`
+   and a blue outline.** Then let something shoot the brother who did not cast
+   it: **his health does not move** until the pool is gone, at which point he
+   gets **"Barrier broken"** and the outline vanishes.
+9. **No damage numbers while it holds.** A hit the barrier eats whole shows
+   nothing over the target — like a deflect. A floating "0" means the absorb is
+   running after the health write instead of before it.
+10. **It does not shield enemies.** Cast it in a crowd of hostiles; only players
+    in the radius get an outline. Same rule as the heals.
+11. **The two together.** One marks, one barriers, both shoot. That fight should
+    be visibly easier than the same fight run twice solo — and if it is not,
+    say so, because that is the target failing rather than a bug.
 
 ### 9.5 Forks and capstones — **new, never played**
 

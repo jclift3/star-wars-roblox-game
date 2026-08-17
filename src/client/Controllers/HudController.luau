@@ -23,6 +23,7 @@ local TweenService = game:GetService("TweenService")
 
 local Shared = game:GetService("ReplicatedStorage"):WaitForChild("Shared")
 local Net = require(Shared.Core.Net)
+local Panels = require(Shared.Core.Panels)
 local Affixes = require(Shared.Config.Affixes)
 local Palette = require(Shared.Config.Palette)
 local Weapons = require(Shared.Config.Weapons)
@@ -206,6 +207,98 @@ local function buildToasts()
 	layout.Parent = root
 
 	toastList = root
+end
+
+--[[
+	The key legend, top left.
+
+	Five finished panels the player has no way to find are five features that
+	do not exist. Reported from play, 2026-08-17: "I'm unsure how to use
+	powers, where we see the skills tree" -- from someone who had played long
+	enough to finish a mission. Nothing in the game had ever said a letter out
+	loud, and a keyboard has twenty-six of them.
+
+	Read from `Panels.ALL` rather than written out, so this cannot drift from
+	what the keys actually do; a panel that declares a `toggle` is advertised
+	by declaring it, and one that does not is silently skipped. That is the
+	same bargain the registry already makes for input focus and mutual close.
+
+	Top left because it is the only corner with nothing in it -- status is
+	bottom left, the tracker is top right, toasts are top centre and the
+	ability bar is bottom centre -- and because a reference card should not
+	sit where the eye goes during a fight.
+
+	It never hides. An always-visible legend is a small permanent cost against
+	a player who does not know the game has a skill tree, and the two brothers
+	play in one room: whichever of them reads it first tells the other.
+]]
+local function buildLegend()
+	local root = Instance.new("Frame")
+	root.Name = "Legend"
+	root.BackgroundTransparency = 1
+	root.Position = UDim2.fromOffset(16, 16)
+	root.Size = UDim2.fromOffset(0, 20)
+	root.AutomaticSize = Enum.AutomaticSize.X
+	root.Parent = screen
+
+	local layout = Instance.new("UIListLayout")
+	layout.FillDirection = Enum.FillDirection.Horizontal
+	layout.SortOrder = Enum.SortOrder.LayoutOrder
+	layout.VerticalAlignment = Enum.VerticalAlignment.Center
+	layout.Padding = UDim.new(0, 10)
+	layout.Parent = root
+
+	local order = 0
+	local function entry(cap: string, hint: string)
+		order += 1
+
+		local holder = Instance.new("Frame")
+		holder.Name = cap
+		holder.BackgroundTransparency = 1
+		holder.Size = UDim2.fromOffset(0, 20)
+		holder.AutomaticSize = Enum.AutomaticSize.X
+		holder.LayoutOrder = order
+		holder.Parent = root
+
+		local inner = Instance.new("UIListLayout")
+		inner.FillDirection = Enum.FillDirection.Horizontal
+		inner.SortOrder = Enum.SortOrder.LayoutOrder
+		inner.VerticalAlignment = Enum.VerticalAlignment.Center
+		inner.Padding = UDim.new(0, 5)
+		inner.Parent = holder
+
+		local key = panel("Key", holder)
+		key.Size = UDim2.fromOffset(if #cap > 1 then 34 else 18, 18)
+		key.LayoutOrder = 1
+
+		local letter = text("Letter", key, 11, ACCENT)
+		letter.Font = Enum.Font.GothamBold
+		letter.Size = UDim2.fromScale(1, 1)
+		letter.TextXAlignment = Enum.TextXAlignment.Center
+		letter.Text = cap
+
+		local label = text("Hint", holder, 11, DIM)
+		label.Size = UDim2.fromOffset(0, 18)
+		label.AutomaticSize = Enum.AutomaticSize.X
+		label.LayoutOrder = 2
+		label.Text = hint
+	end
+
+	--[[
+		The number keys are not a panel, so they are the one line written by
+		hand. They are also the answer to the half of the report that was
+		about powers, and they go first: the bar itself is invisible until the
+		tree has unlocked something, so before that this row is the only thing
+		on screen that says abilities exist at all.
+	]]
+	entry("1-6", "POWERS")
+
+	for _, def in Panels.ALL do
+		local toggle = def.toggle
+		if toggle then
+			entry(toggle.key.Name, toggle.hint)
+		end
+	end
 end
 
 local function buildCrosshair()
@@ -420,6 +513,7 @@ function HudController.init()
 	buildStatusPanel()
 	buildTracker()
 	buildToasts()
+	buildLegend()
 	buildCrosshair()
 
 	Net.onClientEvent(Net.Event.Notify, function(message: string, kind: string?)

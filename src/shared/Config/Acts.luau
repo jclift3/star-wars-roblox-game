@@ -107,10 +107,28 @@ def({
 	order = 2,
 	name = "Small Work",
 	subtitle = "Errands, badly paid, and the first thing that does not add up.",
+	--[[
+		Four planets, because there are four origins.
+
+		This act was six missions on two worlds, and the two worlds were the
+		Scoundrel's and the Conscript's. An Acolyte or a Scrapper finished
+		their prologue at level 2 and act 2 contained nothing they could
+		reach -- so half the game's characters went from the first hour to
+		their signature chain at level 12 with a hole in between. The four
+		chains are listed home world by home world rather than interleaved by
+		level: they are alternatives, not a sequence.
+	]]
 	missions = {
+		"KorTheDuellingPits",
+		"KorTheRequisitionNumber",
+
+		"TarWhatTheCratesWere",
+		"TarTheOtherName",
+
 		"TatDustAndDroids",
 		"TatUnwelcomeAttention",
 		"TatTheHuttsFavour",
+
 		"OrdPayAndRations",
 		"OrdTheHillWithNoName",
 		"OrdFiledAsFatigue",

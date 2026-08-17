@@ -1459,6 +1459,20 @@ def({
 		]]
 		{ archetype = "SithAcolyte", count = 18, zone = "Academy", behavior = NPCArchetypes.Behavior.Guard },
 		{ archetype = "ImperialTrooper", count = 10, zone = "Academy" },
+		--[[
+			Czerka keeps the Academy's records, which is the whole of The
+			Quiet in one spawn rule: the form that collects an acolyte was
+			printed by a contractor.
+
+			Mechanically they are here because the Academy had nobody in it
+			who could be spoken to. `SithAcolyte` and `ImperialTrooper` are
+			both `interactable = false`, so the Acolyte prologue's "ask
+			around" objective had to be sent to Dreshdae -- and the only road
+			from here to Dreshdae is the Valley, which bands 19-30 and holds
+			twenty-two aggressive things. The origin's first mission walked a
+			level 1 character into it. Reported from play, 2026-08-17.
+		]]
+		{ archetype = "Researcher", count = 4, zone = "Academy" },
 		{ archetype = "Civilian", count = 16, zone = "Dreshdae" },
 		{ archetype = "Researcher", count = 4, zone = "Dreshdae" },
 		-- Six for five places: three points on the avenue and the two

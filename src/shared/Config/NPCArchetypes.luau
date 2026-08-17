@@ -266,19 +266,38 @@ def({
 	speciesPool = pool({ Human = 6, Zabrak = 3, Twilek = 1 }),
 	behavior = Behavior.Aggressive,
 	holdsGround = true,
-	minLevel = 22,
-	maxLevel = 38,
-	baseHealth = 280,
-	healthPerLevel = 11,
+	--[[
+		A student, and priced like one.
+
+		This archetype spawns in exactly one place in the galaxy -- the
+		Korriban Academy, which bands 1-12 -- and it was declared 22-38, a
+		range with no overlap at all. `rollLevel` clamps into the band, so
+		every one of the eighteen came out pinned to one end, and the
+		Acolyte's own home district was a wall on the first morning: nothing
+		there could be fought, so the origin had no way to reach level 2
+		without leaving the planet it had not been told how to leave.
+
+		2-14 is what the fiction already said these people are. The named
+		Sith who are supposed to be dangerous are `SithHonourGuard` in the
+		Valley and `SithLord` in the Wastes, and neither changed.
+
+		`repOnKill` drops with it. Duelling in the practice yards is what the
+		yards are for; -150 an acolyte meant six sparring matches turned the
+		Academy hostile to its own student.
+	]]
+	minLevel = 2,
+	maxLevel = 14,
+	baseHealth = 110,
+	healthPerLevel = 12,
 	walkSpeed = 12,
 	runSpeed = 23,
 	weapon = "SaberRed",
 	sightRange = 120,
 	attackRange = 9,
 	reactionTime = 0.2,
-	xpReward = 480,
-	creditReward = { min = 250, max = 600 },
-	repOnKill = -150,
+	xpReward = 110,
+	creditReward = { min = 15, max = 60 },
+	repOnKill = -25,
 	dialogue = "SithTaunt",
 	nameStyle = "Sith",
 })

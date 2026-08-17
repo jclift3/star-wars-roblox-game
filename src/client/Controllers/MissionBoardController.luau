@@ -51,7 +51,7 @@ local DIM = Color3.fromRGB(150, 158, 170)
 local GOOD = Color3.fromRGB(96, 190, 120)
 local BAD = Color3.fromRGB(198, 78, 78)
 
-local TOGGLE_KEY = Enum.KeyCode.M
+local TOGGLE_KEY = Panels.toggleKey("MissionBoardController")
 
 local TAB_AVAILABLE = "Available"
 local TAB_ACTIVE = "Active"
