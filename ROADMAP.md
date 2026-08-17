@@ -1189,7 +1189,7 @@ caller changed.
 `showmethemoney` (`DevService`) prints every generated mission and today's
 postings — the offline test, same reasoning as `iseedeadpeople`.
 
-### 4.3 Skill trees, properly — **[todo]**
+### 4.3 Skill trees, properly — **[targets 1 and 3 done 2026-08-16; 2, 4, 5 open]**
 Raised 2026-08-15: *"the skill trees need to be incredibly well thought out and
 align with the objectives and gameplay."* Correct. The UI is done (1.5) and the
 **content is not**. What exists is 19 skills across 4 trees where:
@@ -1277,6 +1277,56 @@ mitigation now~~ (done, above), write the full tree design alongside CAMPAIGN's 
 chains (3b.5) since they answer the same question — *why specialize?* — and
 implement after 3.1. Design goes in a new `SKILLS.md` when it is written; this
 section is the brief.
+
+#### Targets 1 and 3, built 2026-08-16
+The sequencing note above said abilities needed "a cooldown/resource system and
+input bindings" that did not exist. They exist now, so targets **1 (actives)**
+and **3 (alignment on the Force tree)** are done, and they turned out to be the
+same piece of work: an ability is what makes an alignment branch worth having.
+
+- **`Config/Abilities.luau`** — five verbs, and deliberately only **three
+  shapes** (`Cone`, `Point`, `Aura`). Every power worth having so far is a fan
+  in front of you, a thing thrown at a spot, or something that happens around
+  you; a service with a branch per ability is a service nobody can add to. A
+  sixth ability is a table entry and gets its server resolution, its visual and
+  its slot for free.
+- **Force Push exists.** It had said "Unlocks Force Push" and been marked
+  `unimplemented` since the tree was written — the oldest broken promise in the
+  file, and B5's headline example.
+- **The alignment fork.** `ForceLightning` (`maxAlignment = -100`) and
+  `ForceMend` (`minAlignment = 100`) at level 16, and neither character can buy
+  the other. Gated on the **node purchase**, not on pressing the key: an ability
+  that refuses when pressed is a skill point already spent on nothing, which is
+  the exact failure `Progression.validate` exists to catch.
+- **Only Force abilities cost a resource.** A Scoundrel has no mystical meter
+  and giving him one for symmetry would be a bar on screen that means nothing.
+  The asymmetry is paid for the other way: Force abilities hit harder, and the
+  non-Force pair (`FragGrenade`, `FieldStim`) cost only their cooldown.
+- **`MaxForce` finally has a spender**, so `ForceSensitive` went back from a
+  bare gate to granting 100 Force — five of the six stats B5 found dead are now
+  live and named in `LIVE_STATS`.
+- **`AbilityService`** owns cooldowns, the Force pool and every effect, on the
+  same authority inversion as `CombatService`: the client sends an id and a
+  camera direction and nothing else. All damage routes through
+  `CombatService.applyDamage`, so an ability kill pays XP, loot, reputation and
+  mission progress exactly like a blaster kill.
+- **The pool is not saved.** It refills on spawn. A resource that regenerates in
+  under a minute has nothing to remember, and persisting it would mean logging
+  back in unable to do the thing you logged in to do.
+- **Two new boot checks.** `Abilities.validate` refuses an ability whose node or
+  scale stat does not exist, whose shape has no radius or angle, that does no
+  damage *and* no healing *and* no knockback, or that is an `Aura` dealing
+  damage (it would hit your own side). `AbilityService.init` reads the join the
+  other way too — a *skill* naming an ability that does not exist.
+- **The bar is 1-4, bottom centre**, drawn from `Abilities.unlockedBy` so buying
+  a rank is the same event as a button appearing. Every press is refused while
+  `Panels.anyOpen()`, because `DialogueController` owns the number keys during a
+  conversation.
+
+Still open: **2** (mutually exclusive nodes and capstones — the fork above is
+the first and only branch point in the game), **4** (co-op — the two heals are
+`Aura`s and reach a teammate, which is a start, not the answer) and **5**
+(skills that open the world).
 
 ### 4.1 Analytics — **[todo]**
 The cheapest item on this roadmap that measurably improves the game, and the

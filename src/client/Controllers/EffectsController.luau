@@ -23,6 +23,7 @@ local Shared = game:GetService("ReplicatedStorage"):WaitForChild("Shared")
 local Net = require(Shared.Core.Net)
 local Palette = require(Shared.Config.Palette)
 local Weapons = require(Shared.Config.Weapons)
+local Abilities = require(Shared.Config.Abilities)
 
 local EffectsController = {
 	name = "EffectsController",
@@ -166,6 +167,87 @@ function EffectsController.spawnBolt(weaponId: string, origin: Vector3, directio
 end
 
 --------------------------------------------------------------------------------
+-- Abilities
+--------------------------------------------------------------------------------
+
+--[[
+	Draws an ability going off, from its *shape* rather than its id.
+
+	Three shapes and no per-ability branch, exactly like `AbilityService`: a
+	sixth ability should get a visual for free, and a client that had to be
+	edited alongside every new power is a client that will eventually be one
+	power behind the server.
+
+	Cosmetic, like the bolts above, and drawn from the same replicated
+	`Abilities` table the server resolved the effect from -- so the flash is
+	the right size for the thing that actually happened.
+]]
+local ABILITY_LIFETIME = 0.45
+
+local function spawnAbilityEffect(abilityId: string, origin: Vector3, direction: Vector3)
+	local def = Abilities.get(abilityId)
+	local colour = if def.heal
+		then Palette.SaberGreen
+		elseif def.damageType == "Explosive" then Palette.RebelOrange
+		else Palette.SaberBlue
+
+	local part = Instance.new("Part")
+	part.Name = "AbilityEffect"
+	part.Anchored = true
+	part.CanCollide = false
+	part.CanQuery = false
+	part.CanTouch = false
+	part.Color = colour
+	part.Material = Enum.Material.Neon
+	part.Transparency = 0.55
+	part.CastShadow = false
+
+	local grown: Vector3
+	if def.shape == Abilities.Shape.Cone then
+		-- A flat slab down the middle of the cone. A real cone mesh would be
+		-- more honest and much more work for something on screen for a third
+		-- of a second; what the player needs to read is the direction.
+		part.Shape = Enum.PartType.Block
+		part.Size = Vector3.new(1, 1, def.range)
+		part.CFrame = CFrame.lookAt(origin + direction * (def.range * 0.5), origin + direction * def.range)
+		grown = Vector3.new(def.range * 0.5, 1, def.range)
+	else
+		part.Shape = Enum.PartType.Ball
+		local radius = def.radius or 8
+		part.Size = Vector3.new(1, 1, 1)
+		-- `origin` is already the resolved spot for a Point and the caster for
+		-- an Aura -- the server sends whichever one this shape happens on, so
+		-- the client never has to re-derive a landing point it could get wrong.
+		part.Position = origin
+		grown = Vector3.new(radius, radius, radius) * 2
+	end
+
+	part.Parent = container()
+
+	local light = Instance.new("PointLight")
+	light.Color = colour
+	light.Range = 18
+	light.Brightness = 3
+	light.Shadows = false
+	light.Parent = part
+
+	-- A Point ability is drawn when it *lands*, so the flash waits out the
+	-- fuse: showing the bang at the moment of the throw would teach players to
+	-- dodge at the wrong time.
+	task.delay(def.fuse or 0, function()
+		if not part.Parent then
+			return
+		end
+		TweenService:Create(part, TweenInfo.new(ABILITY_LIFETIME, Enum.EasingStyle.Quad), {
+			Size = grown,
+			Transparency = 1,
+		}):Play()
+	end)
+
+	Debris:AddItem(part, (def.fuse or 0) + ABILITY_LIFETIME + 0.2)
+end
+
+--------------------------------------------------------------------------------
 -- Damage numbers
 --------------------------------------------------------------------------------
 
@@ -225,6 +307,12 @@ function EffectsController.init()
 		end
 		if Weapons.get(weaponId).class == "Blaster" then
 			EffectsController.spawnBolt(weaponId, origin, direction)
+		end
+	end)
+
+	Net.onClientEvent(Net.Event.AbilityUsed, function(abilityId: string, origin: Vector3, direction: Vector3)
+		if Abilities.exists(abilityId) then
+			spawnAbilityEffect(abilityId, origin, direction)
 		end
 	end)
 

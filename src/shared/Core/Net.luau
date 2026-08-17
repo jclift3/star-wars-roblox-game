@@ -342,6 +342,11 @@ Net.Event = {
 	ToggleSaber = "ToggleSaber",
 	SaberSwing = "SaberSwing",
 	DamageDealt = "DamageDealt",
+	-- Abilities
+	UseAbility = "UseAbility",
+	AbilityUsed = "AbilityUsed",
+	AbilityRefused = "AbilityRefused",
+	ForceChanged = "ForceChanged",
 	-- Missions
 	MissionUpdated = "MissionUpdated",
 	AcceptMission = "AcceptMission",

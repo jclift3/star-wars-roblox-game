@@ -70,6 +70,23 @@ export type SkillNode = {
 	-- Node ids that must have at least 1 rank before this unlocks.
 	requires: { string }?,
 	--[[
+		Alignment bounds, inclusive, from `Config/Alignment.luau`.
+
+		This is the fork the Force tree is *for*: lightning is bought by
+		somebody who has been cruel and healing by somebody who has not, and
+		neither can buy the other. It is a purchase gate rather than a
+		use-time gate on purpose -- an ability that refuses when pressed is a
+		skill point already spent on nothing, which is precisely the failure
+		`validate` below exists to catch.
+
+		Nothing lowers alignment back the way it came quickly, so this is a
+		commitment rather than a costume. It does not un-buy a node if the
+		character later drifts across the line: taking away something a
+		player paid for is worse than the inconsistency.
+	]]
+	minAlignment: number?,
+	maxAlignment: number?,
+	--[[
 		Per-rank effect. Read by the systems that care; see `Progression.effect`.
 
 		Absent on a node that is purely a gate -- one whose worth is the
@@ -78,6 +95,16 @@ export type SkillNode = {
 		out of a pool nothing has ever spent.
 	]]
 	effect: { stat: string, perRank: number }?,
+	--[[
+		The ability this node unlocks at rank 1, from `Config/Abilities.luau`.
+
+		Written here as well as over there because the two questions are
+		different: `Abilities` asks "what unlocks me", which it needs to check
+		a request, and the skill panel asks "what does this point buy", which
+		it cannot answer by scanning every ability. `Abilities.validate`
+		checks the pair agree.
+	]]
+	ability: string?,
 	--[[
 		Set when nothing in the game reads `effect.stat` yet.
 
@@ -139,6 +166,25 @@ node({
 	requiredLevel = 8,
 	requires = { "Toughness" },
 	effect = { stat = "HealthRegen", perRank = 0.4 },
+})
+--[[
+	The Combat tree's verb, and the one every origin can reach.
+
+	Force Push and the two branches behind it are gated on a tree three of the
+	four origins have no reason to open. Without this, "abilities" would mean
+	"the Force", and a Conscript's whole progression would still be
+	percentages.
+]]
+node({
+	id = "Grenadier",
+	tree = "Combat",
+	displayName = "Grenadier",
+	description = "Unlocks the Frag Grenade. +10% explosive damage per rank.",
+	maxRank = 5,
+	requiredLevel = 6,
+	requires = { "Marksmanship" },
+	effect = { stat = "ExplosiveDamageMult", perRank = 0.1 },
+	ability = "FragGrenade",
 })
 node({
 	id = "Deadeye",
@@ -205,25 +251,27 @@ node({
 
 -- Force -----------------------------------------------------------------------
 --[[
-	A gate, and only a gate.
+	The tree gate, and now also the pool every power in it spends.
 
 	This used to read "+20 Force energy per rank" over five ranks, against a
-	`MaxForce` pool that no ability has ever drawn on -- so four of its five
+	`MaxForce` pool that no ability had ever drawn on -- so four of its five
 	ranks were points spent on nothing, and the fifth was the tree opening.
-	ROADMAP B5 caught seven skills like this and missed two; this is one.
+	ROADMAP B5 caught seven skills like this and missed two; this was one. It
+	became a one-rank gate with no effect at all, which was the honest state
+	while nothing spent Force.
 
-	Rather than mark it `unimplemented`, which would lock the Force tree
-	behind a node nobody can buy, it now charges one point for what it
-	actually sells. The four ranks that bought nothing are freed for skills
-	that do. `MaxForce` stays in `baseStats` for when a power spends it.
+	Something spends it now (`AbilityService`), so it grants the pool again --
+	but still at one rank. A second rank would be "more of a resource you
+	rarely run out of", and the point it costs is worth more as Lightning.
 ]]
 node({
 	id = "ForceSensitive",
 	tree = "Force",
 	displayName = "Force Sensitive",
-	description = "Opens the Force tree. Required for all Force powers.",
+	description = "Opens the Force tree, and gives you 100 Force to spend.",
 	maxRank = 1,
 	requiredLevel = 5,
+	effect = { stat = "MaxForce", perRank = 100 },
 })
 node({
 	id = "SaberForm",
@@ -245,18 +293,59 @@ node({
 	requires = { "SaberForm" },
 	effect = { stat = "DeflectChance", perRank = 0.09 },
 })
+--[[
+	The first node in the game that buys a verb rather than a percentage.
+
+	It claimed to unlock a power from the day it was written and was marked
+	`unimplemented` for it, because there was nowhere for a power to live.
+	`Config/Abilities.luau` and `AbilityService` are that place.
+]]
 node({
 	id = "ForcePush",
 	tree = "Force",
 	displayName = "Force Push",
-	description = "Unlocks Force Push. +15% knockback per rank.",
+	description = "Unlocks Force Push. +15% force and damage per rank.",
 	maxRank = 5,
 	requiredLevel = 9,
 	requires = { "ForceSensitive" },
 	effect = { stat = "PushPower", perRank = 0.15 },
-	-- The power itself has never existed. Unlocking it needs the ability
-	-- system in ROADMAP 4.3, which is where the rest of the verbs go too.
-	unimplemented = "Needs the ability system — not in the game yet",
+	ability = "ForcePush",
+})
+
+--[[
+	The fork. Two nodes, same level, same prerequisite, and no character can
+	hold both -- the bounds are the Unaligned band's own edges, so they do not
+	overlap and do not leave a gap.
+
+	This is what ROADMAP 3b.2's alignment axis was built to pay for: until now
+	it moved and nothing in the tree read it. Deliberately at level 16, a few
+	levels after the first real fork in the campaign (level 12), so the
+	character has already been asked once in prose before being asked in
+	points.
+]]
+node({
+	id = "ForceLightning",
+	tree = "Force",
+	displayName = "Force Lightning",
+	description = "Unlocks Force Lightning. +10% Force damage per rank. Cruel characters only.",
+	maxRank = 5,
+	requiredLevel = 16,
+	requires = { "ForceSensitive" },
+	maxAlignment = -100,
+	effect = { stat = "ForceDamageMult", perRank = 0.1 },
+	ability = "ForceLightning",
+})
+node({
+	id = "ForceMend",
+	tree = "Force",
+	displayName = "Force Mend",
+	description = "Unlocks Force Mend. +12% healing per rank. Decent characters only.",
+	maxRank = 5,
+	requiredLevel = 16,
+	requires = { "ForceSensitive" },
+	minAlignment = 100,
+	effect = { stat = "HealPower", perRank = 0.12 },
+	ability = "ForceMend",
 })
 node({
 	id = "ForceSpeed",
@@ -301,6 +390,25 @@ node({
 	-- with the interiors in ROADMAP 3.1.
 	unimplemented = "Needs sliceable terminals — not in the game yet",
 })
+--[[
+	A heal with no Force behind it, and the only one three of the four origins
+	will ever have.
+
+	It shares `HealPower` with `ForceMend` on purpose: they are the same verb
+	bought two ways, and a character who somehow has both should not have two
+	independent healing budgets.
+]]
+node({
+	id = "FieldStim",
+	tree = "Engineering",
+	displayName = "Field Stim",
+	description = "Unlocks the Field Stim, which heals you and anyone beside you. +10% healing per rank.",
+	maxRank = 5,
+	requiredLevel = 8,
+	requires = { "Scavenger" },
+	effect = { stat = "HealPower", perRank = 0.1 },
+	ability = "FieldStim",
+})
 node({
 	id = "FieldRepair",
 	tree = "Engineering",
@@ -326,10 +434,19 @@ Progression.baseStats = {
 	ShipTurnMult = 1,
 	ShipShield = 100,
 	FuelCostMult = 1,
+	-- Zero until `ForceSensitive` is bought, which is what makes that node a
+	-- real gate: no pool, no Force ability can be paid for.
 	MaxForce = 0,
+	-- Force per second, flat rather than bought. A regeneration skill would
+	-- be a percentage node on a tree this file is trying to get away from,
+	-- and the cooldowns are the real limiter anyway.
+	ForceRegen = 5,
 	SaberDamageMult = 1,
 	DeflectChance = 0,
 	PushPower = 1,
+	ForceDamageMult = 1,
+	ExplosiveDamageMult = 1,
+	HealPower = 1,
 	MoveSpeedMult = 1,
 	CreditMult = 1,
 	PriceMult = 1,
@@ -369,6 +486,12 @@ local LIVE_STATS: { [string]: string } = {
 	CreditMult = "ProgressionService.awardCredits",
 	PriceMult = "ProgressionService.priceFor / TravelService",
 	DamageReduction = "CombatService.applyDamage",
+	MaxForce = "AbilityService (Force pool)",
+	ForceRegen = "AbilityService (Force pool)",
+	PushPower = "AbilityService.use (ForcePush)",
+	ForceDamageMult = "AbilityService.use (ForceLightning)",
+	ExplosiveDamageMult = "AbilityService.use (FragGrenade)",
+	HealPower = "AbilityService.use (ForceMend / FieldStim)",
 }
 
 Progression.LIVE_STATS = LIVE_STATS
@@ -425,7 +548,8 @@ function Progression.canPurchase(
 	nodeId: string,
 	currentSkills: { [string]: number },
 	level: number,
-	skillPoints: number
+	skillPoints: number,
+	alignment: number
 ): (boolean, string?)
 	local def = nodes[nodeId]
 	if not def then
@@ -455,6 +579,17 @@ function Progression.canPurchase(
 			end
 		end
 	end
+
+	-- Deliberately vague about the number. The player is never shown their
+	-- alignment as a figure anywhere else and starting here would turn a
+	-- record of what they did into a bar to fill.
+	if def.minAlignment and alignment < def.minAlignment then
+		return false, "You have not been the kind of person this answers to"
+	end
+	if def.maxAlignment and alignment > def.maxAlignment then
+		return false, "You have not been the kind of person this answers to"
+	end
+
 	return true, nil
 end
 
@@ -533,6 +668,16 @@ function Progression.validate(): { string }
 					table.insert(problems, `{id}: requires "{req}", which is not a skill`)
 				end
 			end
+		end
+
+		-- A window with nothing in it. `canPurchase` would refuse every
+		-- character on the game's only alignment axis, which reads to the
+		-- player as a bug in the button rather than a bound they can meet.
+		if def.minAlignment and def.maxAlignment and def.minAlignment > def.maxAlignment then
+			table.insert(
+				problems,
+				`{id}: wants alignment above {def.minAlignment} and below {def.maxAlignment}, which is nobody`
+			)
 		end
 
 		local effect = def.effect

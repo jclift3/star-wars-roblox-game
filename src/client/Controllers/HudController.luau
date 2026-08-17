@@ -348,7 +348,15 @@ for count = 1, Affixes.MAX_AFFIXES do
 	KIND_COLOURS[rarity.name] = rarity.color
 end
 
-local function toast(message: string, kind: string?)
+--[[
+	Puts a message in the toast stack.
+
+	Public because a refused ability has to say why, and the alternative was a
+	second round trip: the server would have to send both a refusal the bar can
+	act on and a `Notify` the HUD can draw, for one press of a key that did
+	nothing. There is one toast stack; this is how you reach it.
+]]
+function HudController.toast(message: string, kind: string?)
 	local frame = panel("Toast", toastList)
 	frame.Size = UDim2.new(1, 0, 0, 0)
 	frame.AutomaticSize = Enum.AutomaticSize.Y
@@ -415,7 +423,7 @@ function HudController.init()
 	buildCrosshair()
 
 	Net.onClientEvent(Net.Event.Notify, function(message: string, kind: string?)
-		toast(message, kind)
+		HudController.toast(message, kind)
 	end)
 
 	-- MissionUpdated is a nudge, not data: the authoritative copy arrives with

@@ -28,6 +28,7 @@ local Players = game:GetService("Players")
 local UserInputService = game:GetService("UserInputService")
 
 local Shared = game:GetService("ReplicatedStorage"):WaitForChild("Shared")
+local Abilities = require(Shared.Config.Abilities)
 local Alignment = require(Shared.Config.Alignment)
 local Net = require(Shared.Core.Net)
 local Palette = require(Shared.Config.Palette)
@@ -365,7 +366,17 @@ local function renderDetail()
 	local rank = if profile then profile.skills[def.id] or 0 else 0
 
 	detailTitle.Text = def.displayName
-	detailBody.Text = def.description
+	--[[
+		A node that grants a power says so here, and names the key it will
+		land on. Almost every node in the tree is a percentage, so the four
+		that are a *verb* have to be told apart before the point is spent --
+		otherwise the only way to find out that Grenadier is a grenade is to
+		buy it and notice a new button.
+	]]
+	local grants = def.ability
+	detailBody.Text = if grants and Abilities.exists(grants)
+		then `{def.description}\n\nUnlocks {Abilities.get(grants).displayName} on the ability bar.`
+		else def.description
 	actionButton.Visible = true
 
 	-- A gate node moves no stat, so there is nothing to name and nothing to
@@ -398,7 +409,8 @@ local function renderDetail()
 		return
 	end
 
-	local ok, reason = Progression.canPurchase(def.id, profile.skills, profile.level, profile.skillPoints)
+	local ok, reason =
+		Progression.canPurchase(def.id, profile.skills, profile.level, profile.skillPoints, profile.alignment)
 	if ok then
 		detailRequirement.Text = ""
 		actionButton.Text = "SPEND 1 POINT"

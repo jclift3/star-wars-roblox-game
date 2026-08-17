@@ -42,10 +42,11 @@ get wrong announces itself there rather than on screen:
 | **K** | Skill tree |
 | **G** | Galaxy map (travel) |
 | **Esc** | Close the open panel |
-| **Shift** | Sprint (server-authoritative — see 9.4) |
+| **Shift** | Sprint (server-authoritative — see 9, step 4) |
 | **Mouse 1** | Fire / swing. Hold for automatics, click per shot for semi-autos |
 | **E** (prompt) | Talk to an NPC |
 | **1**–**9** | Pick a dialogue reply |
+| **1**–**4** | Use an ability — but only when no panel and no conversation is open |
 
 ### Cheat codes
 
@@ -814,6 +815,51 @@ worth 21,480 a sweep. It now costs about **380,000**, and the galaxy pays about
 4. `Planets.validate` checks the curve against the world **at every level** on
    boot. A `level N costs X XP but only Y is reachable` line in the log means
    the content moved out from under the curve — that is a real finding.
+
+### 9.4 Abilities — **new, never played**
+
+Five verbs on a 1–4 bar. Nothing here existed before; **Force Push had claimed
+to exist since the tree was written and never has.** Fastest route in is
+`iamacolyte` then `thereisnocow` for the levels and points.
+
+1. **The bar is empty at level 1** and the Force meter above it is not drawn.
+   That is correct — you have bought nothing.
+2. Buy **Force Sensitive** then **Force Push** in **K**. Before spending,
+   the detail pane says *"Unlocks Force Push on the ability bar."* On the
+   second purchase **a slot appears on the bar with no reload and no respawn.**
+3. Walk up to anything hostile and press **1**. It is thrown backwards *and
+   upwards* — not scraped along the floor — and takes a little damage. The Force
+   meter drops by 25 and the slot darkens and refills over 8 seconds.
+4. **Press 1 again immediately.** Nothing happens and nothing is said; the local
+   cooldown swallowed it. Now press it repeatedly while it is down — no `[Net]
+   rejected` line, no Force drain.
+5. **Empty the meter** (four pushes in a row once the cooldown allows). The
+   fifth press toasts **"Not enough Force"** and the slot **goes bright again
+   immediately** rather than sitting dark on a cooldown that never started.
+6. **Open any panel and press 1–4.** Nothing fires. Then talk to an NPC and
+   answer with **1** — you get the reply, *not* a Force Push into the person
+   you are talking to. This is the one collision worth being sure about.
+7. **The fork.** At level 16 the Force tree offers **Force Lightning** and
+   **Force Mend**. With a neutral character **both refuse**, saying *"You have
+   not been the kind of person this answers to."* Push alignment dark (the
+   Cartel choices in 8.1) and Lightning becomes buyable while Mend does not.
+   **A character can never hold both.**
+8. **Force Mend / Field Stim reach your brother.** Both stand in one place, hurt
+   both, then one presses the heal. **Both health bars rise.** Nothing hostile
+   standing in the same radius is healed or hurt.
+9. **Frag Grenade** (Combat tree, `Grenadier`, level 6) is the shape to watch.
+   Aim at a wall — **it lands on the wall, not through it** — and the flash
+   happens about a second and a half *after* the throw, not on the throw. Walk
+   out of the ring in that time and take nothing.
+10. **Kill something with an ability rather than a blaster.** XP, credits and
+    any loot drop exactly as if you had shot it, and a mission that wanted that
+    kill counts it. *(All ability damage goes through the same door; if this
+    fails, something is writing health directly.)*
+11. **Field Stim** (Engineering, level 8) costs no Force — a Scoundrel or
+    Scrapper should have a working ability and **no meter above the bar at
+    all.**
+12. Die with an ability on cooldown and respawn. The Force meter is **full**,
+    and the bar still has your slots on it.
 
 ---
 

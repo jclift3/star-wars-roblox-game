@@ -364,7 +364,8 @@ function ProgressionService.purchaseSkill(player: Player, nodeId: string): (bool
 		return false, "Profile not loaded"
 	end
 
-	local ok, reason = Progression.canPurchase(nodeId, profile.skills, profile.level, profile.skillPoints)
+	local ok, reason =
+		Progression.canPurchase(nodeId, profile.skills, profile.level, profile.skillPoints, profile.alignment)
 	if not ok then
 		return false, reason
 	end

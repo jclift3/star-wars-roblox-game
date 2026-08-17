@@ -86,8 +86,13 @@ end
 	Walks up from the part because a hit can land on a cosmetic pauldron welded
 	to a limb, not the limb itself. Returns the humanoid plus the owning player
 	when there is one.
+
+	Exported because `AbilityService` sweeps its cones and blasts with the same
+	overlap queries and has to answer the same question. A second copy of this
+	walk would be a second place for "the pauldron is not the person" to be got
+	subtly wrong.
 ]]
-local function resolveTarget(part: BasePart?): (Humanoid?, Model?, Player?)
+function CombatService.resolveTarget(part: BasePart?): (Humanoid?, Model?, Player?)
 	if not part then
 		return nil, nil, nil
 	end
@@ -350,7 +355,7 @@ function CombatService.resolveShot(
 			break
 		end
 
-		local humanoid, targetModel = resolveTarget(result.Instance)
+		local humanoid, targetModel = CombatService.resolveTarget(result.Instance)
 		if not humanoid or not targetModel then
 			break -- hit geometry; the bolt stops
 		end
@@ -531,7 +536,7 @@ function CombatService.swingMelee(
 	local hits = 0
 
 	for _, part in parts do
-		local humanoid, targetModel = resolveTarget(part)
+		local humanoid, targetModel = CombatService.resolveTarget(part)
 		if not humanoid or not targetModel or seen[targetModel] then
 			continue
 		end
