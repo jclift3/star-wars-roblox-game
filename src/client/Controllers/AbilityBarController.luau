@@ -2,7 +2,7 @@
 --[[
 	AbilityBarController.luau
 
-	The four slots along the bottom of the screen, and the keys that fire them.
+	The slots along the bottom of the screen, and the keys that fire them.
 
 	WHAT IT IS ALLOWED TO DECIDE
 	Nothing. It sends an ability id and where the camera is pointing; the server
@@ -14,9 +14,8 @@
 	IT DRAWS WHAT THE SKILL TREE UNLOCKED
 	The slots are `Abilities.unlockedBy(profile.skills)`, so buying a rank of
 	Force Push is the same event as a button appearing. There is no separate
-	"equip an ability" step, because with five abilities and four slots there is
-	nothing to choose between yet, and a loadout screen for a list that fits on
-	screen is a menu standing where a feature should be.
+	"equip an ability" step, because seven abilities into six slots is the
+	first time there would be anything to choose between -- see `MAX_SLOTS`.
 
 	NUMBER KEYS ARE SHARED
 	`DialogueController` answers with 1-4 as well. Every press here is refused
@@ -51,9 +50,25 @@ local FORCE = Color3.fromRGB(96, 160, 236)
 local SLOT_SIZE = 58
 local SLOT_GAP = 8
 
---- Four, because there are four number keys the bar can have without taking
---- one off a conversation. A fifth ability will need a real loadout screen.
-local MAX_SLOTS = 4
+--[[
+	Six, and six is now the ceiling on abilities.
+
+	This was four, sized to "there are four number keys a conversation also
+	uses" -- and four happened to be exactly the most any one character could
+	unlock, so nothing was ever hidden. ROADMAP 4.3's co-op pair made it six,
+	and a fifth ability with a four-slot bar would have been a skill point
+	spent on a button that never appears.
+
+	Widening the bar rather than adding a loadout screen because a list that
+	fits on screen does not need a menu in front of it. 1-4 are still shared
+	with `DialogueController`, which is safe for the same reason it always
+	was: every press here is refused while a conversation is open. 5 and 6 are
+	the bar's alone.
+
+	A seventh ability is where this stops working, and that is the point at
+	which the loadout screen is a real feature rather than a menu.
+]]
+local MAX_SLOTS = 6
 
 local ONE_KEY = Enum.KeyCode.One.Value
 
@@ -74,6 +89,22 @@ local forceLabel: TextLabel
 
 --- os.clock() at which each ability is predicted to be usable again.
 local readyAt: { [string]: number } = {}
+
+--[[
+	Which abilities have already had their arrival announced, and whether the
+	first profile has landed yet.
+
+	A slot appearing is the whole of the feedback for buying an ability, and a
+	new button in the corner of the eye is not feedback -- reported from play,
+	2026-08-17, by a player who did not know powers existed. So the bar says
+	the name and the key once, when it becomes true.
+
+	`seeded` is why this is two variables and not one. Without it, joining a
+	character who already owns four abilities would announce all four as
+	though they had just been bought. The first profile only fills the set.
+]]
+local announced: { [string]: boolean } = {}
+local seeded = false
 
 local function state()
 	return ServiceLoader.get("ClientState")
@@ -238,7 +269,10 @@ end
 --- change, because a skill purchase is the only thing that moves it.
 local function refresh()
 	local profile = state().get()
-	local unlocked = if profile then Abilities.unlockedBy(profile.skills) else {}
+	-- Annotated, because the `else {}` arm otherwise widens this to a union
+	-- that generalized iteration will not accept -- indexing it was fine, so
+	-- the type only became a problem when something wanted to walk it.
+	local unlocked: { string } = if profile then Abilities.unlockedBy(profile.skills) else {}
 
 	for index, slot in slots do
 		local abilityId = unlocked[index]
@@ -250,6 +284,19 @@ local function refresh()
 	end
 
 	row.Visible = #unlocked > 0
+
+	for index, abilityId in unlocked do
+		-- Past MAX_SLOTS there is no button, so there is no key to name and
+		-- nothing honest to say. The slot loop above has already dropped it.
+		if seeded and not announced[abilityId] and index <= MAX_SLOTS then
+			local name = Abilities.get(abilityId).displayName
+			ServiceLoader.get("HudController").toast(`{name} unlocked  --  press {index}`, "LevelUp")
+		end
+		announced[abilityId] = true
+	end
+	if profile then
+		seeded = true
+	end
 end
 
 local function drawSweeps()

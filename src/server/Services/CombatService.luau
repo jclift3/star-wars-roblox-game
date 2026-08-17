@@ -24,6 +24,7 @@
 	no matter how correct it is.
 ]]
 
+local Debris = game:GetService("Debris")
 local Players = game:GetService("Players")
 local Workspace = game:GetService("Workspace")
 
@@ -33,6 +34,7 @@ local Net = require(Shared.Core.Net)
 local Inventory = require(Shared.Core.Inventory)
 local Signal = require(Shared.Core.Signal)
 local Affixes = require(Shared.Config.Affixes)
+local Palette = require(Shared.Config.Palette)
 local Weapons = require(Shared.Config.Weapons)
 local Loot = require(Shared.Config.Loot)
 local Factions = require(Shared.Config.Factions)
@@ -143,6 +145,118 @@ function CombatService.canDamage(attacker: Model, target: Model): boolean
 end
 
 --------------------------------------------------------------------------------
+-- Timed effects
+--------------------------------------------------------------------------------
+
+--[[
+	Marks and barriers -- the two things one player can do to another player's
+	fight, from ROADMAP 4.3's fourth target.
+
+	WHY THEY LIVE HERE AND NOT IN `AbilityService`
+	Both are read at the moment a hit lands, and `applyDamage` below is the
+	only function that sees one. `AbilityService` writes them and never reads
+	them again; putting the state next to the writer would mean exporting a
+	getter that damage has to remember to call, which is the same shape of
+	mistake as a system nothing has an entry point into.
+
+	NOTHING STACKS
+	A second mark on an already-marked target takes the larger of the two
+	bonuses and restarts the clock; a second barrier does the same with what
+	is left of the first. Two Force users alternating barriers would otherwise
+	pile up a pool nothing could chew through, and the brothers will find that
+	within an afternoon. Refreshing is allowed -- it costs a cooldown either
+	way -- but adding is not.
+]]
+type Timed = {
+	--- Mark: the fraction added to damage. Barrier: the damage still to soak.
+	magnitude: number,
+	expires: number,
+}
+
+--[[
+	Weak-keyed, so a dead NPC's entry goes away with the NPC.
+
+	Written as a cast because `setmetatable` returns the table with its own
+	type and `--!strict` has no notion of a weak table. The alternative is a
+	sweep loop holding every character that has ever been marked, on a server
+	that despawns hundreds of them.
+]]
+local marks: { [Model]: Timed } = setmetatable({}, { __mode = "k" }) :: any
+local barriers: { [Model]: Timed } = setmetatable({}, { __mode = "k" }) :: any
+
+local MARK_GLOW = "MarkGlow"
+local BARRIER_GLOW = "BarrierGlow"
+
+--- The entry, if it has not lapsed. Expiry is checked on read rather than on a
+--- timer: there is no tick to get out of step with, and nothing is spending
+--- CPU on an effect nobody is being hit through.
+local function liveEffect(store: { [Model]: Timed }, character: Model): Timed?
+	local effect = store[character]
+	if not effect then
+		return nil
+	end
+	if os.clock() >= effect.expires then
+		store[character] = nil
+		return nil
+	end
+	return effect
+end
+
+--[[
+	An outline, so the thing an ability did to somebody is visible.
+
+	`Occluded`, not `AlwaysOnTop`: a mark you can see through a wall is a
+	wallhack one of them would work out how to farm. Server-made rather than
+	broadcast, because a Highlight replicates on its own and the client has
+	no business deciding who is marked.
+
+	The colours are the ones `EffectsController` flashes when the ability goes
+	off, so the outline that appears is visibly the same thing as the light
+	that caused it.
+]]
+local function glow(character: Model, name: string, colour: Color3, duration: number)
+	local old = character:FindFirstChild(name)
+	if old then
+		old:Destroy()
+	end
+	local light = Instance.new("Highlight")
+	light.Name = name
+	light.FillTransparency = 1
+	light.OutlineColor = colour
+	light.DepthMode = Enum.HighlightDepthMode.Occluded
+	light.Adornee = character
+	light.Parent = character
+	Debris:AddItem(light, duration)
+end
+
+--- Raises the damage *everyone* does to `target` by `bonus` for `duration`.
+function CombatService.mark(target: Model, bonus: number, duration: number)
+	if bonus <= 0 or duration <= 0 then
+		return
+	end
+	local existing = liveEffect(marks, target)
+	local magnitude = math.max(bonus, existing and existing.magnitude or 0)
+	marks[target] = { magnitude = magnitude, expires = os.clock() + duration }
+	glow(target, MARK_GLOW, Palette.SaberYellow, duration)
+end
+
+--- Gives `target` a pool of damage that is spent before their health is.
+function CombatService.shield(target: Model, pool: number, duration: number)
+	if pool <= 0 or duration <= 0 then
+		return
+	end
+	local existing = liveEffect(barriers, target)
+	local magnitude = math.max(pool, existing and existing.magnitude or 0)
+	barriers[target] = { magnitude = magnitude, expires = os.clock() + duration }
+	glow(target, BARRIER_GLOW, Palette.SaberBlue, duration)
+
+	local player = Players:GetPlayerFromCharacter(target)
+	if player then
+		Net.fireClient(Net.Event.Notify, player, `Barrier: {math.floor(magnitude)}`, "Reward")
+	end
+end
+
+--------------------------------------------------------------------------------
 -- Damage
 --------------------------------------------------------------------------------
 
@@ -210,6 +324,15 @@ function CombatService.applyDamage(target: Model, info: DamageInfo): number
 		return 0
 	end
 
+	-- A mark raises the attack itself, before anything the victim does about
+	-- it, so it reads as "that one is easier to kill" rather than as armour
+	-- piercing -- and so it is worth the same to whoever else is shooting,
+	-- which is the entire point of the ability.
+	local marked = liveEffect(marks, target)
+	if marked then
+		amount *= 1 + marked.magnitude
+	end
+
 	-- Armour is applied here rather than at the weapon, because a bolt, a
 	-- sabre and a fall all have to respect it and only this function sees all
 	-- three. NPCs have no outfit stats, so this is a no-op for them.
@@ -221,6 +344,35 @@ function CombatService.applyDamage(target: Model, info: DamageInfo): number
 		end
 		local reduction = progression().getStats(victim).DamageReduction or 0
 		amount *= 1 - math.clamp(reduction, 0, 0.75)
+	end
+
+	--[[
+		The barrier soaks last, after armour, so the two do not multiply: a
+		heavily armoured player would otherwise get far more out of the same
+		pool than the one who actually needed covering.
+
+		A hit swallowed whole returns 0 and stops here, like a deflect. The
+		alternative is a floating "0" over the target and a `damaged` signal
+		for a hit that did nothing, which is aggro and hit-feedback for free.
+	]]
+	local barrier = liveEffect(barriers, target)
+	if barrier then
+		local soaked = math.min(barrier.magnitude, amount)
+		barrier.magnitude -= soaked
+		amount -= soaked
+		if barrier.magnitude <= 0 then
+			barriers[target] = nil
+			local light = target:FindFirstChild(BARRIER_GLOW)
+			if light then
+				light:Destroy()
+			end
+			if victim then
+				Net.fireClient(Net.Event.Notify, victim, "Barrier broken", "Error")
+			end
+		end
+		if amount <= 0 then
+			return 0
+		end
 	end
 
 	local before = humanoid.Health

@@ -219,6 +219,31 @@ node({
 	ability = "FragGrenade",
 })
 --[[
+	The Combat tree's answer to "why bring a second person", and ROADMAP 4.3's
+	fourth target.
+
+	Every other node in this file makes *you* better, so two players were
+	worth exactly two players. A mark is worth the party's damage rather than
+	the caster's, which means the same point buys more the more people are
+	shooting -- and the boys play in the same room.
+
+	It sits in Combat rather than the Force tree on purpose: three of the four
+	origins never open Force, and a co-op mechanic only one origin can bring
+	is a co-op mechanic that mostly does not happen. The Force half of the
+	pair (`ForceBarrier`) is the side that protects.
+]]
+node({
+	id = "Spotter",
+	tree = "Combat",
+	displayName = "Spotter",
+	description = "Unlocks Mark Target: everyone does more damage to what you paint. +6% per rank.",
+	maxRank = 5,
+	requiredLevel = 10,
+	requires = { "Marksmanship" },
+	effect = { stat = "MarkPower", perRank = 0.06 },
+	ability = "MarkTarget",
+})
+--[[
 	The Combat tree's fork: one target or several.
 
 	Deadeye is the answer to a boss and Overcharge is the answer to a corridor,
@@ -447,6 +472,31 @@ node({
 	effect = { stat = "HealPower", perRank = 0.12 },
 	ability = "ForceMend",
 })
+--[[
+	The Force half of the co-op pair, and the only power in this tree with no
+	side.
+
+	Lightning and Mend are the fork; this is deliberately outside it, because
+	the alternative is that two brothers can only cover each other if they
+	made the same choice about a question the campaign spends thirty levels
+	insisting is theirs alone. Sheltering the person beside you is not a moral
+	position -- a Sith keeps his apprentice breathing for his own reasons.
+
+	Below the fork's level so it is reachable before the character has been
+	asked to pick, and above Push so the tree's first ability is still the
+	one that gets you out of a corner.
+]]
+node({
+	id = "ForceBarrier",
+	tree = "Force",
+	displayName = "Force Barrier",
+	description = "Unlocks Force Barrier: soaks damage for you and everyone near you. +12% per rank.",
+	maxRank = 5,
+	requiredLevel = 13,
+	requires = { "ForceSensitive" },
+	effect = { stat = "ShieldPower", perRank = 0.12 },
+	ability = "ForceBarrier",
+})
 node({
 	id = "ForceSpeed",
 	tree = "Force",
@@ -598,6 +648,10 @@ Progression.baseStats = {
 	ForceDamageMult = 1,
 	ExplosiveDamageMult = 1,
 	HealPower = 1,
+	-- The two co-op stats. Both are multipliers on something that happens to
+	-- somebody else, which is why neither has a solo equivalent to stack with.
+	MarkPower = 1,
+	ShieldPower = 1,
 	MoveSpeedMult = 1,
 	CreditMult = 1,
 	PriceMult = 1,
@@ -647,6 +701,8 @@ local LIVE_STATS: { [string]: string } = {
 	ForceDamageMult = "AbilityService.use (ForceLightning)",
 	ExplosiveDamageMult = "AbilityService.use (FragGrenade)",
 	HealPower = "AbilityService.use (ForceMend / FieldStim)",
+	MarkPower = "AbilityService.strike (MarkTarget) -> CombatService.mark",
+	ShieldPower = "AbilityService.cast (ForceBarrier) -> CombatService.shield",
 }
 
 Progression.LIVE_STATS = LIVE_STATS

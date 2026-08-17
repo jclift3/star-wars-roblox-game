@@ -186,8 +186,12 @@ local ABILITY_LIFETIME = 0.45
 
 local function spawnAbilityEffect(abilityId: string, origin: Vector3, direction: Vector3)
 	local def = Abilities.get(abilityId)
+	-- Still the shape that decides the geometry; this only picks a colour, and
+	-- it is worth a branch because "the thing I painted" and "the thing I hurt"
+	-- have to look different from the moment they leave the barrel.
 	local colour = if def.heal
 		then Palette.SaberGreen
+		elseif def.mark then Palette.SaberYellow
 		elseif def.damageType == "Explosive" then Palette.RebelOrange
 		else Palette.SaberBlue
 

@@ -22,6 +22,15 @@
 	front of you, a thing thrown at a point, or something that happens around
 	you.
 
+	TWO PLAYERS ARE MORE THAN TWICE ONE
+	ROADMAP 4.3, target 4. `heal` used to be the only field whose effect could
+	land on somebody other than the caster, and even that was an accident of
+	`Aura` being the only shape that reaches a teammate. `mark` and `absorb`
+	are the deliberate version: one raises what your brother's blaster does,
+	the other soaks what is shot at him. Both are close to worthless alone --
+	a mark nobody else is shooting into is a Force Push that does no damage --
+	which is exactly what makes them co-op rather than two more numbers.
+
 	THE SAME HONESTY RULE AS SKILLS
 	`unimplemented` means exactly what it means in `Progression.luau`, and
 	`validate` refuses an ability whose stats or node do not exist. An ability
@@ -99,6 +108,26 @@ export type AbilityDef = {
 	knockback: number?,
 	--- Aura only: health restored to the caster and to allies in radius.
 	heal: number?,
+
+	--[[
+		The two effects that land on somebody else, and the only two fields
+		here whose value goes up with the number of people you are playing
+		with. Both are timed, and `duration` is how long either lasts.
+
+		`mark`   -- a fraction added to the damage *everyone* does to what it
+		            lands on. Cone-shaped, hostile, and worth `mark` times
+		            the party's whole damage output rather than yours.
+		`absorb` -- a pool of damage taken off allies before their health is.
+		            Aura-shaped, so it reaches the same people a heal does.
+
+		Neither is a new shape, because neither changes who an ability
+		reaches: a mark is a Cone that does not hurt, a barrier is an Aura
+		that does not heal. `CombatService` holds both, since the only thing
+		that can read them is the one function that sees a hit land.
+	]]
+	mark: number?,
+	absorb: number?,
+	duration: number?,
 
 	--[[
 		The stat that scales this ability's numbers, from `Progression`.
@@ -197,6 +226,35 @@ def({
 	scaleStat = "HealPower",
 })
 
+--[[
+	The half of the co-op pair a Force character brings, and the one power in
+	that tree with no alignment on it at all.
+
+	Sheltering the person next to you is neither cruel nor decent -- a Sith
+	keeps his apprentice alive for his own reasons -- and gating it would have
+	meant the two brothers could only cover each other if they had picked the
+	same side of a fork the campaign spent thirty levels making them argue
+	about. It is the one Force node deliberately open to both.
+
+	Longer and dearer than `ForceMend` because it is spent *before* the fight
+	rather than during it: a heal answers damage already taken, a barrier is a
+	prediction. Nothing stacks -- see `CombatService.shield`.
+]]
+def({
+	id = "ForceBarrier",
+	displayName = "Force Barrier",
+	description = "A shell over you and everyone near you. It soaks what comes next.",
+	node = "ForceBarrier",
+	shape = Shape.Aura,
+	cooldown = 22,
+	forceCost = 50,
+	range = 0,
+	radius = 26,
+	absorb = 90,
+	duration = 12,
+	scaleStat = "ShieldPower",
+})
+
 --------------------------------------------------------------------------------
 -- Combat
 --------------------------------------------------------------------------------
@@ -222,6 +280,34 @@ def({
 	damageType = "Explosive",
 	knockback = 40,
 	scaleStat = "ExplosiveDamageMult",
+})
+
+--[[
+	The other half of the co-op pair, and the half every origin can reach.
+
+	It is the only ability in the game that does nothing on its own: pressed
+	alone it is a long cooldown that makes you hit slightly harder for a
+	while, which is a bad trade. Pressed with somebody else shooting the same
+	thing it is worth `mark` times *both* of you. That asymmetry is the
+	feature, and it is why the number can be generous.
+
+	Aimed like Lightning -- an eight-degree half-angle at 110 studs is a
+	sight line, not a spray -- so painting the one enemy that matters is a
+	shot you have to take rather than a button that tags the room. Anything
+	else caught on the line is a bonus.
+]]
+def({
+	id = "MarkTarget",
+	displayName = "Mark Target",
+	description = "Paints what you are aiming at. Everyone hurts it more.",
+	node = "Spotter",
+	shape = Shape.Cone,
+	cooldown = 18,
+	range = 110,
+	angle = 8,
+	mark = 0.3,
+	duration = 14,
+	scaleStat = "MarkPower",
 })
 
 --------------------------------------------------------------------------------
@@ -321,10 +407,37 @@ function Abilities.validate(
 			table.insert(problems, `{id}: cooldown is {a.cooldown}, so it can be held down`)
 		end
 
-		-- An ability that neither hurts nor heals is a button that plays a
-		-- sound. Knockback alone would count, so it is named here too.
-		if not a.damage and not a.heal and not a.knockback then
-			table.insert(problems, `{id}: does no damage, no healing and no knockback`)
+		-- An ability that does none of these is a button that plays a sound.
+		-- Knockback alone counts, and so does a mark or a barrier, so all
+		-- five are named rather than checking damage and healing only.
+		if not a.damage and not a.heal and not a.knockback and not a.mark and not a.absorb then
+			table.insert(problems, `{id}: does no damage, no healing, no knockback, no mark and no barrier`)
+		end
+
+		--[[
+			A timed effect and its clock have to arrive together.
+
+			An effect with no duration would be applied and expire in the
+			same frame, and a duration with no effect is a number nothing
+			counts down. Both read as "the ability did nothing", which is
+			the failure this whole function exists to make loud.
+		]]
+		if (a.mark or a.absorb) and not a.duration then
+			table.insert(problems, `{id}: grants a timed effect with no duration`)
+		end
+		if a.duration and not (a.mark or a.absorb) then
+			table.insert(problems, `{id}: has a duration, but nothing that lasts`)
+		end
+
+		-- Which side each one lands on is decided by the shape, so the shape
+		-- is the thing that has to be right. A barrier cast as a Cone would
+		-- shield the enemies in front of you; a mark on an Aura would raise
+		-- everyone's damage against your own brother.
+		if a.absorb and a.shape ~= Shape.Aura then
+			table.insert(problems, `{id}: is a {a.shape} that grants a barrier, which would shield enemies`)
+		end
+		if a.mark and a.shape == Shape.Aura then
+			table.insert(problems, `{id}: is an Aura that marks, which would mark your own side`)
 		end
 
 		if a.shape == Shape.Cone then

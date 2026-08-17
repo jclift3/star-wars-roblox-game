@@ -164,19 +164,27 @@ local function heal(character: Model, amount: number)
 end
 
 --[[
-	Hurts everything in `targets` that the caster is allowed to hurt.
+	Applies everything an ability does to the enemies it caught.
 
-	Routed through `CombatService.applyDamage` -- never `Humanoid.Health` --
-	so an ability kill pays XP, credits, loot, reputation and mission progress
-	exactly like a blaster kill. That is the whole reason that function is the
-	only door.
+	Damage is routed through `CombatService.applyDamage` -- never
+	`Humanoid.Health` -- so an ability kill pays XP, credits, loot, reputation
+	and mission progress exactly like a blaster kill. That is the whole reason
+	that function is the only door.
+
+	A mark rides the same `canDamage` gate as the damage, which is the answer
+	to "who can be marked": exactly the people you were allowed to shoot. A
+	mark on a civilian would be a debuff sitting on somebody nobody may hit.
 ]]
 local function strike(caster: Model, attacker: Player?, def: AbilityDef, scale: number, targets: { Model })
 	local amount = (def.damage or 0) * scale
 	local knockback = (def.knockback or 0) * scale
+	local mark = (def.mark or 0) * scale
 	for _, target in targets do
 		if not combat().canDamage(caster, target) then
 			continue
+		end
+		if mark > 0 then
+			combat().mark(target, mark, def.duration or 0)
 		end
 		if amount > 0 then
 			local root = rootOf(target)
@@ -276,14 +284,24 @@ local function cast(player: Player?, caster: Model, def: AbilityDef, scale: numb
 			Player-only because there is no friendly-NPC concept in this game
 			and healing whatever civilian happened to be standing there is a
 			worse rule than "your brother". `Abilities.validate` refuses an
-			Aura that deals damage, so this can never be used to hit anyone.
+			Aura that deals damage or marks, so this can never be used
+			against anybody.
 		]]
 		Net.fireAllClients(Net.Event.AbilityUsed, def.id, root.Position, direction)
 		local amount = (def.heal or 0) * scale
-		heal(caster, amount)
+		local pool = (def.absorb or 0) * scale
+		local function cover(target: Model)
+			if amount > 0 then
+				heal(target, amount)
+			end
+			if pool > 0 then
+				combat().shield(target, pool, def.duration or 0)
+			end
+		end
+		cover(caster)
 		for _, target in charactersInRadius(root.Position, def.radius or 1, caster) do
 			if Players:GetPlayerFromCharacter(target) then
-				heal(target, amount)
+				cover(target)
 			end
 		end
 	end
