@@ -471,8 +471,60 @@ still solid.
 14. Boot output: no `[WorldService] planet config:` line saying a building **is
     in no district, so nobody will ever be inside it**. Adding an `s` outside
     every `ZoneDef.cells` rectangle is how you make that line appear.
-15. Korriban and Nar Shaddaa again: no shop interiors anywhere, because neither
-    has a `layout`.
+15. Nar Shaddaa again: no shop interiors anywhere, because it has no `layout`.
+
+---
+
+### 5.8 Korriban is a corridor, not a town — **new, never played**
+
+The second authored map, and the one that decides whether §5.6 was a system or
+a one-off. Everything below is fixed by the grid, so **anything wrong here is
+wrong every run** — there is no "try again and see".
+
+1. Travel to Korriban. You wake up **inside the Academy walls**, in the top
+   third of the map: a stepped ziggurat in front of you, a lecture hall at each
+   shoulder, practice yards to the left and right. *(There is not one spawnable
+   cell south of the Academy wall. If you ever open your eyes in the valley or
+   in Dreshdae, the anchor rule has broken — see step 6.)*
+2. Walk south. There is **one gate** in the Academy's wall and it is in the
+   middle. Go through it.
+3. **The valley is empty on purpose.** Eleven rows of road with cliffs down both
+   sides, four tomb facades cut into them, and nothing else — no lamps, no
+   yards, no plaza. It should feel exposed. *(If it feels furnished, something
+   is drawing scatter inside the grid.)*
+4. **Nobody from the Academy is out here and nobody from Dreshdae is either.**
+   Stand in the middle of the valley and look both ways. The honour guards and
+   war droids are in the valley; the acolytes are behind the wall; the
+   civilians are past the far gate. *(This is `rectExtents`. Before it, the
+   valley's patrol ring was a circle wide enough to reach both ends of a
+   17-cell corridor, which put its level 19–30 guards eight cells deep into the
+   level 1–12 Academy. If you are being chased by an honour guard while
+   standing among acolytes, that is the bug.)*
+5. Keep going south through the second gate into **Dreshdae**: houses and two
+   halls on the west, **two shopfronts on the east**, a small plaza between
+   them. Walk into both shops. **There is a merchant behind each counter.**
+   *(Six merchants, five places — the two counters and three points on the
+   avenue. An empty counter here means `leastUsed` is not working.)*
+6. Die somewhere, or reset. You respawn **in the Academy or in Dreshdae, never
+   in the valley.** Do it a few times. *(Player spawns are unclaimed anchor
+   cells, and the valley deliberately has none.)*
+7. Check the level banding matches the walk: acolytes in the Academy are around
+   your level at the start, valley guards are far above it, and Dreshdae is in
+   between. **The bands did not change** when the map was drawn — if the
+   Academy is suddenly banding at 20, `distance` has been edited by mistake.
+8. The **Academy**, **Dreshdae** and **Valley of the Dark Lords** all appear on
+   the signpost and on the map, and following an arm takes you to the drawn
+   thing itself. **There is no second, separate Academy building standing out in
+   the desert.** *(That is `PointOfInterest.drawn`. A `Base` is 92 studs wide,
+   too big for a city block, so without it the generator pushes the building six
+   hundred studs clear of the district its students are standing in.)*
+9. **The Tomb of Tulak Hord and the Wastes are still out past the walls**, with
+   a road running to each. Those two are not drawn on the grid and should not
+   be.
+10. Boot output: no `is in no district` line, and no `is marked drawn but…`
+    line. *(The second is new: it fires if a `drawn` point of interest is on a
+    planet with no layout, names no zone, or names a zone with no `cells` — all
+    three of which leave a named place with no building anywhere.)*
 
 ---
 

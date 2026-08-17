@@ -388,7 +388,48 @@ Three things had to change with it, and only one of them was the marker:
 Merchant count went 5 → 9 to match the Market's nine places. Adding a tenth `s`
 now costs a trader, not a bug.
 
-Still open: tombs and apartments.
+**Korriban is the second map, and the one that made it a system.** One authored
+grid is an anecdote. Anchorhead is a town — a wall, a plaza, streets on a rough
+square — and the question was whether the same twelve glyphs could draw something
+that is not a town at all. Korriban is a corridor: the Academy behind its own
+wall at the head, eleven rows of road and cliff with four tomb facades cut into
+them, Dreshdae at the mouth. 21×28 cells, corner 560 studs, inside the 610 where
+`buildScatter` starts.
+
+Writing it broke two things, and both were the map telling the code it was wrong:
+
+- **A landmark bigger than half a city block cannot stand in a district.** It is
+  pushed out past the last street instead, which is right for a landing field and
+  absurd for a Sith academy — the Academy would have ended up six hundred studs
+  north of the Academy, with the students still in the Academy.
+  `PointOfInterest.drawn` says *this place is already on the page*: build
+  nothing, keep the name, the sign and the waypoint, and let the district's own
+  `cells` say where it is. Validated at boot, because a `drawn` place with no
+  layout or no `cells` is a named location with no building anywhere.
+- **`rectBounds` answers with one radius, and a valley is not a circle.** The
+  Valley is seventeen cells long and eleven across; the circle that reaches its
+  ends also reaches eight cells into the Academy at one end and Dreshdae at the
+  other. That is not a cosmetic overlap — the Academy is where a level 1 Acolyte
+  opens their eyes and the valley bands nineteen levels above him. `rectExtents`
+  gives the two half-sides and the patrol ring becomes an ellipse inscribed in
+  the rectangle the author actually drew. The angle is untouched, because the
+  ring is also the patrol route and a walker who doubles back has stopped
+  patrolling.
+
+Two decisions in the map itself are worth carrying into the next seven:
+
+- **`Plaza`, `Yard` and `Lamp` are where players spawn**, since spawn markers are
+  unclaimed anchors. So there is not one of them in the valley — the avenue is
+  `.`, which paves without anchoring. Every anchor on Korriban is inside the
+  Academy or inside Dreshdae, which makes this a level-band decision expressed in
+  punctuation.
+- **A district is also a casting call.** Dreshdae mixes civilians, researchers
+  and traders, and emptiest-first placement does not care who it puts where — so
+  the shopfronts got their own zone, `Bazaar`, at the same `distance` and
+  therefore the same band. Two counters in a district containing nothing but
+  merchants cannot be staffed by a farmer.
+
+Still open: tombs and apartments, and seven more grids.
 
 **Finding the place at all.** Also from the second playtest: *"I have no idea
 where the cantina is."* Roads answer "where does this go" once you are standing

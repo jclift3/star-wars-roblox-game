@@ -4014,6 +4014,15 @@ local function buildMarkers(
 		nobody has decided where the district's edges are.
 	]]
 	local reaches: { [string]: number } = {}
+	--[[
+		The same districts as half-sides rather than as one radius.
+
+		A circle wide enough to reach the ends of a long district also reaches
+		sideways into whatever was drawn beside it -- which on Korriban is the
+		Academy at one end of the valley and Dreshdae at the other, nineteen
+		levels apart. The rectangle the author drew is the shape they meant.
+	]]
+	local extents: { [string]: Vector3 } = {}
 	local layout = planet.layout
 
 	for index, def in planet.zones do
@@ -4032,6 +4041,7 @@ local function buildMarkers(
 			local at, reach = Planets.rectBounds(layout, cells)
 			centre = origin + at
 			reaches[def.id] = reach
+			extents[def.id] = Planets.rectExtents(layout, cells)
 		end
 
 		-- Vertical cities have no ground, so districts snap to a platform
@@ -4137,7 +4147,23 @@ local function buildMarkers(
 			position = origin + Vector3.new(math.cos(angle) * distance, 0, math.sin(angle) * distance)
 		end
 
-		if not planet.hasWalkableGround then
+		--[[
+			A place the layout already built stays exactly where it was drawn.
+
+			Everything below this is the business of finding ground for a
+			building, and there is no building to find ground for: the
+			ziggurat, the tomb faces and the shopfronts are cells on the
+			grid. It keeps its marker and its arm on the signpost, which is
+			all a point of interest was ever for once the geometry exists.
+
+			It also claims no yard and reserves no clearance, deliberately --
+			an empty middle is somewhere the crowd should be standing, and
+			the drawn building is already keeping them out of its own
+			footprint by being solid.
+		]]
+		if poi.drawn and centre then
+			position = centre
+		elseif not planet.hasWalkableGround then
 			-- No ground at all: a platform or nowhere, so any platform will
 			-- do and the search is deliberately unbounded.
 			position = claimNear(position, math.huge) or position
@@ -4165,8 +4191,11 @@ local function buildMarkers(
 
 		-- Recorded only now, because claiming a yard or being pushed past the
 		-- last street both move it, and it is where the building actually
-		-- stands that the crowd has to gather round.
-		if poi.zone then
+		-- stands that the crowd has to gather round. A drawn place is not
+		-- recorded at all: it took no ground, so it has not used up the
+		-- middle of its district and a second landmark there may still have
+		-- it.
+		if poi.zone and not poi.drawn then
 			placed[poi.zone] = nth + 1
 			if nth == 0 then
 				landmarks[poi.zone] = { at = position, radius = def.radius }
@@ -4184,14 +4213,19 @@ local function buildMarkers(
 		local inbound = Vector3.new(origin.X - position.X, 0, origin.Z - position.Z)
 		local facing = if inbound.Magnitude > 1 then inbound.Unit else Vector3.new(1, 0, 0)
 
-		buildLandmark(landmarkRoot, poi, def, position, facing, style, rng)
+		if not poi.drawn then
+			buildLandmark(landmarkRoot, poi, def, position, facing, style, rng)
+		end
 		table.insert(reached, { kind = poi.kind, at = position })
 
 		-- Standing room indoors, added to the district the landmark belongs
 		-- to. Small on purpose: NPCService scatters within a zone part and
 		-- then drops whatever it picks to the floor, so a box the size of
 		-- the room would put people on the tables and behind the bar.
-		if def.interior and poi.zone then
+		-- A drawn place gets none: its rooms come from the grid instead, and
+		-- an interior offset from a building that was never built is a
+		-- standing spot in the open air.
+		if def.interior and poi.zone and not poi.drawn then
 			-- Turned with the building. The offset is written in the
 			-- builder's own frame -- the Base's is +X, meaning "just inside
 			-- the door" -- so leaving it in world space would put the
@@ -4265,9 +4299,22 @@ local function buildMarkers(
 		local baseAngle = rng:NextNumber(0, math.pi * 2)
 		for point = 1, points do
 			local spokeAngle = baseAngle + (point - 1) * (math.pi * 2 / points)
-			local spread = rng:NextNumber(inner, reach)
-			local position = centre
-				+ Vector3.new(math.cos(spokeAngle) * spread, 0, math.sin(spokeAngle) * spread)
+			-- An authored district fills its rectangle rather than a circle
+			-- inscribed in it, so the same fraction of the way out is a
+			-- different number of studs east than it is north. The angle is
+			-- untouched: the ring is also the patrol route, and a walker who
+			-- doubles back has stopped patrolling.
+			local half = extents[def.id]
+			local position
+			if half then
+				local out = rng:NextNumber(inner / reach, 1)
+				position = centre
+					+ Vector3.new(math.cos(spokeAngle) * half.X * out, 0, math.sin(spokeAngle) * half.Z * out)
+			else
+				local spread = rng:NextNumber(inner, reach)
+				position = centre
+					+ Vector3.new(math.cos(spokeAngle) * spread, 0, math.sin(spokeAngle) * spread)
+			end
 			local size = Vector3.new(60, 1, 60)
 
 			if not planet.hasWalkableGround and #anchors > 0 then

@@ -195,6 +195,25 @@ export type PointOfInterest = {
 	-- dropped on an arbitrary circle with nothing around it, so a mission can
 	-- send you to a "Jawa crawler they live in still" that has no Jawas.
 	zone: string?,
+	--[[
+		This place is already on the page: build nothing, only name it.
+
+		A landmark is normally a building the world builder puts down on a
+		yard it claims, and anything wider than half a city block cannot fit
+		in one -- so it is pushed out past the last street instead. That is
+		the right answer for a spaceport and the wrong one for a Sith
+		academy, which is not a building standing in a district but the
+		district itself. Korriban's would have ended up six hundred studs
+		north of the Academy Grounds, with the students still in the grounds.
+
+		Set it and the point of interest is only its name, its sign and its
+		waypoint; the district's own `cells` say where it is. Requires a
+		layout and a zone with `cells`, both checked at boot -- without them
+		there is nothing on the page to have drawn it, and the result is a
+		named place with no building anywhere, which is the bug this whole
+		mechanism exists to prevent.
+	]]
+	drawn: boolean?,
 }
 
 --[[
@@ -1075,10 +1094,119 @@ def({
 	maxLevel = 46,
 	lawLevel = 0.9,
 
+	--[[
+		THE VALLEY OF THE DARK LORDS, DRAWN RATHER THAN ROLLED
+
+		The second authored map, and the one that says whether the first was a
+		system or an anecdote. Anchorhead is a town: a wall, a plaza, streets
+		on a rough square. This is not a town at all, and that is the point --
+		it is a corridor with a wall across each end, and it has to come out
+		of the same twelve glyphs.
+
+		Read north to south, because that is the walk the game asks you to
+		make. The Academy sits at the head of the valley behind its own wall:
+		the ziggurat in the middle of rows 2-4, two lecture halls at its
+		shoulders, the training hall below it, and the practice yards where
+		eighteen acolytes stand around waiting for someone to take a swing at.
+		Row 10 is the wall it keeps its students behind, and the gate in it is
+		the only reason you ever leave.
+
+		Then eleven rows of nothing but road and cliff. The four `tttt` blocks
+		are the tomb facades -- the ones the Academy teaches you not to go
+		into -- and the space between them is deliberately empty: it is the
+		one stretch of this planet that is supposed to feel like being
+		outdoors and outnumbered. Nothing is drawn there, so nothing softens
+		it.
+
+		At the mouth, Dreshdae. Czerka's office and the cantina on the west,
+		the bazaar's two shopfronts on the east, and a small plaza between
+		them where the road finally widens. The south gate is the way off the
+		map.
+
+		Two rules that are not visible in the picture:
+
+		- **There is not one anchor cell in the valley.** `Plaza`, `Yard` and
+		  `Lamp` are the cells the builder hands out as player spawn points,
+		  and the valley bands 19-30 with fourteen aggressive war droids in
+		  it. The avenue is `.` rather than `P` for exactly this reason: it
+		  paves, so the crowd can stand on it, and it does not anchor, so
+		  nobody wakes up on it. Every anchor on Korriban is inside the
+		  Academy or inside Dreshdae.
+		- 21 by 28 cells at 32 studs is 672 by 896, so the far corner is 560
+		  studs out -- inside the 610 where `buildScatter` starts throwing
+		  down rocks, which is the real limit on how big a grid may be.
+	]]
+	layout = {
+		cell = 32,
+		legend = {
+			W = "Wall",
+			G = "Gate",
+			["."] = "Road",
+			P = "Plaza",
+			h = "House",
+			s = "Shop",
+			H = "Hall",
+			t = "Tower",
+			y = "Yard",
+			l = "Lamp",
+		},
+		grid = {
+			"WWWWWWWWWWWWWWWWWWWWW",
+			"W.HH....ttttt....HH.W",
+			"W.HH....ttttt....HH.W",
+			"W.......ttttt.......W",
+			"W........yyy........W",
+			"W.yyyy...yyy...yyyy.W",
+			"W.yyyy..HHHHH..yyyy.W",
+			"W.yyyy..HHHHH..yyyy.W",
+			"W...l...........l...W",
+			"WWWWWWWWWGGGWWWWWWWWW",
+			"WW.................WW",
+			"WWtttt.........ttttWW",
+			"WWtttt.........ttttWW",
+			"WWtttt.........ttttWW",
+			"WW.................WW",
+			"WW.................WW",
+			"WW.................WW",
+			"WWtttt.........ttttWW",
+			"WWtttt.........ttttWW",
+			"WWtttt.........ttttWW",
+			"WW.................WW",
+			"W...................W",
+			"W.hhh.HHH...sss.hhh.W",
+			"W.hhh.HHH...sss.hhh.W",
+			"W...l....PPP....l...W",
+			"W.HHHH.hhPPPhh.ssss.W",
+			"W.HHHH.hhPPPhh.ssss.W",
+			"WWWWWWWWWGGGWWWWWWWWW",
+		},
+	},
+
 	zones = {
-		{ id = "Academy", distance = 0 },
-		{ id = "Dreshdae", distance = 0.6 },
-		{ id = "Valley", distance = 1.4 },
+		--[[
+			`distance` is untouched, so every band on this planet is the same
+			number it was before the map existed. `cells` only says where.
+
+			The Valley's rectangle is the reason `rectExtents` exists.
+			Seventeen cells across and eleven deep is not a circle, and the
+			circle that contains it reaches into the Academy at one end --
+			where a level 1 Acolyte opens their eyes, nineteen levels under
+			the honour guard.
+		]]
+		{ id = "Academy", distance = 0, cells = { from = Vector2.new(2, 2), to = Vector2.new(20, 9) } },
+		{ id = "Dreshdae", distance = 0.6, cells = { from = Vector2.new(2, 22), to = Vector2.new(12, 28) } },
+		--[[
+			Split off Dreshdae at the same distance, so it bands identically
+			and is the same place as far as the difficulty curve is
+			concerned. It exists because a district is also a casting call:
+			Dreshdae mixes civilians, researchers and traders, and placement
+			fills the emptiest part first without caring who it is filling it
+			with -- which puts a farmer behind the counter and the merchants
+			out on the street. Two shopfronts in a district that contains
+			nothing but merchants cannot be staffed by anyone else.
+		]]
+		{ id = "Bazaar", distance = 0.6, cells = { from = Vector2.new(13, 22), to = Vector2.new(20, 28) } },
+		{ id = "Valley", distance = 1.4, cells = { from = Vector2.new(3, 11), to = Vector2.new(19, 21) } },
 		{ id = "Tombs", distance = 2.0 },
 		{ id = "Wastes", distance = 2.6 },
 	},
@@ -1095,8 +1223,13 @@ def({
 		{ archetype = "SithAcolyte", count = 18, zone = "Academy", behavior = NPCArchetypes.Behavior.Guard },
 		{ archetype = "ImperialTrooper", count = 10, zone = "Academy" },
 		{ archetype = "Civilian", count = 16, zone = "Dreshdae" },
-		{ archetype = "Merchant", count = 4, zone = "Dreshdae" },
 		{ archetype = "Researcher", count = 4, zone = "Dreshdae" },
+		-- Six for five places: three points on the avenue and the two
+		-- shopfronts drawn on the east side. Placement fills the emptiest
+		-- first, so that is one trader behind each counter and the rest out
+		-- front, and the planet's "only vendor" line stops being a lie about
+		-- a locked door.
+		{ archetype = "Merchant", count = 6, zone = "Bazaar" },
 		{
 			archetype = "SithHonourGuard",
 			count = 8,
@@ -1132,6 +1265,11 @@ def({
 			kind = "Base",
 			description = "Dormitories, training pits, and an Overseer who has been keeping notes for thirty years.",
 			zone = "Academy",
+			-- The ziggurat and its halls are cells on the grid. A `Base` is
+			-- 92 studs wide, too big for a city block, so the generator would
+			-- have shoved this one six hundred studs north of the Academy --
+			-- with the students still standing in the Academy.
+			drawn = true,
 		},
 		{
 			id = "Dreshdae",
@@ -1139,6 +1277,7 @@ def({
 			kind = "Market",
 			description = "The one settlement. A Czerka office, a cantina, and the only vendor on the planet.",
 			zone = "Dreshdae",
+			drawn = true,
 		},
 		{
 			id = "ValleyOfTheDarkLords",
@@ -1147,6 +1286,10 @@ def({
 			landmark = "Temple",
 			description = "Four tomb facades cut into the cliffs. The Academy teaches students not to go in.",
 			zone = "Valley",
+			-- Four of them, and they are the `tttt` blocks in the cliff wall.
+			-- One temple standing in the middle of the avenue would be a
+			-- worse answer than the picture already is.
+			drawn = true,
 		},
 		{
 			id = "TombOfTulakHord",
@@ -1629,6 +1772,25 @@ function Planets.rectBounds(layout: LayoutDef, rect: CellRect): (Vector3, number
 end
 
 --[[
+	Half the width and half the depth of a district rectangle, in studs.
+
+	`rectBounds` answers with one radius, which is the right shape for a
+	district that is about as deep as it is wide and the wrong one for a
+	valley. Korriban's is seventeen cells long and eleven across: a circle
+	big enough to reach its ends also reaches into the Academy at one end and
+	Dreshdae at the other -- and the Academy is where a level 1 Acolyte wakes
+	up, with the valley's guards banding nineteen levels above him.
+
+	Two half-sides describe the rectangle that was actually drawn, which is
+	what the author meant by drawing it.
+]]
+function Planets.rectExtents(layout: LayoutDef, rect: CellRect): Vector3
+	local a = Planets.cellOffset(layout, rect.from.X, rect.from.Y)
+	local b = Planets.cellOffset(layout, rect.to.X, rect.to.Y)
+	return Vector3.new(math.abs(b.X - a.X) + layout.cell, 0, math.abs(b.Z - a.Z) + layout.cell) * 0.5
+end
+
+--[[
 	Cross-checks every planet against the ids it references.
 
 	Zone names are strings written in two places -- the spawn rules and the
@@ -1842,6 +2004,39 @@ function Planets.validate(prefabExists: (string) -> boolean, prefabHasRoom: (str
 						)
 					end
 				end
+			end
+		end
+
+		--[[
+			A place that says the layout drew it, on a world with no layout.
+
+			`drawn` suppresses the building entirely, so getting it wrong
+			costs you the landmark and leaves the name, the sign and the
+			waypoint all pointing at bare ground -- which is precisely the
+			failure the points-of-interest system was written to stop, now
+			available by typo. It needs a grid to have been drawn on and a
+			district with `cells` to say where on the grid that was.
+		]]
+		for _, poi in p.pointsOfInterest do
+			if not poi.drawn then
+				continue
+			end
+			if not layout then
+				table.insert(problems, `{id}: "{poi.id}" is marked drawn but the planet has no layout`)
+			end
+			local zoneId = poi.zone
+			if not zoneId then
+				table.insert(problems, `{id}: "{poi.id}" is marked drawn but names no zone`)
+				continue
+			end
+			local located = false
+			for _, zone in p.zones do
+				if zone.id == zoneId and zone.cells then
+					located = true
+				end
+			end
+			if not located then
+				table.insert(problems, `{id}: "{poi.id}" is marked drawn but zone "{zoneId}" has no cells`)
 			end
 		end
 

@@ -147,7 +147,28 @@ never be put in a level 3 district by accident.
 Every one of these is a bug that currently fails silently, which is the third
 recurring failure mode in this codebase.
 
-### 2.5 Authoring tooling — optional, later
+### 2.5 What the second map taught the first
+
+Anchorhead shipped first and Korriban second, and the second one is where this
+section stopped being a plan. Two rules §2 did not anticipate, both learned by
+drawing something that is not a town:
+
+- **A rectangle is two numbers, not one.** A district's reach was half its longer
+  side, which is fine for Anchorhead's near-square blocks and wrong for a
+  seventeen-by-eleven valley: the circle spills into whatever was drawn at both
+  ends, and on Korriban that is a level 1 spawn point at one end and a settlement
+  at the other. Patrol rings are ellipses inscribed in the drawn rectangle.
+- **Punctuation is a level-band decision.** Player spawns are unclaimed anchor
+  cells, and `Plaza`, `Yard` and `Lamp` all anchor while `Road` does not. So
+  whether a high-level district's main street is drawn `P` or `.` decides whether
+  a level 1 character can wake up in it. Draw dangerous ground with `.`.
+
+And one that §2 did anticipate but under-stated: a district is not only where
+people are, it is **who** they are. Emptiest-first placement fills a shop counter
+with whoever the district contains, so a district with a shop in it should
+contain shopkeepers and not much else.
+
+### 2.6 Authoring tooling — optional, later
 
 Typing a 32x32 grid by hand is fine. Typing eight of them is tedious. A small
 Studio plugin that dumps selected parts to a grid, or a web page that lets you
@@ -225,6 +246,11 @@ that serves them. Everything here is a grave with a door.
 
 The two-visit structure at its clearest: at level 3 the Valley is a skybox you
 walk past and the tombs are locked doors. At level 40 the doors are the game.
+
+**Drawn, not rolled** — the second authored grid, 21x28 cells. A corridor rather
+than a town: the Academy behind its own wall at the head of the valley, eleven
+rows of road and cliff with four tomb façades cut into them, Dreshdae at the
+mouth. The valley carries no anchor cells at all, so nobody spawns in it.
 
 **Prefab vocabulary:** `TombFacade`, `Obelisk`, `AcademyBlock`, `TrainingPit`,
 `SithColumn`, `Sarcophagus`, `Brazier`, `CliffStair`, `DreshdaeDome`.
