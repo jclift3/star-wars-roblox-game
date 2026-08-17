@@ -109,6 +109,16 @@ type Style = {
 	maxFloors: number,
 	floorHeight: number,
 	windowColor: Color3,
+	--[[
+		What a plain wall on this world is made of.
+
+		Each `shape` function already picks its own materials part by part;
+		this is for the shared machinery that has no shape function to ask --
+		a room shell, a rampart -- and it is the difference between an
+		authored shop on Tatooine being sandstone and being grey concrete
+		with the right paint on it.
+	]]
+	wallMaterial: Enum.Material,
 	scatter: string, -- "Dunes" | "Rocks" | "Trees" | "Drifts" | "None"
 	-- The building geometry itself. See the Architecture section below.
 	shape: (Instance, Vector3, Vector2, Style, Random) -> (),
@@ -1162,6 +1172,7 @@ local ARCHITECTURE: { [string]: Style } = {
 		maxFloors = 2,
 		floorHeight = 11,
 		windowColor = Palette.CoruscantLight,
+		wallMaterial = Enum.Material.Sandstone,
 		scatter = "None",
 		shape = adobeShape,
 	},
@@ -1171,6 +1182,7 @@ local ARCHITECTURE: { [string]: Style } = {
 		maxFloors = 4,
 		floorHeight = 13,
 		windowColor = Palette.SaberRed,
+		wallMaterial = Enum.Material.Slate,
 		scatter = "None",
 		shape = zigguratShape,
 	},
@@ -1180,6 +1192,7 @@ local ARCHITECTURE: { [string]: Style } = {
 		maxFloors = 11,
 		floorHeight = 15,
 		windowColor = Palette.DroidGold,
+		wallMaterial = Enum.Material.Concrete,
 		scatter = "None",
 		shape = ruinShape,
 	},
@@ -1189,6 +1202,7 @@ local ARCHITECTURE: { [string]: Style } = {
 		maxFloors = 8,
 		floorHeight = 13,
 		windowColor = Palette.TwilekRed,
+		wallMaterial = Enum.Material.DiamondPlate,
 		scatter = "None",
 		shape = neonStackShape,
 	},
@@ -1198,6 +1212,7 @@ local ARCHITECTURE: { [string]: Style } = {
 		maxFloors = 14,
 		floorHeight = 16,
 		windowColor = Palette.CoruscantLight,
+		wallMaterial = Enum.Material.Metal,
 		scatter = "None",
 		shape = spireShape,
 	},
@@ -1207,6 +1222,7 @@ local ARCHITECTURE: { [string]: Style } = {
 		maxFloors = 2,
 		floorHeight = 12,
 		windowColor = Palette.DroidGold,
+		wallMaterial = Enum.Material.CorrodedMetal,
 		scatter = "None",
 		shape = frontierShape,
 	},
@@ -1216,6 +1232,7 @@ local ARCHITECTURE: { [string]: Style } = {
 		maxFloors = 3,
 		floorHeight = 13,
 		windowColor = Palette.SaberYellow,
+		wallMaterial = Enum.Material.Limestone,
 		scatter = "None",
 		shape = jediStoneShape,
 	},
@@ -1225,6 +1242,7 @@ local ARCHITECTURE: { [string]: Style } = {
 		maxFloors = 2,
 		floorHeight = 12,
 		windowColor = Palette.BlasterBlue,
+		wallMaterial = Enum.Material.Metal,
 		scatter = "None",
 		shape = iceBunkerShape,
 	},
@@ -1234,6 +1252,7 @@ local ARCHITECTURE: { [string]: Style } = {
 		maxFloors = 9,
 		floorHeight = 15,
 		windowColor = Palette.SaberRed,
+		wallMaterial = Enum.Material.Slate,
 		scatter = "None",
 		shape = gothicShape,
 	},
@@ -1780,427 +1799,6 @@ local function buildSettlement(
 end
 
 --------------------------------------------------------------------------------
--- Authored layouts
---------------------------------------------------------------------------------
-
---[[
-	What one glyph of an authored grid puts on the ground.
-
-	Deliberately thin. A prefab is a footprint and a storey count handed to the
-	planet's own `style.shape` -- so an authored town on Tatooine is still
-	built out of Adobe, and the same grid dropped on Hoth would come up as
-	IceBunker. A prefab table that drew its own houses would be a tenth
-	architecture quietly ignoring the nine, and the boys would spot it in ten
-	minutes the way they spotted five styles across nine worlds.
-
-	`build` is the exception, for the handful of things no architecture has:
-	a rampart, a gate, a lamp post.
-]]
-type PrefabDef = {
-	-- Fraction of the cell rectangle the building fills. Nil builds nothing.
-	fill: number?,
-	--[[
-		Storeys, as a multiplier on the style's own range rather than a count.
-
-		Adobe is 1-2 floors and Spire is 6-14, so an absolute "a tower is five
-		storeys" would be a tower on Tatooine and a bungalow on Coruscant. A
-		multiplier means tall *for this world*, which is what the author meant.
-	]]
-	floorScale: number?,
-	-- Paving over the whole rectangle, at road height.
-	paved: boolean?,
-	--[[
-		Somewhere a landmark or a player spawn may be put.
-
-		Roads are walkable and deliberately are not offered. `claimNear` gives
-		a landmark the nearest free anchor, and a spaceport dropped in the
-		middle of the high street is worse than one in a yard behind it.
-	]]
-	anchor: boolean?,
-	build: ((Instance, Vector3, Vector2, Style) -> ())?,
-}
-
---- A stretch of town wall, crenellated along whichever way it runs.
-local function buildRampart(parent: Instance, centre: Vector3, span: Vector2, style: Style)
-	local color = style.buildingColors[1]
-	local height = style.floorHeight * 1.5
-	local thickness = math.min(span.X, span.Y) * 0.55
-
-	local alongX = span.X >= span.Y
-	local body = if alongX
-		then Vector3.new(span.X, height, thickness)
-		else Vector3.new(thickness, height, span.Y)
-	block(parent, CFrame.new(centre + Vector3.new(0, height * 0.5, 0)), body, color, Enum.Material.Brick).Name =
-		"Rampart"
-
-	local run = if alongX then span.X else span.Y
-	local step = 14
-	for i = 0, math.max(0, math.floor(run / step) - 1) do
-		local at = -run * 0.5 + step * (i + 0.5)
-		local offset = if alongX then Vector3.new(at, height + 2, 0) else Vector3.new(0, height + 2, at)
-		local size = if alongX
-			then Vector3.new(step * 0.55, 4, thickness)
-			else Vector3.new(thickness, 4, step * 0.55)
-		block(parent, CFrame.new(centre + offset), size, color, Enum.Material.Brick).Name = "Merlon"
-	end
-end
-
---- The break in a wall: a pier each side and a lintel over, walkable between.
-local function buildGate(parent: Instance, centre: Vector3, span: Vector2, style: Style)
-	local color = style.buildingColors[1]
-	local height = style.floorHeight * 1.5
-	local alongX = span.X >= span.Y
-	local run = if alongX then span.X else span.Y
-	local thickness = math.min(span.X, span.Y) * 0.55
-	local pier = 12
-
-	for _, side in { -1, 1 } do
-		local at = side * (run * 0.5 - pier * 0.5)
-		local offset = if alongX
-			then Vector3.new(at, (height + 8) * 0.5, 0)
-			else Vector3.new(0, (height + 8) * 0.5, at)
-		local size = if alongX
-			then Vector3.new(pier, height + 8, thickness)
-			else Vector3.new(thickness, height + 8, pier)
-		block(parent, CFrame.new(centre + offset), size, color, Enum.Material.Brick).Name = "Pier"
-	end
-
-	-- Above head height on purpose: the gateway has to be walked and pathed
-	-- through, and a lintel a character catches on is a wall with a picture
-	-- of a door on it.
-	local lintel = if alongX then Vector3.new(run, 7, thickness) else Vector3.new(thickness, 7, run)
-	block(parent, CFrame.new(centre + Vector3.new(0, height + 11, 0)), lintel, color, Enum.Material.Brick).Name =
-		"Lintel"
-end
-
-local function buildLampCell(parent: Instance, centre: Vector3, _span: Vector2, style: Style)
-	buildStreetLamp(parent, centre, style.windowColor)
-end
-
-local PREFABS: { [string]: PrefabDef } = {
-	House = { fill = 0.72, floorScale = 0.8 },
-	Hall = { fill = 0.88, floorScale = 1.0 },
-	Shop = { fill = 0.78, floorScale = 0.6 },
-	Tower = { fill = 0.55, floorScale = 1.8 },
-	Wall = { build = buildRampart },
-	Gate = { build = buildGate, paved = true },
-	Road = { paved = true },
-	Plaza = { paved = true, anchor = true },
-	Yard = { anchor = true },
-	Lamp = { anchor = true, build = buildLampCell },
-}
-
---[[
-	Whether `id` is something a layout legend is allowed to point at.
-
-	`Planets.validate` takes this as an argument rather than requiring this
-	module: PlanetBuilder is server-only and already requires Planets, so the
-	dependency can only run one way.
-]]
-function PlanetBuilder.prefabExists(id: string): boolean
-	return PREFABS[id] ~= nil
-end
-
-type LayoutRect = { glyph: string, from: Vector2, to: Vector2 }
-
---[[
-	Groups touching cells that share a glyph into single rectangles.
-
-	`WWWW` is one wall, not four wall segments with three seams down them, and
-	a two-by-two `HH` block is one house rather than four huts pressed
-	together. The rule an author has to hold in their head is the simple one
-	it looks like: cells that touch and match are one building, and the way to
-	write two houses is to leave a gap between them.
-
-	Greedy -- run right while the glyph holds, then down while the whole run
-	holds. That does not find the largest rectangles an L-shaped block could
-	be cut into; it finds the ones you would read off the page, which is the
-	entire reason for writing the town as a page.
-]]
-local function layoutRects(layout: Planets.LayoutDef): { LayoutRect }
-	local columns, rows = Planets.layoutSize(layout)
-
-	-- Short rows read as open ground on their east end rather than shifting
-	-- everything after them. `Planets.validate` reports the ragged row.
-	local function glyphAt(column: number, row: number): string
-		local line = layout.grid[row]
-		if not line or column > #line then
-			return " "
-		end
-		return line:sub(column, column)
-	end
-
-	local taken: { { boolean } } = {}
-	for row = 1, rows do
-		taken[row] = table.create(columns, false)
-	end
-
-	local rects: { LayoutRect } = {}
-	for row = 1, rows do
-		for column = 1, columns do
-			local glyph = glyphAt(column, row)
-			if glyph == " " or taken[row][column] then
-				continue
-			end
-
-			local right = column
-			while right < columns and glyphAt(right + 1, row) == glyph and not taken[row][right + 1] do
-				right += 1
-			end
-
-			local bottom = row
-			while bottom < rows do
-				local whole = true
-				for c = column, right do
-					if glyphAt(c, bottom + 1) ~= glyph or taken[bottom + 1][c] then
-						whole = false
-						break
-					end
-				end
-				if not whole then
-					break
-				end
-				bottom += 1
-			end
-
-			for r = row, bottom do
-				for c = column, right do
-					taken[r][c] = true
-				end
-			end
-			table.insert(
-				rects,
-				{ glyph = glyph, from = Vector2.new(column, row), to = Vector2.new(right, bottom) }
-			)
-		end
-	end
-	return rects
-end
-
---[[
-	Builds a town from its picture instead of from the seed.
-
-	Same contract as `buildSettlement` -- returns the ground left open, and
-	everything downstream (landmarks, patrol rings, spawn markers) cannot tell
-	which of the two it was handed. That is the point of doing it this way
-	round: the authored layout is a different *source* of anchors, not a
-	different world-building pipeline, so the eight worlds without one keep
-	working untouched.
-]]
-local function buildFromLayout(
-	parent: Instance,
-	planet: Planets.PlanetDef,
-	layout: Planets.LayoutDef,
-	origin: Vector3,
-	style: Style,
-	rng: Random
-): { Vector3 }
-	local town = folder("Settlement", parent)
-	local paving = folder("Streets", town)
-	local roadColor, roadMaterial = roadLook(planet)
-
-	local open: { Vector3 } = {}
-
-	for _, rect in layoutRects(layout) do
-		local prefabId = layout.legend[rect.glyph]
-		local prefab = if prefabId then PREFABS[prefabId] else nil
-		if not prefab then
-			continue
-		end
-
-		local a = Planets.cellOffset(layout, rect.from.X, rect.from.Y)
-		local b = Planets.cellOffset(layout, rect.to.X, rect.to.Y)
-		local centre = origin + (a + b) * 0.5
-		local span = Vector2.new(math.abs(b.X - a.X) + layout.cell, math.abs(b.Z - a.Z) + layout.cell)
-
-		-- Rectangles never overlap, so one lift is enough and there is no
-		-- z-fighting to separate the way the radial street grid has.
-		if prefab.paved then
-			block(
-				paving,
-				CFrame.new(centre + Vector3.new(0, ROAD_Y + ROAD_LIFT_NS, 0)),
-				Vector3.new(span.X, ROAD_THICKNESS, span.Y),
-				roadColor,
-				roadMaterial
-			).Name =
-				"Paving"
-		end
-
-		-- Every cell of a large yard, not just its centre: a plaza that
-		-- offers one anchor is a plaza six players queue up on.
-		if prefab.anchor then
-			for column = rect.from.X, rect.to.X do
-				for row = rect.from.Y, rect.to.Y do
-					table.insert(open, origin + Planets.cellOffset(layout, column, row))
-				end
-			end
-		end
-
-		local custom = prefab.build
-		if custom then
-			custom(town, centre, span, style)
-			continue
-		end
-
-		local fill = prefab.fill
-		if not fill then
-			continue
-		end
-
-		-- Inset, so two rectangles that share an edge on the page still have
-		-- an alley between them on the ground.
-		local footprint = Vector2.new(math.max(8, span.X * fill), math.max(8, span.Y * fill))
-
-		local scale = prefab.floorScale
-		local shaped = style
-		if scale then
-			shaped = table.clone(style)
-			shaped.minFloors = math.max(1, math.round(style.minFloors * scale))
-			shaped.maxFloors = math.max(shaped.minFloors, math.round(style.maxFloors * scale))
-		end
-		shaped.shape(town, centre, footprint, shaped, rng)
-	end
-
-	-- A layout that builds nothing walkable would otherwise hand back an
-	-- empty anchor list and drop every spawn marker on the origin anyway.
-	if #open == 0 then
-		table.insert(open, origin)
-	end
-	return open
-end
-
---------------------------------------------------------------------------------
--- Vertical city
---------------------------------------------------------------------------------
-
---[[
-	Coruscant. No ground, only towers and the platforms bolted to them.
-
-	This is the one planet where falling is a real threat rather than a bug,
-	so every platform is generated as a solid slab with a lip, and the spawn
-	markers are placed on platforms rather than anywhere in open air.
-]]
-local function buildVerticalCity(
-	parent: Instance,
-	planet: Planets.PlanetDef,
-	origin: Vector3,
-	rng: Random
-): { Vector3 }
-	local city = folder("Towers", parent)
-	local platforms: { Vector3 } = {}
-	local ceiling = planet.flightCeiling or 1400
-
-	--[[
-		121 towers is by far the largest single view in the game, and until
-		2026-08-16 every one of them was a square-section box on an exact
-		240-stud grid with a flat top -- which is the most literally blocky
-		thing here, and the thing the playtest note was most likely looking at.
-
-		The fixes below are nearly free, which is the constraint that matters at
-		this count: an off-square footprint costs *no* parts at all, and the
-		setback and mast cost two.
-
-		The grid itself is deliberately left exact. Jittering the centres is
-		the obvious fourth fix and it is the one that cannot be had cheaply:
-		the landing platforms cantilever 45 studs past the widest face, which
-		at 240-stud spacing already brings a pad's outer edge to within nothing
-		of its neighbour's wall. Moving a tower closer puts a pad *inside* the
-		next tower -- and pads are the anchors this function returns, which
-		become landmark positions and NPC spawn points. A jittered skyline is
-		not worth a district spawning inside a wall.
-	]]
-	for gx = -5, 5 do
-		for gz = -5, 5 do
-			local centre = origin + Vector3.new(gx * 240, 0, gz * 240)
-			local width = rng:NextNumber(70, 150)
-			-- Not square, but never wider than `width` could already be, for
-			-- the clearance reason above. A grid of square towers is a grid
-			-- however it is lit: every one looks the same from every side.
-			local depth = math.clamp(width * rng:NextNumber(0.55, 1.5), 60, 150)
-			local top = rng:NextNumber(ceiling * 0.45, ceiling * 0.95)
-			local height = top - TOWER_BASE_Y
-
-			local tower = block(
-				city,
-				CFrame.new(centre + Vector3.new(0, TOWER_BASE_Y + height * 0.5, 0)),
-				Vector3.new(width, height, depth),
-				Palette.CoruscantPlate,
-				Enum.Material.Metal
-			)
-			tower.Name = "Tower"
-
-			-- A setback crown, and on some of them a mast. Between the two,
-			-- no two towers end at the same shape -- and the skyline was one
-			-- flat row of identical tops before them.
-			local crown = rng:NextNumber(40, 110)
-			block(
-				city,
-				CFrame.new(centre + Vector3.new(0, top + crown * 0.5, 0)),
-				Vector3.new(width * rng:NextNumber(0.4, 0.75), crown, depth * rng:NextNumber(0.4, 0.75)),
-				Palette.CoruscantPlate,
-				Enum.Material.Metal
-			).Name =
-				"Crown"
-
-			if rng:NextNumber() < 0.45 then
-				local mast = cylinder(
-					city,
-					CFrame.new(centre + Vector3.new(0, top + crown + 35, 0)) * UPRIGHT,
-					Vector3.new(70, 3, 3),
-					Palette.WornSteel,
-					Enum.Material.Metal
-				)
-				mast.Name = "Mast"
-				mast.CanCollide = false
-			end
-
-			-- Window bands every few hundred studs rather than every floor:
-			-- at this scale individual floors are invisible anyway, and the
-			-- part count is not.
-			local y = TOWER_BASE_Y + 60
-			while y < top - 40 do
-				local band = block(
-					city,
-					CFrame.new(centre + Vector3.new(0, y, 0)),
-					Vector3.new(width * 1.01, 6, depth * 1.01),
-					Palette.CoruscantLight,
-					Enum.Material.Neon
-				)
-				band.Name = "Windows"
-				band.CanCollide = false
-				y += rng:NextNumber(45, 90)
-			end
-
-			-- Landing platforms cantilevered off the tower at skylane heights.
-			local platformY = math.floor(top / SKYLANE_STEP) * SKYLANE_STEP
-			while platformY > TOWER_BASE_Y + 200 do
-				if rng:NextNumber() < 0.35 then
-					-- Measured off the wider axis, since the offset is then
-					-- rotated to any bearing and a pad sized for the narrow
-					-- side would end up inside the tower on the deep one.
-					local offset = Vector3.new(math.max(width, depth) * 0.5 + 45, 0, 0)
-					local rotated = CFrame.Angles(0, rng:NextNumber(0, math.pi * 2), 0) * offset
-					local position = centre + Vector3.new(0, platformY, 0) + rotated
-
-					local pad = block(
-						city,
-						CFrame.new(position),
-						Vector3.new(90, 4, 90),
-						Palette.CoruscantPlate,
-						Enum.Material.DiamondPlate
-					)
-					pad.Name = "Platform"
-					table.insert(platforms, position + Vector3.new(0, 2, 0))
-				end
-				platformY -= SKYLANE_STEP
-			end
-		end
-	end
-
-	return platforms
-end
-
---------------------------------------------------------------------------------
 -- Interiors
 --------------------------------------------------------------------------------
 
@@ -2223,6 +1821,10 @@ end
 	shell from the start.** Nothing is hollowed out afterwards, so there is
 	never a solid version and a hollow version of the same wall to keep in
 	step.
+
+	This section sits above both of its customers -- the authored layouts and
+	the landmarks -- because it is machinery, not content. A landmark decides
+	what a cantina is; a prefab decides what a shop is; neither owns the wall.
 ]]
 
 local WALL_THICKNESS = 3
@@ -2428,10 +2030,16 @@ end
 	`size` is the outside footprint, so a caller can drop a shell where a
 	solid block used to stand and have the building keep the silhouette it
 	had.
+
+	`base` is a CFrame rather than a position because the doorway is always
+	local +X and a room in a street grid has to open onto the street. Turning
+	the whole shell is the only way to move a door that stays put relative to
+	the fittings inside it -- a door parameter would leave the counter facing
+	a wall.
 ]]
 local function roomShell(
 	parent: Instance,
-	base: Vector3,
+	base: CFrame,
 	size: Vector3,
 	color: Color3,
 	material: Enum.Material
@@ -2441,7 +2049,7 @@ local function roomShell(
 
 	block(
 		parent,
-		CFrame.new(base + Vector3.new(0, FLOOR_Y, 0)),
+		base * CFrame.new(0, FLOOR_Y, 0),
 		Vector3.new(size.X, 1, size.Z),
 		color:Lerp(Color3.new(0, 0, 0), 0.35),
 		Enum.Material.Slate
@@ -2449,7 +2057,7 @@ local function roomShell(
 		"Floor"
 	block(
 		parent,
-		CFrame.new(base + Vector3.new(0, height, 0)),
+		base * CFrame.new(0, height, 0),
 		Vector3.new(size.X, WALL_THICKNESS, size.Z),
 		color,
 		material
@@ -2463,7 +2071,7 @@ local function roomShell(
 			{ at = Vector3.new(0, height * 0.5, halfZ), size = Vector3.new(size.X, height, WALL_THICKNESS) },
 		}
 	do
-		block(parent, CFrame.new(base + side.at), side.size, color, material).Name = "Wall"
+		block(parent, base * CFrame.new(side.at), side.size, color, material).Name = "Wall"
 	end
 
 	-- The entrance wall: two jambs and a lintel. Splitting it here rather
@@ -2472,7 +2080,7 @@ local function roomShell(
 	for _, sign in { -1, 1 } do
 		block(
 			parent,
-			CFrame.new(base + Vector3.new(halfX, height * 0.5, sign * (16 + jamb) * 0.5)),
+			base * CFrame.new(halfX, height * 0.5, sign * (16 + jamb) * 0.5),
 			Vector3.new(WALL_THICKNESS, height, jamb),
 			color,
 			material
@@ -2481,12 +2089,776 @@ local function roomShell(
 	end
 	block(
 		parent,
-		CFrame.new(base + Vector3.new(halfX, height - 3, 0)),
+		base * CFrame.new(halfX, height - 3, 0),
 		Vector3.new(WALL_THICKNESS, 8, 16),
 		color,
 		material
 	).Name =
 		"Lintel"
+end
+
+--------------------------------------------------------------------------------
+-- Authored layouts
+--------------------------------------------------------------------------------
+
+--[[
+	What one glyph of an authored grid puts on the ground.
+
+	Deliberately thin. A prefab is a footprint and a storey count handed to the
+	planet's own `style.shape` -- so an authored town on Tatooine is still
+	built out of Adobe, and the same grid dropped on Hoth would come up as
+	IceBunker. A prefab table that drew its own houses would be a tenth
+	architecture quietly ignoring the nine, and the boys would spot it in ten
+	minutes the way they spotted five styles across nine worlds.
+
+	`build` is the exception, for the handful of things no architecture has:
+	a rampart, a gate, a lamp post.
+]]
+type PrefabDef = {
+	-- Fraction of the cell rectangle the building fills. Nil builds nothing.
+	fill: number?,
+	--[[
+		Storeys, as a multiplier on the style's own range rather than a count.
+
+		Adobe is 1-2 floors and Spire is 6-14, so an absolute "a tower is five
+		storeys" would be a tower on Tatooine and a bungalow on Coruscant. A
+		multiplier means tall *for this world*, which is what the author meant.
+	]]
+	floorScale: number?,
+	-- Paving over the whole rectangle, at road height.
+	paved: boolean?,
+	--[[
+		Somewhere a landmark or a player spawn may be put.
+
+		Roads are walkable and deliberately are not offered. `claimNear` gives
+		a landmark the nearest free anchor, and a spaceport dropped in the
+		middle of the high street is worse than one in a yard behind it.
+	]]
+	anchor: boolean?,
+	build: ((Instance, Vector3, Vector2, Style) -> ())?,
+	--[[
+		The fittings of a building you can walk into.
+
+		Setting this builds the footprint as a `roomShell` turned to face the
+		street, and then calls this to put things in it. Which prefabs get one
+		is a judgement rather than a default: a house you can enter and find
+		empty is a worse discovery than a house you cannot enter, and forty
+		houses is forty times the parts to make that discovery in.
+	]]
+	room: ((Instance, CFrame, Vector2, Style) -> ())?,
+}
+
+--- A stretch of town wall, crenellated along whichever way it runs.
+local function buildRampart(parent: Instance, centre: Vector3, span: Vector2, style: Style)
+	local color = style.buildingColors[1]
+	local height = style.floorHeight * 1.5
+	local thickness = math.min(span.X, span.Y) * 0.55
+
+	local alongX = span.X >= span.Y
+	local body = if alongX
+		then Vector3.new(span.X, height, thickness)
+		else Vector3.new(thickness, height, span.Y)
+	block(parent, CFrame.new(centre + Vector3.new(0, height * 0.5, 0)), body, color, Enum.Material.Brick).Name =
+		"Rampart"
+
+	local run = if alongX then span.X else span.Y
+	local step = 14
+	for i = 0, math.max(0, math.floor(run / step) - 1) do
+		local at = -run * 0.5 + step * (i + 0.5)
+		local offset = if alongX then Vector3.new(at, height + 2, 0) else Vector3.new(0, height + 2, at)
+		local size = if alongX
+			then Vector3.new(step * 0.55, 4, thickness)
+			else Vector3.new(thickness, 4, step * 0.55)
+		block(parent, CFrame.new(centre + offset), size, color, Enum.Material.Brick).Name = "Merlon"
+	end
+end
+
+--- The break in a wall: a pier each side and a lintel over, walkable between.
+local function buildGate(parent: Instance, centre: Vector3, span: Vector2, style: Style)
+	local color = style.buildingColors[1]
+	local height = style.floorHeight * 1.5
+	local alongX = span.X >= span.Y
+	local run = if alongX then span.X else span.Y
+	local thickness = math.min(span.X, span.Y) * 0.55
+	local pier = 12
+
+	for _, side in { -1, 1 } do
+		local at = side * (run * 0.5 - pier * 0.5)
+		local offset = if alongX
+			then Vector3.new(at, (height + 8) * 0.5, 0)
+			else Vector3.new(0, (height + 8) * 0.5, at)
+		local size = if alongX
+			then Vector3.new(pier, height + 8, thickness)
+			else Vector3.new(thickness, height + 8, pier)
+		block(parent, CFrame.new(centre + offset), size, color, Enum.Material.Brick).Name = "Pier"
+	end
+
+	-- Above head height on purpose: the gateway has to be walked and pathed
+	-- through, and a lintel a character catches on is a wall with a picture
+	-- of a door on it.
+	local lintel = if alongX then Vector3.new(run, 7, thickness) else Vector3.new(thickness, 7, run)
+	block(parent, CFrame.new(centre + Vector3.new(0, height + 11, 0)), lintel, color, Enum.Material.Brick).Name =
+		"Lintel"
+end
+
+local function buildLampCell(parent: Instance, centre: Vector3, _span: Vector2, style: Style)
+	buildStreetLamp(parent, centre, style.windowColor)
+end
+
+--[[
+	FITTINGS ARE WRITTEN IN THE ROOM'S OWN FRAME
+
+	`at` is the room's centre turned so that local +X is the door, and `inner`
+	is the floor measured the same way -- X from the back wall to the door, Y
+	across. Everything below multiplies through `at` rather than adding to a
+	position, because half these rooms are turned a quarter circle and a
+	counter placed in world space would end up through a side wall.
+]]
+
+--- A shop: a counter to stand behind, a stocked shelf, and light to see by.
+local function fitShop(parent: Instance, at: CFrame, inner: Vector2, style: Style)
+	local run = inner.Y * 0.62
+	--[[
+		Measured out from the inside of the back wall rather than as fractions
+		of the room.
+
+		A shop rectangle is anything from one cell to nine, and the same
+		fraction that is a comfortable gap in the big one stands the shelf
+		inside the counter in the small one. The furniture does not want to
+		scale; only the room does.
+	]]
+	local back = -inner.X * 0.5 + WALL_THICKNESS * 0.5
+
+	block(
+		parent,
+		at * CFrame.new(back + 1.5, 9, 0),
+		Vector3.new(2.5, 18, run + 6),
+		Palette.WornSteel,
+		Enum.Material.Metal
+	).Name =
+		"Shelf"
+	-- An empty shelf is a wall with a ledge on it. Sitting *on* the shelf
+	-- face rather than in front of it: the smallest shop here is 25 studs
+	-- deep and three of those are the walk behind the counter.
+	for column = -1, 1 do
+		for _, y in { 6, 13 } do
+			local goods = block(
+				parent,
+				at * CFrame.new(back + 2.5, y, column * run * 0.3),
+				Vector3.new(2, 3.5, 5),
+				style.windowColor,
+				Enum.Material.Neon
+			)
+			goods.Name = "Goods"
+			goods.CanCollide = false
+		end
+	end
+
+	-- Far enough off the shelf to leave a shopkeeper room to stand between
+	-- the two. Overhang and stock behind are the details that say "someone
+	-- sells things here" rather than "there is a box in this room".
+	local counter = back + 11
+	block(
+		parent,
+		at * CFrame.new(counter, 5, 0),
+		Vector3.new(5, 10, run),
+		Palette.SmugglerBrown,
+		Enum.Material.WoodPlanks
+	).Name =
+		"Counter"
+	block(
+		parent,
+		at * CFrame.new(counter + 1.5, 10.4, 0),
+		Vector3.new(8, 1.4, run + 2),
+		Palette.DarkMetal,
+		Enum.Material.Wood
+	).Name =
+		"CounterTop"
+
+	-- In the corners by the door, where a delivery would have been dropped.
+	-- Skipped in a narrow shop: `roomShell`'s doorway is 16 studs and the
+	-- corners are the only place these fit, so in a one-cell frontage the
+	-- crates would be standing in the door.
+	if inner.Y >= 40 then
+		for _, side in { -1, 1 } do
+			block(
+				parent,
+				at * CFrame.new(inner.X * 0.5 - 8, 3, side * (inner.Y * 0.5 - 7)),
+				Vector3.new(7, 6, 7),
+				Palette.DroidRust,
+				Enum.Material.CorrodedMetal
+			).Name =
+				"Crate"
+		end
+	end
+
+	ceilingLamp(parent, (at * CFrame.new(0, ROOM_HEIGHT - 3, 0)).Position, style.windowColor, 42)
+end
+
+--- A hall: one long table and benches down the middle, which is the
+--- difference between somewhere people are called to and a shed.
+local function fitHall(parent: Instance, at: CFrame, inner: Vector2, style: Style)
+	local length = inner.X * 0.55
+	local width = math.min(13, inner.Y * 0.3)
+
+	block(
+		parent,
+		at * CFrame.new(0, 9, 0),
+		Vector3.new(length, 1.6, width),
+		Palette.SmugglerBrown,
+		Enum.Material.WoodPlanks
+	).Name =
+		"Table"
+	for _, x in { -1, 1 } do
+		for _, z in { -1, 1 } do
+			block(
+				parent,
+				at * CFrame.new(x * (length * 0.5 - 2), 4.5, z * (width * 0.5 - 2)),
+				Vector3.new(2, 9, 2),
+				Palette.DarkMetal,
+				Enum.Material.Metal
+			).Name =
+				"Leg"
+		end
+	end
+
+	for _, side in { -1, 1 } do
+		local bench = width * 0.5 + 5
+		block(
+			parent,
+			at * CFrame.new(0, 5, side * bench),
+			Vector3.new(length, 1.4, 5),
+			Palette.SmugglerBrown,
+			Enum.Material.Wood
+		).Name =
+			"Bench"
+		for _, x in { -1, 1 } do
+			block(
+				parent,
+				at * CFrame.new(x * (length * 0.5 - 3), 2.5, side * bench),
+				Vector3.new(1.6, 5, 4),
+				Palette.DarkMetal,
+				Enum.Material.Metal
+			).Name =
+				"BenchLeg"
+		end
+	end
+
+	ceilingLamp(parent, (at * CFrame.new(-length * 0.4, ROOM_HEIGHT - 3, 0)).Position, style.windowColor, 40)
+	ceilingLamp(parent, (at * CFrame.new(length * 0.4, ROOM_HEIGHT - 3, 0)).Position, style.windowColor, 40)
+end
+
+local PREFABS: { [string]: PrefabDef } = {
+	House = { fill = 0.72, floorScale = 0.8 },
+	Hall = { fill = 0.88, room = fitHall },
+	Shop = { fill = 0.78, room = fitShop },
+	Tower = { fill = 0.55, floorScale = 1.8 },
+	Wall = { build = buildRampart },
+	Gate = { build = buildGate, paved = true },
+	Road = { paved = true },
+	Plaza = { paved = true, anchor = true },
+	Yard = { anchor = true },
+	Lamp = { anchor = true, build = buildLampCell },
+}
+
+--[[
+	Whether `id` is something a layout legend is allowed to point at.
+
+	`Planets.validate` takes this as an argument rather than requiring this
+	module: PlanetBuilder is server-only and already requires Planets, so the
+	dependency can only run one way.
+]]
+function PlanetBuilder.prefabExists(id: string): boolean
+	return PREFABS[id] ~= nil
+end
+
+type LayoutRect = { glyph: string, from: Vector2, to: Vector2 }
+
+--[[
+	The glyph at a cell, with everything off the page reading as open ground.
+
+	Short rows read as open ground on their east end rather than shifting
+	everything after them, and a cell just outside the grid is desert rather
+	than a wall -- which is what lets the door search below walk off the edge
+	without a bounds check at every step. `Planets.validate` reports the
+	ragged row separately.
+]]
+local function glyphAt(layout: Planets.LayoutDef, column: number, row: number): string
+	local line = layout.grid[row]
+	if not line or column < 1 or column > #line then
+		return " "
+	end
+	return line:sub(column, column)
+end
+
+--- Whether a cell is ground somebody could stand on: paving, a yard, or
+--- nothing at all. Buildings and ramparts are not.
+local function walkable(layout: Planets.LayoutDef, column: number, row: number): boolean
+	local prefabId = layout.legend[glyphAt(layout, column, row)]
+	local prefab = if prefabId then PREFABS[prefabId] else nil
+	if not prefab then
+		return true
+	end
+	return prefab.paved == true or prefab.anchor == true
+end
+
+--[[
+	Which way a building's door should face: the side of its rectangle with
+	the most open ground against it.
+
+	Returned as a quarter turn about Y, and whether that turn swaps the
+	footprint's axes. Ties go to +X, which is the way `roomShell` builds
+	anyway, so the common case costs no rotation at all.
+
+	Without this a door points wherever +X happens to point, which in a street
+	grid is a three-in-four chance of opening into the neighbour's back wall.
+	A door that does not open is worse than no door, because the player spends
+	a minute finding that out.
+]]
+local FACINGS: { { dx: number, dz: number, yaw: number, turned: boolean } } = {
+	{ dx = 1, dz = 0, yaw = 0, turned = false },
+	{ dx = -1, dz = 0, yaw = math.pi, turned = false },
+	{ dx = 0, dz = 1, yaw = -math.pi * 0.5, turned = true },
+	{ dx = 0, dz = -1, yaw = math.pi * 0.5, turned = true },
+}
+
+local function doorFacing(layout: Planets.LayoutDef, rect: LayoutRect): (number, boolean)
+	local bestYaw, bestTurned, bestScore = 0, false, -1
+
+	for _, facing in FACINGS do
+		local open, run = 0, 0
+		if facing.dx ~= 0 then
+			local column = if facing.dx > 0 then rect.to.X + 1 else rect.from.X - 1
+			for row = rect.from.Y, rect.to.Y do
+				run += 1
+				open += if walkable(layout, column, row) then 1 else 0
+			end
+		else
+			local row = if facing.dz > 0 then rect.to.Y + 1 else rect.from.Y - 1
+			for column = rect.from.X, rect.to.X do
+				run += 1
+				open += if walkable(layout, column, row) then 1 else 0
+			end
+		end
+
+		-- Scored per cell, so a long side does not win merely for being long.
+		-- The door goes on the clearest side, not the widest one.
+		local score = open / run
+		if score > bestScore then
+			bestYaw, bestTurned, bestScore = facing.yaw, facing.turned, score
+		end
+	end
+
+	return bestYaw, bestTurned
+end
+
+--[[
+	The nearest paving to a point inside an authored town, or nil if there is
+	none near enough to be the same place.
+
+	`ontoStreet` does this for the radial generator by rounding onto a block
+	line, which is arithmetic that only holds because that generator draws its
+	streets on those lines. An authored town's streets are wherever the author
+	drew them, so this reads the grid instead: it walks outward in rings from
+	the cell the point landed in and takes the first paved one.
+
+	Without it every NPC patrol point inside Anchorhead's walls is snapped
+	onto a street grid the town does not have, and the crowd stands in the
+	houses.
+]]
+local LAYOUT_SNAP_CELLS = 5
+
+local function ontoPaving(layout: Planets.LayoutDef, origin: Vector3, at: Vector3): Vector3?
+	local columns, rows = Planets.layoutSize(layout)
+	local column = math.round((at.X - origin.X) / layout.cell + (columns + 1) / 2)
+	local row = math.round((at.Z - origin.Z) / layout.cell + (rows + 1) / 2)
+
+	-- Outside the page entirely: wilderness districts are not snapped, they
+	-- are already standing on open ground.
+	if column < 1 or column > columns or row < 1 or row > rows then
+		return nil
+	end
+
+	-- Nearest by real distance, not by the square it sits in: a cell four
+	-- along and four down is further away than one five along, and taking
+	-- the first square ring that hits would pick the diagonal.
+	local best: Vector3? = nil
+	local bestDistance = math.huge
+
+	for dz = -LAYOUT_SNAP_CELLS, LAYOUT_SNAP_CELLS do
+		for dx = -LAYOUT_SNAP_CELLS, LAYOUT_SNAP_CELLS do
+			local c, r = column + dx, row + dz
+			local prefabId = layout.legend[glyphAt(layout, c, r)]
+			local prefab = if prefabId then PREFABS[prefabId] else nil
+			if not (prefab and prefab.paved) then
+				continue
+			end
+
+			local cell = origin + Planets.cellOffset(layout, c, r)
+			local distance = (Vector3.new(cell.X, 0, cell.Z) - Vector3.new(at.X, 0, at.Z)).Magnitude
+			if distance < bestDistance then
+				best, bestDistance = cell, distance
+			end
+		end
+	end
+
+	return best
+end
+
+--[[
+	Groups touching cells that share a glyph into single rectangles.
+
+	`WWWW` is one wall, not four wall segments with three seams down them, and
+	a two-by-two `HH` block is one house rather than four huts pressed
+	together. The rule an author has to hold in their head is the simple one
+	it looks like: cells that touch and match are one building, and the way to
+	write two houses is to leave a gap between them.
+
+	Greedy -- run right while the glyph holds, then down while the whole run
+	holds. That does not find the largest rectangles an L-shaped block could
+	be cut into; it finds the ones you would read off the page, which is the
+	entire reason for writing the town as a page.
+]]
+local function layoutRects(layout: Planets.LayoutDef): { LayoutRect }
+	local columns, rows = Planets.layoutSize(layout)
+
+	local taken: { { boolean } } = {}
+	for row = 1, rows do
+		taken[row] = table.create(columns, false)
+	end
+
+	local rects: { LayoutRect } = {}
+	for row = 1, rows do
+		for column = 1, columns do
+			local glyph = glyphAt(layout, column, row)
+			if glyph == " " or taken[row][column] then
+				continue
+			end
+
+			local right = column
+			while
+				right < columns
+				and glyphAt(layout, right + 1, row) == glyph
+				and not taken[row][right + 1]
+			do
+				right += 1
+			end
+
+			local bottom = row
+			while bottom < rows do
+				local whole = true
+				for c = column, right do
+					if glyphAt(layout, c, bottom + 1) ~= glyph or taken[bottom + 1][c] then
+						whole = false
+						break
+					end
+				end
+				if not whole then
+					break
+				end
+				bottom += 1
+			end
+
+			for r = row, bottom do
+				for c = column, right do
+					taken[r][c] = true
+				end
+			end
+			table.insert(
+				rects,
+				{ glyph = glyph, from = Vector2.new(column, row), to = Vector2.new(right, bottom) }
+			)
+		end
+	end
+	return rects
+end
+
+--[[
+	A building with an inside: shell, street door, lit sign, and whatever the
+	prefab puts in it.
+
+	Deliberately not a tenth `shape` function. The nine build a silhouette out
+	of solids and there is no way to hollow one without maintaining a second
+	version of it; this builds the shell first -- the rule from the Interiors
+	section -- and then borrows the same trim helpers the shapes use, so from
+	the street it still reads as the same world.
+
+	One storey, always. A room is only worth building where a player can walk
+	into it, and stairs are a system this does not have; a second floor would
+	be a ceiling with nothing above it. That is why the prefabs with a `room`
+	have no `floorScale`.
+]]
+local function buildRoom(
+	parent: Instance,
+	layout: Planets.LayoutDef,
+	rect: LayoutRect,
+	centre: Vector3,
+	footprint: Vector2,
+	style: Style,
+	rng: Random,
+	fittings: (Instance, CFrame, Vector2, Style) -> ()
+)
+	local color = pick(style.buildingColors, rng)
+	local yaw, turned = doorFacing(layout, rect)
+	local at = CFrame.new(centre) * CFrame.Angles(0, yaw, 0)
+
+	-- Local X runs from the back wall to the door, so a turned building has
+	-- to swap the footprint's axes or the room comes out across itself.
+	local inner = if turned then Vector2.new(footprint.Y, footprint.X) else footprint
+
+	plinth(parent, centre, footprint.X, footprint.Y, color, style.wallMaterial)
+	roomShell(parent, at, Vector3.new(inner.X, ROOM_HEIGHT, inner.Y), color, style.wallMaterial)
+	cornice(parent, centre, ROOM_HEIGHT + 2.5, footprint.X, footprint.Y, color, style.wallMaterial)
+	roofClutter(parent, centre, ROOM_HEIGHT + 3, footprint.X, footprint.Y, rng)
+
+	-- A lit plate on the lintel. The one part that says "this one opens" from
+	-- across the street, which is most of the value of building an inside.
+	local sign = block(
+		parent,
+		at * CFrame.new(inner.X * 0.5 + 2, ROOM_HEIGHT - 5, 0),
+		Vector3.new(1.5, 4.5, 15),
+		style.windowColor,
+		Enum.Material.Neon
+	)
+	sign.Name = "Sign"
+	sign.CanCollide = false
+
+	local glow = Instance.new("PointLight")
+	glow.Color = style.windowColor
+	glow.Range = 34
+	glow.Brightness = 1.6
+	glow.Parent = sign
+
+	fittings(parent, at, inner, style)
+end
+
+--[[
+	Builds a town from its picture instead of from the seed.
+
+	Same contract as `buildSettlement` -- returns the ground left open, and
+	everything downstream (landmarks, patrol rings, spawn markers) cannot tell
+	which of the two it was handed. That is the point of doing it this way
+	round: the authored layout is a different *source* of anchors, not a
+	different world-building pipeline, so the eight worlds without one keep
+	working untouched.
+]]
+local function buildFromLayout(
+	parent: Instance,
+	planet: Planets.PlanetDef,
+	layout: Planets.LayoutDef,
+	origin: Vector3,
+	style: Style,
+	rng: Random
+): { Vector3 }
+	local town = folder("Settlement", parent)
+	local paving = folder("Streets", town)
+	local roadColor, roadMaterial = roadLook(planet)
+
+	local open: { Vector3 } = {}
+
+	for _, rect in layoutRects(layout) do
+		local prefabId = layout.legend[rect.glyph]
+		local prefab = if prefabId then PREFABS[prefabId] else nil
+		if not prefab then
+			continue
+		end
+
+		local a = Planets.cellOffset(layout, rect.from.X, rect.from.Y)
+		local b = Planets.cellOffset(layout, rect.to.X, rect.to.Y)
+		local centre = origin + (a + b) * 0.5
+		local span = Vector2.new(math.abs(b.X - a.X) + layout.cell, math.abs(b.Z - a.Z) + layout.cell)
+
+		-- Rectangles never overlap, so one lift is enough and there is no
+		-- z-fighting to separate the way the radial street grid has.
+		if prefab.paved then
+			block(
+				paving,
+				CFrame.new(centre + Vector3.new(0, ROAD_Y + ROAD_LIFT_NS, 0)),
+				Vector3.new(span.X, ROAD_THICKNESS, span.Y),
+				roadColor,
+				roadMaterial
+			).Name =
+				"Paving"
+		end
+
+		-- Every cell of a large yard, not just its centre: a plaza that
+		-- offers one anchor is a plaza six players queue up on.
+		if prefab.anchor then
+			for column = rect.from.X, rect.to.X do
+				for row = rect.from.Y, rect.to.Y do
+					table.insert(open, origin + Planets.cellOffset(layout, column, row))
+				end
+			end
+		end
+
+		local custom = prefab.build
+		if custom then
+			custom(town, centre, span, style)
+			continue
+		end
+
+		local fill = prefab.fill
+		if not fill then
+			continue
+		end
+
+		-- Inset, so two rectangles that share an edge on the page still have
+		-- an alley between them on the ground.
+		local footprint = Vector2.new(math.max(8, span.X * fill), math.max(8, span.Y * fill))
+
+		local fittings = prefab.room
+		if fittings then
+			buildRoom(town, layout, rect, centre, footprint, style, rng, fittings)
+			continue
+		end
+
+		local scale = prefab.floorScale
+		local shaped = style
+		if scale then
+			shaped = table.clone(style)
+			shaped.minFloors = math.max(1, math.round(style.minFloors * scale))
+			shaped.maxFloors = math.max(shaped.minFloors, math.round(style.maxFloors * scale))
+		end
+		shaped.shape(town, centre, footprint, shaped, rng)
+	end
+
+	-- A layout that builds nothing walkable would otherwise hand back an
+	-- empty anchor list and drop every spawn marker on the origin anyway.
+	if #open == 0 then
+		table.insert(open, origin)
+	end
+	return open
+end
+
+--------------------------------------------------------------------------------
+-- Vertical city
+--------------------------------------------------------------------------------
+
+--[[
+	Coruscant. No ground, only towers and the platforms bolted to them.
+
+	This is the one planet where falling is a real threat rather than a bug,
+	so every platform is generated as a solid slab with a lip, and the spawn
+	markers are placed on platforms rather than anywhere in open air.
+]]
+local function buildVerticalCity(
+	parent: Instance,
+	planet: Planets.PlanetDef,
+	origin: Vector3,
+	rng: Random
+): { Vector3 }
+	local city = folder("Towers", parent)
+	local platforms: { Vector3 } = {}
+	local ceiling = planet.flightCeiling or 1400
+
+	--[[
+		121 towers is by far the largest single view in the game, and until
+		2026-08-16 every one of them was a square-section box on an exact
+		240-stud grid with a flat top -- which is the most literally blocky
+		thing here, and the thing the playtest note was most likely looking at.
+
+		The fixes below are nearly free, which is the constraint that matters at
+		this count: an off-square footprint costs *no* parts at all, and the
+		setback and mast cost two.
+
+		The grid itself is deliberately left exact. Jittering the centres is
+		the obvious fourth fix and it is the one that cannot be had cheaply:
+		the landing platforms cantilever 45 studs past the widest face, which
+		at 240-stud spacing already brings a pad's outer edge to within nothing
+		of its neighbour's wall. Moving a tower closer puts a pad *inside* the
+		next tower -- and pads are the anchors this function returns, which
+		become landmark positions and NPC spawn points. A jittered skyline is
+		not worth a district spawning inside a wall.
+	]]
+	for gx = -5, 5 do
+		for gz = -5, 5 do
+			local centre = origin + Vector3.new(gx * 240, 0, gz * 240)
+			local width = rng:NextNumber(70, 150)
+			-- Not square, but never wider than `width` could already be, for
+			-- the clearance reason above. A grid of square towers is a grid
+			-- however it is lit: every one looks the same from every side.
+			local depth = math.clamp(width * rng:NextNumber(0.55, 1.5), 60, 150)
+			local top = rng:NextNumber(ceiling * 0.45, ceiling * 0.95)
+			local height = top - TOWER_BASE_Y
+
+			local tower = block(
+				city,
+				CFrame.new(centre + Vector3.new(0, TOWER_BASE_Y + height * 0.5, 0)),
+				Vector3.new(width, height, depth),
+				Palette.CoruscantPlate,
+				Enum.Material.Metal
+			)
+			tower.Name = "Tower"
+
+			-- A setback crown, and on some of them a mast. Between the two,
+			-- no two towers end at the same shape -- and the skyline was one
+			-- flat row of identical tops before them.
+			local crown = rng:NextNumber(40, 110)
+			block(
+				city,
+				CFrame.new(centre + Vector3.new(0, top + crown * 0.5, 0)),
+				Vector3.new(width * rng:NextNumber(0.4, 0.75), crown, depth * rng:NextNumber(0.4, 0.75)),
+				Palette.CoruscantPlate,
+				Enum.Material.Metal
+			).Name =
+				"Crown"
+
+			if rng:NextNumber() < 0.45 then
+				local mast = cylinder(
+					city,
+					CFrame.new(centre + Vector3.new(0, top + crown + 35, 0)) * UPRIGHT,
+					Vector3.new(70, 3, 3),
+					Palette.WornSteel,
+					Enum.Material.Metal
+				)
+				mast.Name = "Mast"
+				mast.CanCollide = false
+			end
+
+			-- Window bands every few hundred studs rather than every floor:
+			-- at this scale individual floors are invisible anyway, and the
+			-- part count is not.
+			local y = TOWER_BASE_Y + 60
+			while y < top - 40 do
+				local band = block(
+					city,
+					CFrame.new(centre + Vector3.new(0, y, 0)),
+					Vector3.new(width * 1.01, 6, depth * 1.01),
+					Palette.CoruscantLight,
+					Enum.Material.Neon
+				)
+				band.Name = "Windows"
+				band.CanCollide = false
+				y += rng:NextNumber(45, 90)
+			end
+
+			-- Landing platforms cantilevered off the tower at skylane heights.
+			local platformY = math.floor(top / SKYLANE_STEP) * SKYLANE_STEP
+			while platformY > TOWER_BASE_Y + 200 do
+				if rng:NextNumber() < 0.35 then
+					-- Measured off the wider axis, since the offset is then
+					-- rotated to any bearing and a pad sized for the narrow
+					-- side would end up inside the tower on the deep one.
+					local offset = Vector3.new(math.max(width, depth) * 0.5 + 45, 0, 0)
+					local rotated = CFrame.Angles(0, rng:NextNumber(0, math.pi * 2), 0) * offset
+					local position = centre + Vector3.new(0, platformY, 0) + rotated
+
+					local pad = block(
+						city,
+						CFrame.new(position),
+						Vector3.new(90, 4, 90),
+						Palette.CoruscantPlate,
+						Enum.Material.DiamondPlate
+					)
+					pad.Name = "Platform"
+					table.insert(platforms, position + Vector3.new(0, 2, 0))
+				end
+				platformY -= SKYLANE_STEP
+			end
+		end
+	end
+
+	return platforms
 end
 
 --------------------------------------------------------------------------------
@@ -3014,7 +3386,7 @@ local function buildBase(parent: Instance, base: Vector3, style: Style, rng: Ran
 
 	-- The keep is a barracks you can walk into, and its door faces the gate,
 	-- so the way in from outside runs straight through to the way inside.
-	roomShell(parent, base, Vector3.new(70, ROOM_HEIGHT, 56), wallColor, Enum.Material.Concrete)
+	roomShell(parent, CFrame.new(base), Vector3.new(70, ROOM_HEIGHT, 56), wallColor, Enum.Material.Concrete)
 	block(
 		parent,
 		CFrame.new(base + Vector3.new(0, ROOM_HEIGHT + 5, 0)),
@@ -3829,6 +4201,16 @@ local function buildMarkers(
 
 			if not planet.hasWalkableGround and #anchors > 0 then
 				position = anchors[rng:NextInteger(1, #anchors)]
+			elseif layout then
+				-- An authored town's streets are where the author drew them,
+				-- so `ontoStreet`'s block arithmetic would put the crowd
+				-- inside the houses. Points off the grid are left alone --
+				-- those districts are already standing on open ground.
+				local paved = ontoPaving(layout, origin, position)
+				if paved then
+					position = Vector3.new(paved.X, position.Y, paved.Z)
+					size = Vector3.new(layout.cell * 0.9, 1, layout.cell * 0.9)
+				end
 			elseif (position - origin).Magnitude < SETTLEMENT_RADIUS then
 				position, size = ontoStreet(origin, position)
 			end

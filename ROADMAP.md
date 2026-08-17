@@ -324,9 +324,40 @@ a bunk, a stem and a shade above a lamp, banding and skids on a crate, coping
 and buttresses on a compound wall. Three or four parts each. The same rule
 retired the base's bare 164-stud wall slabs, which had the same problem outdoors.
 
-Still open: ordinary settlement buildings are still solid, and shops, tombs and
-apartments have no interiors. Neither needs new machinery — `roundWall` and
-`roomShell` plus an `interior` offset is the whole pattern.
+**Ordinary buildings, 2026-08-17.** The prediction held: no new machinery, and
+the `roomShell` that was written for the base keep builds an authored shop
+unchanged. A `PrefabDef` may now declare a `room` — the fittings that go inside
+it — and `buildFromLayout` builds that cell as a shell instead of handing it to
+`style.shape`. Anchorhead has **nine shops and two halls** you can walk into.
+
+Four decisions in it:
+
+- **The door faces the street, and the building turns to suit.** `roomShell`'s
+  doorway is always local +X, so `doorFacing` scores the four sides of the
+  rectangle by how much open ground is against each and the whole shell is
+  turned that way. Without it a door is a three-in-four chance of opening into
+  the neighbour's back wall — and a door that does not open is worse than no
+  door, because a player spends a minute finding that out. All eleven of
+  Anchorhead's rooms come out on a side that is 100% open.
+- **Fittings are written in the room's own frame** (`at: CFrame`, `inner` swapped
+  when the building is turned), which is why `roomShell` now takes a CFrame base.
+- **A room is one storey, always** — so the prefabs with a `room` carry no
+  `floorScale`. Stairs are a system this does not have, and a second floor would
+  be a ceiling with nothing above it.
+- **`Style` gained a `wallMaterial`.** The nine shape functions each pick their
+  own materials part by part; shared machinery had nothing to ask, so an authored
+  shop would have been concrete on all nine worlds. It is sandstone on Tatooine.
+
+It also caught a live bug in 3.1: `ontoStreet` snaps an NPC patrol point onto the
+**radial** generator's block lines, which an authored town does not have — the
+whole Anchorhead crowd would have stood inside the houses. `ontoPaving` reads the
+grid instead and takes the nearest paved cell; worst case a point moves 93 studs,
+and every one of them lands on a street.
+
+Still open: tombs and apartments, and **nobody is in the shops yet** — a room
+gets a shopkeeper only where a `LandmarkDef.interior` puts one, which is a
+landmark mechanism. Wiring authored rooms into the same `Inside` marker is the
+next step and is what turns eleven rooms into eleven places.
 
 **Finding the place at all.** Also from the second playtest: *"I have no idea
 where the cantina is."* Roads answer "where does this go" once you are standing
@@ -859,6 +890,11 @@ were handed. Eight worlds are untouched while the mechanism proves out on one.
 - **An authored district keeps its drawn centre even when it has a landmark.**
   Previously the crowd ringed `landmark.at`; with the spaceport pushed outside
   the wall that would have taken all thirty-two townspeople to the landing field.
+
+**Rooms, same day.** A prefab may also declare a `room`, which builds that cell
+as a `roomShell` turned to face the street rather than as a solid. Nine shops and
+two halls in Anchorhead. Details and the `ontoStreet` bug it exposed are under
+**N5**, because it is the interiors item finally reaching ordinary buildings.
 
 **Deliberately deferred:** promoting `LANDMARKS` to `src/server/World/Prefabs/`.
 Splitting the file means exporting seven local helpers plus 600 lines of

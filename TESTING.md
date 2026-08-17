@@ -420,6 +420,41 @@ the cell maths, and comparing the two is how you tell.
     A ragged row, an undeclared glyph or a district rectangle off the edge of
     the grid all report there and nowhere else.
 
+### 5.7 The shops open — **new, never played**
+
+Anchorhead's **nine shops (`s`) and two halls (`H`)** are rooms you can walk
+into. Everything else on the grid is still solid.
+
+1. Find a shop — a lit sign over the door is the tell, and the only building
+   type with one. Walk in. You do not get stuck in the doorway.
+2. **The door is on a side that faces open ground.** Walk right round the
+   outside of three different shops: none of them has its door against a
+   neighbour's back wall. *(This is the whole of `doorFacing`. One wrong door is
+   a bug, not bad luck — the grid is fixed, so the answer is the same every
+   run.)*
+3. Inside: a **counter** with an overhanging top, a **shelf behind it with lit
+   stock on it**, and a ceiling lamp. In the bigger shops, two crates in the
+   corners by the door. You can walk round behind the counter.
+4. Do that in the smallest shop (a one-cell frontage, e.g. the row of four along
+   the north side) *and* in the three-by-three one in the market. **The
+   furniture is the same size in both** — that is deliberate; only the room
+   scales.
+5. **The halls** (grid rows 10–12, west side and far east) have a long table,
+   benches and two lamps. The east one is turned a quarter circle: its door
+   faces **south**. Check the table runs door-to-back-wall, not across it.
+6. Look at a shop from outside. It is **sandstone**, like its neighbours — not
+   grey concrete. *(If it is grey, `Style.wallMaterial` is not being read.)*
+7. Nothing pokes through: no goods through the counter, no crate in the doorway,
+   no bench through a side wall.
+8. **NPCs in town are standing on streets, not inside houses.** Watch the
+   civilians patrol for a minute. *(Before this change they were snapped onto
+   the radial generator's block lines, which Anchorhead does not have. If
+   someone is standing in a wall, `ontoPaving` is the place to look.)*
+9. The shops are **empty of people** — that is known and expected, not a bug.
+   Vendors still stand outside. Populating rooms is the next item.
+10. Korriban and Nar Shaddaa again: no shop interiors anywhere, because neither
+    has a `layout`.
+
 ---
 
 ## 6. Travel and origins
