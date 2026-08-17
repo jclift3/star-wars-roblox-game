@@ -34,10 +34,14 @@ local UserInputService = game:GetService("UserInputService")
 
 local Shared = game:GetService("ReplicatedStorage"):WaitForChild("Shared")
 local Acts = require(Shared.Config.Acts)
+local Alignment = require(Shared.Config.Alignment)
+local Factions = require(Shared.Config.Factions)
 local Flags = require(Shared.Config.Flags)
 local Missions = require(Shared.Config.Missions)
+local Origins = require(Shared.Config.Origins)
 local Palette = require(Shared.Config.Palette)
 local Panels = require(Shared.Core.Panels)
+local Planets = require(Shared.Config.Planets)
 local ServiceLoader = require(Shared.Core.ServiceLoader)
 local Types = require(Shared.Types)
 
@@ -63,6 +67,16 @@ local screen: ScreenGui
 local subtitleLabel: TextLabel
 local listFrame: ScrollingFrame
 local pageFrame: ScrollingFrame
+
+--[[
+	The pinned first page, which is not an act.
+
+	Kept as a value of `selectedAct` rather than as a separate boolean because
+	the left rail is a single column of mutually exclusive rows -- two pieces
+	of state for one selection is two pieces of state that can disagree. It
+	starts with a NUL so that no act id can ever collide with it.
+]]
+local SELF_PAGE = "\0Self"
 
 local open = false
 local selectedAct: string? = nil
@@ -266,11 +280,118 @@ end
 
 local render: () -> ()
 
+--[[
+	WHO YOU ARE
+
+	Reported from play, 2026-08-17: *"I still don't know what's going on, who I
+	am."* Everything on this page already existed and every word of it had
+	already been shown to the player -- once, on the creation screen, in a
+	modal they dismissed to start playing, and then never again. The game knew
+	who the character was; the character's own player did not.
+
+	So this is a *view* like the rest of the journal: not one new field on the
+	profile, not one new remote. `profile.origin` names an `OriginDef` that has
+	been carrying the blurb and the mentor since the day origins were built,
+	and the flags below are the ones the prologues already set.
+
+	Pinned above the acts because it is the only page that is true at level 1.
+]]
+local function renderSelf()
+	local profile = state().get()
+	local order = 0
+	local function at(): number
+		order += 1
+		return order
+	end
+
+	if not profile then
+		line(at(), 13, DIM, "Loading...")
+		return
+	end
+
+	local origin = if Origins.exists(profile.origin) then Origins.get(profile.origin) else nil
+	local heading =
+		line(at(), 17, ACCENT, if origin then origin.displayName else profile.origin, Enum.Font.GothamBold)
+	heading.Size = UDim2.new(1, -16, 0, 22)
+	heading.AutomaticSize = Enum.AutomaticSize.None
+
+	local band = Alignment.bandFor(profile.alignment)
+	line(at(), 13, band.colour, `Level {profile.level}  ·  {band.name}`)
+	spacer(at(), 8)
+
+	if origin then
+		line(at(), 13, TEXT, origin.blurb)
+		spacer(at(), 10)
+	end
+
+	--[[
+		The facts, one per line and each of them a name the player is going to
+		hear said out loud by somebody. The mentor especially: an origin's
+		mentor is the person its prologue hands you to, and a player who has
+		forgotten the name cannot tell a summons from a stranger.
+	]]
+	local facts: { string } = {}
+	if origin then
+		table.insert(facts, `Taught by  ·  {origin.mentor}`)
+	end
+	if Factions.exists(profile.faction) then
+		local faction = Factions.get(profile.faction)
+		local rank = Factions.rankFor(profile.faction, profile.factionRep[profile.faction] or 0)
+		table.insert(facts, `Standing with {faction.displayName}  ·  {rank.name}`)
+	end
+	if Planets.exists(profile.homePlanet) then
+		table.insert(facts, `Home  ·  {Planets.get(profile.homePlanet).displayName}`)
+	end
+	if Planets.exists(profile.currentPlanet) then
+		table.insert(facts, `Currently on  ·  {Planets.get(profile.currentPlanet).displayName}`)
+	end
+	line(at(), 13, DIM, table.concat(facts, "\n"))
+	spacer(at(), 12)
+
+	--[[
+		The spine, told only as far as this character has actually got.
+
+		Three states, and the middle one is the point: a player who has done
+		their prologue has seen one loose thread and does not yet know it is a
+		thread. Saying "there is something here" without saying what keeps the
+		mystery a mystery while making it clear the game has one -- which is
+		the half that was missing.
+	]]
+	line(at(), 14, TEXT, "What is going on", Enum.Font.GothamBold)
+	if profile.flags.NamedTheQuiet then
+		line(
+			at(),
+			13,
+			DIM,
+			"It is called The Quiet. Something is taking the Force out of people and leaving the people behind. It is old, it does not care which side you are on, and it cannot touch anyone who never had the Force to lose."
+		)
+	elseif
+		profile.flags.SawTheIntakeForm
+		or profile.flags.SawBothCopies
+		or profile.flags.OwesNobody
+		or profile.flags.HeardNineRemember
+	then
+		line(
+			at(),
+			13,
+			DIM,
+			"Something you saw at the start of this does not add up, and nobody you have asked will say why. Keep pulling on it."
+		)
+	else
+		line(at(), 13, FAINT, "Nothing yet. Finish where you started and see what it leaves you holding.")
+	end
+end
+
 local function renderPage()
 	for _, child in pageFrame:GetChildren() do
 		if child:IsA("GuiObject") then
 			child:Destroy()
 		end
+	end
+
+	if selectedAct == SELF_PAGE then
+		renderSelf()
+		return
 	end
 
 	local actId = selectedAct
@@ -354,6 +475,35 @@ local function renderList()
 	end
 
 	local profile = state().get()
+
+	-- Pinned above the acts, and not numbered with them: it is not a chapter,
+	-- it is the front matter.
+	do
+		local row = button("Self", listFrame, "")
+		row.LayoutOrder = 0
+		row.Size = UDim2.new(1, -8, 0, 46)
+		row.Text = ""
+		row.BackgroundColor3 = if selectedAct == SELF_PAGE then ROW_SELECTED else ROW
+		row.BackgroundTransparency = 0.25
+
+		local name = text("Name", row, 14, TEXT)
+		name.Font = Enum.Font.GothamBold
+		name.Position = UDim2.fromOffset(12, 7)
+		name.Size = UDim2.new(1, -24, 0, 18)
+		name.Text = "Who you are"
+
+		local status = text("Status", row, 12, ACCENT)
+		status.Position = UDim2.fromOffset(12, 25)
+		status.Size = UDim2.new(1, -24, 0, 16)
+		local origin = if profile and Origins.exists(profile.origin) then Origins.get(profile.origin) else nil
+		status.Text = if origin then origin.displayName else "—"
+
+		row.Activated:Connect(function()
+			selectedAct = SELF_PAGE
+			render()
+		end)
+	end
+
 	for index, actId in Acts.ids() do
 		local act = Acts.get(actId)
 		local done, total = progressOf(actId, profile)
@@ -410,10 +560,13 @@ function render()
 	end
 
 	-- Default to the last act with anything in it, so opening the journal
-	-- lands on where the story currently is rather than on the prologue.
-	if not selectedAct or not Acts.exists(selectedAct) then
+	-- lands on where the story currently is rather than on the prologue. A
+	-- character who has finished nothing lands on "Who you are" instead: for
+	-- them every act page says "Not begun", and the one page that does have
+	-- something to say is the one they need.
+	if selectedAct ~= SELF_PAGE and (not selectedAct or not Acts.exists(selectedAct)) then
 		local ids = Acts.ids()
-		selectedAct = ids[1]
+		selectedAct = SELF_PAGE
 		for _, actId in ids do
 			local done = progressOf(actId, profile)
 			if done > 0 then

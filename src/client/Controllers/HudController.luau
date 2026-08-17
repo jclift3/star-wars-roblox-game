@@ -338,19 +338,6 @@ local function buildLegend()
 	end
 end
 
-local function buildCrosshair()
-	local dot = Instance.new("Frame")
-	dot.Name = "Crosshair"
-	dot.Size = UDim2.fromOffset(4, 4)
-	dot.Position = UDim2.fromScale(0.5, 0.5)
-	dot.AnchorPoint = Vector2.new(0.5, 0.5)
-	dot.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
-	dot.BackgroundTransparency = 0.25
-	dot.BorderSizePixel = 0
-	dot.Parent = screen
-	corner(dot, 2)
-end
-
 --------------------------------------------------------------------------------
 -- Updates
 --------------------------------------------------------------------------------
@@ -551,7 +538,12 @@ function HudController.init()
 	buildTracker()
 	buildToasts()
 	buildLegend()
-	buildCrosshair()
+	-- No crosshair here. There used to be a permanent white dot in the middle
+	-- of the screen, and it was a lie by omission: shots do go through the
+	-- centre, but nothing about a free mouse and a character facing wherever
+	-- it last walked gave the player any reason to believe that. The reticle
+	-- now belongs to `AimController`, which only draws it while the player is
+	-- actually holding the aim button and the claim is actually true.
 
 	Net.onClientEvent(Net.Event.Notify, function(message: string, kind: string?)
 		HudController.toast(message, kind)

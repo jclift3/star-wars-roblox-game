@@ -20,6 +20,11 @@
 	can require. A remote to send four constants across would be one more thing
 	to keep in sync with the table it copies.
 
+	IT IS TWO PAGES, NOT ONE
+	The question, and then the answer read back: who you turned out to be, who
+	is waiting for you, and which two keys the rest of it is behind. The second
+	page replaced a four-second toast, and the reasoning is on `buildCard`.
+
 	THE TRADE-OFF IS STATED BEFORE THE PICK
 	`travelBlurb` exists so the Acolyte knows the Empire flies them free and
 	everyone else charges double *before* they are a Sith with no money on
@@ -52,12 +57,19 @@ local TEXT = Color3.fromRGB(232, 236, 242)
 local DIM = Color3.fromRGB(150, 158, 170)
 
 local screen: ScreenGui
+local pickerRoot: Frame
 local listFrame: Frame
 local detailTitle: TextLabel
 local detailFacts: TextLabel
 local detailBody: TextLabel
 local detailTravel: TextLabel
 local confirmButton: TextButton
+
+local cardRoot: Frame
+local cardTitle: TextLabel
+local cardWhere: TextLabel
+local cardBody: TextLabel
+local cardNext: TextLabel
 
 local open = false
 local chosen = false
@@ -153,6 +165,74 @@ local function buildDetailPane(parent: Frame)
 	confirmButton.TextColor3 = Color3.new(0, 0, 0)
 end
 
+--[[
+	The page that replaces the question once it has been answered.
+
+	WHY IT IS HERE AND NOT A TOAST
+	The choice used to be acknowledged by a four-second `Notify`: a line of text
+	in the corner of a screen the player was, at that exact moment, seeing for
+	the first time. From the 2026-08-17 playtest: "I still don't know what's
+	going on, who I am." Four seconds is not a briefing.
+
+	WHY IT LIVES IN THIS ScreenGui
+	It reuses the picker's scrim and DisplayOrder rather than being its own
+	panel, and `open` stays true until its button is pressed. A Frame does not
+	swallow mouse input on its own -- `Panels.anyOpen()` is what stops
+	`InputController` firing a weapon through a panel -- so a card drawn while
+	the game considers everything closed would be a card the player shoots past.
+
+	Nothing here is stored. The card is the same profile fields the Journal's
+	"Who you are" page draws from, which is the point: it is the first page of
+	something the player can go back to, not a thing they had one chance to read.
+]]
+local function buildCard()
+	cardRoot = Instance.new("Frame")
+	cardRoot.Name = "Card"
+	cardRoot.AnchorPoint = Vector2.new(0.5, 0.5)
+	cardRoot.Position = UDim2.fromScale(0.5, 0.5)
+	cardRoot.Size = UDim2.fromOffset(560, 420)
+	cardRoot.BackgroundColor3 = PANEL
+	cardRoot.BackgroundTransparency = 0.06
+	cardRoot.BorderSizePixel = 0
+	cardRoot.Visible = false
+	cardRoot.Parent = screen
+	corner(cardRoot, 8)
+
+	local padding = Instance.new("UIPadding")
+	padding.PaddingTop = UDim.new(0, 26)
+	padding.PaddingLeft = UDim.new(0, 28)
+	padding.PaddingRight = UDim.new(0, 28)
+	padding.Parent = cardRoot
+
+	cardTitle = text("Title", cardRoot, 24, ACCENT)
+	cardTitle.Font = Enum.Font.GothamBold
+	cardTitle.Size = UDim2.new(1, 0, 0, 30)
+
+	cardWhere = text("Where", cardRoot, 13, DIM)
+	cardWhere.Position = UDim2.fromOffset(0, 34)
+	cardWhere.Size = UDim2.new(1, 0, 0, 18)
+
+	cardBody = text("Body", cardRoot, 14, TEXT)
+	cardBody.Position = UDim2.fromOffset(0, 66)
+	cardBody.Size = UDim2.new(1, 0, 0, 196)
+	cardBody.TextWrapped = true
+
+	cardNext = text("Next", cardRoot, 13, DIM)
+	cardNext.Position = UDim2.fromOffset(0, 270)
+	cardNext.Size = UDim2.new(1, 0, 0, 66)
+	cardNext.TextWrapped = true
+
+	local go = button("Go", cardRoot, "GO")
+	go.Position = UDim2.new(0, 0, 1, -74)
+	go.Size = UDim2.new(1, 0, 0, 42)
+	go.TextSize = 14
+	go.BackgroundColor3 = ACCENT
+	go.TextColor3 = Color3.new(0, 0, 0)
+	go.Activated:Connect(function()
+		CreationController.setOpen(false)
+	end)
+end
+
 local function build()
 	screen = Instance.new("ScreenGui")
 	screen.Name = "CreationGui"
@@ -183,7 +263,8 @@ local function build()
 	scrim.ZIndex = 0
 	scrim.Parent = screen
 
-	local root = Instance.new("Frame")
+	pickerRoot = Instance.new("Frame")
+	local root = pickerRoot
 	root.Name = "Panel"
 	root.AnchorPoint = Vector2.new(0.5, 0.5)
 	root.Position = UDim2.fromScale(0.5, 0.5)
@@ -245,6 +326,7 @@ local function build()
 	end
 
 	buildDetailPane(root)
+	buildCard()
 end
 
 --------------------------------------------------------------------------------
@@ -266,6 +348,38 @@ function render()
 	detailBody.Text = origin.blurb
 	detailTravel.Text = origin.travelBlurb
 	confirmButton.Text = `BEGIN AS {string.upper(origin.displayName)}`
+end
+
+--[[
+	The letter that opens `panel`, read from the registry rather than typed.
+
+	Telling someone to press the wrong key is worse than telling them nothing,
+	and a card that spelled the letters out itself would keep saying M after a
+	rebind with nothing to catch it. "?" for a panel with no key never appears:
+	both named below have one.
+]]
+local function keyOf(panel: string): string
+	local key = Panels.toggleKey(panel)
+	return if key then key.Name else "?"
+end
+
+local function showCard()
+	local origin = Origins.get(selected)
+	local missions = keyOf("MissionBoardController")
+	local journal = keyOf("JournalController")
+
+	cardTitle.Text = origin.displayName
+	cardWhere.Text =
+		`{Planets.get(origin.homePlanet).displayName}  ·  {Factions.get(origin.faction).displayName}  ·  {origin.tree}`
+	-- The mentor is named because they are the one person in the galaxy who
+	-- currently knows this character exists, and "go and find someone" is a
+	-- worse first instruction than "go and find Vashk".
+	cardBody.Text = `{origin.blurb}\n\n{origin.mentor} is expecting you.`
+	cardNext.Text = `Press {missions} for work that needs doing, and {journal} for who you are and what you have`
+		.. ` learned so far. All of this is on the journal's first page -- you are not meant to remember it.`
+
+	pickerRoot.Visible = false
+	cardRoot.Visible = true
 end
 
 --------------------------------------------------------------------------------
@@ -295,6 +409,8 @@ function CreationController.setOpen(value: boolean)
 	screen.Enabled = value
 	if value then
 		Panels.closeAllExcept(CreationController.name)
+		pickerRoot.Visible = true
+		cardRoot.Visible = false
 		render()
 	end
 end
@@ -326,13 +442,37 @@ function CreationController.start()
 
 	local state = ServiceLoader.get("ClientState")
 
+	--[[
+		The card is shown on the transition, not on the state.
+
+		On a rejoin the very first profile that arrives already has
+		`originChosen` set and `chosen` still starts false, so reading the flag
+		alone would replay the briefing at every login -- an introduction to a
+		character the player has been playing for a week. `sawFirstProfile` is
+		what separates "this just happened" from "this happened once, before".
+	]]
+	local sawFirstProfile = false
+
 	local function sync(profile: any)
-		if profile.originChosen then
-			chosen = true
-			selected = profile.origin
-			CreationController.setOpen(false)
-		else
+		local first = not sawFirstProfile
+		sawFirstProfile = true
+
+		if not profile.originChosen then
 			CreationController.setOpen(true)
+			return
+		end
+
+		local justChose = not chosen and not first
+		chosen = true
+		selected = profile.origin
+
+		if justChose then
+			-- Deliberately still open. `open` is what makes the screen take
+			-- input focus, and a card the player can shoot past is a card they
+			-- will shoot past.
+			showCard()
+		else
+			CreationController.setOpen(false)
 		end
 	end
 

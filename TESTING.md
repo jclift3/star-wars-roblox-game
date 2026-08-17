@@ -44,6 +44,7 @@ get wrong announces itself there rather than on screen:
 | **Esc** | Close the open panel |
 | **Shift** | Sprint (server-authoritative — see 9, step 4) |
 | **Mouse 1** | Fire / swing. Hold for automatics, click per shot for semi-autos |
+| **Mouse 2** (hold) | Aim. Over-the-shoulder camera, mouse locked to a reticle, character faces where you are looking |
 | **E** (prompt) | Talk to an NPC |
 | **1**–**9** | Pick a dialogue reply |
 | **1**–**6** | Use an ability — but only when no panel and no conversation is open |
@@ -102,6 +103,26 @@ If any of these fail, stop. Nothing further is worth testing.
 
 This shipped in `94ce9d4` and has not been in front of a person yet. It is the
 highest-value section in this document.
+
+### 2.0 Finding your own things in it — **new, 2026-08-17**
+
+Reported from play: *"I should have an inventory screen where I can see and equip
+my items."* There was one, and equipping worked. At a vendor it drew four things
+you owned mixed into a whole shop's catalogue, sorted by nothing.
+
+1. Open **B** away from any vendor. Every row is yours, there are **no
+   headers**, and the panel opens with one of your items already selected. A
+   `CARRIED` label over a list where everything is carried is noise.
+2. Carrying nothing of that kind, the list says so in words —
+   *"You are carrying no weapons. Find a trader to buy some."* — instead of
+   being blank.
+3. Walk up to a vendor and open **B**. Now there are two headers: **CARRIED**
+   first with your things under it, then **<VENDOR> SELLS** with the shop's
+   stock. The vendor is **named**; the point of the split is whose is whose.
+4. **The panel still opens on something you own**, not on the first thing the
+   shopkeeper happens to stock.
+5. Equip an outfit and a weapon from the top group and watch them apply. This is
+   the thing the report said was missing, and it was only ever hard to find.
 
 ### 2.1 The counter
 
@@ -707,7 +728,14 @@ fires on its own; against a live save, wipe the profile or use a new account.
 3. Each origin's right-hand pane states its *travel trade-off before you pick*
    (the Acolyte flies Imperial space free and pays double everywhere else).
    A permanent choice that hides its cost is the bug.
-4. Pick **Sith Acolyte**. You respawn on **Korriban**, and the toast names it.
+4. Pick **Sith Acolyte**. You respawn on **Korriban**, and the screen does *not*
+   go away: the question is replaced by a card that names the origin, the world,
+   the faction, the mentor (**Overseer Vashk**), the origin's blurb, and the two
+   keys — **M** and **J**. It waits for **GO**. This replaced a four-second
+   toast, so the test is that you can read it without hurrying: leave it up,
+   click where an enemy is, and **nothing fires through it**.
+4a. Rejoin. **The card does not come back.** It fires on the choice being made,
+   not on having one, and a briefing replayed at every login is the bug.
 5. **Nobody at the Academy shoots you.** This is the real test of the whole
    change: your Empire reputation is 0, every Aggressive archetype treats
    "not Friendly" as a target, and only `profile.faction` stops it. Pick
@@ -889,8 +917,19 @@ three. Different lists is a bug, and a bad one.
 already done. It reads the profile you already have, so a fresh character is
 *supposed* to look almost empty — that is the test, not a failure.
 
-1. **J** on a brand-new character. Five acts down the left, all of them **Not
-   begun** and greyed, and the page says nothing more than the act's name. **No
+0. **J** on a brand-new character. The row at the top of the left rail is **Who
+   you are**, not an act, and it is what the journal opens on until you have
+   finished something. It names your origin, your level and alignment band, your
+   mentor, your standing with your faction, your home world and where you
+   currently are — then **What is going on**, which on a new character honestly
+   says *nothing yet*. This is the answer to "I still don't know who I am", so
+   the test is that you can get all of it back at any time from one key.
+0a. Play far enough to hear one of the four hints about The Quiet, then re-open.
+   **What is going on** has a paragraph now. Name it outright (the
+   `NamedTheQuiet` flag) and the paragraph gets longer. A character who has not
+   met it must never see either — that is the spoiler.
+1. Five acts down the left below that row, all of them **Not begun** and greyed,
+   and the page says nothing more than the act's name. **No
    act should show its one-line subtitle before you have finished something in
    it** — those lines say what the act is about and are a spoiler until then.
 2. Finish your prologue. Re-open. **Beginnings** is now lit, shows its subtitle,
@@ -1111,6 +1150,52 @@ first.
 5. **Rejoin.** A character who already owns four abilities gets **no toasts** on
    spawn. The first profile only seeds the set; announcing four things you bought
    yesterday is noise, and it is what the naive version does.
+
+### 9.0a Aiming a blaster — **new, 2026-08-17**
+
+Reported from play: *"I'm not a huge fan of the blaster physics and options. I'd
+think we'd have the ability to have a reticle or other / better way to fire."*
+Shots have always left the character's front; nothing on screen said so, and the
+character faced wherever it last walked.
+
+1. Equip a blaster. There is **no permanent dot** in the middle of the screen
+   any more. The old one was a claim the game could not keep.
+2. **Hold right mouse.** The camera pulls over the right shoulder, the mouse
+   locks to the centre, the character turns to face the camera and **stays**
+   facing it while you strafe, and a **reticle appears**. Release: free look
+   returns, the mouse comes back, the reticle goes.
+3. **The reticle's size is the weapon's spread.** Swap a DL-44 for an E-11 while
+   aiming and watch the gap between the four ticks change. Fire a burst at a
+   wall from twenty studs — the scatter should sit inside the reticle. If it
+   does not, the reticle is lying and that is worse than not having one.
+4. **Open any panel while aiming.** Aim releases on its own. A mouse locked to
+   the centre of an inventory you cannot click is the bug.
+5. **Die while aiming.** You respawn in free look with your mouse back. Hold the
+   button down through a respawn too: the new character should aim, not be
+   stuck half-turned.
+
+### 9.0b Swinging a lightsaber — **new, 2026-08-17**
+
+Reported from play: *"I have this ridiculously long lightsaber but I have no way
+to actually swing it."* The swing always dealt damage — `EffectsController` threw
+away every melee `WeaponEffect` it was sent, so nothing about it was visible.
+
+1. Equip a lightsaber and stand still. **The blade is about two thirds of the
+   character's height**, not longer than the character. A shoto is visibly
+   shorter than a standard blade.
+2. Click. **The arm moves** — wind up, strike, return — and a **glowing arc**
+   follows the blade and fades behind it. Hold the button: swings **alternate
+   direction**, so it reads as a combo rather than a twitch.
+3. **Hit something.** Sparks in the blade's colour appear *at the point the
+   server says the hit landed*. Swing at empty air: arc, no sparks. A spark with
+   no damage would mean the client is guessing.
+4. **Reach matches the blade.** Back away until things stop dying and check the
+   tip is roughly where the damage stops. Shortening the blade without
+   shortening `range` would have moved this lie rather than fixed it.
+5. **Your brother's swings animate on your screen**, not just your own — the
+   character model is on the wire for exactly this. And your own arm moves the
+   instant you click, without waiting for the server.
+6. Swing, then die mid-swing. The arm must not be left stuck out on respawn.
 
 ### 9.1 Deflection — **new, never played**
 

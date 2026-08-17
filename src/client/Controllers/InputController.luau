@@ -121,6 +121,11 @@ local function tryAttack()
 
 	if weapon.class ~= "Blaster" then
 		Net.fireServer(Net.Event.SaberSwing)
+		-- Drawn locally on input for the same reason the bolt below is: the
+		-- server sends this same swing to everyone else, but the person
+		-- holding the button should not wait a round trip to see their own arm
+		-- move.
+		effects().swing(character, weaponId)
 		return
 	end
 

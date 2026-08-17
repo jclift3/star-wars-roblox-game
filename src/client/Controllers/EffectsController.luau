@@ -2,7 +2,7 @@
 --[[
 	EffectsController.luau
 
-	Everything you see when something is shot.
+	Everything you see when something is shot or swung.
 
 	Bolts are purely cosmetic. Damage was already resolved on the server by an
 	instant raycast before this bolt was drawn, which is the standard trick:
@@ -16,6 +16,7 @@
 
 local Debris = game:GetService("Debris")
 local Players = game:GetService("Players")
+local RunService = game:GetService("RunService")
 local TweenService = game:GetService("TweenService")
 local Workspace = game:GetService("Workspace")
 
@@ -24,6 +25,8 @@ local Net = require(Shared.Core.Net)
 local Palette = require(Shared.Config.Palette)
 local Weapons = require(Shared.Config.Weapons)
 local Abilities = require(Shared.Config.Abilities)
+local WeaponModel = require(Shared.Rig.WeaponModel)
+local ServiceLoader = require(Shared.Core.ServiceLoader)
 
 local EffectsController = {
 	name = "EffectsController",
@@ -167,6 +170,205 @@ function EffectsController.spawnBolt(weaponId: string, origin: Vector3, directio
 end
 
 --------------------------------------------------------------------------------
+-- Melee swings
+--------------------------------------------------------------------------------
+
+--[[
+	MAKING A SWING VISIBLE
+
+	Reported from play, 2026-08-17: *"I have this ridiculously long lightsaber
+	but I have no way to actually swing it."*
+
+	The swing worked. `CombatService.swingMelee` has always swept an arc from
+	the character's root and dealt damage on a left click, and the server has
+	always broadcast a `WeaponEffect` for it. What was missing was any part of
+	that reaching the screen: the arm never moved, the blade never moved, and
+	`EffectsController` dropped every `WeaponEffect` that was not a blaster on
+	the floor. Yet another thing that was finished and unreachable.
+
+	WHY MOTOR6D AND NOT AN ANIMATION
+	The rigs are built by `Players:CreateHumanoidModelFromDescription`, so they
+	are genuine R15 Humanoids and could play a real Animation -- but an
+	`Animation` is an *asset id*, which means uploading one, which is exactly
+	the marketplace dependency this project refuses to take. Writing `C0` on
+	the shoulder and elbow joints costs nothing, ships in the repo, and
+	composes with whatever walk cycle Roblox's own animator is running, because
+	the animator writes `Transform` and this writes `C0`.
+
+	WHY IT IS DRAWN ON EVERY CLIENT SEPARATELY
+	`C0` changes do not replicate. That is a feature here: the server tells
+	every machine *that* a swing happened, and every machine draws it locally
+	from the same weapon definition -- so this is cosmetic in the same way the
+	bolts above are, and a tampered swing animation hurts nobody.
+]]
+
+--- Fractions of the swing spent raising the weapon and bringing it down. The
+--- remainder is the recovery back to rest.
+local WINDUP = 0.3
+local STRIKE = 0.32
+
+--[[
+	The two swings, alternating, so a held button reads as a combo rather than
+	the same twitch over and over.
+
+	Euler angles in degrees, applied to the joint's resting `C0`. The first is
+	an overhead diagonal from the character's right down across to its left;
+	the second is its mirror, starting across the body and opening out. X
+	pitches the arm forward and back, Z swings it away from the torso.
+]]
+type Pose = { shoulder: Vector3, elbow: Vector3 }
+local SWINGS: { { windup: Pose, strike: Pose } } = {
+	{
+		windup = { shoulder = Vector3.new(-150, 0, 55), elbow = Vector3.new(-35, 0, 0) },
+		strike = { shoulder = Vector3.new(-40, 0, -55), elbow = Vector3.new(-5, 0, 0) },
+	},
+	{
+		windup = { shoulder = Vector3.new(-140, 0, -45), elbow = Vector3.new(-35, 0, 0) },
+		strike = { shoulder = Vector3.new(-40, 0, 65), elbow = Vector3.new(-5, 0, 0) },
+	},
+}
+
+type SwingState = {
+	index: number,
+	--- Bumped by every swing. A running swing that finds it changed gives up,
+	--- which is how the second half of a combo interrupts the first.
+	token: number,
+	restShoulder: CFrame?,
+	restElbow: CFrame?,
+}
+
+-- Weak keys: a character is destroyed on respawn and this must not be the
+-- reason it stays in memory. Alternation surviving between swings is the
+-- whole point, so the entries cannot simply be deleted when a swing ends.
+local swings: { [Model]: SwingState } = {}
+setmetatable(swings :: any, { __mode = "k" })
+
+local function motor(character: Model, limb: string, joint: string): Motor6D?
+	local part = character:FindFirstChild(limb)
+	local found = if part then part:FindFirstChild(joint) else nil
+	return if found and found:IsA("Motor6D") then found else nil
+end
+
+local function angles(degrees: Vector3): CFrame
+	return CFrame.Angles(math.rad(degrees.X), math.rad(degrees.Y), math.rad(degrees.Z))
+end
+
+--[[
+	Plays one swing of `weaponId` on `character`.
+
+	Safe to call for a weapon that has no blade, a rig with no right arm, or a
+	character that is destroyed halfway through: each of those simply draws
+	less, and none of them is worth refusing a swing the server has already
+	resolved.
+]]
+function EffectsController.swing(character: Model, weaponId: string)
+	local shoulder = motor(character, "RightUpperArm", "RightShoulder")
+	if not shoulder then
+		return
+	end
+	local elbow = motor(character, "RightLowerArm", "RightElbow")
+
+	local state = swings[character]
+	if not state then
+		state = { index = 0, token = 0 }
+		swings[character] = state
+	end
+	-- Captured on the first swing, not on every swing: a swing interrupted
+	-- mid-arc leaves `C0` somewhere in the middle, and reading it then would
+	-- make that the new rest pose for good.
+	if not state.restShoulder then
+		state.restShoulder = shoulder.C0
+	end
+	if elbow and not state.restElbow then
+		state.restElbow = elbow.C0
+	end
+	local restShoulder = state.restShoulder :: CFrame
+	local restElbow = state.restElbow
+
+	state.index += 1
+	state.token += 1
+	local token = state.token
+	local swing = SWINGS[(state.index % #SWINGS) + 1]
+
+	-- Slightly quicker than the weapon can be swung again, so the arm is back
+	-- at rest before the next one starts rather than snapping there.
+	local duration = math.max(0.18, Weapons.cooldown(weaponId) * 0.85)
+	local trail = WeaponModel.trail(character)
+
+	task.spawn(function()
+		local started = os.clock()
+		while true do
+			local t = (os.clock() - started) / duration
+			if state.token ~= token or not character.Parent or t >= 1 then
+				break
+			end
+
+			local shoulderTo: CFrame
+			local elbowTo: CFrame?
+			if t < WINDUP then
+				-- Eased out, so the wind-up decelerates into the top of the
+				-- arc and the strike has something to fall from.
+				local a = 1 - (1 - t / WINDUP) ^ 2
+				shoulderTo = restShoulder:Lerp(restShoulder * angles(swing.windup.shoulder), a)
+				elbowTo = if restElbow then restElbow:Lerp(restElbow * angles(swing.windup.elbow), a) else nil
+				if trail then
+					trail.Enabled = false
+				end
+			elseif t < WINDUP + STRIKE then
+				-- Eased in: almost all of the travel happens in the first
+				-- third of the strike, which is what makes it read as a cut
+				-- rather than a wave.
+				local a = ((t - WINDUP) / STRIKE) ^ 0.55
+				local from = restShoulder * angles(swing.windup.shoulder)
+				shoulderTo = from:Lerp(restShoulder * angles(swing.strike.shoulder), a)
+				elbowTo = if restElbow
+					then (restElbow * angles(swing.windup.elbow)):Lerp(
+						restElbow * angles(swing.strike.elbow),
+						a
+					)
+					else nil
+				if trail then
+					trail.Enabled = true
+				end
+			else
+				local a = (t - WINDUP - STRIKE) / (1 - WINDUP - STRIKE)
+				shoulderTo = (restShoulder * angles(swing.strike.shoulder)):Lerp(restShoulder, a)
+				elbowTo = if restElbow
+					then (restElbow * angles(swing.strike.elbow)):Lerp(restElbow, a)
+					else nil
+				-- Switched off at the start of the recovery, not the end: a
+				-- Trail keeps drawing what it already laid down for its own
+				-- `Lifetime`, so the arc fades out of a blade that has
+				-- stopped moving instead of following it back up.
+				if trail then
+					trail.Enabled = false
+				end
+			end
+
+			shoulder.C0 = shoulderTo
+			if elbow and elbowTo then
+				elbow.C0 = elbowTo
+			end
+
+			RunService.RenderStepped:Wait()
+		end
+
+		-- Only the most recent swing puts the arm down. An interrupted one
+		-- returning to rest would yank the arm out of the swing that replaced
+		-- it.
+		if state.token == token then
+			shoulder.C0 = restShoulder
+			if elbow and restElbow then
+				elbow.C0 = restElbow
+			end
+			if trail then
+				trail.Enabled = false
+			end
+		end
+	end)
+end
+
+--------------------------------------------------------------------------------
 -- Abilities
 --------------------------------------------------------------------------------
 
@@ -305,14 +507,23 @@ end
 --------------------------------------------------------------------------------
 
 function EffectsController.init()
-	Net.onClientEvent(Net.Event.WeaponEffect, function(weaponId: string, origin: Vector3, direction: Vector3)
-		if not Weapons.exists(weaponId) then
-			return
+	Net.onClientEvent(
+		Net.Event.WeaponEffect,
+		function(weaponId: string, origin: Vector3, direction: Vector3, source: Model?)
+			if not Weapons.exists(weaponId) then
+				return
+			end
+			if Weapons.get(weaponId).class == "Blaster" then
+				EffectsController.spawnBolt(weaponId, origin, direction)
+			elseif source then
+				-- A melee swing is drawn on the body that swung, so the server
+				-- has to say whose it was. Bolts do not need it: they are
+				-- already fully described by where they start and where they
+				-- go.
+				EffectsController.swing(source, weaponId)
+			end
 		end
-		if Weapons.get(weaponId).class == "Blaster" then
-			EffectsController.spawnBolt(weaponId, origin, direction)
-		end
-	end)
+	)
 
 	Net.onClientEvent(Net.Event.AbilityUsed, function(abilityId: string, origin: Vector3, direction: Vector3)
 		if Abilities.exists(abilityId) then
@@ -321,8 +532,22 @@ function EffectsController.init()
 	end)
 
 	Net.onClientEvent(Net.Event.DamageDealt, function(amount: number, isCritical: boolean, position: Vector3?)
-		if position then
-			spawnDamageLabel(position, amount, isCritical == true)
+		if not position then
+			return
+		end
+		spawnDamageLabel(position, amount, isCritical == true)
+
+		-- A blade that lands throws sparks. Drawn off the damage report rather
+		-- than off the swing, so it happens where the server says the hit was
+		-- -- the client never has to guess at a contact point, and a swing
+		-- that connects with nothing correctly produces nothing.
+		local weaponId = ServiceLoader.get("ClientState").equippedWeapon()
+		if not weaponId or not Weapons.exists(weaponId) then
+			return
+		end
+		local weapon = Weapons.get(weaponId)
+		if weapon.class ~= "Blaster" then
+			spawnImpact(position, Vector3.new(0, 1, 0), weapon.boltColor or Palette.SaberBlue)
 		end
 	end)
 end

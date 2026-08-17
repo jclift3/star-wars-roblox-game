@@ -660,6 +660,25 @@ local function hilt(length: number, trim: Color3, body: Color3?): { WeaponPart }
 	}
 end
 
+--[[
+	HOW LONG A LIGHTSABER IS
+
+	Reported from play, 2026-08-17: *"I have this ridiculously long
+	lightsaber."* It was 8.5 studs. An R15 character is about 5.7 studs tall,
+	so the blade was half as long again as the person holding it -- a pike,
+	not a sword, and it read as one in every screenshot.
+
+	The films put a standard blade at roughly a metre, against a person of
+	about 1.8, so `DEFAULT_BLADE` is that same fraction of a rig: a hair under
+	three quarters of the character's height. Every other blade in the file is
+	scaled off it rather than re-guessed, so this one number moves them all.
+
+	The *reach* of a swing is `WeaponDef.range` and is set alongside these --
+	see the note there. Shortening the blade without shortening the reach
+	would only have moved the lie: enemies dying three studs past the tip.
+]]
+local DEFAULT_BLADE = 4.2
+
 local function blade(bladeColor: Color3, length: number, thickness: number?): WeaponPart
 	local t = thickness or 0.34
 	return {
@@ -700,7 +719,12 @@ local function saber(
 		damage = stats.damage,
 		fireRate = stats.fireRate,
 		-- Reach, not projectile range: the arc the swing hitbox sweeps.
-		range = 9,
+		-- `swingMelee` sweeps a sphere of `range * 0.7` centred `range * 0.4`
+		-- ahead of the root, so this is about 1.4 times the distance a hit can
+		-- land. Hand to blade tip is roughly 5 studs and the hand leads the
+		-- root by about 1, so 7 puts the edge of the hitbox where the edge of
+		-- the blade is, give or take the target's own width.
+		range = 7,
 		spread = 0,
 		critMultiplier = stats.critMultiplier or 2.5,
 		handedness = stats.handedness or "TwoHand",
@@ -712,7 +736,7 @@ local function saber(
 		boltColor = bladeColor,
 		muzzleOffset = V3(0, 0, -1.2),
 		parts = hilt(1.35, trim),
-		blade = blade(bladeColor, stats.bladeLength or 8.5),
+		blade = blade(bladeColor, stats.bladeLength or DEFAULT_BLADE),
 	})
 end
 
@@ -771,7 +795,9 @@ saber(
 		tier = 3,
 		cost = 6000,
 		requiredLevel = 14,
-		bladeLength = 5.5,
+		-- Two thirds of a standard blade. The description says you give up
+		-- reach for the speed, and this is where that is actually true.
+		bladeLength = DEFAULT_BLADE * 0.65,
 		handedness = "OneHand",
 	}
 )
@@ -783,7 +809,9 @@ def({
 	description = "Twice the blade, twice the ways to lose a hand. Sith discipline required.",
 	damage = 44,
 	fireRate = 2.0,
-	range = 11,
+	-- Two studs longer than a single blade's reach, because it is swung from
+	-- the middle of a hilt twice as long. Same arithmetic as `saber`'s note.
+	range = 9,
 	spread = 0,
 	critMultiplier = 2.4,
 	handedness = "TwoHand",
@@ -795,7 +823,7 @@ def({
 	boltColor = Palette.SaberRed,
 	muzzleOffset = V3(0, 0, -1.2),
 	parts = hilt(2.6, Palette.SithBlack, Palette.DarkMetal),
-	blade = blade(Palette.SaberRed, 8.0),
+	blade = blade(Palette.SaberRed, DEFAULT_BLADE),
 	-- The second blade is mirrored by the saber system from `blade`, so it
 	-- inherits colour and length automatically.
 })

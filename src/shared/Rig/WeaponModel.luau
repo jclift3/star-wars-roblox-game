@@ -81,6 +81,55 @@ local function buildPart(spec: Weapons.WeaponPart, origin: CFrame): BasePart
 end
 
 --[[
+	Hangs a disabled `Trail` between the two ends of a blade.
+
+	Reported from play, 2026-08-17: *"I have no way to actually swing it."* The
+	swing was real -- `CombatService.swingMelee` has always swept an arc and
+	dealt damage -- but nothing moved and nothing lit up, so the only evidence
+	a swing had happened was that something else eventually fell over.
+
+	A `Trail` between the tip and the base is Roblox's own answer to "draw
+	where this thing has been", and it costs nothing while `Enabled` is false.
+	Built here rather than by the client that wants to draw a swing, because
+	the weapon model is made on the server and replicated: putting the trail in
+	the model means every machine that can see the character can already see
+	the arc, and switching it on is one property.
+
+	The blade is a Cylinder whose length runs along its own X -- see the `rot`
+	on `blade()` -- so the two ends are at plus and minus half the size's X.
+]]
+local function buildTrail(bladePart: BasePart, spec: Weapons.WeaponPart)
+	local half = spec.size.X * 0.5
+
+	local tip = Instance.new("Attachment")
+	tip.Name = "TrailTip"
+	tip.Position = Vector3.new(half, 0, 0)
+	tip.Parent = bladePart
+
+	local base = Instance.new("Attachment")
+	base.Name = "TrailBase"
+	base.Position = Vector3.new(-half, 0, 0)
+	base.Parent = bladePart
+
+	local trail = Instance.new("Trail")
+	trail.Name = "SwingTrail"
+	trail.Attachment0 = tip
+	trail.Attachment1 = base
+	trail.Color = ColorSequence.new(spec.color or Color3.new(1, 1, 1))
+	-- Solid at the leading edge, gone at the tail, so the arc reads as a
+	-- direction rather than a smear.
+	trail.Transparency = NumberSequence.new({
+		NumberSequenceKeypoint.new(0, 0.3),
+		NumberSequenceKeypoint.new(1, 1),
+	})
+	trail.Lifetime = 0.22
+	trail.LightEmission = 1
+	trail.FaceCamera = true
+	trail.Enabled = false
+	trail.Parent = bladePart
+end
+
+--[[
 	Builds an unparented, unpositioned weapon model.
 
 	The Handle is invisible and sits at the grip, so callers can weld to it
@@ -109,14 +158,22 @@ function WeaponModel.build(weaponId: string): Model
 		table.insert(specs, def.blade)
 	end
 
+	local bladePart: BasePart? = nil
 	for _, spec in specs do
 		local p = buildPart(spec, handle.CFrame)
 		p.Parent = model
+		if spec == def.blade then
+			bladePart = p
+		end
 
 		local weld = Instance.new("WeldConstraint")
 		weld.Part0 = handle
 		weld.Part1 = p
 		weld.Parent = p
+	end
+
+	if bladePart and def.blade then
+		buildTrail(bladePart, def.blade)
 	end
 
 	-- Muzzle is an Attachment rather than a part so effects can be parented to
@@ -179,6 +236,19 @@ function WeaponModel.unequip(character: Model)
 	if existing then
 		existing:Destroy()
 	end
+end
+
+--[[
+	The swing trail on the weapon `character` is holding, if it has one.
+
+	Searched by name rather than by walking to the Blade, because a vibroblade
+	also has a part called "Blade" and does not have one of these: only a
+	`WeaponDef.blade` -- a lit blade -- gets a trail.
+]]
+function WeaponModel.trail(character: Model): Trail?
+	local model = WeaponModel.equipped(character)
+	local found = if model then model:FindFirstChild("SwingTrail", true) else nil
+	return if found and found:IsA("Trail") then found else nil
 end
 
 --- World position of the muzzle, for effects that need to start at the barrel.

@@ -627,6 +627,59 @@ is a normal move and twenty existing missions do it on purpose — a general
 version of this check produced 20 false hits, including the whole Tatooine
 opening chain. It is only ever wrong for the mission nobody chose.
 
+### The second report, same day
+
+Played again after C1 and C2. Five findings, and **every one of them is a system
+that already worked** — the fix each time was the part the player could see.
+
+> *"What do you mean by force tree? I'm not seeing a tree anywhere."*
+> *"I should have an inventory screen where I can see and equip my items."*
+> *"I have this ridiculously long lightsaber but I have no way to actually swing
+> it. I'm also not a huge fan of the blaster physics and options. I'd think we'd
+> have the ability to have a reticle or other / better way to fire."*
+> *"I still don't know what's going on, who I am."*
+> *"I don't have any other missions I can complete or a means to level up."*
+
+**C3. The skill tree was drawn as a ladder.** — **[fixed, `1108c1d`]**
+`requires` has always been real; `nodesInTree` sorted by level then name, so the
+structure was visible to everything except the player. `Progression.treeRows`
+walks it depth-first and returns a depth; the panel indents and draws an elbow.
+
+**C4. Nowhere to fight on day one.** — **[fixed, `1108c1d`]** Not a shortage of
+enemies — a shortage of enemies a level 1 character could reach. One hostile
+district a gate away from each origin's camp, banded at the planet's floor, and
+`Origins.validate` now refuses a home world whose weakest enemy is more than
+`UNDERLEVELLED_BY` above that floor.
+
+**C5. The blaster had no aim and the saber had no swing.** — **[fixed]**
+`AimController` (priority 22): hold **Mouse 2** for an over-the-shoulder camera,
+a centre-locked mouse, a character that faces where you look, and a **reticle
+sized from `WeaponDef.spread`** — the same number `CombatService` applies, so the
+reticle cannot lie. The permanent HUD dot is gone; it claimed something the game
+was not doing. The saber's blade drops 8.5 studs to **4.2** with `range` moved to
+match (`swingMelee` reaches about `range * 1.1`, so a shorter blade with the old
+range would have moved the lie rather than fixed it). The swing itself was always
+dealing damage and always broadcast — `EffectsController` discarded every melee
+`WeaponEffect` — so it now draws a **Motor6D arm arc** (no marketplace animation
+asset), alternating direction, with a `Trail` built into the replicated weapon
+model and a spark hung off `DamageDealt`, which is the only honest source for
+where a server-side sweep actually landed. See TESTING §9.0a and §9.0b.
+
+**C6. The inventory was unreadable at a vendor.** — **[fixed]** Equipping always
+worked; the panel drew four things you owned mixed into a whole catalogue.
+`ItemEntry.carried` was already on the wire, so the split is client-only:
+**CARRIED** above **&lt;VENDOR&gt; SELLS**, headers suppressed away from a shop
+where every row is yours, and the default selection prefers something you own.
+
+**C7. Nothing told you who you were.** — **[fixed]** `OriginDef.blurb` and
+`.mentor` were shown once, on a modal dismissed to start playing, and the choice
+was acknowledged by a four-second toast. Two changes, both pure views of the
+profile that already replicates: a **card** on `originChosen` going true (stays
+up, takes input focus, names the mentor and the two keys) and a pinned **Who you
+are** page at the top of the Journal (**J**) — origin, level, alignment band,
+mentor, standing, home world, and what The Quiet is once the character has met
+it. No new remote and no new field. See TESTING §6.1 step 4 and §7.2 step 0.
+
 ---
 
 ## Design direction — Diablo-style (decided 2026-08-14)

@@ -671,7 +671,16 @@ local function onSaberSwing(player: Player)
 		critDamageBonus = stats.CritDamageBonus,
 	})
 
-	Net.fireAllExcept(Net.Event.WeaponEffect, player, weaponId, root.Position, root.CFrame.LookVector)
+	-- The character goes with it: a swing is drawn on the body that swung, and
+	-- a position alone does not identify one. Bolts do not need it.
+	Net.fireAllExcept(
+		Net.Event.WeaponEffect,
+		player,
+		weaponId,
+		root.Position,
+		root.CFrame.LookVector,
+		character
+	)
 end
 
 --[[
@@ -783,7 +792,7 @@ function CombatService.npcMelee(npc: Model, weaponId: string)
 	CombatService.swingMelee(npc, weaponId, nil, nil)
 	local root = npc:FindFirstChild("HumanoidRootPart") :: BasePart?
 	if root then
-		Net.fireAllClients(Net.Event.WeaponEffect, weaponId, root.Position, root.CFrame.LookVector)
+		Net.fireAllClients(Net.Event.WeaponEffect, weaponId, root.Position, root.CFrame.LookVector, npc)
 	end
 end
 

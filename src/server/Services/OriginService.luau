@@ -30,7 +30,6 @@ local Shared = game:GetService("ReplicatedStorage"):WaitForChild("Shared")
 local Types = require(Shared.Types)
 local Net = require(Shared.Core.Net)
 local Origins = require(Shared.Config.Origins)
-local Planets = require(Shared.Config.Planets)
 local ServiceLoader = require(Shared.Core.ServiceLoader)
 
 type PlayerProfile = Types.PlayerProfile
@@ -83,12 +82,18 @@ function OriginService.choose(player: Player, originId: string): (boolean, strin
 		end
 	end
 
-	Net.fireClient(
-		Net.Event.Notify,
-		player,
-		`{origin.displayName}. {Planets.get(origin.homePlanet).displayName} is where you begin.`,
-		"Success"
-	)
+	--[[
+		No toast here. There used to be one -- the origin's name, its world,
+		"Success", four seconds -- and it was the whole of what a new character
+		was told. From the 2026-08-17 playtest: "I still don't know what's going
+		on, who I am."
+
+		The announcement is `CreationController`'s card instead: longer, and up
+		until it is dismissed. It needs nothing sent to it. The profile written
+		above replicates on its own and the card is drawn off `originChosen`
+		turning true, so a remote saying the same thing would be a second signal
+		for one event, able to arrive without the other.
+	]]
 	return true, nil
 end
 

@@ -427,6 +427,86 @@ local function renderDetail()
 	end
 end
 
+local function renderHeader(label: string, order: number, colour: Color3)
+	local h = text(`Header{order}`, listFrame, 11, colour)
+	h.Font = Enum.Font.GothamBold
+	h.LayoutOrder = order
+	h.Size = UDim2.new(1, -8, 0, 22)
+	h.TextYAlignment = Enum.TextYAlignment.Bottom
+	h.Text = label
+end
+
+local function renderRow(item: ItemEntry, order: number)
+	local row = button(item.uid, listFrame, "")
+	row.LayoutOrder = order
+	row.Size = UDim2.new(1, -8, 0, 46)
+	row.Text = ""
+	row.BackgroundColor3 = if selected[activeTab] == item.uid then ROW_SELECTED else ROW
+	row.BackgroundTransparency = 0.25
+
+	local name = text("Name", row, 14, TEXT)
+	name.Font = Enum.Font.GothamBold
+	name.Position = UDim2.fromOffset(12, 7)
+	name.Size = UDim2.new(1, -120, 0, 18)
+
+	local tag = text("Tag", row, 12, DIM)
+	tag.Position = UDim2.fromOffset(12, 25)
+	tag.Size = UDim2.new(1, -120, 0, 16)
+
+	local price = text("Price", row, 13, DIM)
+	price.TextXAlignment = Enum.TextXAlignment.Right
+	price.AnchorPoint = Vector2.new(1, 0)
+	price.Position = UDim2.new(1, -12, 0, 14)
+	price.Size = UDim2.fromOffset(104, 18)
+
+	local rarity = Affixes.rarityAt(item.rarity)
+	name.Text = item.displayName
+	if item.rarity > 0 then
+		name.TextColor3 = rarity.color
+		tag.Text = `Tier {item.tier}  ·  {rarity.name}`
+	else
+		tag.Text = `Tier {item.tier}`
+	end
+
+	if item.equipped then
+		price.Text = "EQUIPPED"
+		price.TextColor3 = ACCENT
+	elseif item.owned then
+		price.Text = "OWNED"
+		price.TextColor3 = GOOD
+	elseif item.forSale then
+		price.Text = `{item.price} cr`
+		price.TextColor3 = TEXT
+	else
+		price.Text = "—"
+		price.TextColor3 = DIM
+	end
+
+	row.Activated:Connect(function()
+		selected[activeTab] = item.uid
+		-- Moving the selection cancels a half-pressed discard, so the
+		-- confirm can never be inherited by a different item.
+		confirmingDiscard = nil
+		render()
+	end)
+end
+
+--[[
+	YOUR THINGS ABOVE THEIR THINGS
+
+	Reported from play, 2026-08-17: *"I should have an inventory screen where I
+	can see and equip my items."* The player was looking at one. Standing at a
+	vendor, though, the panel had every catalogue entry the shop stocked mixed
+	in with the four things actually in the bag, sorted by nothing in
+	particular, so an inventory read as a price list -- and the fact that the
+	rows the player owned had an EQUIP button behind them was invisible.
+
+	`ItemEntry.carried` has always been on the wire and has always been the
+	honest answer to "is this mine", so nothing new is needed to split them.
+	Headers only appear when there is something to distinguish: away from a
+	vendor every row is carried, and labelling a list of four things CARRIED
+	when there is nothing else it could be is noise.
+]]
 local function renderList()
 	for _, child in listFrame:GetChildren() do
 		if child:IsA("GuiObject") then
@@ -434,68 +514,49 @@ local function renderList()
 		end
 	end
 
-	local items = entriesFor(activeTab)
-	for index, item in items do
-		local row = button(item.uid, listFrame, "")
-		row.LayoutOrder = index
-		row.Size = UDim2.new(1, -8, 0, 46)
-		row.Text = ""
-		row.BackgroundColor3 = if selected[activeTab] == item.uid then ROW_SELECTED else ROW
-		row.BackgroundTransparency = 0.25
-
-		local name = text("Name", row, 14, TEXT)
-		name.Font = Enum.Font.GothamBold
-		name.Position = UDim2.fromOffset(12, 7)
-		name.Size = UDim2.new(1, -120, 0, 18)
-
-		local tag = text("Tag", row, 12, DIM)
-		tag.Position = UDim2.fromOffset(12, 25)
-		tag.Size = UDim2.new(1, -120, 0, 16)
-
-		local price = text("Price", row, 13, DIM)
-		price.TextXAlignment = Enum.TextXAlignment.Right
-		price.AnchorPoint = Vector2.new(1, 0)
-		price.Position = UDim2.new(1, -12, 0, 14)
-		price.Size = UDim2.fromOffset(104, 18)
-
-		local rarity = Affixes.rarityAt(item.rarity)
-		name.Text = item.displayName
-		if item.rarity > 0 then
-			name.TextColor3 = rarity.color
-			tag.Text = `Tier {item.tier}  ·  {rarity.name}`
-		else
-			tag.Text = `Tier {item.tier}`
-		end
-
-		if item.equipped then
-			price.Text = "EQUIPPED"
-			price.TextColor3 = ACCENT
-		elseif item.owned then
-			price.Text = "OWNED"
-			price.TextColor3 = GOOD
-		elseif item.forSale then
-			price.Text = `{item.price} cr`
-			price.TextColor3 = TEXT
-		else
-			price.Text = "—"
-			price.TextColor3 = DIM
-		end
-
-		row.Activated:Connect(function()
-			selected[activeTab] = item.uid
-			-- Moving the selection cancels a half-pressed discard, so the
-			-- confirm can never be inherited by a different item.
-			confirmingDiscard = nil
-			render()
-		end)
+	local mine: { ItemEntry } = {}
+	local theirs: { ItemEntry } = {}
+	for _, item in entriesFor(activeTab) do
+		table.insert(if item.carried then mine else theirs, item)
 	end
 
-	if #items == 0 then
+	local order = 0
+
+	if #theirs > 0 then
+		order += 1
+		renderHeader("CARRIED", order, ACCENT)
+	end
+
+	for _, item in mine do
+		order += 1
+		renderRow(item, order)
+	end
+
+	if #mine == 0 then
+		order += 1
 		local empty = text("Empty", listFrame, 13, DIM)
+		empty.LayoutOrder = order
 		empty.Size = UDim2.new(1, -8, 0, 40)
 		empty.Text = if activeTab == "Outfit"
-			then "No outfits. Find a trader to buy some."
-			else "No weapons. Find a trader to buy some."
+			then "You are carrying no outfits. Find a trader to buy some."
+			else "You are carrying no weapons. Find a trader to buy some."
+	end
+
+	if #theirs > 0 then
+		local snap = snapshot
+		local vendor = if snap then snap.vendor else nil
+		order += 1
+		-- Named, because the difference between "mine" and "his" is the whole
+		-- point of the split and a generic FOR SALE does not say whose.
+		renderHeader(
+			if vendor then `{string.upper(vendor.vendorName)} SELLS` else "NOT SOLD HERE",
+			order,
+			DIM
+		)
+		for _, item in theirs do
+			order += 1
+			renderRow(item, order)
+		end
 	end
 end
 
@@ -536,7 +597,16 @@ function render()
 	if not selectedEntry() then
 		selected[activeTab] = nil
 		local items = entriesFor(activeTab)
-		if #items > 0 then
+		-- Something carried, if there is one: the panel opens showing the
+		-- player their own gear, not the first thing the shopkeeper happens to
+		-- stock. Falls back to the top of the list so it is still never blank.
+		for _, item in items do
+			if item.carried then
+				selected[activeTab] = item.uid
+				break
+			end
+		end
+		if not selected[activeTab] and #items > 0 then
 			selected[activeTab] = items[1].uid
 		end
 	end
