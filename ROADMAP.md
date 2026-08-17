@@ -496,9 +496,39 @@ Two things fell out of drawing it, both of the "nothing reads X" kind:
   a checker that quietly skips the interesting rows is worth less than no
   checker.
 
-Still open: tombs and apartments, and three more grids — Tython, Hoth and
-Dromund Kaas. **Coruscant is the one planet that should not get one**, since
-`hasWalkableGround = false` genuinely sends it down `buildVerticalCity`.
+**Tython, Hoth and Dromund Kaas finish the set — every walkable world in the
+galaxy is now drawn.** Eight grids; **Coruscant is the one planet that should
+not get one**, since `hasWalkableGround = false` genuinely sends it down
+`buildVerticalCity`. The last three were each drawn around a single sentence the
+planet already said about itself:
+
+- **Tython built nothing it could defend**, so it is the only grid in the game
+  with **no `Wall` and no `Gate` anywhere on it**. The one thing on the map that
+  lines up is the Temple precinct; Kalikori Village below it is deliberately
+  crooked, because the Twi'leks were there first and were not asked.
+- **Hoth is one line — inside the wire or not.** Two halves of a page with a
+  single gate between them. The Graveyard's hulls are drawn as **`Wall`**, which
+  is the trick that map turns: a rampart is a long run you cannot walk through
+  and can walk *on*, which is what "you do not cross it, you climb it" has
+  always claimed. Staggered so the gaps never line up, so crossing it is a route.
+  No shops anywhere, because Hoth's spawn list contains no Merchant at all.
+- **Dromund Kaas is a diagram of a state.** The only settlement in the galaxy on
+  a true lattice — sixteen identical blocks, four to a rank. Anchorhead is
+  crooked because it grew; this is straight because it was issued. The Nexus
+  Road is four cells wide with a rampart down each side and **no anchor cell
+  between them**: ten aggressive Honour Guard live in that corridor, and anchors
+  are where players spawn.
+
+A third "nothing reads X" fell out, and it was in the checker again:
+**`gridcheck.py`'s zone parser had the same one-line-regex bug its spawn parser
+had.** StyLua wraps a zone entry the moment `id` is long enough to push `cells`
+over the column limit, so `Spaceport`, `NexusRoad` and `DarkTemple` were parsed
+as *not existing* — and a room in a district the parser cannot see reports as
+`zone=None`, which is a **false** alarm rather than a missed one. It was caught
+because `-v Tython` on its own passed and `./check.sh` did not: the difference
+was that `check.sh` runs StyLua first. Same fix, the brace scanner.
+
+Still open: tombs and apartments as interior types.
 
 **Finding the place at all.** Also from the second playtest: *"I have no idea
 where the cantina is."* Roads answer "where does this go" once you are standing

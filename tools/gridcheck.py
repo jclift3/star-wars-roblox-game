@@ -69,17 +69,27 @@ def parse_layout(block):
 
 
 def parse_zones(block):
+    """District id, distance and (if drawn) cell rectangle.
+
+    Split on the entry separator, not matched as a whole line: StyLua wraps a
+    zone that carries `cells` over four lines as soon as the id is long enough,
+    and a one-line pattern then drops exactly the districts that have a
+    rectangle -- which is to say, the ones this file exists to check. Same
+    mistake as `parse_spawns` below, found the same way.
+    """
     m = re.search(r"\n\tzones = \{(.*?)\n\t\},\n", block, re.S)
     zones = []
-    for zm in re.finditer(
-        r'id = "(\w+)", distance = ([\d.]+)'
-        r"(?:, cells = \{ from = Vector2\.new\((\d+), (\d+)\), "
-        r"to = Vector2\.new\((\d+), (\d+)\) \})?",
-        m.group(1),
-    ):
-        zid, dist, x1, y1, x2, y2 = zm.groups()
-        rect = None if x1 is None else ((int(x1), int(y1)), (int(x2), int(y2)))
-        zones.append((zid, float(dist), rect))
+    for entry in braced(m.group(1)):
+        i = re.search(r'id = "(\w+)"', entry)
+        d = re.search(r"distance = ([\d.]+)", entry)
+        if not (i and d):
+            continue
+        pts = re.findall(r"Vector2\.new\((\d+), (\d+)\)", entry)
+        rect = None
+        if len(pts) == 2:
+            (x1, y1), (x2, y2) = pts
+            rect = ((int(x1), int(y1)), (int(x2), int(y2)))
+        zones.append((i.group(1), float(d.group(1)), rect))
     return zones
 
 

@@ -194,6 +194,20 @@ It is the fourth thing in this project that can be run without Studio, after
 `./check.sh`, boot-time `validate()` and the printing cheat codes. A painter
 would still be nice. This was more urgent.
 
+**It has now been wrong twice, both times the same way.** Both `parse_spawns`
+and `parse_zones` were written as a single regex matched against one line, and
+**StyLua wraps any table entry that runs past the column limit** — which is
+every spawn carrying a `behavior`, and every district whose `id` is long enough
+to push its `cells` over. In both cases the parser silently dropped exactly the
+entries the checker exists to look at. Both are now read with a brace scanner
+that walks depth and yields whole `{...}` entries regardless of line breaks.
+
+The generalisation worth keeping: **a checker that reads source must parse
+braces, not lines**, because the formatter owns the lines and will move them.
+The second one was caught only because `gridcheck.py -v Tython` passed while
+`./check.sh` failed — and the difference between them is that `check.sh` runs
+StyLua first.
+
 ---
 
 ## 3. The nine planets
@@ -517,6 +531,20 @@ Coruscant.
 **Cameo:** Grand Master Satele Shan. One conversation, in which she refuses to
 help and is right to.
 
+**Drawn, not rolled** — the sixth authored grid, 24x24 cells, and **the only one
+in the game with no `Wall` and no `Gate` on it**. Every other drawn world opens
+with a perimeter, because every other world has decided what it is afraid of;
+this one says in its own description that it built nothing it could defend, and
+a rampart glyph would have quietly contradicted the sentence. The only thing the
+map fortifies is *symmetry*: the Temple precinct is the sole place where
+anything lines up — two towers, three halls in a rank, a sixteen-cell plaza
+everything else is spaced off. Kalikori Village below it is deliberately none of
+that, houses in twos and threes at whatever spacing the ground allowed. A
+**Stalls** district was split off the Village at the same `distance = 0.4`, the
+Korriban rule, and the Merchants moved into it (5 → 6, for three counters and a
+ring of three). The Gnarls and Forge Ridge stay off the grid: they are the
+hostile half of the planet and are supposed to feel like leaving.
+
 ---
 
 ### Hoth — the evidence
@@ -549,6 +577,25 @@ for the same wrecks), Mandalorian Hunter, wampa if beast rigs exist.
 **Beats:** find the transport; read its century of manifests; get a destination
 that is not on any chart.
 
+**Drawn, not rolled** — the seventh authored grid, 26x22 cells. The planet is one
+line — you are inside the wire or you are not — so it is drawn as two halves of a
+page with a wall between them and exactly one gate in it. Aurek Base and the
+hangar are north of it; **the Graveyard is the whole page south of it**, so
+"outside" is a place rather than a direction.
+
+The map's one trick is that **the hulls are `Wall`**. A rampart is a long solid
+run you cannot walk through and can walk *on*, which is precisely what this
+planet has always claimed — you do not cross the graveyard, you climb it. They
+are staggered so the gaps never line up, which makes getting from the gate to
+the far ice a route instead of a walk, and **not one cell out there is an
+anchor**: past the wire everything shoots, and anchors are where players spawn.
+North Ravine is deliberately left undrawn so it is pushed past the last hull, out
+onto open ice, which is where a crevasse the sensors keep losing belongs.
+
+There are **no `Shop` cells anywhere on Hoth**, because the planet's spawn list
+contains no Merchant at all — a counter here would be handed to a trooper. The
+Glacial Fissure stays off the grid; it is under the map, not on it.
+
 ---
 
 ### Dromund Kaas — the household
@@ -577,6 +624,26 @@ Imperial Officer, Civilian (terrified).
 **Beats:** the caretaker's household and the last living witnesses; then the
 dead world, where the Force tree's abilities do not function and a Sith player is
 the weakest person in the room. Three endings.
+
+**Drawn, not rolled** — the eighth and last authored grid, 26x26 cells, and the
+one drawn as a diagram of a state. Kaas City is **the only settlement in the
+galaxy laid out on a true lattice**: sixteen identical blocks, four to a rank,
+every street the same width, a parade ground bored through the middle. Anchorhead
+is crooked because it grew; this is straight because it was issued. Two spires
+flank the gate *from the inside*, which is where the Empire puts a tower.
+
+The Nexus Road is the point of the map: four cells wide, five long, a rampart
+down each side and no way off it, because the description has always said it is
+guarded in **both** directions. Its district rectangle is the corridor only and
+not the jungle either side — a patrol ring inscribed in the wider box would put
+Honour Guard on top of their own walls — and it holds **zero anchor cells**,
+since ten of the eighteen NPCs in it are aggressive. The Dark Temple grounds are
+the same architecture once it is older than the people maintaining it: the same
+black walls in fragments, paving surviving only where the road comes in, and one
+hall — the only room in the game meant to be entered under fire.
+
+An **Exchange** district was split off the city at the same `distance = 0`, and
+the Merchants moved into it (4 → 6) for three shopfronts and a ring of three.
 
 ---
 

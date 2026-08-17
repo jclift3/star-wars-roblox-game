@@ -752,12 +752,74 @@ def({
 	maxLevel = 46,
 	lawLevel = 0.6,
 
+	--[[
+		AUREK BASE AND THE GRAVEYARD, DRAWN RATHER THAN ROLLED
+
+		The whole planet is one line -- you are either inside the wire or you
+		are not -- so the map is drawn as two halves of a page with a wall
+		between them, and the wall has exactly one gate in it.
+
+		Inside is a Republic salvage operation, and it is drawn like one: no
+		shops anywhere, because Hoth's population is troopers, pilots, droids
+		and the civilians who service them, and there is not one Merchant in
+		the spawn list. Halls, quarters, a muster square and a pad. If a Shop
+		cell were drawn here, its counter would be handed to a trooper.
+
+		Outside is the Graveyard, and the hulls are `Wall`. That is the trick
+		this map turns: a rampart is a long solid run you cannot walk through
+		and can walk *on*, which is exactly what the description has always
+		claimed -- "you do not cross it, you climb it". They are staggered so
+		the gaps never line up, so getting from the gate to the far ice is a
+		route rather than a walk. Nothing out here is an anchor: past the wire
+		everything shoots, and anchors are where players spawn.
+
+		The Fissure stays off the grid. It is under the map, not on it.
+	]]
+	layout = {
+		cell = 32,
+		legend = {
+			W = "Wall",
+			G = "Gate",
+			["."] = "Road",
+			P = "Plaza",
+			h = "House",
+			H = "Hall",
+			T = "Tower",
+			l = "Lamp",
+		},
+		grid = {
+			"WWWWWWWWWWWWWWWWWWWWWWWWWW",
+			"WT..............T......T.W",
+			"W..HHHH...HHHH...........W",
+			"W..HHHH...HHHH...HHHHHH..W",
+			"W................HHHHHH..W",
+			"W..PPPPPPPPPPP...........W",
+			"W..PPPPPPPPPPP...PPPPPP..W",
+			"W................PPPPPP..W",
+			"W..HHHH...hh.hh..PPPPPP..W",
+			"W..HHHH...hh.hh..........W",
+			"W..................l.....W",
+			"Wl.......................W",
+			"WWWWWWWWWWWGGWWWWWWWWWWWWW",
+			"..........................",
+			"..WWWWWWWWW.....WWWWWWW...",
+			"..WWWWWWWWW.....WWWWWWW...",
+			"..........................",
+			"WWWWWWW.....WWWWWWWWWWWW..",
+			"WWWWWWW.....WWWWWWWWWWWW..",
+			"..........................",
+			"....WWWWWWWWW.....WWWWWWWW",
+			"....WWWWWWWWW.....WWWWWWWW",
+		},
+	},
+
 	zones = {
-		{ id = "Base", distance = 0 },
-		{ id = "Hangar", distance = 0.35 },
+		{ id = "Base", distance = 0, cells = { from = Vector2.new(1, 1), to = Vector2.new(16, 13) } },
+		{ id = "Hangar", distance = 0.35, cells = { from = Vector2.new(17, 1), to = Vector2.new(26, 13) } },
 		-- Imperial salvage teams are out on the ice racing you for the same
-		-- wrecks, not inside the base you land at.
-		{ id = "Graveyard", distance = 1.5 },
+		-- wrecks, not inside the base you land at. Drawn as the whole page
+		-- below the wire, so "outside" is a place and not a direction.
+		{ id = "Graveyard", distance = 1.5, cells = { from = Vector2.new(1, 14), to = Vector2.new(26, 22) } },
 		{ id = "Fissure", distance = 2.2 },
 	},
 	spawns = {
@@ -803,6 +865,7 @@ def({
 			kind = "Base",
 			description = "A Republic salvage operation in tunnels cut through the glacier. The only warm place on the planet.",
 			zone = "Base",
+			drawn = true,
 		},
 		{
 			id = "AurekHangar",
@@ -810,6 +873,7 @@ def({
 			kind = "Spaceport",
 			description = "Recovery sleds on standby and a permanent smell of hot metal.",
 			zone = "Hangar",
+			drawn = true,
 		},
 		{
 			id = "TheGraveyard",
@@ -818,6 +882,11 @@ def({
 			landmark = "Ruin",
 			description = "Hulls the size of city blocks, on their sides in the snow. You do not cross it, you climb it.",
 			zone = "Graveyard",
+			-- The hulls are the rampart runs on the grid. North Ravine below
+			-- is deliberately *not* drawn: it is the second landmark in this
+			-- district, so it is pushed past the last hull, out onto the ice
+			-- where a crevasse the sensors keep losing belongs.
+			drawn = true,
 		},
 		{
 			id = "GlacialFissure",
@@ -867,10 +936,86 @@ def({
 	maxLevel = 36,
 	lawLevel = 0.8,
 
+	--[[
+		THE TEMPLE, THE VILLAGE AND THE LANDING, DRAWN RATHER THAN ROLLED
+
+		The first grid with no `Wall` and no `Gate` anywhere on it. Every other
+		drawn world so far opens with a perimeter, because every other world
+		has decided what it is afraid of. Tython has not, and the description
+		on this planet already says so out loud: they built nothing they could
+		defend. Putting a rampart glyph here would quietly contradict it.
+
+		So the only thing the map fortifies is symmetry. The Temple precinct
+		is the one place where anything lines up -- two towers, three halls in
+		a rank, and a plaza sixteen cells wide that everything else is spaced
+		off. It is the Order's idea of itself, drawn.
+
+		Kalikori Village below it is deliberately none of that. The Twi'leks
+		were here first and were not asked, so their houses sit at whatever
+		spacing the ground allowed, in twos and threes, with one yard and two
+		lamps and no through road that goes anywhere in particular.
+
+		The Stalls are a separate district at the *same* distance as the
+		Village, which is the rule Korriban taught: a `Shop` room hands its
+		counter to whoever the district spawns, so the district has to be all
+		traders. It costs nothing -- `bandFor` spreads levels over the span of
+		distances, and 0.4 is already in it.
+
+		The Gnarls and Forge Ridge stay off the grid entirely. They are the
+		hostile half of the planet and they are supposed to feel like leaving.
+	]]
+	layout = {
+		cell = 32,
+		legend = {
+			-- No `W` and no `G`. See above; their absence is the point.
+			["."] = "Road",
+			P = "Plaza",
+			y = "Yard",
+			h = "House",
+			s = "Shop",
+			H = "Hall",
+			T = "Tower",
+			l = "Lamp",
+		},
+		grid = {
+			"....TT............TT....",
+			"....TT............TT....",
+			"........................",
+			"...HHHH...HHHH...HHHH...",
+			"...HHHH...HHHH...HHHH...",
+			"........................",
+			"....PPPPPPPPPPPPPPPP....",
+			"....PPPPPPPPPPPPPPPP....",
+			"........................",
+			"........................",
+			".hh....hhh..............",
+			".hh....hhh.....sss..sss.",
+			"...............sss..sss.",
+			"...hh.....hh............",
+			"...hh.....hh....sss.....",
+			"..l.............sss.....",
+			".hhh..HHH........l......",
+			".hhh..HHH...............",
+			"..............PPPPPPPPP.",
+			"..yyy.........PPPPPPPPP.",
+			"..yyy...hhh...PPPPPPPPP.",
+			"........hhh.............",
+			"....l..........HHH......",
+			"...............HHH......",
+		},
+	},
+
 	zones = {
-		{ id = "Temple", distance = 0 },
-		{ id = "Village", distance = 0.4 },
-		{ id = "Spaceport", distance = 0.8 },
+		{ id = "Temple", distance = 0, cells = { from = Vector2.new(1, 1), to = Vector2.new(24, 9) } },
+		{ id = "Village", distance = 0.4, cells = { from = Vector2.new(1, 11), to = Vector2.new(13, 24) } },
+		-- Same distance as the Village on purpose: a trading district, not a
+		-- level band. See the note on the layout.
+		{ id = "Stalls", distance = 0.4, cells = { from = Vector2.new(14, 11), to = Vector2.new(24, 17) } },
+		{
+			id = "Spaceport",
+			distance = 0.8,
+			cells = { from = Vector2.new(14, 18), to = Vector2.new(24, 24) },
+		},
 		-- The Gnarls are wilderness, and the only hostile ground on the planet.
 		{ id = "Gnarls", distance = 1.7 },
 		{ id = "ForgeRidge", distance = 2.3 },
@@ -878,7 +1023,9 @@ def({
 	spawns = {
 		{ archetype = "JediKnight", count = 10, zone = "Temple" },
 		{ archetype = "Civilian", count = 24, zone = "Village" },
-		{ archetype = "Merchant", count = 5, zone = "Village" },
+		-- Moved out of the Village and up by one when the Stalls were drawn:
+		-- three shop counters plus a ring of three needs six bodies.
+		{ archetype = "Merchant", count = 6, zone = "Stalls" },
 		{ archetype = "ProtocolDroid", count = 6, zone = "Temple" },
 		{ archetype = "RepublicSecurity", count = 10, zone = "Spaceport" },
 		{ archetype = "RepublicVeteran", count = 6, zone = "Gnarls" },
@@ -909,6 +1056,7 @@ def({
 			kind = "Temple",
 			description = "Archives, terraces and a council chamber with no doors on it. Either faith or denial.",
 			zone = "Temple",
+			drawn = true,
 		},
 		{
 			id = "KalikoriVillage",
@@ -916,6 +1064,7 @@ def({
 			kind = "Market",
 			description = "A Twi'lek settlement that was here first and is repeatedly reminded that it was not asked.",
 			zone = "Village",
+			drawn = true,
 		},
 		{
 			id = "TythonSpaceport",
@@ -923,6 +1072,7 @@ def({
 			kind = "Spaceport",
 			description = "One pad, one clerk, and a list of everyone who has ever come down it.",
 			zone = "Spaceport",
+			drawn = true,
 		},
 		{
 			id = "TheGnarls",
@@ -1772,16 +1922,102 @@ def({
 	-- Total order, which is not the same as safety.
 	lawLevel = 1.0,
 
+	--[[
+		KAAS CITY, THE NEXUS ROAD AND THE DARK TEMPLE, DRAWN RATHER THAN ROLLED
+
+		The last world in the game, so it is drawn as a diagram of a state.
+
+		Kaas City is the only settlement in the galaxy laid out on a true
+		lattice: sixteen identical blocks, four to a rank, every street the
+		same width, a parade ground bored through the middle of it. Anchorhead
+		is crooked because it grew; this is straight because it was issued.
+		Two spires flank the gate from the inside, which is where the Empire
+		puts a tower -- watching the road, and everyone on it.
+
+		The Nexus Road is the point of the map. It is four cells wide and five
+		long with a rampart down each side and no way off it, because the
+		description has always said it is guarded in *both* directions. Ten
+		Honour Guard live in that corridor and they are aggressive, so there
+		is not one anchor cell between the walls: nobody spawns on this road,
+		they only ever walk onto it.
+
+		The Dark Temple grounds are what the same architecture looks like when
+		it is older than the people maintaining it -- the same black walls, in
+		fragments, with the paving surviving only where the road comes in. Its
+		hall is the one room in the game meant to be entered under fire.
+
+		The Exchange is split off the city at the *same* distance, the rule
+		every drawn world has followed since Korriban: a `Shop` hands its
+		counter to whoever its district spawns, so the district has to be all
+		traders.
+	]]
+	layout = {
+		cell = 32,
+		legend = {
+			W = "Wall",
+			G = "Gate",
+			["."] = "Road",
+			P = "Plaza",
+			h = "House",
+			s = "Shop",
+			H = "Hall",
+			T = "Tower",
+			l = "Lamp",
+		},
+		grid = {
+			"WWWWWWWWWWWWWWWWWWWWWWWWWW",
+			"W.hhhh..hhhh..hhhh..ssss.W",
+			"W.hhhh..hhhh..hhhh..ssss.W",
+			"W........................W",
+			"W.HHHH..PPPPPPPPPP..ssss.W",
+			"W.HHHH..PPPPPPPPPP..ssss.W",
+			"W.......PPPPPPPPPP.......W",
+			"W.hhhh..PPPPPPPPPP..ssss.W",
+			"W.hhhh..PPPPPPPPPP..ssss.W",
+			"W........................W",
+			"W.HHHH..hhhh..hhhh..hhhh.W",
+			"W.HHHH..hhhh..hhhh..hhhh.W",
+			"Wl........T..T..........lW",
+			"WWWWWWWWWWWGGWWWWWWWWWWWWW",
+			"         W....W           ",
+			"         W....W           ",
+			"         W....W           ",
+			"         W....W           ",
+			"         W....W           ",
+			"  WWWWW   ....   WWWWW    ",
+			"          ....            ",
+			"  W    HHHHHHHH      W    ",
+			"  W    HHHHHHHH      W    ",
+			"  W    HHHHHHHH      W    ",
+			"                          ",
+			"  WWW      WWWW     WWW   ",
+		},
+	},
+
 	zones = {
-		{ id = "KaasCity", distance = 0 },
-		{ id = "NexusRoad", distance = 1.1 },
-		{ id = "DarkTemple", distance = 1.9 },
+		{ id = "KaasCity", distance = 0, cells = { from = Vector2.new(1, 1), to = Vector2.new(19, 14) } },
+		-- Same distance as the city: a trading district, not a level band.
+		{ id = "Exchange", distance = 0, cells = { from = Vector2.new(20, 1), to = Vector2.new(26, 14) } },
+		-- The corridor only, not the jungle either side of it -- a patrol
+		-- ring inscribed in the wider rectangle would put Honour Guard on top
+		-- of their own ramparts.
+		{
+			id = "NexusRoad",
+			distance = 1.1,
+			cells = { from = Vector2.new(11, 15), to = Vector2.new(14, 19) },
+		},
+		{
+			id = "DarkTemple",
+			distance = 1.9,
+			cells = { from = Vector2.new(1, 20), to = Vector2.new(26, 26) },
+		},
 	},
 	spawns = {
 		{ archetype = "ImperialOfficer", count = 12, zone = "KaasCity" },
 		{ archetype = "ImperialTrooper", count = 22, zone = "KaasCity" },
 		{ archetype = "Civilian", count = 20, zone = "KaasCity" },
-		{ archetype = "Merchant", count = 4, zone = "KaasCity" },
+		-- Six, in the Exchange: three counters and a ring of three.
+		{ archetype = "Merchant", count = 6, zone = "Exchange" },
 		{
 			archetype = "SithHonourGuard",
 			count = 10,
@@ -1808,6 +2044,7 @@ def({
 			kind = "Base",
 			description = "The Dark Council's antechambers. Everyone here is waiting to be seen by someone worse.",
 			zone = "KaasCity",
+			drawn = true,
 		},
 		{
 			id = "NexusRoad",
@@ -1815,6 +2052,7 @@ def({
 			kind = "Outpost",
 			description = "The road out of the city, guarded the whole way, in both directions.",
 			zone = "NexusRoad",
+			drawn = true,
 		},
 		{
 			id = "DarkTempleGrounds",
@@ -1822,6 +2060,7 @@ def({
 			kind = "Temple",
 			description = "Black walls in the rain, and a household that has kept them for longer than anyone can account for.",
 			zone = "DarkTemple",
+			drawn = true,
 		},
 	},
 })

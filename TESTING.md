@@ -471,9 +471,11 @@ still solid.
 14. Boot output: no `[WorldService] planet config:` line saying a building **is
     in no district, so nobody will ever be inside it**. Adding an `s` outside
     every `ZoneDef.cells` rectangle is how you make that line appear.
-15. Hoth, Tython or Dromund Kaas: **no shop interiors anywhere**, because none
-    of them has a `layout` yet. That is the control, and it should stay true
-    until one of them gets drawn.
+15. **Coruscant is now the only control left** — it is the one walkable-ground
+    exception, has no `layout` and never will, so it should have no shop
+    interiors at all. Every other planet is drawn. (Hoth is a second, narrower
+    control: it *is* drawn, and still has no shop interiors, because it has no
+    Merchants to put behind a counter.)
 
 ---
 
@@ -609,6 +611,61 @@ a building pressed against both sides. If it feels airy, the map is wrong.
    Promenade and the Refugee Sector.
 7. The bands are unchanged: Promenade at the bottom, Refuge at the top.
 8. Boot output: no `is in no district`, no `is marked drawn but…`.
+
+### 5.11 The last three worlds — **new, never played**
+
+Tython, Hoth and Dromund Kaas finish the set. Each was drawn around one sentence
+the planet already said about itself, so **the test is whether you can read that
+sentence back off the map without being told it.** Ask the boys what each place
+is like before showing them this list.
+
+**Tython** (level 30+; use `greedisgood`/`strengthandhonor` to get there)
+
+1. Walk the whole planet. **There is no wall and no gate anywhere on it** — you
+   can leave the settlement in any direction without passing through anything.
+   It is the only world in the game like that, and it is the point.
+2. The **Temple precinct is the only part of the map that lines up**: two towers,
+   three halls in a rank, one long plaza. **Kalikori Village does not** — houses
+   in twos and threes, no through road that goes anywhere in particular. If the
+   village looks as tidy as the temple, the map has lost its argument.
+3. Walk east from the village into the **Stalls**. Three shopfronts; **there is a
+   merchant behind each counter and no Jedi and no civilians among them.**
+4. The Gnarls and Forge Ridge are **off the map** — you walk out of the drawn
+   ground into open country to reach them, and that is where the shooting starts.
+5. Die in the Gnarls a few times. **You respawn in the temple or the village,
+   never out in the trees.**
+
+**Hoth** (level 38+)
+
+6. You land inside the wire. **Find the gate. There is exactly one.**
+7. **No shops anywhere on the planet.** This is correct — Hoth has no merchants.
+   If a counter exists and a trooper is standing behind it, something regressed.
+8. Go through the gate into the **Graveyard**. The hulls are **solid and
+   climbable, and the gaps between them do not line up** — getting to the far
+   side should be a route you have to find, not a straight walk. If you can see
+   clean through to the far edge from the gate, the stagger is broken.
+9. **Die out there repeatedly. You always respawn inside the wire.** *(Twenty
+   aggressive NPCs in the Graveyard and not one anchor cell.)*
+10. **North Ravine is out past the last hull**, on open ice, not sitting inside
+    the wreck field. *(It is the one Hoth landmark deliberately left undrawn.)*
+
+**Dromund Kaas** (level 46+)
+
+11. Kaas City should read as **issued rather than grown**: sixteen identical
+    blocks, four to a rank, every street the same width. Compare it directly with
+    Anchorhead, which is crooked everywhere. If Kaas City looks organic, the
+    lattice is not surviving the build.
+12. **Two spires flank the gate on the inside.** Stand between them.
+13. Go east into the **Exchange** — three shopfronts, a merchant behind each.
+14. Take the gate south onto the **Nexus Road**. It is four cells wide with a
+    wall down each side and **no way off it**. Ten Honour Guard live in that
+    corridor; expect to be attacked in it.
+15. **Die on the road. You never respawn on it** — always back in the city.
+16. It opens into the **Dark Temple grounds**: the same black stone, in
+    fragments, paving only where the road comes in, and one hall you have to
+    enter while being shot at.
+17. Boot output for all three: no `is in no district`, no `is marked drawn
+    but…`, no band-overlap or XP-budget warnings.
 
 ---
 
