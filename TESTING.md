@@ -471,7 +471,9 @@ still solid.
 14. Boot output: no `[WorldService] planet config:` line saying a building **is
     in no district, so nobody will ever be inside it**. Adding an `s` outside
     every `ZoneDef.cells` rectangle is how you make that line appear.
-15. Nar Shaddaa again: no shop interiors anywhere, because it has no `layout`.
+15. Hoth, Tython or Dromund Kaas: **no shop interiors anywhere**, because none
+    of them has a `layout` yet. That is the control, and it should stay true
+    until one of them gets drawn.
 
 ---
 
@@ -578,6 +580,35 @@ first thing to check on each is the first thing a new character sees.
 13. Boot output on both: no `is in no district`, no `is marked drawn but…`, no
     `layout row N is M characters`, and no `legend declares "x", which never
     appears`.
+
+### 5.10 Nar Shaddaa is a city, not a settlement — **new, never played**
+
+The fifth grid and the first drawn as a *city*, so the thing to judge is a
+feeling: it should be **cramped**. Every road on the moon is one cell wide with
+a building pressed against both sides. If it feels airy, the map is wrong.
+
+1. Travel to Nar Shaddaa (level 12+, so use `greedisgood`/`strengthandhonor`
+   rather than trying it fresh). You arrive on the **Promenade**: habitation
+   stacks, two neon towers on the corner, two cantinas, two small landings.
+2. **No two stalls are the same width.** Walk east into the **Market** — six
+   shopfronts of three different sizes at three different offsets. This is the
+   deliberate opposite of Fort Garnik. If it looks like a car park, say so.
+3. **Walk into all six. There is a merchant behind every counter, and no
+   protocol droids in the market at all.** *(The droids were moved to the
+   Promenade for exactly this reason: ten merchants, nine places.)*
+4. Find the **bulkhead across the middle of the map** and its **two gates**.
+   That line is the whole social geography of the moon: shopping to the north,
+   the docks and the refugee sector to the south.
+5. Go south. Both districts are dangerous — Imperial troopers and bounty
+   hunters that shoot on sight. **Die down there several times. You never
+   respawn south of the bulkhead.** *(Thirty-eight aggressive NPCs between them
+   and not one anchor cell in either.)*
+6. **Docking Bay 41 is where the freighters are**, not six hundred studs away
+   across open ground. *(A `Spaceport` is 116 studs wide, far too big for a
+   city block, so this only works because it is `drawn`.)* Same for the
+   Promenade and the Refugee Sector.
+7. The bands are unchanged: Promenade at the bottom, Refuge at the top.
+8. Boot output: no `is in no district`, no `is marked drawn but…`.
 
 ---
 

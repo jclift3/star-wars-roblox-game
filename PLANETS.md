@@ -357,8 +357,23 @@ authority responds to anything, ever.
 `FreighterBerth`, `RefugeeShelter`, `CantinaNeon`, `VentStack`, `Skybridge`,
 `AdvertScreen`, `CartelDen`.
 
-Nar Shaddaa is `hasWalkableGround = false` in the good way — it is a stack of
-platforms, and the existing Coruscant vertical-city code applies directly.
+**Drawn, not rolled** — the fifth authored grid, 26x26 cells, and the first that
+is a *city* rather than a settlement, so it is drawn as the opposite of Fort
+Garnik: nothing symmetrical, no two stalls the same width, and **no open ground
+anywhere** — every road is one cell wide with a building pressed against both
+sides of it. A moon that sold its last empty square metre a thousand years ago.
+One bulkhead across the middle with two gates, and that line is the social
+geography: shopping north of it, the docks and the refugee sector south. Six
+shopfronts, because this section promises "every vendor in the game" and until
+now the moon had no interior at all. **Neither southern district holds an anchor
+cell** — thirty-eight hunters and troopers shoot on sight down there, and
+anchors are where players spawn.
+
+This section used to claim Nar Shaddaa was `hasWalkableGround = false` and would
+reuse the Coruscant vertical-city code. **The config has always said `true`.**
+The flag that agreed with this paragraph was `verticalCity`, and nothing in the
+game ever read it — it has been deleted. Verticality here is a later feature
+(skybridges over a drawn street), not a reason to have no streets.
 
 **Population:** Smuggler, Cartel Enforcer, Cartel Slicer, Merchant (several,
 with different stock), Civilian, Mandalorian Hunter, Czerka Scientist, Hollowed

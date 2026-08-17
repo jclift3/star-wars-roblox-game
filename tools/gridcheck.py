@@ -83,13 +83,35 @@ def parse_zones(block):
     return zones
 
 
+def braced(body):
+    """Every top-level `{...}` in a Luau array-of-tables, as raw text."""
+    depth, start = 0, None
+    for i, ch in enumerate(body):
+        if ch == "{":
+            if depth == 0:
+                start = i
+            depth += 1
+        elif ch == "}":
+            depth -= 1
+            if depth == 0:
+                yield body[start : i + 1]
+
+
 def parse_spawns(block):
+    """Population per district.
+
+    Split on the entry separator rather than matching a whole entry, because
+    an entry that carries a `behavior` is wrapped across four lines by StyLua
+    and a one-line pattern silently skips it -- which is every aggressive
+    spawn on the planet, i.e. exactly the districts this most needs to count.
+    """
     m = re.search(r"\n\tspawns = \{(.*?)\n\t\},\n", block, re.S)
     pop = {}
-    for _a, count, zone in re.findall(
-        r'archetype = "(\w+)", count = (\d+), zone = "(\w+)"', m.group(1)
-    ):
-        pop[zone] = pop.get(zone, 0) + int(count)
+    for entry in braced(m.group(1)):
+        c = re.search(r"count = (\d+)", entry)
+        z = re.search(r'zone = "(\w+)"', entry)
+        if c and z:
+            pop[z.group(1)] = pop.get(z.group(1), 0) + int(c.group(1))
     return pop
 
 

@@ -470,9 +470,35 @@ district, out-of-bounds `cells`, districts with fewer NPCs than parts, and the
 610-stud scatter corner. Copying a grid into the checker is the mistake the
 checker exists to catch, so it does not accept a copy.
 
-Still open: tombs and apartments, and five more grids — and Nar Shaddaa and
-Coruscant may not want one, since `hasWalkableGround = false` sends them down
-`buildVerticalCity` instead.
+**Nar Shaddaa is the fifth, and it is the first city.** The four before it are
+settlements — a town, a corridor, a colony, a fort — and all four are drawn as
+figures on open ground. A moon-wide city is the opposite: **no open ground
+anywhere**, every road one cell wide with a building pressed against both sides,
+nothing symmetrical, no two stalls the same width. One bulkhead across the
+middle with two gates in it, and that line carries the whole social geography —
+people shop north of it; south of it are the docks and the sector where the moon
+puts the people it has finished with. Six shopfronts, because PLANETS.md
+promised "every vendor in the game" here and the moon had no interior at all.
+
+Two things fell out of drawing it, both of the "nothing reads X" kind:
+
+- **`PlanetDef.verticalCity` was dead.** PLANETS.md said Nar Shaddaa had no
+  walkable ground and would reuse the Coruscant tower code; the config said
+  `hasWalkableGround = true` and had said so all along. The field that agreed
+  with the document was `verticalCity`, and **no code in `src/` ever read it** —
+  `hasWalkableGround` is the only switch. Deleted. Verticality on this moon is a
+  later feature, not a reason to have no streets.
+- **`gridcheck.py` was under-counting every dangerous district.** Its spawn
+  regex matched a one-line entry, and StyLua wraps any entry carrying a
+  `behavior` across four lines — which is *every aggressive spawn in the game*.
+  Korriban's valley was being reported at 14 NPCs when it holds 22. Replaced
+  with a brace scanner. The bug could only ever have produced a false alarm, but
+  a checker that quietly skips the interesting rows is worth less than no
+  checker.
+
+Still open: tombs and apartments, and three more grids — Tython, Hoth and
+Dromund Kaas. **Coruscant is the one planet that should not get one**, since
+`hasWalkableGround = false` genuinely sends it down `buildVerticalCity`.
 
 **Finding the place at all.** Also from the second playtest: *"I have no idea
 where the cantina is."* Roads answer "where does this go" once you are standing

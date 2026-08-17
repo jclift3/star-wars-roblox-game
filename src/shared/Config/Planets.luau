@@ -297,8 +297,11 @@ export type PlanetDef = {
 	-- Coruscant is a vertical city: there is no ground to walk on, only
 	-- platforms and skylanes. Systems that assume a spawnable surface must
 	-- check this rather than dropping the player into the abyss.
+	-- The only switch: false sends the planet down `buildVerticalCity`.
+	-- There used to be a `verticalCity` flag beside it that nothing read,
+	-- which let Nar Shaddaa declare itself a stack of platforms while
+	-- building as ordinary ground.
 	hasWalkableGround: boolean,
-	verticalCity: boolean?,
 	-- Height above which the player is in open sky and needs a ship.
 	flightCeiling: number?,
 
@@ -592,7 +595,6 @@ def({
 	-- The headline feature of this planet: no walkable ground anywhere. You
 	-- move between towers on platforms and skybridges, or you fly.
 	hasWalkableGround = false,
-	verticalCity = true,
 	flightCeiling = 1400,
 
 	-- The Republic still holds its own capital. It was sacked, not taken: the
@@ -1415,7 +1417,6 @@ def({
 	dayLength = 0.3,
 
 	hasWalkableGround = true,
-	verticalCity = true,
 	flightCeiling = 1100,
 
 	controllingFaction = "Hutt",
@@ -1423,11 +1424,75 @@ def({
 	maxLevel = 45,
 	lawLevel = 0.0, -- nobody is coming to help you
 
+	--[[
+		THE PROMENADE, THE MARKET, THE DOCKS AND THE REFUGE
+
+		The fifth authored grid, and the first that is a city rather than a
+		settlement. So it is drawn the opposite way round to Fort Garnik:
+		nothing here is symmetrical, no two stalls are the same width, and
+		there is no open ground anywhere -- every road is one cell wide and
+		has a building pressed against both sides of it. A moon that sold
+		its last empty square metre a thousand years ago.
+
+		One bulkhead across the middle with two gates in it, and that line
+		is the whole social geography of the place. North of it people shop.
+		South of it are the docks and the refugee sector, which is where the
+		moon puts the people it has finished with, and **neither of them
+		holds one anchor cell**: between them they contain thirty-eight
+		hunters and troopers who shoot on sight, and anchors are where
+		players spawn.
+
+		Six shopfronts, because PLANETS.md promises "every vendor in the
+		game" here and until now the moon had no interior at all.
+	]]
+	layout = {
+		cell = 32,
+		legend = {
+			W = "Wall",
+			G = "Gate",
+			["."] = "Road",
+			P = "Plaza",
+			h = "House",
+			s = "Shop",
+			H = "Hall",
+			T = "Tower",
+			l = "Lamp",
+		},
+		grid = {
+			"TT..hhh..hhh....sss..ss...",
+			"TT..hhh..hhh....sss..ss...",
+			"..........................",
+			"hh..HHHH...hh..ss...sss...",
+			"hh..HHHH...hh..ss...sss...",
+			"..l........l.....l........",
+			"PPP.......PPP...ss..ss....",
+			"PPP.......PPP...ss..ss....",
+			"..........................",
+			"hh..HHHH..hhh...PP...PP...",
+			"hh..HHHH..hhh.............",
+			"WWWWWGGWWWWWWWWWWWGGWWWWWW",
+			"..........................",
+			".TT.....TT.....hh...hh....",
+			".TT.....TT.....hh...hh....",
+			"..........................",
+			"hhh..hhh..hhh.hh..hh..hh..",
+			"hhh..hhh..hhh.hh..hh..hh..",
+			"..........................",
+			".TT...TT...TT...T.....T...",
+			".TT...TT...TT.............",
+			"...............hh..hh..hh.",
+			"hhhh...hhhh....hh..hh..hh.",
+			"hhhh...hhhh...............",
+			"..............hhh....hhh..",
+			"..............hhh....hhh..",
+		},
+	},
+
 	zones = {
-		{ id = "Promenade", distance = 0 },
-		{ id = "Market", distance = 0.35 },
-		{ id = "Docks", distance = 0.8 },
-		{ id = "Refuge", distance = 1.4 },
+		{ id = "Promenade", distance = 0, cells = { from = Vector2.new(1, 1), to = Vector2.new(14, 11) } },
+		{ id = "Market", distance = 0.35, cells = { from = Vector2.new(15, 1), to = Vector2.new(26, 11) } },
+		{ id = "Docks", distance = 0.8, cells = { from = Vector2.new(1, 13), to = Vector2.new(13, 26) } },
+		{ id = "Refuge", distance = 1.4, cells = { from = Vector2.new(14, 13), to = Vector2.new(26, 26) } },
 	},
 	spawns = {
 		{ archetype = "Civilian", count = 26, zone = "Promenade" },
@@ -1440,7 +1505,11 @@ def({
 			zone = "Docks",
 			behavior = NPCArchetypes.Behavior.Aggressive,
 		},
-		{ archetype = "ProtocolDroid", count = 6, zone = "Market" },
+		-- Moved out of the Market once the market grew counters. Emptiest-first
+		-- placement does not care who it stands behind one, and a protocol
+		-- droid is not a shopkeeper; a district with shops in it should
+		-- contain shopkeepers and nothing else.
+		{ archetype = "ProtocolDroid", count = 6, zone = "Promenade" },
 		-- The Empire has no writ on a Hutt moon, which is exactly why it keeps
 		-- a garrison at the docks -- and why there is a standing bounty on the
 		-- uniform. Without them the open contract counts nothing. Aggressive
@@ -1473,6 +1542,7 @@ def({
 			kind = "Market",
 			description = "Neon over neon. Buy anything, and be bought if you are careless.",
 			zone = "Promenade",
+			drawn = true,
 		},
 		{
 			id = "RefugeeSector",
@@ -1480,6 +1550,7 @@ def({
 			kind = "Ruin",
 			description = "Where the moon puts the people it has finished with.",
 			zone = "Refuge",
+			drawn = true,
 		},
 		{
 			id = "NarDocks",
@@ -1487,6 +1558,9 @@ def({
 			kind = "Spaceport",
 			description = "No manifests, no inspections, double the docking fee.",
 			zone = "Docks",
+			-- A `Spaceport` is 116 studs wide, so without this the berths
+			-- get shoved 676 studs clear of the freighters they belong to.
+			drawn = true,
 		},
 	},
 })
