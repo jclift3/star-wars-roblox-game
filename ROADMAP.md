@@ -429,7 +429,50 @@ Two decisions in the map itself are worth carrying into the next seven:
   therefore the same band. Two counters in a district containing nothing but
   merchants cannot be staffed by a farmer.
 
-Still open: tombs and apartments, and seven more grids.
+**Taris and Ord Mantell are the third and fourth, and they finish the openings.**
+Four origins start on four worlds; two of them were already drawn, so drawing
+these two means **nobody's first five minutes are procedurally generated any
+more**. Neither map needed a new feature — which is the point of writing them
+now, while the rules from Korriban are still one commit old.
+
+- **Taris** is a fence with a colony above it and a dig below. North is a grid
+  of identical prefab shacks, because that is what a resettlement colony is:
+  the same building stamped out by the same contract. South of the gate is the
+  Dig, a scatter of Czerka survey towers around two field halls — the only
+  district in the game that is authored and still meant to look unplanned. Its
+  legend uses `#` for `Wall` rather than `W`, which is not decoration: legends
+  are per-planet, and this is the map that proves it.
+- **Ord Mantell** is the argument between a diagram and a war. Fort Garnik is
+  perfectly symmetrical — four barracks around a muster square, a watchtower on
+  each front corner, one gate. Everything the army is actually doing is south of
+  that gate, in the **Savrip Fields**: four trench lines drawn as rows of the
+  same glyph as the fort's own rampart, with the gaps staggered, and *nothing
+  else at all*. A trench is a row of one character, which is the thing the tile
+  map was for.
+
+Both applied Korriban's two rules without being told: Taris's two shopfronts got
+a `Depot` district and Ord Mantell's got a `Market`, each split off at the *same*
+`distance` so no band moved; and the Savrip Fields carry **zero anchor cells**,
+so no level 1 Conscript wakes up in a trench with fourteen militia. Ord Mantell
+goes further and **does not declare `Yard` in its legend at all** — a glyph
+meaning "open ground you can also spawn on" is precisely the one that gets
+sprinkled somewhere dangerous without anyone noticing.
+
+**The checker is now the thing that catches this, not care.** Ord Mantell's grid
+was assembled by concatenating a village column and a fields column and came out
+ragged on eleven of twenty-four rows. `Planets.validate` would have reported it
+at boot, but boot is a Studio session away. `/tmp/gridcheck.py` **parses
+`Planets.luau` itself** — grid, legend, zones and spawn counts — and re-runs
+`layoutRects`, `walkable`, `doorFacing`, `cellOffset` and `rectExtents` offline,
+reporting ragged rows, undeclared and unused glyphs, rooms whose middle cell
+lands outside their own district, rooms with no walkable side, anchors per
+district, out-of-bounds `cells`, districts with fewer NPCs than parts, and the
+610-stud scatter corner. Copying a grid into the checker is the mistake the
+checker exists to catch, so it does not accept a copy.
+
+Still open: tombs and apartments, and five more grids — and Nar Shaddaa and
+Coruscant may not want one, since `hasWalkableGround = false` sends them down
+`buildVerticalCity` instead.
 
 **Finding the place at all.** Also from the second playtest: *"I have no idea
 where the cantina is."* Roads answer "where does this go" once you are standing

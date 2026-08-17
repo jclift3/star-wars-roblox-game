@@ -972,9 +972,89 @@ def({
 	maxLevel = 26,
 	lawLevel = 0.3,
 
+	--[[
+		THE RESETTLEMENT CAMP AND THE DIG, DRAWN RATHER THAN ROLLED
+
+		The whole planet is one joke and the map is the punchline: a tidy
+		Republic rectangle bolted onto the side of a hole in the ground.
+
+		North of the fence is the colony, and it is drawn the way a colony
+		that arrived in crates would be — identical two-cell huts in even
+		ranks, four to a row, on a track grid nobody chose. Six of them, a
+		mess hall, a muster square, and a wire perimeter with one gate in it.
+		It is meant to look like a form someone filled in.
+
+		South of the fence is Taris. Nothing lines up: leaning towers in
+		clumps, spoil heaps, two sheds at angles to everything, and the
+		twenty-eight thousand years of architecture the colony is standing on
+		poking through the rubble. There is no wall around it because there
+		is nothing here anyone would defend.
+
+		The fence is the point. It is one glyph wide and one gate long, and
+		it is the only thing on the planet the Republic actually finished.
+	]]
+	layout = {
+		cell = 32,
+		legend = {
+			-- Wire, not stone: the Republic fenced the colony and nothing
+			-- else. Written `#` rather than `W` because it is a different
+			-- kind of thing from Anchorhead's town wall and the legend is
+			-- per planet precisely so it can say so.
+			["#"] = "Wall",
+			G = "Gate",
+			["."] = "Road",
+			P = "Plaza",
+			h = "House",
+			s = "Shop",
+			H = "Hall",
+			T = "Tower",
+			y = "Yard",
+			l = "Lamp",
+		},
+		grid = {
+			"########################",
+			"#.hh.hh.hh.hh..ss..ss..#",
+			"#.hh.hh.hh.hh..ss..ss..#",
+			"#......................#",
+			"#.hh.hh.hh.hh.....l....#",
+			"#.hh.hh.hh.hh..........#",
+			"#......................#",
+			"#.HHHH..PPPP...........#",
+			"#.HHHH..PPPP...........#",
+			"########GG##############",
+			"........................",
+			"..TT....TTT.....TT......",
+			"..TT....TTT.....TT......",
+			"........................",
+			".yyy...TT....HHH...TTTT.",
+			".yyy...TT....HHH...TTTT.",
+			"........................",
+			"...TTT....HH....yyyy....",
+			"...TTT....HH....yyyy....",
+			".......l........l.......",
+			"..TTT......TT......TTT..",
+			"..TTT......TT......TTT..",
+		},
+	},
+
 	zones = {
-		{ id = "Camp", distance = 0 },
-		{ id = "Dig", distance = 0.5 },
+		{ id = "Camp", distance = 0, cells = { from = Vector2.new(2, 2), to = Vector2.new(15, 9) } },
+		--[[
+			The two shopfronts on the camp's east side, split off Camp at the
+			same `distance` so the band is identical and only the casting
+			changes. Korriban's Bazaar exists for the same reason, and the
+			rule generalises: **a `Shop` room needs a district that can
+			trade.** Placement fills the emptiest part first without caring
+			who it is filling it with, so a district holding twenty-two
+			refugees and three merchants will put a refugee behind the
+			counter about seven times in eight, and the player walks in to a
+			lit shop with no `Trade` prompt in it.
+
+			A `Hall` has no such problem and is not split anywhere: nobody
+			expects a particular job from a person standing in a mess tent.
+		]]
+		{ id = "Depot", distance = 0, cells = { from = Vector2.new(16, 2), to = Vector2.new(23, 9) } },
+		{ id = "Dig", distance = 0.5, cells = { from = Vector2.new(2, 12), to = Vector2.new(23, 22) } },
 		{ id = "SinkingSector", distance = 1.2 },
 		{ id = "Lot9", distance = 1.8 },
 		{ id = "Undercity", distance = 2.4 },
@@ -982,7 +1062,10 @@ def({
 	spawns = {
 		{ archetype = "Civilian", count = 22, zone = "Camp" },
 		{ archetype = "RepublicTrooper", count = 6, zone = "Camp" },
-		{ archetype = "Merchant", count = 3, zone = "Camp" },
+		-- Five for five places: three on the track outside and the two
+		-- shopfronts drawn on the camp's east side. The count is the number
+		-- of parts the district has, not a guess at how busy it should look.
+		{ archetype = "Merchant", count = 5, zone = "Depot" },
 		{ archetype = "Jawa", count = 8, zone = "Dig" },
 		{ archetype = "Researcher", count = 6, zone = "Dig" },
 		{ archetype = "ProtocolDroid", count = 4, zone = "Dig" },
@@ -1026,6 +1109,7 @@ def({
 			kind = "Outpost",
 			description = "The Republic's optimistic little colony. Prefab huts, one water plant, and a sign with a slogan on it.",
 			zone = "Camp",
+			drawn = true,
 		},
 		{
 			id = "TheDig",
@@ -1033,6 +1117,7 @@ def({
 			kind = "Ruin",
 			description = "Salvage cranes over a spoil heap the size of a hill. Everything anyone here owns came out of it.",
 			zone = "Dig",
+			drawn = true,
 		},
 		{
 			id = "SinkingSector",
@@ -1439,17 +1524,94 @@ def({
 	maxLevel = 6,
 	lawLevel = 0.5,
 
+	--[[
+		FORT GARNIK, DRELLIAD, AND THE FIELDS
+
+		Three places on one page, and the argument between them is the
+		Conscript's whole prologue.
+
+		The fort is symmetrical and it is the only thing here that is:
+		barracks either side of a muster square, a mess and an armoury behind
+		them, a watchtower on each front corner, sandbags all the way round
+		and one gate. It is a diagram of an army. Everything the army is
+		actually doing is south of that gate.
+
+		Drelliad is the same eight shacks the army's report calls a village,
+		with a hall and a market row a few rows further down. No wall, because
+		it has been liberated three times and a wall would only have told
+		somebody where to start.
+
+		The Savrip Fields are the east half, and they are drawn with the same
+		glyph as the fort's sandbags — four trench lines with the gaps in
+		different places, an observation tower, and nothing else at all. That
+		is the tile map doing the one thing PLANETS.md said it was for:
+		a trench is a row of one character.
+
+		**No anchor cell east of column 13.** The Fields band above the fort
+		and hold fourteen aggressive militia, and anchors are where players
+		spawn.
+	]]
+	layout = {
+		cell = 32,
+		legend = {
+			W = "Wall",
+			G = "Gate",
+			["."] = "Road",
+			P = "Plaza",
+			h = "House",
+			s = "Shop",
+			H = "Hall",
+			T = "Tower",
+			-- No `Yard`. Every anchor cell on this planet is deliberate and
+			-- there are only twenty-nine of them; a glyph that means "open
+			-- ground you can also spawn on" is exactly the one that would
+			-- get sprinkled into the Fields without anybody noticing.
+			l = "Lamp",
+		},
+		grid = {
+			"WWWWWWWWWWWWWWWWWWWWWWWWWW",
+			"WT......................TW",
+			"W..HHHH....PPPP....HHHH..W",
+			"W..HHHH....PPPP....HHHH..W",
+			"W..........PPPP..........W",
+			"W..HHHH....PPPP....HHHH..W",
+			"W..HHHH....PPPP....HHHH..W",
+			"W...l................l...W",
+			"WWWWWWWWWWWWGGWWWWWWWWWWWW",
+			"..........................",
+			".hh..hh..hh...............",
+			".hh..hh..hh..WWWWW.WWWWWWW",
+			"..........................",
+			".hh..HHH.hh...............",
+			".hh..HHH.hh..WWWWWWW.WWWWW",
+			"...l......................",
+			"..........................",
+			".............WWW.WWWWW.WWW",
+			".sss...hh.................",
+			".sss...hh.........TT......",
+			"..................TT......",
+			"...PPP.......WWWWWW.WWWWWW",
+			"...PPP....................",
+			"..........................",
+		},
+	},
+
 	zones = {
-		{ id = "Garrison", distance = 0 },
-		{ id = "Village", distance = 0.5 },
-		{ id = "Fields", distance = 1.3 },
+		{ id = "Garrison", distance = 0, cells = { from = Vector2.new(2, 2), to = Vector2.new(25, 8) } },
+		{ id = "Village", distance = 0.5, cells = { from = Vector2.new(1, 11), to = Vector2.new(12, 16) } },
+		-- Split off Drelliad at the same `distance`, for the reason Taris's
+		-- Depot is: the one shopfront on the planet cannot be staffed by a
+		-- frightened farmer, and eighteen civilians against two merchants is
+		-- what the district would otherwise be casting from.
+		{ id = "Market", distance = 0.5, cells = { from = Vector2.new(1, 18), to = Vector2.new(12, 23) } },
+		{ id = "Fields", distance = 1.3, cells = { from = Vector2.new(14, 11), to = Vector2.new(26, 24) } },
 		{ id = "Wilds", distance = 2.0 },
 	},
 	spawns = {
 		{ archetype = "RepublicTrooper", count = 20, zone = "Garrison" },
 		{ archetype = "RepublicVeteran", count = 6, zone = "Garrison" },
 		{ archetype = "ProtocolDroid", count = 3, zone = "Garrison" },
-		{ archetype = "Merchant", count = 2, zone = "Village" },
+		{ archetype = "Merchant", count = 4, zone = "Market" },
 		-- Frightened, and not grateful. They have been liberated three times.
 		{ archetype = "Civilian", count = 18, zone = "Village" },
 		--[[
@@ -1472,6 +1634,10 @@ def({
 			kind = "Base",
 			description = "Barracks, an armoury, and a sergeant who has stopped pretending this is going anywhere.",
 			zone = "Garrison",
+			-- The fort is the grid: four barracks blocks, a muster square and
+			-- a rampart. A 92-stud `Base` dropped on top of it would be a
+			-- second, rounder fort standing beside the real one.
+			drawn = true,
 		},
 		{
 			id = "DrelliadVillage",
@@ -1479,6 +1645,7 @@ def({
 			kind = "Market",
 			description = "Liberated three times. Nobody here waves at the column any more.",
 			zone = "Village",
+			drawn = true,
 		},
 		{
 			id = "SavripFields",
@@ -1486,6 +1653,9 @@ def({
 			kind = "Outpost",
 			description = "Trenches, wire and artillery craters, over a hill with no name on any map.",
 			zone = "Fields",
+			-- The trench lines are the landmark. An `Outpost` hut in the
+			-- middle of them would be the one building nobody dug in.
+			drawn = true,
 		},
 		{
 			id = "JaggedWilds",

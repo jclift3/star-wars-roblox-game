@@ -526,6 +526,59 @@ wrong every run** — there is no "try again and see".
     planet with no layout, names no zone, or names a zone with no `cells` — all
     three of which leave a named place with no building anywhere.)*
 
+### 5.9 Taris and Ord Mantell — the last two openings — **new, never played**
+
+With these two drawn, **all four origins now start on an authored map**. So the
+first thing to check on each is the first thing a new character sees.
+
+**Taris — the fence**
+
+1. Start or travel as a **Scrapper**. You wake in the **Resettlement Camp**:
+   twelve identical two-cell shacks in four ranks, a field hall on the west, a
+   small plaza. The sameness is deliberate — one contract, one building.
+2. There is **one gate** in the fence, south of the plaza. Before going through
+   it, walk east along the top of the map to the **Depot**: two shopfronts, and
+   **a merchant behind each counter**. Five merchants for five places, so an
+   empty counter means `leastUsed` is not working.
+3. Through the gate is **the Dig**, and it is the only authored district in the
+   game that should look *unplanned*: survey towers at no particular spacing,
+   two field halls, yards where the spoil goes. *(If it looks like a street
+   grid, the wrong glyphs got used.)*
+4. Both field halls have a door onto open ground and somebody inside.
+5. Boot output: Taris spells `Wall` as `#`, not `W`. **No `undeclared glyph`
+   line.** *(Legends are per-planet; this is the map that proves it. A shared
+   legend would fail here and nowhere else.)*
+
+**Ord Mantell — the diagram and the war**
+
+6. Start or travel as a **Conscript**. You wake in **Fort Garnik**, and it is
+   perfectly symmetrical: four barracks around a muster square, a watchtower on
+   each front corner, rampart all the way round, **one gate**. The symmetry is
+   the joke — see step 8.
+7. Four halls, four doors, somebody inside each. Twenty-nine soldiers for nine
+   places, so nothing in the fort should be empty.
+8. South through the gate are the **Savrip Fields**: four **trench lines** with
+   the gaps in different places, one observation tower, **and nothing else** —
+   no huts, no lamps, no yards. It should read as the fort's tidy rampart taken
+   outside and used for real.
+9. **Die out here several times. You never respawn in the Fields.** You come
+   back in the fort, in Drelliad, or in the market. *(There is not one anchor
+   cell east of column 13, and this planet does not declare `Yard` at all. The
+   Fields band above the fort and hold fourteen militia who shoot.)*
+10. West of the Fields is **Drelliad**: eight shacks and a hall, **no wall** —
+    then further south the market row, with a merchant behind its counter.
+11. **Fort Garnik, Drelliad and the Savrip Fields all appear on the signpost**,
+    and following an arm reaches the drawn thing. **No second fort, no second
+    village, and no lone outpost hut standing off in the swamp.** *(All three
+    are `drawn = true`.)*
+12. Both planets: **the bands are unchanged.** Fort Garnik 1–3, Drelliad 2–4,
+    Fields 3–5, Wilds 4–6; Camp and Dig at the bottom of Taris. The new `Depot`
+    and `Market` districts sit at the **same `distance`** as the district they
+    were split from, so a moved band means a `distance` was edited by mistake.
+13. Boot output on both: no `is in no district`, no `is marked drawn but…`, no
+    `layout row N is M characters`, and no `legend declares "x", which never
+    appears`.
+
 ---
 
 ## 6. Travel and origins

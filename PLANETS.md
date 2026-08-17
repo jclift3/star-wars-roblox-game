@@ -168,11 +168,31 @@ people are, it is **who** they are. Emptiest-first placement fills a shop counte
 with whoever the district contains, so a district with a shop in it should
 contain shopkeepers and not much else.
 
-### 2.6 Authoring tooling — optional, later
+### 2.6 Authoring tooling — the checker earned itself on map four
 
-Typing a 32x32 grid by hand is fine. Typing eight of them is tedious. A small
-Studio plugin that dumps selected parts to a grid, or a web page that lets you
-paint tiles, would pay for itself around planet three. Not a blocker.
+Typing a 32x32 grid by hand is fine. Typing eight of them is tedious, and the
+tedium is where the bugs are: Ord Mantell's grid was written as a village column
+beside a fields column and came out ragged on eleven of its twenty-four rows.
+Nothing about that is visible in a diff.
+
+So the tool that arrived first is not a painter, it is a **checker**, and the one
+design decision in it is that **it parses `Planets.luau` rather than accepting a
+copy of the grid**. Transcribing the map into the thing that checks the map is
+the exact mistake it exists to catch. It re-implements `layoutRects`, `walkable`,
+`doorFacing`, `cellOffset` and `rectExtents` and reports:
+
+- ragged rows, undeclared glyphs, and legend entries that never appear
+- every room: its rectangle, its middle cell's district, its NW cell's district
+  (they must agree), and its door's open fraction (must be non-zero)
+- anchor cells per district — the level-band check of §2.5, as a number
+- district rectangles outside the grid
+- districts whose population is smaller than their part count, which leaves a
+  shop counter empty
+- the far corner of the footprint against the 610-stud scatter ring
+
+It is the fourth thing in this project that can be run without Studio, after
+`./check.sh`, boot-time `validate()` and the printing cheat codes. A painter
+would still be nice. This was more urgent.
 
 ---
 
@@ -291,6 +311,18 @@ Taris is the planet that justifies the prefab system: the same three tower
 prefabs at different rotations and scales make a whole city, and a hand-authored
 grid is what stops it looking like a random field of boxes.
 
+**Drawn, not rolled** — the third authored grid, 24x22 cells, split by a fence
+with one gate. North is the colony and it is drawn the way a colony actually is:
+twelve identical two-cell shacks in four ranks, because a resettlement camp is
+one building stamped out by one contract. South is the Dig, and it is the only
+authored district in the game that is *meant* to look unplanned — survey towers
+scattered at no particular spacing around two field halls, yards where the spoil
+heaps go. Two shopfronts sit in their own `Depot` district on the camp's east
+side, at the same `distance` and therefore the same band, so the counters are
+staffed by merchants rather than by whichever of the twenty-two colonists the
+placement code reached first. Its legend spells `Wall` as `#`, not `W` — legends
+are per-planet, and this is the map that proves it.
+
 **Population:** Scrapper civilians, Republic Trooper (thin presence), Czerka
 Foreman, Czerka Security Droid, Assassin Droid, Cartel Slicer, and in the
 Undercity the **Hollowed** in numbers — Czerka stores them here.
@@ -373,6 +405,23 @@ one battlefield, one swamp, ~20 minutes of play.
 
 Cheap to build: `TrenchSection` and `Sandbag` tile along a grid row, which is the
 tile map format doing exactly what it is for.
+
+**Drawn, not rolled** — the fourth authored grid, 26x24 cells, and the one where
+the layout carries the argument. Fort Garnik is perfectly symmetrical: four
+barracks blocks around a muster square, a mess and an armoury behind them, a
+watchtower on each front corner, rampart all the way round, one gate. It is a
+diagram of an army. Everything the army is actually *doing* is south of that
+gate, and the Savrip Fields are four trench lines drawn with the same glyph as
+the fort's own rampart, gaps staggered, an observation tower, and nothing else at
+all — a trench is a row of one character, as promised. Drelliad has no wall,
+because it has been liberated three times and a wall would only have told
+somebody where to start.
+
+**No anchor cell east of column 13**, and no `Yard` in the legend at all. Player
+spawns are unclaimed anchors; the Fields band above the fort and hold fourteen
+aggressive militia. The one glyph that means "open ground you can also spawn on"
+is the one that would have got sprinkled into a trench without anybody noticing,
+so this planet does not have one.
 
 **Population:** Republic Trooper, Republic Veteran, Sergeant Marr, Civilian
 (frightened, and not grateful), Separatist Militia (a new archetype — poorly

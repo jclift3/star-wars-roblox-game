@@ -43,4 +43,11 @@ luau-lsp analyze \
 	--sourcemap="$SOURCEMAP" \
 	src/
 
+# The authored ASCII maps type-check trivially -- they are strings -- so nothing
+# above can see a ragged row, a room with no door, or a district holding fewer
+# NPCs than it has places to put them. `Planets.validate` catches some of it, but
+# only at boot, which is a Studio session away.
+echo "==> layouts"
+python3 tools/gridcheck.py
+
 echo "all clean"
