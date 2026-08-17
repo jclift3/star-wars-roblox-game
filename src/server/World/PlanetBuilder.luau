@@ -2144,8 +2144,15 @@ type PrefabDef = {
 		is a judgement rather than a default: a house you can enter and find
 		empty is a worse discovery than a house you cannot enter, and forty
 		houses is forty times the parts to make that discovery in.
+
+		It returns where the floor is left clear, in the room's own frame,
+		because the thing that placed the counter is the only thing that knows
+		what is still free. That spot becomes the district's standing room
+		indoors -- the same `Inside` marker a cantina gets -- so the answer
+		cannot be a constant: a shop's clear floor is in front of its counter
+		and a hall's is past the end of its table.
 	]]
-	room: ((Instance, CFrame, Vector2, Style) -> ())?,
+	room: ((Instance, CFrame, Vector2, Style) -> Vector3)?,
 }
 
 --- A stretch of town wall, crenellated along whichever way it runs.
@@ -2216,7 +2223,7 @@ end
 ]]
 
 --- A shop: a counter to stand behind, a stocked shelf, and light to see by.
-local function fitShop(parent: Instance, at: CFrame, inner: Vector2, style: Style)
+local function fitShop(parent: Instance, at: CFrame, inner: Vector2, style: Style): Vector3
 	local run = inner.Y * 0.62
 	--[[
 		Measured out from the inside of the back wall rather than as fractions
@@ -2293,11 +2300,22 @@ local function fitShop(parent: Instance, at: CFrame, inner: Vector2, style: Styl
 	end
 
 	ceilingLamp(parent, (at * CFrame.new(0, ROOM_HEIGHT - 3, 0)).Position, style.windowColor, 42)
+
+	--[[
+		The customer's side of the counter, not the shopkeeper's.
+
+		Behind it is a six-stud walkway between shelf and counter, and a
+		standing spot that narrow is one an NPC gets shoved out of by the
+		first thing that touches it. In front there is the width of the room,
+		the trader is still within the twelve studs a `Trade` prompt reaches,
+		and he is facing the door -- which is where a player comes in.
+	]]
+	return Vector3.new((counter + 2.5 + inner.X * 0.5) * 0.5, 0, 0)
 end
 
 --- A hall: one long table and benches down the middle, which is the
 --- difference between somewhere people are called to and a shed.
-local function fitHall(parent: Instance, at: CFrame, inner: Vector2, style: Style)
+local function fitHall(parent: Instance, at: CFrame, inner: Vector2, style: Style): Vector3
 	local length = inner.X * 0.55
 	local width = math.min(13, inner.Y * 0.3)
 
@@ -2346,6 +2364,11 @@ local function fitHall(parent: Instance, at: CFrame, inner: Vector2, style: Styl
 
 	ceilingLamp(parent, (at * CFrame.new(-length * 0.4, ROOM_HEIGHT - 3, 0)).Position, style.windowColor, 40)
 	ceilingLamp(parent, (at * CFrame.new(length * 0.4, ROOM_HEIGHT - 3, 0)).Position, style.windowColor, 40)
+
+	-- The floor between the end of the table and the door, which is the only
+	-- part of a hall not taken up by furniture -- and the part people stand
+	-- in anyway, because it is where you are when you come through the door.
+	return Vector3.new((length + inner.X) * 0.25, 0, 0)
 end
 
 local PREFABS: { [string]: PrefabDef } = {
@@ -2372,7 +2395,24 @@ function PlanetBuilder.prefabExists(id: string): boolean
 	return PREFABS[id] ~= nil
 end
 
+--- Whether `id` builds a room a player can walk into, and so needs somebody in
+--- it. Injected into `Planets.validate` alongside `prefabExists`.
+function PlanetBuilder.prefabHasRoom(id: string): boolean
+	local prefab = PREFABS[id]
+	return prefab ~= nil and prefab.room ~= nil
+end
+
 type LayoutRect = { glyph: string, from: Vector2, to: Vector2 }
+
+--[[
+	Standing room inside one authored building.
+
+	`cell` is the middle of the rectangle it came out of, and it is carried
+	all the way to `buildMarkers` because that is the only thing that can say
+	which district a room belongs to -- a district is a rectangle of cells,
+	and a room's world position would have to be turned back into one.
+]]
+type RoomSpot = { at: Vector3, cell: Vector2, size: number }
 
 --[[
 	The glyph at a cell, with everything off the page reading as open ground.
@@ -2587,6 +2627,11 @@ end
 	into it, and stairs are a system this does not have; a second floor would
 	be a ceiling with nothing above it. That is why the prefabs with a `room`
 	have no `floorScale`.
+
+	Returns the standing room inside it, as a position and the side of a
+	square. Square because `marker` builds axis-aligned parts and most of
+	these rooms are turned a quarter circle, so a rectangle would be laid
+	across the walls it was measured to fit between.
 ]]
 local function buildRoom(
 	parent: Instance,
@@ -2596,8 +2641,8 @@ local function buildRoom(
 	footprint: Vector2,
 	style: Style,
 	rng: Random,
-	fittings: (Instance, CFrame, Vector2, Style) -> ()
-)
+	fittings: (Instance, CFrame, Vector2, Style) -> Vector3
+): (Vector3, number)
 	local color = pick(style.buildingColors, rng)
 	local yaw, turned = doorFacing(layout, rect)
 	local at = CFrame.new(centre) * CFrame.Angles(0, yaw, 0)
@@ -2629,7 +2674,20 @@ local function buildRoom(
 	glow.Brightness = 1.6
 	glow.Parent = sign
 
-	fittings(parent, at, inner, style)
+	--[[
+		The standing room is kept well inside the clear floor rather than
+		filling it.
+
+		NPCService scatters anywhere within one of these and then drops what
+		it picks to whatever is underneath, so a box that reached the counter
+		would put a trader standing on it -- the same mistake the cantina's
+		interior marker was sized down to avoid. A quarter of the depth is
+		short of the counter in the smallest shop here, which is the one the
+		arithmetic has to survive.
+	]]
+	local clear = fittings(parent, at, inner, style)
+	local room = math.clamp(math.min(inner.X * 0.25, inner.Y * 0.4), 4, 12)
+	return (at * CFrame.new(clear)).Position, room
 end
 
 --[[
@@ -2641,6 +2699,9 @@ end
 	round: the authored layout is a different *source* of anchors, not a
 	different world-building pipeline, so the eight worlds without one keep
 	working untouched.
+
+	The second return is the insides of whatever it built rooms in, which is
+	the one thing a generated settlement has no equivalent of.
 ]]
 local function buildFromLayout(
 	parent: Instance,
@@ -2649,12 +2710,13 @@ local function buildFromLayout(
 	origin: Vector3,
 	style: Style,
 	rng: Random
-): { Vector3 }
+): ({ Vector3 }, { RoomSpot })
 	local town = folder("Settlement", parent)
 	local paving = folder("Streets", town)
 	local roadColor, roadMaterial = roadLook(planet)
 
 	local open: { Vector3 } = {}
+	local rooms: { RoomSpot } = {}
 
 	for _, rect in layoutRects(layout) do
 		local prefabId = layout.legend[rect.glyph]
@@ -2708,7 +2770,15 @@ local function buildFromLayout(
 
 		local fittings = prefab.room
 		if fittings then
-			buildRoom(town, layout, rect, centre, footprint, style, rng, fittings)
+			local at, size = buildRoom(town, layout, rect, centre, footprint, style, rng, fittings)
+			table.insert(rooms, {
+				at = at,
+				cell = Vector2.new(
+					math.floor((rect.from.X + rect.to.X) * 0.5),
+					math.floor((rect.from.Y + rect.to.Y) * 0.5)
+				),
+				size = size,
+			})
 			continue
 		end
 
@@ -2727,7 +2797,7 @@ local function buildFromLayout(
 	if #open == 0 then
 		table.insert(open, origin)
 	end
-	return open
+	return open, rooms
 end
 
 --------------------------------------------------------------------------------
@@ -3913,6 +3983,7 @@ local function buildMarkers(
 	root: Instance,
 	origin: Vector3,
 	anchors: { Vector3 },
+	rooms: { RoomSpot },
 	style: Style,
 	rng: Random
 )
@@ -4223,6 +4294,48 @@ local function buildMarkers(
 	end
 
 	--[[
+		The insides of the authored buildings, as standing room in whichever
+		district they were drawn in.
+
+		Exactly what a landmark's `interior` offset does, and deliberately the
+		same marker rather than a second mechanism: NPCService already reads
+		every part of a zone folder as somewhere one of that district's people
+		may stand, so a shop gets a shopkeeper without a line of new AI or a
+		single new spawn rule. A room in no declared district gets nothing --
+		it is a building on the outskirts, and inventing a district to put one
+		person in would move that district's whole crowd.
+
+		Named to sort before the ring points because that ordering is also the
+		patrol route, and a route is more legible if it starts indoors and
+		goes out than if it wanders in halfway round.
+	]]
+	for index, room in rooms do
+		local zoneId: string? = nil
+		for _, def in planet.zones do
+			local cells = def.cells
+			if
+				cells
+				and room.cell.X >= cells.from.X
+				and room.cell.X <= cells.to.X
+				and room.cell.Y >= cells.from.Y
+				and room.cell.Y <= cells.to.Y
+			then
+				zoneId = def.id
+				break
+			end
+		end
+
+		if zoneId then
+			marker(
+				folder(zoneId, zoneRoot),
+				`Inside{string.format("%02d", index)}`,
+				room.at + Vector3.new(0, 3, 0),
+				Vector3.new(room.size, 1, room.size)
+			)
+		end
+	end
+
+	--[[
 		A road out of town to every landmark that stands outside it.
 
 		It starts at the edge of the settlement, not at the plaza. Drawn from
@@ -4300,21 +4413,24 @@ function PlanetBuilder.build(planetId: string)
 
 	local root = folder(planetId, planetsFolder)
 	local anchors: { Vector3 }
+	local rooms: { RoomSpot } = {}
 
 	if planet.hasWalkableGround then
 		local flat = flatRadiusFor(planet)
 		local ground = buildGround(planet, origin, flat)
 		buildRelief(planet, origin, flat, ground, rng)
 		local layout = planet.layout
-		anchors = if layout
-			then buildFromLayout(root, planet, layout, origin, style, rng)
-			else buildSettlement(root, planet, origin, style, rng)
+		if layout then
+			anchors, rooms = buildFromLayout(root, planet, layout, origin, style, rng)
+		else
+			anchors = buildSettlement(root, planet, origin, style, rng)
+		end
 		buildScatter(root, planet, origin, flat, ground, style, rng)
 	else
 		anchors = buildVerticalCity(root, planet, origin, rng)
 	end
 
-	buildMarkers(planet, root, origin, anchors, style, rng)
+	buildMarkers(planet, root, origin, anchors, rooms, style, rng)
 end
 
 return PlanetBuilder

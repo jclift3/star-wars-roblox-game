@@ -328,7 +328,7 @@ retired the base's bare 164-stud wall slabs, which had the same problem outdoors
 the `roomShell` that was written for the base keep builds an authored shop
 unchanged. A `PrefabDef` may now declare a `room` — the fittings that go inside
 it — and `buildFromLayout` builds that cell as a shell instead of handing it to
-`style.shape`. Anchorhead has **nine shops and two halls** you can walk into.
+`style.shape`. Anchorhead has **five shops and two halls** you can walk into.
 
 Four decisions in it:
 
@@ -337,7 +337,7 @@ Four decisions in it:
   rectangle by how much open ground is against each and the whole shell is
   turned that way. Without it a door is a three-in-four chance of opening into
   the neighbour's back wall — and a door that does not open is worse than no
-  door, because a player spends a minute finding that out. All eleven of
+  door, because a player spends a minute finding that out. All seven of
   Anchorhead's rooms come out on a side that is 100% open.
 - **Fittings are written in the room's own frame** (`at: CFrame`, `inner` swapped
   when the building is turned), which is why `roomShell` now takes a CFrame base.
@@ -354,10 +354,41 @@ whole Anchorhead crowd would have stood inside the houses. `ontoPaving` reads th
 grid instead and takes the nearest paved cell; worst case a point moves 93 studs,
 and every one of them lands on a street.
 
-Still open: tombs and apartments, and **nobody is in the shops yet** — a room
-gets a shopkeeper only where a `LandmarkDef.interior` puts one, which is a
-landmark mechanism. Wiring authored rooms into the same `Inside` marker is the
-next step and is what turns eleven rooms into eleven places.
+**And then somebody is behind the counter.** The rooms were finished and empty,
+which is worse than solid: a lit shop with stock on the shelves and nobody in it
+reads as a broken shop system rather than as scenery. The fix reuses the
+cantina's mechanism rather than inventing a second one — each room now emits an
+`Inside` marker into whichever district its cells fall in, and NPCService already
+treats every part of a zone folder as somewhere one of that district's people may
+stand. No new AI, no new spawn rule. `Behavior.Vendor` is `Idle`, so a merchant
+put in a shop holds his post there.
+
+Three things had to change with it, and only one of them was the marker:
+
+- **`PrefabDef.room` returns where the floor is left clear**, in the room's own
+  frame, because the code that placed the counter is the only code that knows
+  what is still free — in front of the counter for a shop, past the end of the
+  table for a hall. The marker is then kept well *inside* that: NPCService
+  scatters within a part and drops to what is underneath, so a box reaching the
+  counter puts a trader standing on it. Square, too, because `marker` builds
+  axis-aligned parts and most of these buildings are turned a quarter circle.
+- **Placement is emptiest-first, not a uniform roll.** With nine people over nine
+  parts, the odds of every part being used were about one in a thousand. That was
+  invisible while a part was a slice of a patrol ring — three traders on one
+  spoke is a crowd either way — and stopped being invisible the moment a part
+  meant *this shop*. `leastUsed` also makes a respawn fall back into the gap the
+  death left, so a merchant killed in his shop comes back to it.
+- **A room drawn outside every `ZoneDef.cells` rectangle is a boot warning.**
+  Offline simulation found six of eleven rooms had no district that could staff
+  them. Two were fixed by widening Town west to the hall block; the four
+  back-street shops became houses, because inventing a district to hold one
+  person would have moved that district's whole crowd. Hence five shops, not
+  nine — the count is now a claim the map can keep.
+
+Merchant count went 5 → 9 to match the Market's nine places. Adding a tenth `s`
+now costs a trader, not a bug.
+
+Still open: tombs and apartments.
 
 **Finding the place at all.** Also from the second playtest: *"I have no idea
 where the cantina is."* Roads answer "where does this go" once you are standing

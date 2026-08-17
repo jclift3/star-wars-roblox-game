@@ -29,6 +29,12 @@
 	patrol route. If a planet has no zones the service falls back to
 	scattering around its spawn points, so an unfinished map still shows a
 	living world instead of nothing at all.
+
+	Parts are handed out emptiest-first rather than at random. That is what
+	makes a part able to mean somewhere in particular -- the inside of a shop,
+	a landmark's back room -- instead of only a slice of a patrol ring, and it
+	is why a district with rooms in it needs about as many people as it has
+	places rather than as many as it looks like it needs.
 ]]
 
 local Debris = game:GetService("Debris")
@@ -86,6 +92,8 @@ type Record = {
 	root: BasePart,
 	planetId: string,
 	rule: SpawnRule,
+	--- The zone part this one was placed on, so it can be given back on death.
+	stand: BasePart?,
 	nextStepAt: number,
 }
 
@@ -105,6 +113,19 @@ local warnedMissingZones: { [string]: boolean } = {}
 
 local rng = Random.new()
 local variantCache: { [string]: NPCArchetypes.Archetype } = {}
+
+--[[
+	How many living NPCs each zone part is currently holding.
+
+	Placement used to be a uniform roll over a zone's parts, which clumps: with
+	nine places and nine people the odds of every place being used are about
+	one in a thousand. That was invisible while every part was a slice of the
+	same patrol ring -- three traders on one spoke and none on the next is a
+	crowd either way -- and stopped being invisible the moment a part meant the
+	inside of a particular shop. A shop with nobody in it is the thing the
+	interiors work exists to avoid.
+]]
+local standing: { [BasePart]: number } = {}
 
 --- Fired when a player triggers an NPC's proximity prompt. DialogueService and
 --- the shop system listen here rather than owning their own prompts.
@@ -209,8 +230,40 @@ local function pointOn(part: BasePart, scatter: number?): CFrame
 	return CFrame.new(position) * CFrame.Angles(0, rng:NextNumber(0, math.pi * 2), 0)
 end
 
+--[[
+	The emptiest of `parts`, ties broken at random.
+
+	Least-used rather than round-robin because a respawn has to fall back into
+	the gap the death left: a merchant killed in his own shop returns to it,
+	instead of the whole district shuffling one place along every time anybody
+	dies.
+]]
+local function leastUsed(parts: { BasePart }): BasePart
+	local best: { BasePart } = {}
+	local fewest = math.huge
+
+	for _, part in parts do
+		local used = standing[part] or 0
+		if used < fewest then
+			fewest = used
+			best = { part }
+		elseif used == fewest then
+			table.insert(best, part)
+		end
+	end
+
+	return best[rng:NextInteger(1, #best)]
+end
+
+--- Gives a place back: on death, or on a rig that failed to finish building.
+local function release(stand: BasePart?)
+	if stand then
+		standing[stand] = math.max(0, (standing[stand] or 0) - 1)
+	end
+end
+
 --- Where one NPC of `rule` should stand, plus a patrol route if the zone has one.
-local function placementFor(planetId: string, rule: SpawnRule): (CFrame?, { Vector3 })
+local function placementFor(planetId: string, rule: SpawnRule): (CFrame?, { Vector3 }, BasePart?)
 	local parts = zoneParts(planetId, rule.zone)
 	local scatter: number? = nil
 
@@ -224,10 +277,12 @@ local function placementFor(planetId: string, rule: SpawnRule): (CFrame?, { Vect
 	end
 
 	if #parts == 0 then
-		return nil, {}
+		return nil, {}, nil
 	end
 
-	local home = pointOn(parts[rng:NextInteger(1, #parts)], scatter)
+	local stand = leastUsed(parts)
+	standing[stand] = (standing[stand] or 0) + 1
+	local home = pointOn(stand, scatter)
 
 	local route: { Vector3 } = {}
 	if #parts > 1 and not scatter then
@@ -236,7 +291,7 @@ local function placementFor(planetId: string, rule: SpawnRule): (CFrame?, { Vect
 		end
 	end
 
-	return home, route
+	return home, route, stand
 end
 
 --------------------------------------------------------------------------------
@@ -341,6 +396,7 @@ local function despawn(record: Record, respawn: boolean)
 	records[record.model] = nil
 	liveCount -= 1
 
+	release(record.stand)
 	record.brain:destroy()
 
 	if respawn then
@@ -358,7 +414,7 @@ local function spawnOne(planetId: string, rule: SpawnRule): Record?
 		return nil
 	end
 
-	local home, route = placementFor(planetId, rule)
+	local home, route, stand = placementFor(planetId, rule)
 	if not home then
 		return nil
 	end
@@ -389,6 +445,7 @@ local function spawnOne(planetId: string, rule: SpawnRule): Record?
 	local humanoid = model:FindFirstChildOfClass("Humanoid")
 	local root = model:FindFirstChild("HumanoidRootPart")
 	if not humanoid or not (root and root:IsA("BasePart")) then
+		release(stand)
 		model:Destroy()
 		return nil
 	end
@@ -425,6 +482,7 @@ local function spawnOne(planetId: string, rule: SpawnRule): Record?
 
 	local brain = NPCBrain.new(model, rule.archetype, level, home)
 	if not brain then
+		release(stand)
 		model:Destroy()
 		return nil
 	end
@@ -450,6 +508,7 @@ local function spawnOne(planetId: string, rule: SpawnRule): Record?
 		root = root,
 		planetId = planetId,
 		rule = rule,
+		stand = stand,
 		nextStepAt = 0,
 	}
 

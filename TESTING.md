@@ -422,8 +422,9 @@ the cell maths, and comparing the two is how you tell.
 
 ### 5.7 The shops open — **new, never played**
 
-Anchorhead's **nine shops (`s`) and two halls (`H`)** are rooms you can walk
-into. Everything else on the grid is still solid.
+Anchorhead's **five shops (`s`) and two halls (`H`)** are rooms you can walk
+into, and there is somebody in each of them. Everything else on the grid is
+still solid.
 
 1. Find a shop — a lit sign over the door is the tell, and the only building
    type with one. Walk in. You do not get stuck in the doorway.
@@ -435,8 +436,8 @@ into. Everything else on the grid is still solid.
 3. Inside: a **counter** with an overhanging top, a **shelf behind it with lit
    stock on it**, and a ceiling lamp. In the bigger shops, two crates in the
    corners by the door. You can walk round behind the counter.
-4. Do that in the smallest shop (a one-cell frontage, e.g. the row of four along
-   the north side) *and* in the three-by-three one in the market. **The
+4. Do that in the smallest shop (the one-cell-deep one on the market's south
+   edge) *and* in the three-by-three one at its north-west corner. **The
    furniture is the same size in both** — that is deliberate; only the room
    scales.
 5. **The halls** (grid rows 10–12, west side and far east) have a long table,
@@ -450,9 +451,27 @@ into. Everything else on the grid is still solid.
    civilians patrol for a minute. *(Before this change they were snapped onto
    the radial generator's block lines, which Anchorhead does not have. If
    someone is standing in a wall, `ontoPaving` is the place to look.)*
-9. The shops are **empty of people** — that is known and expected, not a bug.
-   Vendors still stand outside. Populating rooms is the next item.
-10. Korriban and Nar Shaddaa again: no shop interiors anywhere, because neither
+9. **Every one of the five shops has a trader in it**, standing on the
+   customer's side of his counter and facing the door. Walk into all five and
+   count. *(This is the part that is a lottery if `leastUsed` is not working:
+   the failure mode is two traders in one shop and an empty one next door, not
+   an error. The Market has nine places and nine merchants, so one each with
+   three left over on the street — see step 11.)*
+10. Walk up to a trader indoors. The **`Trade` prompt appears and B opens his
+    stock** — the prompt reaches 12 studs and the room is not wider than that
+    from the marker to the counter.
+11. Three merchants are still **outside** on the market street. That is correct:
+    nine merchants, six of the district's nine places are shop counters.
+12. Kill a trader in his shop, wait for the respawn, and go back. **He is in the
+    same shop**, not somewhere else in the district. *(A place is given back on
+    death; without that the whole district shuffles one along every time
+    anybody dies.)*
+13. The two halls also have somebody in them — the west one is in Town, the east
+    one in Market.
+14. Boot output: no `[WorldService] planet config:` line saying a building **is
+    in no district, so nobody will ever be inside it**. Adding an `s` outside
+    every `ZoneDef.cells` rectangle is how you make that line appear.
+15. Korriban and Nar Shaddaa again: no shop interiors anywhere, because neither
     has a `layout`.
 
 ---

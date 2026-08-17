@@ -393,8 +393,8 @@ def({
 		},
 		grid = {
 			"WWWWWWWWWWWWGGWWWWWWWWWWWW",
-			"Whh s.hhh sh..hs hhh.s hhW",
-			"Whh s.hhh sh..hs hhh.s hhW",
+			"Whh h.hhh hh..hh hhh.h hhW",
+			"Whh h.hhh hh..hh hhh.h hhW",
 			"W  y .  yy  .. y  y . y  W",
 			"Whhtt.hh  hh..hh  hh.tthhW",
 			"W........................W",
@@ -429,7 +429,10 @@ def({
 			the market is east of the plaza and the cantina quarter is behind
 			it to the south-west, and now it is every time.
 		]]
-		{ id = "Town", distance = 0, cells = { from = Vector2.new(10, 10), to = Vector2.new(17, 17) } },
+		-- West to column 7 so the town hall block is inside it. A district is
+		-- also who is standing in the buildings drawn in it, and the hall was
+		-- three cells outside the only rectangle that could have staffed it.
+		{ id = "Town", distance = 0, cells = { from = Vector2.new(7, 10), to = Vector2.new(17, 17) } },
 		{ id = "Market", distance = 0.3, cells = { from = Vector2.new(18, 10), to = Vector2.new(25, 17) } },
 		{ id = "Cantina", distance = 0.5, cells = { from = Vector2.new(3, 18), to = Vector2.new(10, 24) } },
 		-- The outer four used to run out to 2.1 -- 1092 studs, most of a
@@ -453,7 +456,13 @@ def({
 		{ archetype = "Smuggler", count = 10, zone = "Wastes", behavior = NPCArchetypes.Behavior.Aggressive },
 		{ archetype = "MoistureFarmer", count = 8, zone = "Farmstead" },
 		{ archetype = "Civilian", count = 22, zone = "Town" },
-		{ archetype = "Merchant", count = 5, zone = "Market" },
+		-- Nine, because the market district has nine places to stand: six shop
+		-- counters drawn in the grid above and three points on the street.
+		-- NPCService fills the emptiest first, so this is one trader per shop
+		-- with the remainder outside -- at five it was a coin toss whether any
+		-- given shop had anybody in it, and an empty shop you can walk into is
+		-- worse than a solid one. Adding a tenth `s` costs a trader, not a bug.
+		{ archetype = "Merchant", count = 9, zone = "Market" },
 		{ archetype = "Smuggler", count = 8, zone = "Cantina" },
 		-- Out in the Dune Sea rather than sharing the Wastes with the Jawas.
 		-- Level 5-16 and aggressive at 180 studs, against a level 1 story
@@ -1630,9 +1639,10 @@ end
 	takes `planetExists`: the prefabs live in `PlanetBuilder`, which is a server
 	module that already requires this one, and requiring it back would be a
 	cycle -- and would drag the whole builder into every client that wants to
-	know a planet's name.
+	know a planet's name. `prefabHasRoom` comes the same way and for the same
+	reason; two predicates is the price of the boundary staying one-way.
 ]]
-function Planets.validate(prefabExists: (string) -> boolean): { string }
+function Planets.validate(prefabExists: (string) -> boolean, prefabHasRoom: (string) -> boolean): { string }
 	local problems = {}
 
 	--[[
@@ -1780,6 +1790,61 @@ function Planets.validate(prefabExists: (string) -> boolean): { string }
 				end
 			end
 		end
+
+		--[[
+			A building you can walk into, drawn where no district reaches.
+
+			An interior is standing room added to the district its cells fall
+			in, so a room outside every rectangle is one nobody is ever put
+			in: a lit shop with stock on the shelves, a counter, and no
+			shopkeeper, which reads to a player as a bug in the shop system
+			rather than as a gap in the map. Solid buildings do not have this
+			problem, which is why it only starts mattering now.
+
+			Reported once per building rather than once per cell: a three-by-
+			three hall is nine cells and one mistake, and the cell that gets
+			named is its north-west corner.
+		]]
+		if layout then
+			for r, line in layout.grid do
+				for c = 1, #line do
+					local glyph = line:sub(c, c)
+					local prefab = layout.legend[glyph]
+					if not prefab or not prefabHasRoom(prefab) then
+						continue
+					end
+					-- Part of a building already reported from its corner.
+					local west = line:sub(c - 1, c - 1)
+					local north = if r > 1 then layout.grid[r - 1]:sub(c, c) else ""
+					if (c > 1 and west == glyph) or north == glyph then
+						continue
+					end
+
+					local housed = false
+					for _, zone in p.zones do
+						local cells = zone.cells
+						if
+							cells
+							and c >= cells.from.X
+							and c <= cells.to.X
+							and r >= cells.from.Y
+							and r <= cells.to.Y
+						then
+							housed = true
+							break
+						end
+					end
+					if not housed then
+						table.insert(
+							problems,
+							`{id}: the "{prefab}" at row {r} column {c} is in no district, `
+								.. `so nobody will ever be inside it`
+						)
+					end
+				end
+			end
+		end
+
 		local aggressive = 0
 		for _, rule in p.spawns do
 			if rule.zone and not seen[rule.zone] then
