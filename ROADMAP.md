@@ -835,7 +835,7 @@ to the district that nearly killed you at level 3.
 **Travel is a hard dependency from the second planet onward** — satisfied by
 Phase 2a, so this is no longer blocked.
 
-### 3.3 "Why is everything still so blocky" — **[part 1 done 2026-08-16]**
+### 3.3 "Why is everything still so blocky" — **[done 2026-08-16]**
 
 The user's third playtest note, in his own order behind levelling and story.
 
@@ -870,11 +870,33 @@ a landscape you can see the corners of.
   district is a half-buried building whose whole population spawns underground.
   Parts never did this, which is why nobody had met it before.
 
-**Part 2 — silhouette and detail. [todo]** Blockiness is also "no detail at any
-scale": the buildings are correct boxes with nothing on them. Trim courses,
-roof clutter, canopies, pipes, railings, aerials — cheap parts whose only job
-is to break a straight edge, added in the `shape` functions the architecture
-pass already gave each world.
+**Part 2 — silhouette and detail.** Done. Blockiness is also "no detail at any
+scale": the buildings were correct boxes with nothing on them — one colour, one
+material, a right angle where the wall met the ground and another where it met
+the sky. It is the small horizontals that tell the eye how big something is;
+without them a twelve-storey tower and a shed are the same picture at different
+zooms.
+
+- Four shared helpers in `PlanetBuilder`: `plinth` (a footing course — one part,
+  and the highest-value one here, because a wall meeting the ground at an
+  unbroken right angle reads as an object sitting *on* a surface rather than a
+  building standing *in* the ground), `cornice` (an overhanging lip, i.e. a
+  shadow line, which is what actually reads at distance), `roofClutter` and
+  `conduit`.
+- Applied **inside each of the nine `shape` functions**, not as one pass over
+  every building, because only the shape knows where its own roofline ended up
+  and three worlds have no ground line to put a footing on: Hoth is half buried,
+  Ord Mantell is on stilts, Nar Shaddaa overhangs. Those three got a supply dump,
+  a porch and rail, and roof tanks instead.
+- **Coruscant's 121 towers** were the largest single view in the game and the
+  most literally blocky thing in it: square-section boxes with flat tops on an
+  exact grid. Now off-square footprints (free — no extra parts), a setback crown,
+  and a mast on 45%. The grid is deliberately still exact: landing platforms
+  cantilever 45 studs past the widest face, and a pad that lands inside a
+  neighbouring tower is a district spawning inside a wall, since those pads are
+  the anchors `buildMarkers` uses.
+- Everything that hangs off a wall is `CanCollide = false`. A ledge you can stand
+  on is a ledge the boys will stand on.
 
 ---
 

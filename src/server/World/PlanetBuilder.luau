@@ -286,11 +286,173 @@ local function windowBands(
 	end
 end
 
+--------------------------------------------------------------------------------
+-- Silhouette detail
+--------------------------------------------------------------------------------
+
+--[[
+	The second half of "why is everything still so blocky", and a different
+	complaint from the first half hiding inside the same sentence.
+
+	Terrain answered *the ground is a plate*. This answers **the buildings are
+	correct boxes with nothing on them**: one flat colour, one material, a
+	perfect right angle where the wall meets the floor and another where it
+	meets the sky. Real construction has a footing, a shadow line, a lip, and
+	junk on the roof, and it is those small horizontals that tell the eye how
+	big something is. Without them a twelve-storey tower and a shed are the
+	same picture at different zooms -- which is most of what "blocky" means
+	once the lighting is already right.
+
+	These are helpers rather than one pass over every building, because each
+	shape function is the only thing that knows where its own roofline ended
+	up, and three of the nine have no ground line to put a footing on (Hoth is
+	half buried, Ord Mantell is on stilts, Nar Shaddaa overhangs).
+
+	Everything that hangs off a wall is `CanCollide = false`. A ledge you can
+	stand on is a ledge the boys will stand on, and none of these have
+	anything under them. The one exception is Hoth's supply crates, which sit
+	on the ground like the boulders in `buildScatter` and are solid for the
+	same reason.
+]]
+
+--- A lighter or darker version of a colour. Negative darkens.
+local function shade(color: Color3, amount: number): Color3
+	return color:Lerp(if amount < 0 then Color3.new() else Color3.new(1, 1, 1), math.abs(amount))
+end
+
+--[[
+	A footing course: a low slab a little wider than the building.
+
+	The single highest-value part in this section. A wall that meets the
+	ground at an unbroken right angle reads as an object sitting *on* a
+	surface; the same wall with a plinth reads as a building standing *in* the
+	ground, and it costs one part.
+]]
+local function plinth(
+	parent: Instance,
+	base: Vector3,
+	width: number,
+	depth: number,
+	color: Color3,
+	material: Enum.Material
+)
+	local p = block(
+		parent,
+		CFrame.new(base + Vector3.new(0, 1.4, 0)),
+		Vector3.new(width * 1.07, 2.8, depth * 1.07),
+		shade(color, -0.18),
+		material
+	)
+	p.Name = "Plinth"
+	p.CanCollide = false
+end
+
+--- An overhanging lip at `y`. A shadow line, which is what reads at distance.
+local function cornice(
+	parent: Instance,
+	base: Vector3,
+	y: number,
+	width: number,
+	depth: number,
+	color: Color3,
+	material: Enum.Material
+)
+	local p = block(
+		parent,
+		CFrame.new(base + Vector3.new(0, y, 0)),
+		Vector3.new(width * 1.06, 1.6, depth * 1.06),
+		shade(color, -0.12),
+		material
+	)
+	p.Name = "Cornice"
+	p.CanCollide = false
+end
+
+--[[
+	Vents, tanks and ducting on a flat roof.
+
+	A flat roofline is a straight line against the sky, and a straight line
+	against the sky is the one thing the eye reads as artificial from any
+	distance. Four boxes at four heights break it for the cost of four parts.
+]]
+local function roofClutter(
+	parent: Instance,
+	base: Vector3,
+	y: number,
+	width: number,
+	depth: number,
+	rng: Random
+)
+	for _ = 1, rng:NextInteger(2, 4) do
+		local w = math.min(width, depth) * rng:NextNumber(0.12, 0.26)
+		local h = rng:NextNumber(2.5, 7)
+		local at = base
+			+ Vector3.new(
+				rng:NextNumber(-width * 0.33, width * 0.33),
+				y + h * 0.5,
+				rng:NextNumber(-depth * 0.33, depth * 0.33)
+			)
+
+		local box = if rng:NextNumber() < 0.4
+			then cylinder(
+				parent,
+				CFrame.new(at) * UPRIGHT,
+				Vector3.new(h, w, w),
+				Palette.WornSteel,
+				Enum.Material.Metal
+			)
+			else block(
+				parent,
+				CFrame.new(at) * CFrame.Angles(0, rng:NextNumber(0, math.pi), 0),
+				Vector3.new(w, h, w * rng:NextNumber(0.7, 1.5)),
+				Palette.DarkMetal,
+				Enum.Material.DiamondPlate
+			)
+		box.Name = "Vent"
+		box.CanCollide = false
+	end
+end
+
+--[[
+	A pipe run down the outside of a face, with a bracket collar or two.
+
+	Pipes on the outside are the tell that a building was serviced rather than
+	printed, and they are the cheapest vertical detail there is: they break a
+	blank wall without touching the silhouette.
+]]
+local function conduit(parent: Instance, at: Vector3, height: number, rng: Random)
+	local radius = rng:NextNumber(0.5, 1.1)
+	local pipe = cylinder(
+		parent,
+		CFrame.new(at + Vector3.new(0, height * 0.5, 0)) * UPRIGHT,
+		Vector3.new(height, radius * 2, radius * 2),
+		Palette.DroidRust,
+		Enum.Material.CorrodedMetal
+	)
+	pipe.Name = "Conduit"
+	pipe.CanCollide = false
+
+	for i = 1, 2 do
+		local collar = cylinder(
+			parent,
+			CFrame.new(at + Vector3.new(0, height * (i / 3), 0)) * UPRIGHT,
+			Vector3.new(0.8, radius * 3, radius * 3),
+			Palette.DarkMetal,
+			Enum.Material.Metal
+		)
+		collar.Name = "Collar"
+		collar.CanCollide = false
+	end
+end
+
 --- Tatooine. Sandblasted adobe drums under domes: no straight skyline at all.
 local function adobeShape(parent: Instance, base: Vector3, footprint: Vector2, style: Style, rng: Random)
 	local color = pick(style.buildingColors, rng)
 	local span = math.min(footprint.X, footprint.Y)
 	local height = rng:NextInteger(style.minFloors, style.maxFloors) * style.floorHeight
+
+	-- A packed-earth footing, wind-worn wider than the wall above it.
+	plinth(parent, base, span, span, color, Enum.Material.Sandstone)
 
 	cylinder(
 		parent,
@@ -338,6 +500,19 @@ local function adobeShape(parent: Instance, base: Vector3, footprint: Vector2, s
 		slit.Name = "Slit"
 		slit.CanCollide = false
 	end
+
+	-- A vaporator stack off the dome. Water is the only reason anyone lives
+	-- here, so the machinery that gets it belongs on the skyline.
+	local vaporator = base + Vector3.new(span * 0.22, height + span * 0.3, span * 0.1)
+	conduit(parent, vaporator, span * 0.5, rng)
+	ball(
+		parent,
+		CFrame.new(vaporator + Vector3.new(0, span * 0.5, 0)),
+		Vector3.new(4.5, 4.5, 4.5),
+		Palette.WornSteel,
+		Enum.Material.Metal
+	).Name =
+		"Condenser"
 end
 
 --- Korriban. Stepped funerary stone. No windows anywhere: these are tombs.
@@ -348,6 +523,8 @@ local function zigguratShape(parent: Instance, base: Vector3, footprint: Vector2
 	local tierHeight = style.floorHeight
 	local y = 0
 
+	plinth(parent, base, width, depth, color, Enum.Material.Slate)
+
 	for _ = 1, tiers do
 		block(
 			parent,
@@ -357,6 +534,10 @@ local function zigguratShape(parent: Instance, base: Vector3, footprint: Vector2
 			Enum.Material.Slate
 		).Name =
 			"Step"
+		-- A capping course on every tier. A ziggurat is nothing but stacked
+		-- horizontals, so the horizontals are what have to be legible; without
+		-- them four boxes of the same colour read as one tapering box.
+		cornice(parent, base, y + tierHeight, width, depth, color, Enum.Material.Slate)
 		y += tierHeight
 		width *= 0.74
 		depth *= 0.74
@@ -457,6 +638,18 @@ local function ruinShape(parent: Instance, base: Vector3, footprint: Vector2, st
 		slab.Name = "Rubble"
 		slab.CFrame = slab.CFrame * CFrame.Angles(rng:NextNumber(-0.4, 0.4), a, rng:NextNumber(-0.4, 0.4))
 	end
+
+	-- Service risers left hanging on the outside, which is what a building
+	-- with its frame showing would have. They stop short of the shear, so
+	-- they read as cut off rather than as decoration.
+	for _, side in { 1, -1 } do
+		conduit(
+			parent,
+			base + Vector3.new(side * width * 0.36, 0, depth * 0.5 + 0.8),
+			height * rng:NextNumber(0.55, 0.9),
+			rng
+		)
+	end
 end
 
 --- Nar Shaddaa. Slabs stacked by whoever got there first, and signage.
@@ -512,6 +705,19 @@ local function neonStackShape(parent: Instance, base: Vector3, footprint: Vector
 	)
 	strip.Name = "Strip"
 	strip.CanCollide = false
+
+	-- Tanks and ducting on top, and pipework down the back. On a world that
+	-- is entirely other people's leftovers this is not decoration -- the
+	-- plumbing being on the outside *is* the architecture.
+	roofClutter(parent, base, y, width, depth, rng)
+	for _ = 1, rng:NextInteger(1, 3) do
+		conduit(
+			parent,
+			base + Vector3.new(rng:NextNumber(-width * 0.4, width * 0.4), 0, -depth * 0.5 - 0.8),
+			y * rng:NextNumber(0.5, 0.95),
+			rng
+		)
+	end
 end
 
 --- Coruscant. Smooth tapering towers, dense glass, a mast on every one.
@@ -541,8 +747,15 @@ local function spireShape(parent: Instance, base: Vector3, footprint: Vector2, s
 		windowBands(parent, base, style, y, tierFloors, width, depth)
 
 		y += height
-		-- A gentle taper. The old generator used 0.82 per tier, which turned a
-		-- twelve-floor tower into a wedding cake.
+		--[[
+			A ledge where each tier hands over to the next.
+
+			The taper is only 0.93, which is deliberate -- 0.82 made a wedding
+			cake -- but the cost of a gentle taper is that the joins vanish and
+			a 180-stud tower becomes one smooth extrusion with no scale to it.
+			The ledge puts the joins back without putting the wedding cake back.
+		]]
+		cornice(parent, base, y, width, depth, color, Enum.Material.Metal)
 		width *= 0.93
 		depth *= 0.93
 	end
@@ -631,6 +844,47 @@ local function frontierShape(parent: Instance, base: Vector3, footprint: Vector2
 		Enum.Material.CorrodedMetal
 	).Name =
 		"Stovepipe"
+
+	--[[
+		A porch and its railing.
+
+		No plinth on this world -- the whole point of the stilts is that
+		nothing touches the ground -- so the horizontal that gives the hut its
+		scale has to be up at the floor line instead. A rail also reads as
+		somebody living here, which no amount of corrugated wall does.
+	]]
+	local porch = depth * 0.3
+	local deck = block(
+		parent,
+		CFrame.new(base + Vector3.new(0, stilt - 0.4, depth * 0.5 + porch * 0.5)),
+		Vector3.new(width * 0.8, 0.8, porch),
+		Palette.SmugglerBrown,
+		Enum.Material.WoodPlanks
+	)
+	deck.Name = "Porch"
+	deck.CanCollide = false
+
+	for i = 0, 3 do
+		local post = block(
+			parent,
+			CFrame.new(base + Vector3.new((i / 3 - 0.5) * width * 0.8, stilt + 2, depth * 0.5 + porch)),
+			Vector3.new(0.7, 4.4, 0.7),
+			Palette.SmugglerBrown,
+			Enum.Material.WoodPlanks
+		)
+		post.Name = "Post"
+		post.CanCollide = false
+	end
+
+	local rail = block(
+		parent,
+		CFrame.new(base + Vector3.new(0, stilt + 4, depth * 0.5 + porch)),
+		Vector3.new(width * 0.82, 0.6, 0.6),
+		Palette.SmugglerBrown,
+		Enum.Material.WoodPlanks
+	)
+	rail.Name = "Rail"
+	rail.CanCollide = false
 end
 
 --- Tython. Low stone halls behind a colonnade. Nothing here is in a hurry.
@@ -638,6 +892,27 @@ local function jediStoneShape(parent: Instance, base: Vector3, footprint: Vector
 	local color = pick(style.buildingColors, rng)
 	local width, depth = footprint.X, footprint.Y
 	local height = rng:NextInteger(style.minFloors, style.maxFloors) * style.floorHeight
+
+	--[[
+		A stepped stylobate the colonnade stands on.
+
+		Two courses rather than one, because a temple you walk *up* to is the
+		oldest trick there is for making a low building look important, and
+		this style is the one place in the game where the buildings are
+		supposed to be older than everyone looking at them.
+	]]
+	for step = 1, 2 do
+		local spread = 1.16 - (step - 1) * 0.07
+		local course = block(
+			parent,
+			CFrame.new(base + Vector3.new(0, (step - 0.5) * 1.6, 0)),
+			Vector3.new(width * spread, 1.6, depth * spread),
+			shade(color, -0.1),
+			Enum.Material.Limestone
+		)
+		course.Name = "Stylobate"
+		course.CanCollide = false
+	end
 
 	block(
 		parent,
@@ -767,6 +1042,39 @@ local function iceBunkerShape(parent: Instance, base: Vector3, footprint: Vector
 		).Name =
 			"Aerial"
 	end
+
+	--[[
+		Crates and a fuel drum stacked by the mouth.
+
+		The only detail this style can carry. Everything else is buried, so
+		there is no wall to trim and no roof to clutter -- but a supply dump
+		outside the door is what makes a smooth white dome read as somewhere
+		people are living rather than as a shape in the snow.
+	]]
+	for i = 1, rng:NextInteger(3, 5) do
+		local size = rng:NextNumber(3, 5.5)
+		local bearing = mouthAngle + rng:NextNumber(-0.9, 0.9)
+		local at = base
+			+ Vector3.new(math.cos(bearing), 0, math.sin(bearing)) * (span * 0.45 + rng:NextNumber(9, 18))
+			+ Vector3.new(0, size * 0.5, 0)
+
+		local crate = if i % 3 == 0
+			then cylinder(
+				parent,
+				CFrame.new(at) * UPRIGHT,
+				Vector3.new(size, size * 0.8, size * 0.8),
+				Palette.DroidRust,
+				Enum.Material.CorrodedMetal
+			)
+			else block(
+				parent,
+				CFrame.new(at) * CFrame.Angles(0, rng:NextNumber(0, math.pi), 0),
+				Vector3.new(size, size, size * rng:NextNumber(0.8, 1.2)),
+				Palette.WornSteel,
+				Enum.Material.DiamondPlate
+			)
+		crate.Name = "Supplies"
+	end
 end
 
 --- Dromund Kaas. Tall, black, buttressed and pointed. Deliberately unfriendly.
@@ -776,6 +1084,8 @@ local function gothicShape(parent: Instance, base: Vector3, footprint: Vector2, 
 	local floors = rng:NextInteger(style.minFloors, style.maxFloors)
 	local height = floors * style.floorHeight
 
+	plinth(parent, base, width, depth, color, Enum.Material.Slate)
+
 	block(
 		parent,
 		CFrame.new(base + Vector3.new(0, height * 0.5, 0)),
@@ -784,6 +1094,20 @@ local function gothicShape(parent: Instance, base: Vector3, footprint: Vector2, 
 		Enum.Material.Slate
 	).Name =
 		"Tower"
+
+	--[[
+		Two string courses banding the tower, and a lip under the crown.
+
+		This style's problem is that it is *tall* -- a black box eight floors
+		high with nothing crossing it has no scale at all, and the buttresses
+		only make the verticals stronger. The horizontals have to come from
+		somewhere, and a banded tower is the correct answer for the look
+		anyway.
+	]]
+	for i = 1, 2 do
+		cornice(parent, base, height * (i * 0.31), width, depth, color, Enum.Material.Slate)
+	end
+	cornice(parent, base, height, width, depth, color, Enum.Material.Slate)
 
 	-- Buttress fins on all four corners, leaning in. These do more for the
 	-- silhouette than any amount of extra height.
@@ -1476,21 +1800,69 @@ local function buildVerticalCity(
 	local platforms: { Vector3 } = {}
 	local ceiling = planet.flightCeiling or 1400
 
+	--[[
+		121 towers is by far the largest single view in the game, and until
+		2026-08-16 every one of them was a square-section box on an exact
+		240-stud grid with a flat top -- which is the most literally blocky
+		thing here, and the thing the playtest note was most likely looking at.
+
+		The fixes below are nearly free, which is the constraint that matters at
+		this count: an off-square footprint costs *no* parts at all, and the
+		setback and mast cost two.
+
+		The grid itself is deliberately left exact. Jittering the centres is
+		the obvious fourth fix and it is the one that cannot be had cheaply:
+		the landing platforms cantilever 45 studs past the widest face, which
+		at 240-stud spacing already brings a pad's outer edge to within nothing
+		of its neighbour's wall. Moving a tower closer puts a pad *inside* the
+		next tower -- and pads are the anchors this function returns, which
+		become landmark positions and NPC spawn points. A jittered skyline is
+		not worth a district spawning inside a wall.
+	]]
 	for gx = -5, 5 do
 		for gz = -5, 5 do
 			local centre = origin + Vector3.new(gx * 240, 0, gz * 240)
 			local width = rng:NextNumber(70, 150)
+			-- Not square, but never wider than `width` could already be, for
+			-- the clearance reason above. A grid of square towers is a grid
+			-- however it is lit: every one looks the same from every side.
+			local depth = math.clamp(width * rng:NextNumber(0.55, 1.5), 60, 150)
 			local top = rng:NextNumber(ceiling * 0.45, ceiling * 0.95)
 			local height = top - TOWER_BASE_Y
 
 			local tower = block(
 				city,
 				CFrame.new(centre + Vector3.new(0, TOWER_BASE_Y + height * 0.5, 0)),
-				Vector3.new(width, height, width),
+				Vector3.new(width, height, depth),
 				Palette.CoruscantPlate,
 				Enum.Material.Metal
 			)
 			tower.Name = "Tower"
+
+			-- A setback crown, and on some of them a mast. Between the two,
+			-- no two towers end at the same shape -- and the skyline was one
+			-- flat row of identical tops before them.
+			local crown = rng:NextNumber(40, 110)
+			block(
+				city,
+				CFrame.new(centre + Vector3.new(0, top + crown * 0.5, 0)),
+				Vector3.new(width * rng:NextNumber(0.4, 0.75), crown, depth * rng:NextNumber(0.4, 0.75)),
+				Palette.CoruscantPlate,
+				Enum.Material.Metal
+			).Name =
+				"Crown"
+
+			if rng:NextNumber() < 0.45 then
+				local mast = cylinder(
+					city,
+					CFrame.new(centre + Vector3.new(0, top + crown + 35, 0)) * UPRIGHT,
+					Vector3.new(70, 3, 3),
+					Palette.WornSteel,
+					Enum.Material.Metal
+				)
+				mast.Name = "Mast"
+				mast.CanCollide = false
+			end
 
 			-- Window bands every few hundred studs rather than every floor:
 			-- at this scale individual floors are invisible anyway, and the
@@ -1500,7 +1872,7 @@ local function buildVerticalCity(
 				local band = block(
 					city,
 					CFrame.new(centre + Vector3.new(0, y, 0)),
-					Vector3.new(width * 1.01, 6, width * 1.01),
+					Vector3.new(width * 1.01, 6, depth * 1.01),
 					Palette.CoruscantLight,
 					Enum.Material.Neon
 				)
@@ -1513,7 +1885,10 @@ local function buildVerticalCity(
 			local platformY = math.floor(top / SKYLANE_STEP) * SKYLANE_STEP
 			while platformY > TOWER_BASE_Y + 200 do
 				if rng:NextNumber() < 0.35 then
-					local offset = Vector3.new(width * 0.5 + 45, 0, 0)
+					-- Measured off the wider axis, since the offset is then
+					-- rotated to any bearing and a pad sized for the narrow
+					-- side would end up inside the tower on the deep one.
+					local offset = Vector3.new(math.max(width, depth) * 0.5 + 45, 0, 0)
 					local rotated = CFrame.Angles(0, rng:NextNumber(0, math.pi * 2), 0) * offset
 					local position = centre + Vector3.new(0, platformY, 0) + rotated
 

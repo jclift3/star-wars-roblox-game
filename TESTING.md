@@ -332,6 +332,47 @@ area. **The failure mode to hunt for is things buried in it.**
     hitch as the planet builds is expected and happens once per world per
     session; a sustained drop afterwards is not.
 
+### 5.5 Buildings have detail — **new, never played**
+
+The other half of "blocky": the buildings were correct boxes with nothing on
+them. **The failure mode to hunt for is trim floating away from its building,
+or trim you can stand on.**
+
+1. **Tatooine.** Walk up to any adobe drum. There is a wider packed-earth
+   **footing** where the wall meets the sand — no unbroken right angle — and a
+   pipe with a ball on top rising off the dome.
+2. Run at a footing and try to stand on it. **You cannot** — every piece of trim
+   in the game is `CanCollide = false`. Same test on Dromund Kaas's string
+   courses and Nar Shaddaa's roof tanks. *(If you can stand on one, the boys
+   will be on a roof within a minute.)*
+3. **Korriban.** Each tier of a ziggurat has a visible capping course, so you
+   can count the tiers from a distance. Before, four boxes of one colour read
+   as a single tapering box.
+4. **Coruscant.** The most important one, and the biggest view in the game.
+   From a skylane, the towers are **not all the same shape**: rectangular rather
+   than square in plan, each with a narrower crown block on top, and roughly
+   half carrying a thin mast. The skyline is no longer one flat row.
+5. Still on Coruscant, fly along a row of towers and look at the **landing
+   platforms**. Every pad is clear of its neighbours — no pad is buried in the
+   next tower along. *(Pads are the spawn anchors, so a buried pad means NPCs
+   inside a wall. The tower grid is deliberately unjittered for this reason;
+   if this fails, tower depth is escaping its clamp.)*
+6. **Ord Mantell.** The stilt huts have a porch deck with four posts and a rail
+   in front of the door. It hangs at the hut's floor line and you cannot stand
+   on it.
+7. **Hoth.** Crates and a drum are stacked outside the bunker mouth, on the
+   snow. These *are* solid, like boulders — that is intended. Check none of
+   them is floating or sunk.
+8. **Tython.** The stone halls stand on two stepped courses, so the colonnade
+   is raised. **Nar Shaddaa**: tanks and ducting on the roofs, pipes running
+   down the backs. **Taris**: pipes hanging on the ruins, stopping short of the
+   shear.
+9. Walk a full lap of any town looking only at rooflines. Nothing should be
+   hovering off its building or poking through a wall from the inside.
+10. Watch the frame rate standing in the middle of a town, which is the densest
+    part count in the game. This pass added roughly four to eight parts per
+    building on about seventy buildings.
+
 ---
 
 ## 6. Travel and origins
