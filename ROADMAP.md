@@ -978,11 +978,32 @@ eighteen Cartel enforcers on the Promenade. `Dialogue.validate` now refuses any
 choice with a non-zero `alignment` unless it also `sets` a flag that its own
 `condition.notFlag` excludes.
 
-### 3b.3 Acts, chapters and a journal — **[todo]**
-Nearly free: `MissionDef` already has `requires`, `next`, `minLevel` and
-`requiredRep`, and `boardFor` already respects all four. A campaign is a
-correctly wired `requires` graph. Needs `MissionDef.act`, and a journal view —
-the board is a to-do list, and a mystery needs a record of what happened.
+### 3b.3 Acts, chapters and a journal — **[done 2026-08-16]**
+Nearly free, as predicted, and for a reason worth recording: `boardFor` already
+wired the campaign through `requires`/`next`/`minLevel`/`requiredRep`, and
+`DataService.clientView` already replicates `missions.completed` and `flags` in
+full. So the journal needed **no server work and no new remote** — it is a pure
+client view over state that was already there.
+
+- **`Config/Acts.luau`** — five acts (four numbered plus one `parallel`, the
+  origin signature chains), each an ordered list of mission ids. Membership is
+  declared *here* rather than as an `act =` field on each of forty-six
+  missions: the question an act answers is "what order does the story happen
+  in", and that reads as one screen, not as forty one-word lines scattered
+  through 2,900. `Missions` stamps it onto `MissionDef.act` at require time, so
+  everything downstream still just asks a mission what act it is in.
+- **Three new checks.** A `Story` mission in no act; an act naming a mission
+  that does not exist; and a mission whose `requires` points at a *later* act —
+  which greys that mission out forever and is indistinguishable from unwritten
+  content.
+- **Flags grew a `journal` line and an `act`.** Nineteen of them now say in
+  prose what the character did, and `Flags.validate` refuses one without the
+  other, since a journal line filed under nothing can never be read.
+- **`JournalController` (J).** Acts down the left; the selected act's page on
+  the right: each finished mission with its `debriefing`, the one in hand with
+  its summary, the rest as a count rather than a list of titles, then the
+  decisions this character made. An act not begun shows its name and nothing
+  else, and a `parallel` act's missions are filtered to your own origin.
 
 ### 3b.4 Flags — **[done 2026-08-16]**
 `PlayerProfile.flags: { [string]: boolean }` plus `flag`/`notFlag` dialogue

@@ -24,6 +24,7 @@
 -- Named characters are legal mission givers, so `validate` has to be able to
 -- tell one from an archetype. Cast requires Planets and NPCArchetypes, both of
 -- which this file already requires, so there is no cycle.
+local Acts = require(script.Parent.Acts)
 local Cast = require(script.Parent.Cast)
 local Factions = require(script.Parent.Factions)
 local Flags = require(script.Parent.Flags)
@@ -2493,6 +2494,29 @@ for id, m in Radiant.all() do
 	defs[id] = m
 end
 
+--[[
+	Stamp each mission with its act.
+
+	Done here rather than written on every def because the campaign's shape is
+	the thing being declared, and it is only legible as an ordered list. See
+	the header of Config/Acts.luau. A mission named in an act that does not
+	exist is reported by `validate` rather than thrown -- a bad act should
+	cost you a journal entry, not the game.
+
+	Radiant missions are never named there and stay `act = nil`, which is
+	correct: they are work, not story.
+]]
+for _, actId in Acts.ids() do
+	for _, missionId in Acts.get(actId).missions do
+		local m = defs[missionId]
+		if m then
+			m.act = actId
+		else
+			table.insert(loadProblems, `{actId}: names unknown mission "{missionId}"`)
+		end
+	end
+end
+
 Missions.defs = defs
 
 function Missions.get(id: string): MissionDef
@@ -2717,7 +2741,34 @@ end
 ]]
 function Missions.validate(): { string }
 	local problems = table.clone(loadProblems)
+	for _, problem in Acts.validate() do
+		table.insert(problems, problem)
+	end
 	for id, m in defs do
+		--[[
+			Every Story mission is in an act, and no mission requires one from
+			a later act.
+
+			The second is the check worth having. `requires` is the campaign's
+			only real structure and nothing has ever verified it points
+			backwards -- a prerequisite in act 4 on an act 2 mission is a
+			mission that greys out on the board with "Requires..." and never
+			stops, which is indistinguishable from content that has not been
+			written. It is also the exact bug that gets introduced by moving a
+			mission between acts, which is what this file now makes easy.
+		]]
+		if m.kind == "Story" and not m.act then
+			table.insert(problems, `{id}: is a Story mission but is in no act`)
+		end
+		if m.act and m.requires then
+			local mine = Acts.get(m.act).order
+			for _, prereq in m.requires do
+				local other = defs[prereq]
+				if other and other.act and Acts.get(other.act).order > mine then
+					table.insert(problems, `{id}: requires "{prereq}", which is in a later act`)
+				end
+			end
+		end
 		if not Planets.exists(m.planet) then
 			table.insert(problems, `{id}: unknown planet "{m.planet}"`)
 		end

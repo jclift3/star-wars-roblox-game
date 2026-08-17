@@ -31,6 +31,7 @@ local Types = require(Shared.Types)
 local Net = require(Shared.Core.Net)
 local Inventory = require(Shared.Core.Inventory)
 local Signal = require(Shared.Core.Signal)
+local Flags = require(Shared.Config.Flags)
 local Items = require(Shared.Config.Items)
 local Missions = require(Shared.Config.Missions)
 local ServiceLoader = require(Shared.Core.ServiceLoader)
@@ -427,6 +428,9 @@ end
 function MissionService.init()
 	for _, problem in Missions.validate() do
 		warn(`[MissionService] mission config: {problem}`)
+	end
+	for _, problem in Flags.validate() do
+		warn(`[MissionService] flag config: {problem}`)
 	end
 
 	Net.onServerEvent(Net.Event.AcceptMission, function(player: Player, missionId: string)

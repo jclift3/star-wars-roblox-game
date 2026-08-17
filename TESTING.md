@@ -38,6 +38,7 @@ get wrong announces itself there rather than on screen:
 | --- | --- |
 | **B** | Inventory / shop |
 | **M** | Mission board |
+| **J** | Journal (what you have already done) |
 | **K** | Skill tree |
 | **G** | Galaxy map (travel) |
 | **Esc** | Close the open panel |
@@ -80,8 +81,8 @@ If any of these fail, stop. Nothing further is worth testing.
    *(Civilians attacking on spawn was a real bug — `Behavior.Aggressive` means
    near-universal hostility, not "tough". If it comes back, look at the
    archetype's behaviour, not at the combat code.)*
-5. **B**, **M**, **K**, **G** each open a panel; **Esc** closes it; opening one
-   closes the others.
+5. **B**, **M**, **J**, **K**, **G** each open a panel; **Esc** closes it;
+   opening one closes the others.
 6. With a panel open, clicking does **not** fire your weapon.
    *(This is `Panels.anyOpen()`. If it regresses you will empty a magazine
    into a shopkeeper while browsing his stock.)*
@@ -538,6 +539,34 @@ Generated from the spawn tables and points of interest, so every planet has some
 **Same postings for both players.** Rotation is per day, not per player, on
 purpose: if you and your brother stand at the same board you must see the same
 three. Different lists is a bug, and a bad one.
+
+### 7.2 The journal — **new, never played**
+
+**J** opens it. The board (**M**) is what you can do now; this is what you have
+already done. It reads the profile you already have, so a fresh character is
+*supposed* to look almost empty — that is the test, not a failure.
+
+1. **J** on a brand-new character. Five acts down the left, all of them **Not
+   begun** and greyed, and the page says nothing more than the act's name. **No
+   act should show its one-line subtitle before you have finished something in
+   it** — those lines say what the act is about and are a spoiler until then.
+2. Finish your prologue. Re-open. **Beginnings** is now lit, shows its subtitle,
+   and the mission you finished has its **debriefing** underneath — the text you
+   got on turn-in, readable again.
+3. Take a second mission and leave it open. It appears on the page marked **in
+   hand** with its summary. Nothing you have not reached is listed by name:
+   the rest are one grey line saying how many are left.
+4. Make a choice that pays alignment (the first fork is at level 12, on
+   Coruscant). A **What you chose** block appears at the bottom of that act's
+   page, in plain English. Your brother, having chosen the other way, must see
+   a *different* line there — same act, same page.
+5. **What You Carry** is your own chain. Everything on that page is yours: none
+   of the other three origins' missions should appear at all, not even greyed.
+   Check this on two characters of different origins.
+6. Open **J** while another panel is up. The other one closes. Open **M** while
+   the journal is up; the journal closes. **Escape** shuts it.
+7. Turn a mission in while the journal is open — a kill can land the last
+   objective. The entry writes itself in front of you without reopening.
 
 ---
 

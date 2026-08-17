@@ -60,6 +60,7 @@ local ALL: { PanelDef } = {
 	{ name = "CreationController", fullScreen = true },
 	{ name = "InventoryController", fullScreen = true },
 	{ name = "MissionBoardController", fullScreen = true },
+	{ name = "JournalController", fullScreen = true },
 	{ name = "SkillTreeController", fullScreen = true },
 	{ name = "GalaxyMapController", fullScreen = true },
 	-- 760x250 along the bottom: you keep seeing the person you are talking to,

@@ -90,6 +90,18 @@ export type MissionDef = {
 	planet: string,
 	giver: string, -- NPC archetype id, or a named NPC tag
 
+	--[[
+		Which chapter of the campaign this belongs to, or nil for work that is
+		just work.
+
+		**Not written here.** Membership is declared in `Config/Acts.luau`,
+		which applies it onto this field at require time -- an act is an
+		ordered list and reads as one, where thirty scattered `act =` lines
+		read as nothing. This field exists so that everything downstream can
+		still ask a mission what act it is in.
+	]]
+	act: string?,
+
 	minLevel: number,
 	requiredRep: number?, -- with `faction`
 	requires: { string }?, -- mission ids that must be completed first
