@@ -1189,7 +1189,7 @@ caller changed.
 `showmethemoney` (`DevService`) prints every generated mission and today's
 postings — the offline test, same reasoning as `iseedeadpeople`.
 
-### 4.3 Skill trees, properly — **[targets 1 and 3 done 2026-08-16; 2, 4, 5 open]**
+### 4.3 Skill trees, properly — **[targets 1, 2 and 3 done 2026-08-16; 4, 5 open]**
 Raised 2026-08-15: *"the skill trees need to be incredibly well thought out and
 align with the objectives and gameplay."* Correct. The UI is done (1.5) and the
 **content is not**. What exists is 19 skills across 4 trees where:
@@ -1323,10 +1323,66 @@ same piece of work: an ability is what makes an alignment branch worth having.
   `Panels.anyOpen()`, because `DialogueController` owns the number keys during a
   conversation.
 
-Still open: **2** (mutually exclusive nodes and capstones — the fork above is
-the first and only branch point in the game), **4** (co-op — the two heals are
-`Aura`s and reach a teammate, which is a start, not the answer) and **5**
-(skills that open the world).
+#### Target 2, built 2026-08-16
+The alignment fork above was the first and only branch point in the game. Three
+more, plus the first capstones.
+
+**Measured before designing.** 49 points at level 50 against 74 buyable ranks,
+so scarcity already existed — what was missing was *shape*, not budget. That
+made the work "add forks and capstones", not "raise the price of everything".
+
+- **Three exclusive pairs.** `Deadeye` ⟷ `Overcharge` (crit on one target vs.
+  bolts that pass through four — one is the answer to a boss, the other to a
+  corridor, and neither is better, which is the test a real choice has to
+  pass); `SaberDeflect` ⟷ `SaberFocus`, which is this section's own example,
+  *"a saber form that trades defence for damage"*; and `ForceLightning` ⟷
+  `ForceMend`.
+- **The Lightning/Mend exclusion is not redundant with the alignment bounds.**
+  Alignment moves, and the bounds are only read at the moment of purchase — so
+  a player could buy Lightning at -200, spend a few missions being decent, and
+  buy Mend at +200, ending up holding both halves of a fork that exists to be
+  a choice. This was a real hole, found while writing the pair.
+- **Rank counts differ on purpose.** Overcharge is 3 ranks against Deadeye's 5:
+  a fourth body per bolt would only matter in a room that does not exist.
+- **Three capstones, one rank each, priced in *ranks spent in the tree*** —
+  `Executioner` (18 in Combat, and the only thing in the game that touches the
+  crit multiplier), `ForceAttunement` (18 in Force, -40% Force cost) and
+  `KitDiscipline` (12 in Engineering, -35% cooldown on *every* ability
+  including Force ones, so a saber character has a reason to look at a tree he
+  never would). 18 + 18 + 12 + 3 = 51 against 49 points: **at most two**, and
+  the gap is the decision. Ranks rather than distinct nodes, so it cannot be
+  satisfied by buying rank 1 of everything. Piloting gets none — the whole tree
+  is `unimplemented` behind ships, and a dead capstone is surface for nothing.
+- **`canPurchase` only refuses the *first* rank of an excluded node**, so the
+  tree never takes back something it already sold.
+- **Six new boot checks in `Progression.validate`:** an `excludes` naming a
+  node that does not exist, a node excluding itself, a **one-way** exclusion
+  (which half you could still buy would depend on the order you clicked them
+  in), an exclusion across trees (the panel shows one tree at a time, so the
+  player cannot see what they lost), a capstone priced above what its tree can
+  ever hold, and — the one that protects this whole section — **buyable ranks
+  vs. points at the level cap**. That last property is invisible when you are
+  looking at the node that breaks it.
+- **The panel warns before the click.** There is no respec, so the first rank
+  of an exclusive node is the most expensive press in the game: the detail pane
+  says what it closes off in amber while the button still reads SPEND 1 POINT,
+  and a node already closed off reads `CLOSED OFF` in the list rather than
+  looking available until clicked. A capstone's tree-point price is shown in
+  the body text, because `canPurchase` returns one reason and "No skill points
+  available" would come first.
+- **`CombatService.resolveShot` / `swingMelee` now take a `ShotMods` table.**
+  Adding crit damage and pierce positionally would have made a nine-argument
+  function whose call sites read `nil, 1, 0`.
+
+**Open question this creates: respec.** Every exclusion is permanent, which is
+what gives it weight, but the game has no way to unspend a point and no way to
+try a build. The mitigation shipped is visibility, not reversibility. If
+playtesting says the forks feel like traps rather than choices, a paid respec at
+a vendor is the answer — and it should cost credits, not be free, or the choice
+stops being one again.
+
+Still open: **4** (co-op — the two heals are `Aura`s and reach a teammate, which
+is a start, not the answer) and **5** (skills that open the world).
 
 ### 4.1 Analytics — **[todo]**
 The cheapest item on this roadmap that measurably improves the game, and the

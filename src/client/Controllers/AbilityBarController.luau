@@ -79,6 +79,21 @@ local function state()
 	return ServiceLoader.get("ClientState")
 end
 
+--[[
+	The same cooldown the server will apply, read from the replicated stats.
+
+	The prediction has to know about `AbilityCooldownMult` or Kit Discipline
+	would be a capstone the bar refuses to let you use early -- the server
+	would allow the press and the client would never send it. `profile.stats`
+	is already the server's own computed table, so this is a read, not a
+	second copy of the maths.
+]]
+local function cooldownFor(abilityId: string): number
+	local profile = state().get()
+	local mult = profile and profile.stats.AbilityCooldownMult or 1
+	return Abilities.get(abilityId).cooldown * mult
+end
+
 --------------------------------------------------------------------------------
 -- Construction
 --------------------------------------------------------------------------------
@@ -249,7 +264,7 @@ local function drawSweeps()
 			slot.sweep.Size = UDim2.fromScale(1, 0)
 			slot.name.TextColor3 = TEXT
 		else
-			local cooldown = Abilities.get(abilityId).cooldown
+			local cooldown = cooldownFor(abilityId)
 			slot.sweep.Size = UDim2.fromScale(1, math.clamp(left / cooldown, 0, 1))
 			slot.name.TextColor3 = DIM
 		end
@@ -273,7 +288,7 @@ local function press(index: number)
 	if now < (readyAt[abilityId] or 0) then
 		return
 	end
-	readyAt[abilityId] = now + Abilities.get(abilityId).cooldown
+	readyAt[abilityId] = now + cooldownFor(abilityId)
 
 	local camera = Workspace.CurrentCamera
 	local direction = if camera then camera.CFrame.LookVector else Vector3.new(0, 0, -1)

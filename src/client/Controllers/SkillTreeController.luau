@@ -55,6 +55,8 @@ local TEXT = Color3.fromRGB(232, 236, 242)
 local DIM = Color3.fromRGB(150, 158, 170)
 local GOOD = Color3.fromRGB(96, 190, 120)
 local BAD = Color3.fromRGB(198, 78, 78)
+-- Not BAD: the node is buyable. This is a price, not a refusal.
+local WARN = Color3.fromRGB(214, 168, 74)
 
 local TOGGLE_KEY = Enum.KeyCode.K
 
@@ -350,6 +352,25 @@ local function pips(parent: GuiObject, rank: number, max: number)
 	end
 end
 
+--[[
+	What buying the first rank of this node would permanently close off.
+
+	Empty once the node is already owned: the choice has been made, and
+	repeating the warning on every rank after it is just noise.
+]]
+local function closingWarning(def: SkillNode, skills: { [string]: number }): string
+	local excludes = def.excludes
+	if not excludes or (skills[def.id] or 0) >= 1 then
+		return ""
+	end
+	local names = {}
+	for _, other in excludes do
+		local otherDef = Progression.nodes[other]
+		table.insert(names, otherDef and otherDef.displayName or other)
+	end
+	return `Taking this closes off {table.concat(names, ", ")} for good.`
+end
+
 local function renderDetail()
 	local nodeId = selected[activeTab]
 	local def = if nodeId then Progression.nodes[nodeId] else nil
@@ -377,6 +398,19 @@ local function renderDetail()
 	detailBody.Text = if grants and Abilities.exists(grants)
 		then `{def.description}\n\nUnlocks {Abilities.get(grants).displayName} on the ability bar.`
 		else def.description
+
+	--[[
+		A capstone's real price, shown here rather than left to `canPurchase`.
+		The refusal only ever names one reason, and "No skill points
+		available" comes first -- so a player saving for one would otherwise
+		see a node that looks like it costs a single point.
+	]]
+	local needed = def.requiresPointsInTree
+	if needed and profile then
+		local spent = Progression.pointsInTree(profile.skills, def.tree)
+		detailBody.Text ..= `\n\nCosts {needed} points in {def.tree} first — you have spent {spent}.`
+	end
+
 	actionButton.Visible = true
 
 	-- A gate node moves no stat, so there is nothing to name and nothing to
@@ -412,7 +446,15 @@ local function renderDetail()
 	local ok, reason =
 		Progression.canPurchase(def.id, profile.skills, profile.level, profile.skillPoints, profile.alignment)
 	if ok then
-		detailRequirement.Text = ""
+		--[[
+			The one warning the panel shows about a node it is willing to
+			sell. There is no respec, so the first rank of an exclusive node
+			is the most expensive click in the game, and finding out what it
+			cost by going to buy the other half is not a choice -- it is a
+			mistake the UI let you make.
+		]]
+		detailRequirement.Text = closingWarning(def, profile.skills)
+		detailRequirement.TextColor3 = WARN
 		actionButton.Text = "SPEND 1 POINT"
 		actionButton.BackgroundColor3 = ACCENT
 		actionButton.TextColor3 = Color3.new(0, 0, 0)
@@ -464,6 +506,14 @@ local function renderList()
 		-- point is that nobody spends a point on it by accident.
 		if def.unimplemented then
 			tag.Text = "COMING SOON"
+			tag.TextColor3 = DIM
+			name.TextColor3 = DIM
+		-- The other row state that is permanent, and the only one the player
+		-- caused. It has to be visible in the list: a node closed off by a
+		-- choice made twenty levels ago should not still look available
+		-- until it is clicked.
+		elseif profile and Progression.blockedBy(def.id, profile.skills) then
+			tag.Text = "CLOSED OFF"
 			tag.TextColor3 = DIM
 			name.TextColor3 = DIM
 		elseif profile and profile.level < def.requiredLevel then

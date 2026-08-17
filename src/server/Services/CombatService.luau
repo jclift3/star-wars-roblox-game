@@ -327,6 +327,21 @@ local function raycastParams(ignore: Model): RaycastParams
 end
 
 --[[
+	Everything the shooter's skills and gear change about one attack.
+
+	A table rather than four more positional arguments: `resolveShot` was
+	already seven parameters deep, and `nil, 1, 0` at a call site says
+	nothing about which of them is the crit chance. An absent field means
+	"the weapon's own number", so an NPC passes no table at all.
+]]
+export type ShotMods = {
+	damageMult: number?,
+	critChance: number?,
+	critDamageBonus: number?,
+	bonusPierce: number?,
+}
+
+--[[
 	Resolves one shot from `character` and returns the damage dealt.
 
 	`pierce` lets a heavy weapon punch through a target and keep going; each
@@ -339,12 +354,14 @@ function CombatService.resolveShot(
 	origin: Vector3,
 	direction: Vector3,
 	attacker: Player?,
-	damageMult: number?,
-	critChance: number?
+	mods: ShotMods?
 ): number
 	local weapon = Weapons.get(weaponId)
+	local damageMult = mods and mods.damageMult or 1
+	local critChance = mods and mods.critChance or 0
+	local critMult = (weapon.critMultiplier or 2) + (mods and mods.critDamageBonus or 0)
 	local params = raycastParams(character)
-	local remaining = 1 + (weapon.pierce or 0)
+	local remaining = 1 + (weapon.pierce or 0) + (mods and mods.bonusPierce or 0)
 	local from = origin
 	local dir = direction.Unit * weapon.range
 	local totalDealt = 0
@@ -362,10 +379,10 @@ function CombatService.resolveShot(
 
 		if CombatService.canDamage(character, targetModel) then
 			local distance = (result.Position - origin).Magnitude
-			local base = Weapons.damageAtRange(weaponId, distance) * (damageMult or 1)
-			local isCrit = math.random() < (critChance or 0)
+			local base = Weapons.damageAtRange(weaponId, distance) * damageMult
+			local isCrit = math.random() < critChance
 			if isCrit then
-				base *= weapon.critMultiplier or 2
+				base *= critMult
 			end
 
 			totalDealt += CombatService.applyDamage(targetModel, {
@@ -450,15 +467,12 @@ local function onFireWeapon(player: Player, origin: Vector3, direction: Vector3)
 		aim = (CFrame.lookAt(Vector3.zero, aim) * CFrame.Angles(pitch, yaw, 0)).LookVector
 	end
 
-	CombatService.resolveShot(
-		character,
-		weaponId,
-		origin,
-		aim,
-		player,
-		stats.BlasterDamageMult,
-		stats.CritChance
-	)
+	CombatService.resolveShot(character, weaponId, origin, aim, player, {
+		damageMult = stats.BlasterDamageMult,
+		critChance = stats.CritChance,
+		critDamageBonus = stats.CritDamageBonus,
+		bonusPierce = stats.BonusPierce,
+	})
 
 	-- Everyone except the shooter needs the visual; the shooter already fired
 	-- it locally on input for responsiveness.
@@ -499,7 +513,11 @@ local function onSaberSwing(player: Player)
 	lastSwingAt[player] = now
 
 	local damageMult = if weapon.class == "Saber" then (stats.SaberDamageMult or 1) else 1
-	CombatService.swingMelee(character, weaponId, damageMult, stats.CritChance, player)
+	CombatService.swingMelee(character, weaponId, player, {
+		damageMult = damageMult,
+		critChance = stats.CritChance,
+		critDamageBonus = stats.CritDamageBonus,
+	})
 
 	Net.fireAllExcept(Net.Event.WeaponEffect, player, weaponId, root.Position, root.CFrame.LookVector)
 end
@@ -515,11 +533,13 @@ end
 function CombatService.swingMelee(
 	character: Model,
 	weaponId: string,
-	damageMult: number?,
-	critChance: number?,
-	attacker: Player?
+	attacker: Player?,
+	mods: ShotMods?
 ): number
 	local weapon = Weapons.get(weaponId)
+	local damageMult = mods and mods.damageMult or 1
+	local critChance = mods and mods.critChance or 0
+	local critMult = (weapon.critMultiplier or 2) + (mods and mods.critDamageBonus or 0)
 	local root = character:FindFirstChild("HumanoidRootPart") :: BasePart?
 	if not root then
 		return 0
@@ -555,10 +575,10 @@ function CombatService.swingMelee(
 			end
 		end
 
-		local isCrit = math.random() < (critChance or 0)
-		local amount = weapon.damage * (damageMult or 1)
+		local isCrit = math.random() < critChance
+		local amount = weapon.damage * damageMult
 		if isCrit then
-			amount *= weapon.critMultiplier or 2
+			amount *= critMult
 		end
 
 		CombatService.applyDamage(targetModel, {
@@ -603,12 +623,12 @@ function CombatService.npcFire(npc: Model, weaponId: string, targetPosition: Vec
 		aim = (CFrame.lookAt(Vector3.zero, aim) * CFrame.Angles(pitch, yaw, 0)).LookVector
 	end
 
-	CombatService.resolveShot(npc, weaponId, origin, aim, nil, 1, 0)
+	CombatService.resolveShot(npc, weaponId, origin, aim, nil, nil)
 	Net.fireAllClients(Net.Event.WeaponEffect, weaponId, origin, aim)
 end
 
 function CombatService.npcMelee(npc: Model, weaponId: string)
-	CombatService.swingMelee(npc, weaponId, 1, 0, nil)
+	CombatService.swingMelee(npc, weaponId, nil, nil)
 	local root = npc:FindFirstChild("HumanoidRootPart") :: BasePart?
 	if root then
 		Net.fireAllClients(Net.Event.WeaponEffect, weaponId, root.Position, root.CFrame.LookVector)

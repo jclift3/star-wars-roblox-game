@@ -290,6 +290,26 @@ local function cast(player: Player?, caster: Model, def: AbilityDef, scale: numb
 end
 
 --[[
+	What an ability costs and how long it locks, after the player's skills.
+
+	Both are derived in one place because both are read twice -- once to
+	refuse the press and once to charge for it -- and the two reads drifting
+	apart is a cooldown you can dodge or a cost you pay without the check.
+	`getStats` is cached per player, so asking it four times is four table
+	lookups.
+]]
+local function costOf(player: Player, def: AbilityDef): number
+	if not def.forceCost then
+		return 0
+	end
+	return def.forceCost * (progression().getStats(player).ForceCostMult or 1)
+end
+
+local function cooldownOf(player: Player, def: AbilityDef): number
+	return def.cooldown * (progression().getStats(player).AbilityCooldownMult or 1)
+end
+
+--[[
 	Faults in a request, or nil if it is allowed. Does not spend anything.
 
 	Every refusal is a sentence, because the bar shows it. A key that greys out
@@ -309,12 +329,12 @@ local function refusalFor(player: Player, def: AbilityDef, now: number): string?
 
 	local used = lastUsedAt[player]
 	local last = used and used[def.id] or 0
-	local left = def.cooldown - (now - last) - COOLDOWN_GRACE
+	local left = cooldownOf(player, def) - (now - last) - COOLDOWN_GRACE
 	if left > 0 then
 		return string.format("%s: %.1fs", def.displayName, left)
 	end
 
-	if def.forceCost and (forceNow[player] or 0) < def.forceCost then
+	if (forceNow[player] or 0) < costOf(player, def) then
 		return "Not enough Force"
 	end
 	return nil
@@ -348,8 +368,9 @@ local function onUseAbility(player: Player, abilityId: string, direction: Vector
 	end
 	used[abilityId] = now
 
-	if def.forceCost then
-		forceNow[player] = math.max(0, (forceNow[player] or 0) - def.forceCost)
+	local cost = costOf(player, def)
+	if cost > 0 then
+		forceNow[player] = math.max(0, (forceNow[player] or 0) - cost)
 		pushForce(player)
 	end
 

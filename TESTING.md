@@ -861,6 +861,50 @@ to exist since the tree was written and never has.** Fastest route in is
 12. Die with an ability on cooldown and respawn. The Force meter is **full**,
     and the bar still has your slots on it.
 
+### 9.5 Forks and capstones — **new, never played**
+
+The first branch points in the tree. **These are permanent and there is no
+respec**, so the thing being tested is mostly whether the panel tells you that
+*before* you click. `thereisnocow` for the levels and points.
+
+1. Open **K** and select **Deadeye** (Combat, level 12). The button reads
+   **SPEND 1 POINT** and below it, in amber rather than red, *"Taking this
+   closes off Overcharge for good."* **The warning is there while the node is
+   still buyable** — if it only appears after you cannot buy it, it is useless.
+2. Buy it. Now look at **Overcharge**: the row says **CLOSED OFF** and is
+   greyed, and clicking it gives *"Closed off by Deadeye"* with a dead button.
+   You should not have to click to find that out.
+3. **Buy Deadeye a second time.** It still works. The exclusion refuses the
+   first rank of the *other* node, not the rest of this one.
+4. Same check on the Force tree: **Deflection** and **Juyo Focus** (both level
+   11, both behind Lightsaber Form). Take Focus, confirm a saber does visibly
+   more damage per swing, and confirm Deflection is closed.
+5. **The drift hole.** Buy **Force Lightning** as a dark character, then push
+   alignment light past +100 and go back to **Force Mend**. It must say
+   **CLOSED OFF**, not offer itself. *(Before this pass the alignment bound was
+   the only lock, and it is only read at the moment of purchase.)*
+6. **Executioner** (Combat, level 24). Its body text says *"Costs 18 points in
+   Combat first — you have spent N"* **even when you have no skill points at
+   all** — the refusal alone would have said "No skill points available" and
+   made an 18-point capstone look like it cost one.
+7. With fewer than 18 in Combat it refuses with the count. At 18 it buys, and a
+   critical hit visibly does far more than double — roughly 3.5x. Crits are
+   the thing to watch, not the average.
+8. **Kit Discipline** (Engineering, 12 points, level 24) is the cross-tree one:
+   buy it on a **Force** character and confirm the **cooldown sweep on the
+   Force powers is visibly shorter**, and that pressing the key at the new
+   shorter time actually fires rather than being silently swallowed. *(The bar
+   predicts the cooldown locally; if it did not know about this capstone the
+   client would refuse a press the server would have allowed.)*
+9. **Attunement** (Force, 18 points, level 24): the Force meter drops by
+   noticeably less per cast — about 15 for a Push instead of 25.
+10. **Try to buy all three capstones on one character at level 50.** You cannot:
+    18 + 18 + 12 plus the three ranks is 51 against 49 points. **Two is the
+    most, and that is the point of them.**
+11. Check the output window at boot for `Progression` warnings. A one-way
+    exclusion, a self-exclusion, a capstone priced above what its tree holds,
+    or a tree cheap enough to buy whole all report here.
+
 ---
 
 ## 10. Persistence — needs two sessions

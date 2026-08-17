@@ -87,6 +87,38 @@ export type SkillNode = {
 	minAlignment: number?,
 	maxAlignment: number?,
 	--[[
+		Nodes this one locks out, and which lock it out in turn.
+
+		The other half of "a tree should contain decisions". `requires` builds
+		ladders, and a ladder has no decisions in it -- there is never a reason
+		to stop climbing, so every character eventually holds every rung and
+		two players at level 40 differ only in what order they bought things.
+		An exclusion is the first thing in the tree a player can get *wrong*,
+		which is what makes the rest of it a choice.
+
+		**Symmetry is enforced by `validate`.** A one-way exclusion is a trap:
+		buy A then B and you have both, buy B then A and you are refused, and
+		which one you own comes down to the order you happened to click. Both
+		nodes must name each other.
+
+		Like the alignment bounds, this is checked at purchase and never
+		un-buys anything. There is no respec, so `SkillTreeController` says
+		what a point will close off *before* it is spent.
+	]]
+	excludes: { string }?,
+	--[[
+		Ranks that must already be spent in this node's own tree, for a
+		capstone -- the node you can only reach by having committed.
+
+		Counted in ranks rather than distinct nodes so it cannot be satisfied
+		by dabbling: five different trees' worth of rank 1s is not a
+		commitment, and the number is meant to be most of a tree.
+
+		This, not `requiredLevel`, is what stops a character from holding every
+		capstone in the game. Levels arrive on their own; points do not.
+	]]
+	requiresPointsInTree: number?,
+	--[[
 		Per-rank effect. Read by the systems that care; see `Progression.effect`.
 
 		Absent on a node that is purely a gate -- one whose worth is the
@@ -186,15 +218,54 @@ node({
 	effect = { stat = "ExplosiveDamageMult", perRank = 0.1 },
 	ability = "FragGrenade",
 })
+--[[
+	The Combat tree's fork: one target or several.
+
+	Deadeye is the answer to a boss and Overcharge is the answer to a corridor,
+	and neither is better -- which is the test a real choice has to pass. Note
+	the rank counts differ on purpose: three ranks of Overcharge is four bodies
+	per bolt, and a fourth rank would only matter in a room that does not exist.
+]]
 node({
 	id = "Deadeye",
 	tree = "Combat",
 	displayName = "Deadeye",
-	description = "+4% critical hit chance per rank.",
+	description = "+4% critical hit chance per rank. Closes off Overcharge.",
 	maxRank = 5,
 	requiredLevel = 12,
 	requires = { "RapidCycling" },
+	excludes = { "Overcharge" },
 	effect = { stat = "CritChance", perRank = 0.04 },
+})
+node({
+	id = "Overcharge",
+	tree = "Combat",
+	displayName = "Overcharge",
+	description = "Your bolts punch through one more body per rank. Closes off Deadeye.",
+	maxRank = 3,
+	requiredLevel = 12,
+	requires = { "RapidCycling" },
+	excludes = { "Deadeye" },
+	effect = { stat = "BonusPierce", perRank = 1 },
+})
+--[[
+	Combat's capstone, and the reason to have taken Deadeye.
+
+	One rank, because a capstone that can be bought a little is not a capstone.
+	It is deliberately the *only* thing in the game that touches the crit
+	multiplier, so a crit build stops being "+4% five times" and becomes a
+	different way of killing things.
+]]
+node({
+	id = "Executioner",
+	tree = "Combat",
+	displayName = "Executioner",
+	description = "Critical hits do far more: the multiplier rises from 2x to 3.5x.",
+	maxRank = 1,
+	requiredLevel = 24,
+	requires = { "Deadeye" },
+	requiresPointsInTree = 18,
+	effect = { stat = "CritDamageBonus", perRank = 1.5 },
 })
 
 --[[
@@ -283,15 +354,36 @@ node({
 	requires = { "ForceSensitive" },
 	effect = { stat = "SaberDamageMult", perRank = 0.08 },
 })
+--[[
+	The Force tree's fork, and the trade the roadmap asked for by name:
+	defence or damage, out of the same lightsaber.
+
+	Deflection answers the ranged enemies that make up most of the world;
+	Focus answers the ones that survive being shot. They are the same level
+	and the same prerequisite so the choice is never made for you by which
+	one you could afford first.
+]]
 node({
 	id = "SaberDeflect",
 	tree = "Force",
 	displayName = "Deflection",
-	description = "+9% chance to deflect incoming blaster bolts per rank.",
+	description = "+9% chance to deflect incoming blaster bolts per rank. Closes off Juyo Focus.",
 	maxRank = 5,
 	requiredLevel = 11,
 	requires = { "SaberForm" },
+	excludes = { "SaberFocus" },
 	effect = { stat = "DeflectChance", perRank = 0.09 },
+})
+node({
+	id = "SaberFocus",
+	tree = "Force",
+	displayName = "Juyo Focus",
+	description = "+12% lightsaber damage per rank, on top of your form. Closes off Deflection.",
+	maxRank = 5,
+	requiredLevel = 11,
+	requires = { "SaberForm" },
+	excludes = { "SaberDeflect" },
+	effect = { stat = "SaberDamageMult", perRank = 0.12 },
 })
 --[[
 	The first node in the game that buys a verb rather than a percentage.
@@ -322,6 +414,12 @@ node({
 	levels after the first real fork in the campaign (level 12), so the
 	character has already been asked once in prose before being asked in
 	points.
+
+	They also exclude each other explicitly, which is not redundant with the
+	alignment bounds: alignment moves, and the bounds are only read at the
+	moment of purchase. Without this a player could buy Lightning at -200,
+	spend a few missions being decent, and buy Mend at +200 -- ending with
+	both halves of a fork that exists to be a choice.
 ]]
 node({
 	id = "ForceLightning",
@@ -332,6 +430,7 @@ node({
 	requiredLevel = 16,
 	requires = { "ForceSensitive" },
 	maxAlignment = -100,
+	excludes = { "ForceMend" },
 	effect = { stat = "ForceDamageMult", perRank = 0.1 },
 	ability = "ForceLightning",
 })
@@ -344,6 +443,7 @@ node({
 	requiredLevel = 16,
 	requires = { "ForceSensitive" },
 	minAlignment = 100,
+	excludes = { "ForceLightning" },
 	effect = { stat = "HealPower", perRank = 0.12 },
 	ability = "ForceMend",
 })
@@ -356,6 +456,23 @@ node({
 	requiredLevel = 14,
 	requires = { "ForceSensitive" },
 	effect = { stat = "MoveSpeedMult", perRank = 0.06 },
+})
+--[[
+	Force's capstone. It does not make any one power stronger -- it makes the
+	pool go further, which is the thing a Force character actually runs out
+	of. A percentage on top of Lightning would have been another rank of
+	Lightning; this changes how often you get to press anything at all.
+]]
+node({
+	id = "ForceAttunement",
+	tree = "Force",
+	displayName = "Attunement",
+	description = "Force powers cost 40% less.",
+	maxRank = 1,
+	requiredLevel = 24,
+	requires = { "ForceSensitive" },
+	requiresPointsInTree = 18,
+	effect = { stat = "ForceCostMult", perRank = -0.4 },
 })
 
 -- Engineering -----------------------------------------------------------------
@@ -420,6 +537,31 @@ node({
 	effect = { stat = "RepairMult", perRank = 0.12 },
 	unimplemented = NO_SHIPS,
 })
+--[[
+	Engineering's capstone, and the only cross-tree one.
+
+	It shortens the cooldown on *every* ability, Force powers included, so a
+	saber character has a reason to spend twelve points somewhere he would
+	otherwise never look -- and those twelve points are twelve he cannot put
+	into Attunement. That tension is the whole point of the capstones: 18 for
+	Executioner, 18 for Attunement, 12 here, and 49 points at the cap, so no
+	character can hold all three.
+
+	Engineering's requirement is the lowest of the three because it is the
+	only tree with dead nodes in it (Slicer, Field Repair), and charging 18
+	would mean buying two skills that do nothing to reach it.
+]]
+node({
+	id = "KitDiscipline",
+	tree = "Engineering",
+	displayName = "Kit Discipline",
+	description = "Every ability you have comes back 35% sooner.",
+	maxRank = 1,
+	requiredLevel = 24,
+	requires = { "Scavenger" },
+	requiresPointsInTree = 12,
+	effect = { stat = "AbilityCooldownMult", perRank = -0.35 },
+})
 
 Progression.nodes = nodes
 
@@ -430,6 +572,11 @@ Progression.baseStats = {
 	BonusHealth = 0,
 	HealthRegen = 0.5,
 	CritChance = 0.05,
+	-- Added to the weapon's own crit multiplier, not multiplied into it, so
+	-- one capstone cannot be worth more on a rifle than on a pistol.
+	CritDamageBonus = 0,
+	-- Extra bodies a bolt passes through, on top of the weapon's own pierce.
+	BonusPierce = 0,
 	ShipSpeedMult = 1,
 	ShipTurnMult = 1,
 	ShipShield = 100,
@@ -441,6 +588,10 @@ Progression.baseStats = {
 	-- be a percentage node on a tree this file is trying to get away from,
 	-- and the cooldowns are the real limiter anyway.
 	ForceRegen = 5,
+	-- What a Force ability's `forceCost` is multiplied by.
+	ForceCostMult = 1,
+	-- What every ability's `cooldown` is multiplied by, Force or not.
+	AbilityCooldownMult = 1,
 	SaberDamageMult = 1,
 	DeflectChance = 0,
 	PushPower = 1,
@@ -480,6 +631,8 @@ local LIVE_STATS: { [string]: string } = {
 	BonusHealth = "ProgressionService.maxHealthFor",
 	HealthRegen = "PlayerService (regen loop)",
 	CritChance = "CombatService.resolveShot / onSaberSwing",
+	CritDamageBonus = "CombatService.resolveShot / swingMelee",
+	BonusPierce = "CombatService.resolveShot",
 	SaberDamageMult = "CombatService.onSaberSwing",
 	DeflectChance = "CombatService.applyDamage",
 	MoveSpeedMult = "PlayerService (humanoid.WalkSpeed)",
@@ -488,6 +641,8 @@ local LIVE_STATS: { [string]: string } = {
 	DamageReduction = "CombatService.applyDamage",
 	MaxForce = "AbilityService (Force pool)",
 	ForceRegen = "AbilityService (Force pool)",
+	ForceCostMult = "AbilityService.refusalFor (Force cost)",
+	AbilityCooldownMult = "AbilityService.onUseAbility (cooldown)",
 	PushPower = "AbilityService.use (ForcePush)",
 	ForceDamageMult = "AbilityService.use (ForceLightning)",
 	ExplosiveDamageMult = "AbilityService.use (FragGrenade)",
@@ -529,6 +684,11 @@ function Progression.computeStats(
 	stats.BlasterCooldownMult = math.max(0.25, stats.BlasterCooldownMult)
 	stats.FuelCostMult = math.max(0.2, stats.FuelCostMult)
 	stats.PriceMult = math.max(0.4, stats.PriceMult)
+	-- A free ability is one you hold down. Both floors are well under what
+	-- the game can currently reach, and exist so a future source stacking on
+	-- top of a capstone cannot take the cost to nothing.
+	stats.ForceCostMult = math.max(0.3, stats.ForceCostMult)
+	stats.AbilityCooldownMult = math.max(0.3, stats.AbilityCooldownMult)
 	-- Armour must never make a player untouchable, however it is stacked.
 	stats.DamageReduction = math.clamp(stats.DamageReduction, 0, 0.75)
 	stats.MoveSpeedMult = math.max(0.5, stats.MoveSpeedMult)
@@ -538,6 +698,45 @@ end
 --- Health a player should have at a given level, before skill bonuses.
 function Progression.baseHealthForLevel(level: number): number
 	return 100 + (level - 1) * 4
+end
+
+--[[
+	Ranks a player has spent inside one tree.
+
+	Ranks, not nodes: a capstone that counted distinct nodes could be reached by
+	buying rank 1 of everything, which is the opposite of the commitment it is
+	supposed to be evidence of.
+]]
+function Progression.pointsInTree(currentSkills: { [string]: number }, tree: SkillId): number
+	local total = 0
+	for nodeId, rank in currentSkills do
+		local def = nodes[nodeId]
+		if def and def.tree == tree then
+			total += rank
+		end
+	end
+	return total
+end
+
+--[[
+	The already-bought node, if any, that stops `nodeId` from ever being bought.
+
+	Separate from `canPurchase` because the skill panel asks a different
+	question: not "may I buy this now" but "what would buying *that* cost me",
+	which it has to answer while the player is still hovering over the other
+	node. There is no respec, so this is the one refusal worth showing early.
+]]
+function Progression.blockedBy(nodeId: string, currentSkills: { [string]: number }): string?
+	local def = nodes[nodeId]
+	if not def or not def.excludes then
+		return nil
+	end
+	for _, other in def.excludes do
+		if (currentSkills[other] or 0) >= 1 then
+			return other
+		end
+	end
+	return nil
 end
 
 --[[
@@ -577,6 +776,26 @@ function Progression.canPurchase(
 				local prereqDef = nodes[prereq]
 				return false, `Requires {prereqDef and prereqDef.displayName or prereq}`
 			end
+		end
+	end
+
+	--[[
+		Checked against `current` so it only ever refuses the *first* rank.
+		A player who already owns rank 1 has made the choice; refusing rank 2
+		because of it would be the tree taking back a node it sold.
+	]]
+	if current < 1 then
+		local blocker = Progression.blockedBy(nodeId, currentSkills)
+		if blocker then
+			local blockerDef = nodes[blocker]
+			return false, `Closed off by {blockerDef and blockerDef.displayName or blocker}`
+		end
+	end
+
+	if def.requiresPointsInTree then
+		local spent = Progression.pointsInTree(currentSkills, def.tree)
+		if spent < def.requiresPointsInTree then
+			return false, `Requires {def.requiresPointsInTree} points in {def.tree} -- you have {spent}`
 		end
 	end
 
@@ -642,6 +861,38 @@ end
 	  * no effect at all -- a gate, worth what it unlocks.
 	Anything else is a player paying for nothing, so it is reported.
 ]]
+--[[
+	The most ranks one character could ever hold in a tree.
+
+	Dead nodes do not count -- `canPurchase` refuses them, so a capstone
+	priced against them would be unreachable. Neither does the smaller half
+	of each exclusive pair, since holding both is the one thing `excludes`
+	exists to prevent. `ignore` drops the capstone doing the asking, which
+	cannot pay for itself.
+]]
+local function reachableRanksInTree(tree: string, ignore: string?): number
+	local total = 0
+	for id, def in nodes do
+		if def.tree == tree and id ~= ignore and not def.unimplemented then
+			total += def.maxRank
+		end
+	end
+	-- Each pair is seen twice (symmetry is enforced below), so charge half
+	-- the smaller side each time and let the two visits add up to one.
+	for _, def in nodes do
+		if def.tree ~= tree or def.unimplemented or not def.excludes then
+			continue
+		end
+		for _, otherId in def.excludes do
+			local other = nodes[otherId]
+			if other and other.tree == tree and not other.unimplemented then
+				total -= math.min(def.maxRank, other.maxRank) / 2
+			end
+		end
+	end
+	return total
+end
+
 function Progression.validate(): { string }
 	local problems: { string } = {}
 
@@ -667,6 +918,64 @@ function Progression.validate(): { string }
 				if not nodes[req] then
 					table.insert(problems, `{id}: requires "{req}", which is not a skill`)
 				end
+			end
+		end
+
+		--[[
+			An exclusion is a promise that two builds are different, so all
+			four of these are bugs the player would pay for:
+
+			  * naming a node that does not exist -- an exclusion that never
+			    fires, and a description that lies about a cost;
+			  * excluding yourself -- rank 1 would close off rank 1;
+			  * a one-way exclusion -- which of the two you can still buy
+			    would depend on the order you clicked them in;
+			  * excluding across trees -- the panel shows one tree at a
+			    time, so the player cannot see what they just lost.
+		]]
+		local excludes = def.excludes
+		if excludes then
+			for _, other in excludes do
+				local otherDef = nodes[other]
+				if other == id then
+					table.insert(problems, `{id}: excludes itself`)
+				elseif not otherDef then
+					table.insert(problems, `{id}: excludes "{other}", which is not a skill`)
+				else
+					if otherDef.tree ~= def.tree then
+						table.insert(
+							problems,
+							`{id}: excludes "{other}", which is in the {otherDef.tree} tree`
+						)
+					end
+					local back = false
+					local mutuals = otherDef.excludes
+					if mutuals then
+						for _, mutual in mutuals do
+							back = back or mutual == id
+						end
+					end
+					if not back then
+						table.insert(
+							problems,
+							`{id}: excludes "{other}", but "{other}" does not exclude it back`
+						)
+					end
+				end
+			end
+		end
+
+		-- A capstone priced above what its tree can hold is one no character
+		-- can ever buy, and the panel would show it greyed out forever with
+		-- a number that looks like a target.
+		local needed = def.requiresPointsInTree
+		if needed then
+			local reachable = reachableRanksInTree(def.tree, id)
+			if needed > reachable then
+				table.insert(
+					problems,
+					`{id}: wants {needed} points in {def.tree}, which holds at most {reachable}`
+				)
 			end
 		end
 
@@ -703,6 +1012,28 @@ function Progression.validate(): { string }
 				`{id}: nothing reads "{effect.stat}" -- give it a reader, or an "unimplemented" reason`
 			)
 		end
+	end
+
+	--[[
+		The tree only asks a question while points are scarce.
+
+		If a level-50 character can buy everything that works, then every
+		build converges and the forks and capstones above are decoration.
+		This is the one property of the tree that a single new node can
+		quietly destroy, and it is invisible when you are looking at that
+		node -- so it is checked here rather than remembered.
+	]]
+	local points = (Progression.MAX_LEVEL - 1) * Progression.SKILL_POINTS_PER_LEVEL
+	local buyable = 0
+	for _, tree in Progression.TREES do
+		buyable += reachableRanksInTree(tree, nil)
+	end
+	if buyable <= points then
+		table.insert(
+			problems,
+			`{buyable} buyable ranks against {points} points at level {Progression.MAX_LEVEL}: `
+				.. `every character can afford the whole tree`
+		)
 	end
 
 	return problems
