@@ -1027,7 +1027,7 @@ they fix the "3 minutes to walk across the map" problem immediately.
 
 **Done — the speeder half.** Five of them (`HoverSled` 900cr/L1 through
 `AssaultSpeeder` 26,000cr/L28), stocked by the two existing vendors, gated by
-the existing level checks, listed on a third **SPEEDERS** tab in the inventory
+the existing level checks, listed on a third **VEHICLES** tab in the inventory
 panel. **V** calls one in; **V** again puts it away.
 
 Decisions worth not relitigating:
@@ -1053,10 +1053,124 @@ Decisions worth not relitigating:
   whichever planets got one, and the point of a speeder is that the walk you are
   sick of is the one you are standing in right now.
 
-### 2c. Flight and interiors
-- Flight controller, hangar spawn/despawn, landing pads at existing Hangar POIs
-- Ship interior customization (your note)
-- NPC ships flying over Coruscant (your note)
+### 2c. Flight and interiors — **DONE 2026-08-18**
+- ~~Flight controller, hangar spawn/despawn, landing pads at existing Hangar POIs~~
+- ~~Ship interior customization (your note)~~
+- ~~NPC ships flying over Coruscant (your note)~~
+
+**Done — the flight half.** Three starships (`SkipjackCourier` 30,000cr/L16,
+`LonghaulFreighter` 85,000cr/L26, `DaggerInterceptor` 175,000cr/L36) sold by the
+same General Goods counter, tiers 6-8 continuing the speeders' 1-5. They fly on
+the *same* loop: `ShipDef.class` is the only thing anything branches on, and
+`VehicleController.onStep` gained one angle and one substitution.
+
+**The real payload was not the flying.** Grepping `FuelCostMult` found the whole
+**Piloting tree marked `unimplemented`** — four nodes, none of whose stats
+appeared in `LIVE_STATS`. The Scoundrel is built on Piloting and Piloting is the
+*default* origin, so a character could be created, played to level 50, and every
+skill on their own sheet would still have been an advertisement. Three of the
+four now read (`ShipSpeedMult`, `ShipTurnMult`, `FuelCostMult`); the two that
+still don't (`ShieldHarmonics`, `FieldRepair`) say why in one honest sentence
+each — *nothing shoots at a ship yet, nothing damages one*. §3b.1's "revisit with
+Phase 2b" note is now discharged.
+
+Decisions worth not relitigating:
+- **The roadmap's "Hangar POIs" do not exist.** There is no `kind = "Hangar"`
+  anywhere; there are five `kind = "Spaceport"` POIs on five of the nine worlds,
+  and `buildSpaceport` has been drawing landing discs at them all along. A
+  starship launches from one of those and nowhere else — `CollectionService`
+  tagged with `Ships.PAD_TAG` at build time, so the tag survives
+  `buildLandmark`'s later `PivotTo` in a way a stored coordinate would not.
+  **The pad is claimed, not just found**: two brothers in one room calling a hull
+  down onto the same disc is not a corner case, it is Saturday.
+- **Speed and turn apply to speeders too.** A rank bought at level 1 does
+  something at level 1, rather than waiting fifteen levels for a hull.
+- **Two keys for pitch, not the camera.** Roblox's default camera only elevates
+  while the right mouse button is held, so a player who does not know that flies
+  dead level forever and never finds the ceiling. This project has shipped that
+  exact bug twice under the name *"finished but unreachable is not finished"*.
+  Space climbs, LeftControl dives, and pitch **decays to level** when neither is
+  held — a held angle in a place with no visible horizon is a trap.
+- **Above `Ships.CEILING` the star map opens itself**, once, on the way up. One
+  raycast does both jobs: a hit closer than the hull's ride height is a floor to
+  push off, and no hit at all *is* what leaving a planet looks like from the
+  cockpit.
+- **Fuel is a price, not a tank.** Flying yourself swaps
+  `Planets.fastTravelCost` for `Planets.fuelCost` (dead code since long before
+  anything could fly), Haggler for Navigator, the origin's broker cut for the
+  hull's `fuelMult`, and the berth cooldown for nothing at all. A gauge that can
+  run dry between worlds is a stranding, and `Origins.luau` already settled that
+  argument: *"a weakness that can strand you is not a weakness, it is a dead
+  end."* The cheap hull is thirsty (1.6×) and the expensive one is not (0.55×),
+  which is the one difference between them that lasts a whole campaign.
+- **The vehicles tab is not the speeders tab.** `kind` on a shop row went
+  `"Speeder"` → `"Vehicle"` and `ShopDef.speeders` → `ShopDef.ships`, because a
+  Czerka Dagger filed under SPEEDERS is a small lie and small lies in a UI are
+  how this project's last two playtest reports started.
+
+**Done — the interiors half (2026-08-18).** A hull was the most expensive thing
+in the game and the only one you never got to be *inside* of.
+`Config/Furnishings.luau` (3 cabins, 4 slots, 12 pieces), `World/CabinBuilder.luau`
+and `InteriorService` (priority 37); **H** boards and leaves, and the CABIN tab of
+the inventory panel (**B**) fits what you own.
+
+- **Cosmetic, and said so in the header.** No furnishing grants a stat, a heal or
+  a flag. The project's rule that a stat in `LIVE_STATS` needs a reader runs the
+  other way too: a bunk that quietly restores health is a bunk you have to sleep
+  in before every mission, which turns a room you *chose* into a chore you
+  *perform*. Wanting the Dejarik table is the whole mechanic.
+- **One item per slot, replaced not accumulated.** Thirty ornaments all placed at
+  once is a warehouse, and a warehouse is not a decision about who you are.
+- **Slots are fractions of the room, not coordinates.** `SlotDef.at` is in
+  room-halves and `Furnishings.anchorFor` scales it, so three cabin sizes share
+  one catalogue and a bigger hull spreads the same furniture wider. Absolute
+  coordinates would have meant a position per cabin per piece, and a Dejarik
+  table standing in the wall of the one hull nobody tested.
+- **`anchorFor` lives in config because the builder and the validator must not
+  disagree** — the same argument that put `TOWER_GRID` in `Planets.luau`.
+  `Furnishings.validate` transforms each piece's rotated AABB through that anchor
+  and checks it against the *smallest* cabin. Written the naive way first
+  (compare a bare footprint to the room) it was wrong in both directions: it
+  failed pieces that fit and passed **two slot facings that pointed furniture
+  through the hull** — `KraytSkull` reached X = 8.34 in a room whose wall is at
+  7.50. There is no way to run Luau offline, so that was found by hand-computing
+  all twelve.
+- **Boarding is a teleport, gated on the hull.** You must have a starship
+  summoned and be standing within 30 studs of it. There is no door — a hull is a
+  solid shell — and the gate is what makes the room read as *this ship's* room
+  rather than a menu. It also gives the five spaceports a second reason to exist.
+- **The cabin is built at +6,000 studs, not underground.**
+  `Workspace.FallenPartsDestroyHeight` deletes anything that falls past it; a room
+  below the map is a room that is sometimes not there. 6,000 clears every flight
+  ceiling (Coruscant's is 1,400).
+- **A sealed room has no sun and nothing outside**, so `CabinBuilder` carries two
+  ceiling lamps and a 26-speck seeded starfield behind a split forward bulkhead.
+  A black pane reads as a bug, not as space.
+- **A fitted furnishing's button says REMOVE.** The server could always clear a
+  slot; without that state nothing in the UI could ask it to, which is this
+  project's twice-shipped *"finished but unreachable"* failure.
+
+**Done — the sky over Coruscant (2026-08-18).** `PlanetDef.airTraffic` and
+`SkyTrafficController`; eight of nine worlds declare nothing, because the Korriban
+wastes do not have rush hour.
+
+- **Entirely client-side, and still the same sky for both brothers.** No traffic
+  hull can be shot, boarded, landed on or collided with, so replicating 26 moving
+  models to every player is a network bill for a decoration. Lanes are seeded off
+  the planet id and flown off `Workspace:GetServerTimeNow()` — same seed, same
+  clock, same sky, without a single remote. Two different skies in one room is
+  precisely the class of thing they notice and then argue about.
+- **A hull's position is a function, not a simulation.** Given the time alone,
+  `place` says where hull *n* is: no spawning, no despawning, no per-ship state.
+  Lane wrap is a teleport, and it happens 1,800 studs out — past the outermost
+  tower at 1,320, in air the atmosphere has already turned to haze.
+- **Lanes are pinned to the planet, not the camera.** Following the player costs a
+  visible sideways jump of a whole grid square every time they cross a tower row,
+  and buys nothing: the vertical city is only 2,640 studs across. The lanes sit
+  half a `TOWER_GRID` square between tower rows at half a `SKYLANE_STEP` between
+  platform decks — dead centre of a canyon, passing *under* the pad you are
+  standing on. Both numbers are read from config; a private copy here is a
+  hundred airbuses flying through the Senate.
 
 ---
 

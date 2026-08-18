@@ -360,6 +360,9 @@ Net.Event = {
 	-- Vehicles
 	EquipShip = "EquipShip",
 	SummonVehicle = "SummonVehicle",
+	-- Ship interiors
+	ToggleCabin = "ToggleCabin",
+	PlaceFurnishing = "PlaceFurnishing",
 	-- Character creation
 	ChooseOrigin = "ChooseOrigin",
 	-- Travel

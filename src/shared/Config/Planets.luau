@@ -68,6 +68,31 @@ Planets.BAND_MIN_WIDTH = 2
 ]]
 Planets.UNDERLEVELLED_BY = 3
 
+--[[
+	How far apart two worlds sit in the one shared Workspace.
+
+	Every planet is built into the same place at a different address, far
+	enough apart that no two are ever in the same streaming region.
+	`Planets.originFor` turns an id into that address.
+]]
+Planets.WORLD_SPACING = 12000
+
+--[[
+	The vertical city's grid, in studs. Client-visible on purpose.
+
+	`PlanetBuilder.buildVerticalCity` stands its towers on multiples of
+	`TOWER_GRID` and cantilevers their landing platforms at multiples of
+	`SKYLANE_STEP` in Y. Those two numbers are the whole shape of Coruscant,
+	and until the sky had traffic in it only the builder needed to know them.
+
+	`SkyTrafficController` now flies between those towers, on the client,
+	from the same two constants -- which is the reason they moved out of
+	PlanetBuilder and into config. A lane spacing privately agreed by one
+	side is how a hundred airspeeders end up flying through the buildings.
+]]
+Planets.TOWER_GRID = 240
+Planets.SKYLANE_STEP = 220
+
 export type SpawnRule = {
 	archetype: string,
 	count: number,
@@ -304,6 +329,23 @@ export type PlanetDef = {
 	hasWalkableGround: boolean,
 	-- Height above which the player is in open sky and needs a ship.
 	flightCeiling: number?,
+
+	--[[
+		How many hulls are in the air over this world at any moment.
+
+		Ambient only: nothing here can be shot, boarded, landed on or
+		collided with, and no NPC is inside one. It is scenery that moves,
+		and it is the difference between a city and a model of a city --
+		121 towers standing in dead air read as an unfinished level, which
+		is what Coruscant looked like from the moment it was built.
+
+		Absent means an empty sky, which is right for eight of the nine:
+		the wastes of Korriban do not have rush hour. Drawn entirely on the
+		client (`SkyTrafficController`) because nothing about it is a fact
+		the server needs to hold -- but seeded per planet and flown off the
+		shared clock, so two players in one room see the same sky.
+	]]
+	airTraffic: number?,
 
 	controllingFaction: string,
 	minLevel: number,
@@ -651,6 +693,10 @@ def({
 	-- move between towers on platforms and skybridges, or you fly.
 	hasWalkableGround = false,
 	flightCeiling = 1400,
+	-- The busiest sky in the galaxy, and the one world where the traffic is
+	-- not decoration but the reason the place reads as inhabited: there is
+	-- no street below to put a crowd on.
+	airTraffic = 26,
 
 	-- The Republic still holds its own capital. It was sacked, not taken: the
 	-- treaty left the Senate sitting in a city it had watched burn, which is
@@ -1784,6 +1830,10 @@ def({
 
 	hasWalkableGround = true,
 	flightCeiling = 1100,
+	-- Thinner than Coruscant's, and lower, because half of it is not
+	-- supposed to be there. A smuggler's moon with an empty sky is a
+	-- smuggler's moon nobody is smuggling anything off.
+	airTraffic = 12,
 
 	controllingFaction = "Hutt",
 	minLevel = 12,
@@ -2582,6 +2632,14 @@ function Planets.validate(
 	end
 
 	for id, p in defs do
+		-- A world that asks for no traffic and a world that asks for none
+		-- look identical in the sky and different in the file, and the one
+		-- that typed a number meant something by it.
+		local traffic = p.airTraffic
+		if traffic and traffic <= 0 then
+			table.insert(problems, `{id}: airTraffic {traffic} would draw nothing; leave it out instead`)
+		end
+
 		--[[
 			The authored grid, if this world has one.
 
@@ -2989,6 +3047,26 @@ function Planets.ids(): { string }
 	end
 	table.sort(out)
 	return out
+end
+
+--[[
+	Where in the shared Workspace this world is built, in studs.
+
+	Sorted ids on a four-wide grid, which makes the address a pure function
+	of the catalogue: no stored coordinates to fall out of step, and a
+	server and a client that both ask get the same answer.
+
+	It lived in PlanetBuilder until the client needed it. A world's address
+	is not a fact about how it is drawn -- it is where the place *is*, and
+	the drawing code being the only thing that knew meant nothing on the
+	client could reason about a position in world space at all.
+]]
+function Planets.originFor(planetId: string): Vector3
+	local ids = Planets.ids()
+	local index = table.find(ids, planetId) or 1
+	local column = (index - 1) % 4
+	local row = (index - 1) // 4
+	return Vector3.new(column * Planets.WORLD_SPACING, 0, row * Planets.WORLD_SPACING)
 end
 
 return Planets

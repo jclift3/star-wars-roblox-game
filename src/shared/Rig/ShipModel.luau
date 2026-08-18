@@ -53,7 +53,8 @@ local function specCFrame(spec: Ships.ShipPart): CFrame
 	return CFrame.new(spec.offset) * CFrame.Angles(math.rad(rot.X), math.rad(rot.Y), math.rad(rot.Z))
 end
 
-local function buildPart(spec: Ships.ShipPart): BasePart
+--- `lit` is false for ambient traffic; see `ShipModel.buildTraffic`.
+local function buildPart(spec: Ships.ShipPart, lit: boolean): BasePart
 	local shapeType, isWedge = resolveShape(spec.shape)
 
 	local p: BasePart
@@ -76,7 +77,7 @@ local function buildPart(spec: Ships.ShipPart): BasePart
 	p.CanTouch = false
 	p.Massless = true
 
-	if spec.light then
+	if lit and spec.light then
 		local light = Instance.new("PointLight")
 		light.Color = spec.light.color
 		light.Range = spec.light.range
@@ -176,7 +177,7 @@ function ShipModel.build(shipId: string): Model
 	end
 
 	for _, spec in def.parts do
-		local p = buildPart(spec)
+		local p = buildPart(spec, true)
 		p.CFrame = specCFrame(spec)
 		attach(p)
 	end
@@ -218,6 +219,52 @@ function ShipModel.build(shipId: string): Model
 	attitude.Responsiveness = 40
 	attitude.Enabled = false
 	attitude.Parent = chassis
+
+	return model
+end
+
+--[[
+	Builds a traffic hull: the same parts, none of the machinery.
+
+	No chassis, no seats, no constraints and no collision -- an ambient hull
+	is a picture of a ship, and every one of those costs something to a
+	thing that exists twenty-six at a time and is never within a hundred
+	studs of the player. It is anchored instead, and whoever built it moves
+	it by `PivotTo`.
+
+	The root is an empty part at the hull origin rather than the model's
+	bounding box, because the bounding box centre is not the nose-to-tail
+	middle of anything with a container on its back, and a lane's position
+	means "where the ship is", not "where the average of its parts is".
+
+	Nothing here gets a PointLight, which is why `buildPart` takes a flag.
+	The turbines are shared with the ships players fly, where the glow
+	throwing light on the road is the point; up in a lane it lights nothing
+	and is charged for anyway, once per engine per hull.
+]]
+function ShipModel.buildTraffic(hull: Ships.TrafficHull): Model
+	local model = Instance.new("Model")
+	model.Name = hull.id
+
+	local root = Instance.new("Part")
+	root.Name = "Root"
+	root.Size = Vector3.one
+	root.Transparency = 1
+	root.Anchored = true
+	root.CanCollide = false
+	root.CanQuery = false
+	root.CanTouch = false
+	root.CastShadow = false
+	root.Parent = model
+	model.PrimaryPart = root
+
+	for _, spec in hull.parts do
+		local p = buildPart(spec, false)
+		p.CFrame = specCFrame(spec)
+		p.Anchored = true
+		p.CastShadow = false
+		p.Parent = model
+	end
 
 	return model
 end

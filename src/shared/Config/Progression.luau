@@ -296,32 +296,39 @@ node({
 --[[
 	Piloting ------------------------------------------------------------------
 
-	The whole tree is `unimplemented` until ships exist (ROADMAP 2b/2c). Travel
-	is currently priced as a fare rather than fuel, so even Navigator has
-	nothing to reduce.
+	Every node in this tree was `unimplemented` until ROADMAP 2c, which made it
+	the worst thing in the game: the Scoundrel is built on this tree and is the
+	*default* origin, so a character could be created, played to level 50, and
+	every skill on their own sheet would still have been an advertisement.
+
+	Three of the four now read. Speed and turn rate apply to speeders as well
+	as starships -- deliberately, so a rank bought at level 1 does something at
+	level 1 on the Hover-Sled you can already afford, instead of waiting
+	fifteen levels for a hull. Fuel is the starship-only one, and it is the
+	only skill in the game that changes the *price* on the star map.
+
+	Shields stay unimplemented, alone and honestly: nothing shoots at a ship
+	yet, so a shield has nothing to absorb.
 ]]
-local NO_SHIPS = "Needs starships — not in the game yet"
 
 node({
 	id = "Throttle",
 	tree = "Piloting",
 	displayName = "Throttle Control",
-	description = "+8% ship top speed per rank.",
+	description = "+8% top speed on anything you fly, from a sled to a starship.",
 	maxRank = 5,
 	requiredLevel = 1,
 	effect = { stat = "ShipSpeedMult", perRank = 0.08 },
-	unimplemented = NO_SHIPS,
 })
 node({
 	id = "Maneuvering",
 	tree = "Piloting",
 	displayName = "Manoeuvring",
-	description = "+10% ship turn rate per rank.",
+	description = "+10% turn rate on anything you fly.",
 	maxRank = 5,
 	requiredLevel = 4,
 	requires = { "Throttle" },
 	effect = { stat = "ShipTurnMult", perRank = 0.1 },
-	unimplemented = NO_SHIPS,
 })
 node({
 	id = "ShieldHarmonics",
@@ -331,18 +338,17 @@ node({
 	maxRank = 5,
 	requiredLevel = 6,
 	effect = { stat = "ShipShield", perRank = 25 },
-	unimplemented = NO_SHIPS,
+	unimplemented = "Nothing shoots at a ship yet",
 })
 node({
 	id = "Navigator",
 	tree = "Piloting",
 	displayName = "Navigator",
-	description = "-10% hyperspace fuel cost per rank.",
+	description = "-10% fuel burned flying your own hull between worlds, per rank.",
 	maxRank = 5,
 	requiredLevel = 10,
 	requires = { "Maneuvering" },
 	effect = { stat = "FuelCostMult", perRank = -0.1 },
-	unimplemented = NO_SHIPS,
 })
 
 -- Force -----------------------------------------------------------------------
@@ -582,7 +588,10 @@ node({
 	requiredLevel = 9,
 	requires = { "Slicer" },
 	effect = { stat = "RepairMult", perRank = 0.12 },
-	unimplemented = NO_SHIPS,
+	-- Ships fly now, but nothing damages one: a hull has no health to
+	-- repair. Same honest reason as ShieldHarmonics, and both go live the
+	-- day either of them has something to shoot at.
+	unimplemented = "Nothing damages a ship yet",
 })
 --[[
 	Engineering's capstone, and the only cross-tree one.
@@ -691,6 +700,12 @@ local LIVE_STATS: { [string]: string } = {
 	MoveSpeedMult = "PlayerService (humanoid.WalkSpeed)",
 	CreditMult = "ProgressionService.awardCredits",
 	PriceMult = "ProgressionService.priceFor / TravelService",
+	-- Read on the client, uniquely. The driver already simulates their own
+	-- vehicle (see VehicleService's header), so the flight loop is where the
+	-- speed and turn rate live and there is nowhere else for these to be.
+	ShipSpeedMult = "VehicleController.onStep (top speed)",
+	ShipTurnMult = "VehicleController.onStep (yaw and pitch rate)",
+	FuelCostMult = "TravelService.galaxyFor / travelTo (your own hull)",
 	DamageReduction = "CombatService.applyDamage",
 	MaxForce = "AbilityService (Force pool)",
 	ForceRegen = "AbilityService (Force pool)",

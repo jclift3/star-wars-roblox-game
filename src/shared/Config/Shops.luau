@@ -50,15 +50,32 @@ export type ShopDef = {
 	outfits: { string }, -- Outfits ids
 	weapons: { string }, -- Weapons ids
 	--[[
-		Ships ids.
+		Ships ids -- both classes, speeders and starships alike.
 
 		Sold from the same counter as everything else rather than from a new
 		kind of vendor with a new archetype and a new spawn entry. A speeder
 		yard would be a better shop and a worse feature: it would exist on
 		whichever planets got one, and the point of a speeder is that the
 		walk you are sick of is the one you are standing in right now.
+
+		That argument holds for starships too, but only barely, and the shop
+		that carries them says so on the shelf: `GeneralGoods` stocks all
+		three hulls and the Jawa stocks none, because a Czerka Dagger is not
+		something that falls off anything. The real gate on a starship is
+		not who will sell you one -- it is `Ships.PAD_TAG`. You can buy a
+		hull on a world with no spaceport; you simply cannot call it down.
 	]]
-	speeders: { string },
+	ships: { string },
+	--[[
+		Furnishings ids -- the things that go inside a starship.
+
+		Stocked by the same counter that sells the hull, and by that counter
+		only: a chandler who sells you a bunk but not the ship to put it in
+		is a shop whose entire stock is unusable to most of the people
+		standing in front of it. The Jawa carries none for the reason they
+		carry no starship.
+	]]
+	furnishings: { string },
 }
 
 local defs: { [string]: ShopDef } = {}
@@ -92,11 +109,36 @@ def({
 		"E5",
 		"VibroBlade",
 	},
-	speeders = {
+	ships = {
 		"HoverSled",
 		"SaddleBike",
 		"FlareSpeeder",
 		"AssaultSpeeder",
+		-- The starship shelf. Priced and level-gated far above everything
+		-- else in this list on purpose: a General Goods counter that can
+		-- sell you a hyperdrive at level 16 is only strange if you think a
+		-- Longhaul is a luxury. It is a job.
+		"SkipjackCourier",
+		"LonghaulFreighter",
+		"DaggerInterceptor",
+	},
+	-- The whole catalogue. Twelve pieces across four slots is a shelf, not a
+	-- warehouse, and the level gates already stage them out over the game --
+	-- listing a subset here would only mean a slot the player can never
+	-- fill on the one world they trade on.
+	furnishings = {
+		"SpacerBunk",
+		"MeditationSlab",
+		"HuttSilkBerth",
+		"CrateTable",
+		"SabaccTable",
+		"DejarikTable",
+		"NavConsole",
+		"SliceRig",
+		"HolomapPlinth",
+		"ToolRack",
+		"KraytSkull",
+		"AstromechDock",
 	},
 })
 
@@ -118,13 +160,14 @@ def({
 		"Gaderffii",
 		"T21",
 	},
-	-- No landspeeder: a Jawa sells what fell off something, and what falls
-	-- off a swoop gang is a swoop.
-	speeders = {
+	-- No landspeeder and no starship: a Jawa sells what fell off something,
+	-- and what falls off a swoop gang is a swoop.
+	ships = {
 		"HoverSled",
 		"SaddleBike",
 		"SwoopRacer",
 	},
+	furnishings = {},
 })
 
 --------------------------------------------------------------------------------
@@ -155,7 +198,8 @@ end
 function Shops.validate(
 	outfitExists: (string) -> boolean,
 	weaponExists: (string) -> boolean,
-	speederExists: (string) -> boolean
+	shipExists: (string) -> boolean,
+	furnishingExists: (string) -> boolean
 ): { string }
 	local problems: { string } = {}
 	for id, shop in defs do
@@ -172,9 +216,14 @@ function Shops.validate(
 				table.insert(problems, `Shops: "{id}" stocks unknown weapon "{weaponId}"`)
 			end
 		end
-		for _, speederId in shop.speeders do
-			if not speederExists(speederId) then
-				table.insert(problems, `Shops: "{id}" stocks unknown speeder "{speederId}"`)
+		for _, shipId in shop.ships do
+			if not shipExists(shipId) then
+				table.insert(problems, `Shops: "{id}" stocks unknown ship "{shipId}"`)
+			end
+		end
+		for _, furnishingId in shop.furnishings do
+			if not furnishingExists(furnishingId) then
+				table.insert(problems, `Shops: "{id}" stocks unknown furnishing "{furnishingId}"`)
 			end
 		end
 	end

@@ -32,6 +32,7 @@ local Missions = require(Shared.Config.Missions)
 local Planets = require(Shared.Config.Planets)
 local Progression = require(Shared.Config.Progression)
 local Ships = require(Shared.Config.Ships)
+local Furnishings = require(Shared.Config.Furnishings)
 local ServiceLoader = require(Shared.Core.ServiceLoader)
 
 local HudController = {
@@ -339,6 +340,11 @@ local function buildLegend()
 		one, which leaves them doing the walk they are complaining about.
 	]]
 	entry(Ships.SUMMON_KEY.Name, Ships.SUMMON_HINT)
+
+	-- And the third, for exactly the same reason as the second: a room is
+	-- not a panel, and a starship whose inside nobody knows about is a
+	-- starship with no inside.
+	entry(Furnishings.BOARD_KEY.Name, Furnishings.BOARD_HINT)
 
 	for _, def in Panels.ALL do
 		local toggle = def.toggle

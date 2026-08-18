@@ -89,6 +89,13 @@ export type PlayerProfile = {
 	-- against the bag cap. `equipped.ship` names which of these the summon
 	-- key calls in.
 	unlockedShips: { string },
+	-- Furnishings owned, and which slot of the cabin each placed one fills.
+	-- Same reasoning as `unlockedShips`: a bunk bolted to a deck cannot be
+	-- dropped or sold, so it is an id and not an ItemStack. `cabin` maps a
+	-- slot id to a furnishing id and holds at most one per slot -- see
+	-- Config/Furnishings.luau for why replacing beats accumulating.
+	unlockedFurnishings: { string },
+	cabin: { [string]: string },
 	missions: {
 		active: { [string]: MissionProgress },
 		completed: { [string]: number }, -- missionId -> completion count

@@ -48,6 +48,10 @@ get wrong announces itself there rather than on screen:
 | **E** (prompt) | Talk to an NPC |
 | **1**–**9** | Pick a dialogue reply |
 | **1**–**6** | Use an ability — but only when no panel and no conversation is open |
+| **V** | Call in / put away the selected vehicle |
+| **H** | Board / leave your ship's cabin — starships only, and only near your own hull |
+| **W/S**, **A/D** (seated) | Throttle, steer |
+| **Space** / **LeftCtrl** (seated) | Climb, dive — starships only; releases both levels you off |
 
 **The game now says all of this itself**, in a legend across the top-left corner
 that is built from `Panels.ALL` rather than typed out. This table is for the
@@ -919,15 +923,16 @@ Everything below needs credits — `showmethemoney` — and, for the fast ones, 
 level: `greedisgood` for XP.
 
 1. Look at the **top-left legend** before doing anything else. It reads
-   `V SPEEDER` next to `1-6 POWERS`. *(A summon key nobody is told about is a
+   `V VEHICLE` next to `1-6 POWERS`. *(A summon key nobody is told about is a
    speeder nobody rides; that failure has already happened once, with the six
    panel letters.)*
-2. Press **V** with nothing owned. One toast: **"You do not own a speeder"**.
+2. Press **V** with nothing owned. One toast: **"You have no vehicle selected"**.
    Nothing spawns.
 3. Find a trader, **B**, and there is a third tab: **OUTFITS / WEAPONS /
-   SPEEDERS**. Open it. The general goods trader lists four; the Jawa lists
-   three, and **the Jawa's list is different** — he has the Swoop Racer and no
-   Flare-S. That is deliberate: a Jawa sells what fell off something.
+   VEHICLES**. Open it. The general goods trader lists seven — four speeders and
+   three starships; the Jawa lists three, and **the Jawa's list is different** —
+   he has the Swoop Racer, no Flare-S and no starship at all. That is
+   deliberate: a Jawa sells what fell off something.
 4. Buy the **Ubrikkian Hover-Sled** (900 cr, level 1). Credits drop, and the row
    moves out of the vendor's stock and up under **your** heading. *(It is not in
    your bag — a speeder is not an item and must never take a slot or be
@@ -971,6 +976,151 @@ level: `greedisgood` for XP.
 the other brother sees it a fraction behind where its driver does. Also, there
 is no vehicle combat — you cannot shoot from the saddle, and nothing shoots the
 speeder itself.
+
+### 6.4 Starships — **new, 2026-08-17**
+
+A starship is the same speeder loop with a second angle, so §6.3 is the
+prerequisite: if steering or hovering is wrong there it will be wrong here too.
+Needs `showmethemoney` (30,000 cr minimum) and `greedisgood` to level 16.
+
+**Buying and launching**
+
+1. **B**, VEHICLES tab. Below the four speeders are three more:
+   **Corellian Skipjack** (30,000 / L16), **Rendili Longhaul** (85,000 / L26),
+   **Czerka Dagger** (175,000 / L36). Buy the Skipjack and select it.
+2. Press **V** *away from a spaceport* — in the middle of Anchorhead, say. One
+   toast: **"Starships launch from a landing pad. Find a spaceport."** Nothing
+   spawns. *(Select a speeder again and **V** still works normally — the rule is
+   per class, not global.)*
+3. Walk to the **Anchorhead spaceport** and stand on or near a landing disc.
+   **V**. The Skipjack appears **on the pad**, sitting on its landing gear —
+   not floating a body-length above it, and not sunk into it. Check all three
+   hulls for this if you can afford them; each has different leg lengths.
+4. Two of you, one pad. The second brother's ship must land on a **different**
+   disc, not inside the first. If there is only one free disc within range, the
+   second player gets the "find a spaceport" refusal rather than a ship in a
+   ship.
+
+**Flying**
+
+5. Sit in the pilot's seat. W throttles up. It **does not hover-follow the
+   ground** the way a speeder does — it just leaves.
+6. **Space** climbs, **LeftControl** dives. Let go of both: the nose **returns
+   to level on its own** over a second or two. *(A held angle in a place with no
+   horizon is how you get lost.)*
+7. Fly low over a dune. The ship refuses to go through the ground — there is a
+   floor at its own gear height — but a deliberate climb is never fought.
+8. Climb straight up. Somewhere around 900 studs the **star map opens by
+   itself**, once. Come back down and go up again: it opens again. Stay up
+   there: it does **not** re-open every frame.
+9. The Longhaul is a four-seater with an **open-topped hold** — put a passenger
+   in it and you should be able to see them from outside.
+
+**The price of a jump — the actual point of the feature**
+
+10. With the map open *while seated at the controls*, the header names **your
+    ship**, not your origin's patron, and says jumps cost fuel. Every fare in
+    the list is **much** smaller than it was on foot — tens of credits, not
+    thousands — and each row's note reads *"Your Corellian Skipjack. Fuel
+    only."*
+11. There is **no berth cooldown** while you are in the cockpit. Jump, land,
+    take off, jump again: no "no berth for 2 min" at any point.
+12. Take the jump. The arrival toast says **"— N cr of fuel"**. You arrive on
+    foot: the ship is put away by the same rule that dismisses a speeder when
+    you travel.
+13. Now the trap worth checking: stand *up* out of the seat, then open **G**.
+    The prices go straight back to your origin's fares and the cooldown line
+    comes back. Opening the map in the cockpit and then getting out before
+    pressing the button must charge you the **fare**, not the fuel.
+14. Buy a rank or two of **Navigator** (Piloting, **K**) and re-open the map in
+    the cockpit. Every fuel price drops by 10% per rank. *(This is the whole
+    reason the tree exists — before this commit every Piloting node said
+    "unimplemented".)*
+15. Same panel: **Throttle** and **Manoeuvring** ranks. Buy one of each, then
+    get **out and back in** — the stats are read when you sit down, so a rank
+    bought mid-flight applies to the next ride, not this one. Then check they
+    also apply to a **speeder**, which is deliberate.
+16. Fly to **Korriban** (no spaceport). You cannot call your ship back down
+    there — expected. You are not stranded: **G** still sells you an ordinary
+    fare off the planet.
+
+**Expected and not a bug:** nothing shoots at a ship and nothing damages one, so
+`Shield Harmonics` and `Field Repair` still say so on the skill panel. There is
+no space *scene* — above the ceiling you are still over the planet, and the star
+map is the way off it.
+
+---
+
+### 6.5 The inside of your ship — **new, 2026-08-18**
+
+§6.4 is the prerequisite: you cannot board a ship you cannot call down. Needs
+`showmethemoney` and `greedisgood` to level 16.
+
+**Getting in**
+
+1. Standing in Anchorhead with **no** ship out, press **H**. One toast:
+   **"Call down a starship first."** Nothing else happens.
+2. Select a *speeder* and **V** it out, then **H**. Same refusal — a speeder has
+   no inside, and the check is on the class, not on having a vehicle.
+3. Go to the spaceport, **V** out the Skipjack, then walk 60 studs away and press
+   **H**. **"Stand by your Corellian Skipjack to board it."**
+4. Walk back to the hull and **H**. The screen changes to a small lit room —
+   the **Courier Berth**. You are standing on a deck, not falling.
+
+**The room itself**
+
+5. Walk the whole floor. It is **sealed**: four walls, a ceiling, no gap you can
+   fall through and no way out on foot. You do not slide, and nothing kills you.
+6. It is **lit** — two lamps in the ceiling. It should not be pitch black, and
+   it should not be lit by the desert sun either.
+7. Look at the **forward** wall. There is a window, and **stars** beyond it. Walk
+   side to side: they stay outside the glass.
+8. Press **H** again. You are back **exactly where you were standing**, next to
+   your ship, still on Tatooine. Not at the spawn point, not falling.
+9. Board, then press **H** and immediately board again a few times. No second
+   room accumulates, and you never end up inside two cabins at once.
+
+**Furnishing it**
+
+10. **B** → the fourth tab, **CABIN**. Twelve pieces across four fittings
+    (Berth, Table, Console, Trophy). The cheap ones (**Spacer's Bunk** 600 cr,
+    **Crate Table**) are level 1; the **Nal Hutta Silk Berth** and the
+    **Dejarik Table** are gated higher.
+11. Buy the Spacer's Bunk at a **General Goods** vendor. It appears under
+    "yours", and — because the Berth slot was empty — it is **already fitted**.
+12. **H** in. There is a bunk against the **port** wall, standing on the deck,
+    **inside** the room — not half-buried in the wall, not sticking through it.
+    Walk all the way around everything you fit; nothing may overhang a wall.
+13. Buy a second berth. **B** → CABIN → FIT TO CABIN. Go and look: the new one
+    **replaced** the old one. There are never two berths.
+14. Select the fitted one again. Its button reads **REMOVE**. Press it, then look:
+    the slot is empty and the piece is still in your list.
+15. Fill all four slots and look at the room. Nothing overlaps anything else and
+    you can still walk between them.
+
+**The bigger hulls**
+
+16. Buy the **Rendili Longhaul** (85,000 / L26), **V** it out at a pad, **H** in.
+    The room is visibly **bigger**, and the same four pieces are **further
+    apart** — against the new walls, not clustered in the middle. Same again for
+    the **Czerka Dagger**.
+
+**Two players, one room**
+
+17. Both brothers aboard at once. Each is in **their own** cabin and cannot see
+    the other. Neither one's furniture appears in the other's room.
+18. One boards; the other, standing outside, sees them **disappear**, and sees
+    them reappear in the same spot on **H**.
+
+**Persistence**
+
+19. Fit something, leave the game, come back. It is still fitted. *(§10 covers
+    the general case; this is the field worth checking by name — `cabin` is new
+    in `PROFILE_VERSION`.)*
+
+**Expected and not a bug:** the room is purely cosmetic. Nothing in it heals you,
+buffs you, saves the game or advances a mission, and no NPC ever appears in it.
+You cannot fly while aboard — the cabin and the cockpit are different places.
 
 ---
 

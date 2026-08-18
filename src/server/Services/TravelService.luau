@@ -28,6 +28,14 @@
 	It lives on the profile as `lastTravelAt` rather than in a table here,
 	because an in-memory timer is cleared by rejoining -- and "leave and come
 	back" would be a strictly better way to travel than travelling.
+
+	A HULL OF YOUR OWN IS A DIFFERENT PRICE LIST
+	Every rule above describes buying a seat on somebody else's ship. Sitting
+	at the controls of a starship you own is not that: there is no broker
+	taking a cut, no patron doing you a favour and no berth to wait for.
+	`fuelFor` below prices those jumps out of `Planets.fuelCost` instead, and
+	that one branch is the whole reason to buy a starship -- ROADMAP 2c gave
+	the Piloting tree a hull to fly, and this gives the hull somewhere to go.
 ]]
 
 local Shared = game:GetService("ReplicatedStorage"):WaitForChild("Shared")
@@ -37,6 +45,7 @@ local Factions = require(Shared.Config.Factions)
 local Origins = require(Shared.Config.Origins)
 local Planets = require(Shared.Config.Planets)
 local ServiceLoader = require(Shared.Core.ServiceLoader)
+local Ships = require(Shared.Config.Ships)
 
 type PlayerProfile = Types.PlayerProfile
 
@@ -129,6 +138,57 @@ local function cooldownLeft(profile: PlayerProfile, now: number): number
 end
 
 --[[
+	The starship this player is at the controls of, or nil.
+
+	Resolved through the loader rather than required, because the dependency
+	only runs one way: travel is a rule and a summoned hull is a fact, and a
+	fact should not have to know which rules read it. It also keeps a service
+	that failed to load from taking the star map down with it -- without
+	VehicleService you are simply a passenger, which is what every character
+	was before this commit.
+]]
+local function ownHull(player: Player): Ships.ShipDef?
+	local vehicles = ServiceLoader.find("VehicleService")
+	if not vehicles then
+		return nil
+	end
+	local shipId: string? = vehicles.pilotedStarship(player)
+	return if shipId then Ships.get(shipId) else nil
+end
+
+--[[
+	What a jump costs when you are flying it yourself.
+
+	Shaped as an `Origins.Passage` so it can be returned from the same slot
+	as a fare and nothing downstream has to branch: the map prints a number
+	and a note either way, and the note is the only place the difference
+	shows. That matters more than it looks -- `Destination` is replicated to
+	the client, and a second field for "is this fuel" would be a second thing
+	the two sides could disagree about.
+
+	Three substitutions, and every one of them is the point:
+
+		Planets.fuelCost      not fastTravelCost -- roughly a seventieth
+		stats.FuelCostMult    Navigator, not Haggler
+		def.fuelMult          the hull, not the origin's broker
+
+	`FUEL_PER_UNIT` was written long before anything could fly and has been
+	dead ever since. It is used here exactly as it was defined, so the
+	balance it was tuned against is the balance it gets.
+]]
+local function fuelFor(def: Ships.ShipDef, from: string, to: string, fuelCostMult: number): Origins.Passage
+	local credits = math.floor(Planets.fuelCost(from, to, fuelCostMult) * (def.fuelMult or 1) + 0.5)
+	return {
+		credits = credits,
+		-- No cooldown. The origin's is the wait for somebody else's ship to
+		-- have a berth free, and your own ship is already on the pad.
+		cooldown = 0,
+		free = credits <= 0,
+		note = `Your {def.displayName}. Fuel only.`,
+	}
+end
+
+--[[
 	Everything the galaxy map draws, for one player.
 
 	Locked worlds are included rather than hidden, for the same reason
@@ -137,13 +197,20 @@ end
 ]]
 local function galaxyFor(player: Player, profile: PlayerProfile): { Destination }
 	local now = os.time()
-	local waiting = cooldownLeft(profile, now)
-	local priceMult = progression().getStats(player).PriceMult or 1
+	local stats = progression().getStats(player)
+	-- Resolved once, not per destination: it is one seat lookup, and nine of
+	-- them would say the same thing.
+	local hull = ownHull(player)
+	local waiting = if hull then 0 else cooldownLeft(profile, now)
+	local priceMult = stats.PriceMult or 1
+	local fuelMult = stats.FuelCostMult or 1
 
 	local out: { Destination } = {}
 	for _, id in Planets.ids() do
 		local planet = Planets.get(id)
-		local passage = Origins.passageFor(profile.origin, profile.currentPlanet, id, priceMult)
+		local passage = if hull and id ~= profile.currentPlanet
+			then fuelFor(hull, profile.currentPlanet, id, fuelMult)
+			else Origins.passageFor(profile.origin, profile.currentPlanet, id, priceMult)
 
 		local locked: string? = nil
 		if id == profile.currentPlanet then
@@ -208,24 +275,41 @@ function TravelService.travelTo(player: Player, planetId: string): (boolean, str
 		return false, `{planet.displayName} is beyond you. Requires level {planet.minLevel - LEVEL_GRACE}`
 	end
 
+	-- Asked again here rather than trusted from the quote, for the reason the
+	-- header gives: this is the side that takes the money. A player who left
+	-- the cockpit between opening the map and pressing the button pays a fare.
+	local hull = ownHull(player)
+
 	local now = os.time()
-	local waiting = cooldownLeft(profile, now)
-	if waiting > 0 then
-		return false, `No berth for another {math.ceil(waiting / 60)} min`
+	if not hull then
+		local waiting = cooldownLeft(profile, now)
+		if waiting > 0 then
+			return false, `No berth for another {math.ceil(waiting / 60)} min`
+		end
 	end
 
 	-- Recomputed from config, never taken from the client.
-	local priceMult = progression().getStats(player).PriceMult or 1
-	local passage = Origins.passageFor(profile.origin, profile.currentPlanet, planetId, priceMult)
+	local stats = progression().getStats(player)
+	local passage = if hull
+		then fuelFor(hull, profile.currentPlanet, planetId, stats.FuelCostMult or 1)
+		else Origins.passageFor(profile.origin, profile.currentPlanet, planetId, stats.PriceMult or 1)
 	if passage.credits > 0 and not progression().spendCredits(player, passage.credits) then
-		return false, `Passage costs {passage.credits} cr`
+		return false,
+			if hull
+				then `Fuel for that jump costs {passage.credits} cr`
+				else `Passage costs {passage.credits} cr`
 	end
 
 	-- Stamped before the jump, because `travelTo` respawns the character and
-	-- anything after that is racing the character-added handler.
-	data().update(player, function(p: PlayerProfile)
-		p.lastTravelAt = now
-	end)
+	-- anything after that is racing the character-added handler. Not stamped
+	-- at all when you flew it: the clock counts the wait for a berth, and
+	-- charging a Scrapper three minutes of it for using his own ship would
+	-- make the ship worse than not having one.
+	if not hull then
+		data().update(player, function(p: PlayerProfile)
+			p.lastTravelAt = now
+		end)
+	end
 
 	local ok, reason = ServiceLoader.get("PlayerService").travelTo(player, planetId)
 	if not ok then
@@ -243,6 +327,7 @@ function TravelService.travelTo(player: Player, planetId: string): (boolean, str
 		player,
 		if passage.free
 			then `Arrived at {planet.displayName}`
+			elseif hull then `Arrived at {planet.displayName} -- {passage.credits} cr of fuel`
 			else `Arrived at {planet.displayName} -- {passage.credits} cr`,
 		"Success"
 	)
@@ -260,13 +345,19 @@ function TravelService.init()
 			return nil
 		end
 		local origin = Origins.get(profile.origin)
+		-- The header line names whoever is actually carrying you. Sitting in
+		-- your own cockpit, that is the ship -- and the origin's blurb about
+		-- begging a ride off the Empire would be a lie at that moment.
+		local hull = ownHull(player)
 		return {
 			credits = profile.credits,
 			level = profile.level,
 			currentPlanet = profile.currentPlanet,
-			originName = origin.displayName,
-			originNote = origin.travelBlurb,
-			cooldownLeft = cooldownLeft(profile, os.time()),
+			originName = if hull then hull.displayName else origin.displayName,
+			originNote = if hull
+				then "You are at the controls. Jumps cost fuel and nothing else."
+				else origin.travelBlurb,
+			cooldownLeft = if hull then 0 else cooldownLeft(profile, os.time()),
 			destinations = galaxyFor(player, profile),
 		}
 	end, {

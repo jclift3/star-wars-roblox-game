@@ -25,17 +25,17 @@
 	map can replace this entirely as long as it emits the same markers.
 ]]
 
+local CollectionService = game:GetService("CollectionService")
 local Workspace = game:GetService("Workspace")
 
 local Shared = game:GetService("ReplicatedStorage"):WaitForChild("Shared")
 local Palette = require(Shared.Config.Palette)
 local Planets = require(Shared.Config.Planets)
+-- Only for `Ships.PAD_TAG`. The spaceport has been drawing landing pads since
+-- the first world was generated; this is what lets something land on them.
+local Ships = require(Shared.Config.Ships)
 
 local PlanetBuilder = {}
-
--- Planets are laid out on a grid in one Workspace, far enough apart that no
--- two are ever in the same streaming region.
-local PLANET_SPACING = 12000
 
 local SETTLEMENT_RADIUS = 520
 local BLOCK_SIZE = 130
@@ -101,7 +101,11 @@ local ROAD_LIFT_EW = 0.24
 local ROAD_LIFT_RADIAL = 0.36
 
 local TOWER_BASE_Y = -400
-local SKYLANE_STEP = 220
+-- The tower grid and the height between platform decks. Declared in config
+-- rather than here because the client's ambient traffic flies down the gaps
+-- these leave; see the note beside them in Planets.luau.
+local TOWER_GRID = Planets.TOWER_GRID
+local SKYLANE_STEP = Planets.SKYLANE_STEP
 
 type Style = {
 	buildingColors: { Color3 },
@@ -138,16 +142,7 @@ local function seedFrom(id: string): number
 end
 
 --- Each planet's own patch of the shared Workspace.
-local function originFor(planetId: string): Vector3
-	local ids = Planets.ids()
-	table.sort(ids)
-	local index = table.find(ids, planetId) or 1
-	local column = (index - 1) % 4
-	local row = (index - 1) // 4
-	return Vector3.new(column * PLANET_SPACING, 0, row * PLANET_SPACING)
-end
-
-PlanetBuilder.originFor = originFor
+local originFor = Planets.originFor
 
 local function folder(name: string, parent: Instance): Folder
 	local existing = parent:FindFirstChild(name)
@@ -2842,7 +2837,7 @@ local function buildVerticalCity(
 	]]
 	for gx = -5, 5 do
 		for gz = -5, 5 do
-			local centre = origin + Vector3.new(gx * 240, 0, gz * 240)
+			local centre = origin + Vector3.new(gx * TOWER_GRID, 0, gz * TOWER_GRID)
 			local width = rng:NextNumber(70, 150)
 			-- Not square, but never wider than `width` could already be, for
 			-- the clearance reason above. A grid of square towers is a grid
@@ -3146,7 +3141,19 @@ local function buildWreck(parent: Instance, base: Vector3, style: Style, rng: Ra
 	return 54
 end
 
---- Landing pads and the tower that talks them down.
+--[[
+	Landing pads and the tower that talks them down.
+
+	The three pads are tagged `Ships.PAD_TAG` as they are made. They were
+	drawn from the beginning and were pure scenery until starships landed
+	(ROADMAP 2c); tagging at build time means the answer to "where can I put
+	a ship down" is the world itself rather than a second list of coordinates
+	that has to be kept true as the generator changes.
+
+	The tag goes on after the pivot has *not* happened yet -- `buildLandmark`
+	turns the whole Model afterwards -- which is exactly why the tag is on the
+	part and not a stored position. A tagged part reports where it ended up.
+]]
 local function buildSpaceport(parent: Instance, base: Vector3, style: Style, rng: Random): number
 	local plateColor = style.buildingColors[1]
 
@@ -3154,14 +3161,15 @@ local function buildSpaceport(parent: Instance, base: Vector3, style: Style, rng
 		local angle = (i - 1) * (math.pi * 2 / 3) + rng:NextNumber(-0.2, 0.2)
 		local centre = base + Vector3.new(math.cos(angle) * 78, 0, math.sin(angle) * 78)
 
-		cylinder(
+		local pad = cylinder(
 			parent,
 			CFrame.new(centre + Vector3.new(0, 1.5, 0)) * UPRIGHT,
 			Vector3.new(3, 68, 68),
 			Palette.WornSteel,
 			Enum.Material.DiamondPlate
-		).Name =
-			"Pad"
+		)
+		pad.Name = "Pad"
+		CollectionService:AddTag(pad, Ships.PAD_TAG)
 
 		-- Approach lights. A pad without them is a floor.
 		for light = 1, 6 do

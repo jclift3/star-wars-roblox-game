@@ -28,6 +28,7 @@ local Inventory = require(Shared.Core.Inventory)
 local Affixes = require(Shared.Config.Affixes)
 local Outfits = require(Shared.Config.Outfits)
 local Costumes = require(Shared.Config.Costumes)
+local Furnishings = require(Shared.Config.Furnishings)
 local Shops = require(Shared.Config.Shops)
 local Ships = require(Shared.Config.Ships)
 local Weapons = require(Shared.Config.Weapons)
@@ -127,7 +128,7 @@ end
 --------------------------------------------------------------------------------
 
 export type ItemEntry = {
-	kind: string, -- "Outfit" | "Weapon" | "Speeder"
+	kind: string, -- "Outfit" | "Weapon" | "Vehicle" | "Furnishing"
 	--[[
 		The stack this row is, not the catalogue entry it came from.
 
@@ -351,26 +352,26 @@ local function buildCatalogue(player: Player, profile: PlayerProfile, vendor: Ve
 	end
 
 	--[[
-		A speeder is never a stack, so this row is much simpler than the two
+		A vehicle is never a stack, so this row is much simpler than the two
 		above it: no uid, no rolls, no rarity, nothing to sell back. The uid
 		field is the ship id, which is what every other row's uid would be if
 		it had never been rolled on.
 	]]
-	local stockedSpeeders: { [string]: boolean } = {}
+	local stockedShips: { [string]: boolean } = {}
 	if shop then
-		for _, id in shop.speeders do
-			stockedSpeeders[id] = true
+		for _, id in shop.ships do
+			stockedShips[id] = true
 		end
 	end
 
-	local function addSpeeder(id: string)
+	local function addShip(id: string)
 		if seen[id] or not Ships.exists(id) then
 			return
 		end
 		seen[id] = true
 		local def = Ships.get(id)
 		table.insert(entries, {
-			kind = "Speeder",
+			kind = "Vehicle",
 			uid = id,
 			id = id,
 			displayName = def.displayName,
@@ -380,10 +381,55 @@ local function buildCatalogue(player: Player, profile: PlayerProfile, vendor: Ve
 			price = progression().priceFor(player, def.cost * markup),
 			owned = table.find(profile.unlockedShips, id) ~= nil,
 			equipped = profile.equipped.ship == id,
-			forSale = stockedSpeeders[id] == true,
+			forSale = stockedShips[id] == true,
 			rarity = 0,
 			affixes = {},
 			stats = shipStatLines(def),
+			carried = false,
+			sellValue = 0,
+		})
+	end
+
+	--[[
+		A furnishing is a vehicle-shaped row: owned or not, no stack, nothing
+		to sell back. `equipped` is doing real work here and means "standing
+		in the cabin right now", which is the one bit of state the panel
+		needs to draw a Place button that reads correctly.
+	]]
+	local stockedFurnishings: { [string]: boolean } = {}
+	if shop then
+		for _, id in shop.furnishings do
+			stockedFurnishings[id] = true
+		end
+	end
+
+	local function addFurnishing(id: string)
+		if seen[id] or not Furnishings.exists(id) then
+			return
+		end
+		seen[id] = true
+		local def = Furnishings.get(id)
+		-- Furnishings carry no tier of their own; the level gate is the only
+		-- progression they have. Banded into the same 1-3 the rest of the
+		-- catalogue uses, so a row reads "Tier 2" rather than "Tier 12" and
+		-- the panel's tier sort still lists a slot's three pieces in the
+		-- order a player would buy them.
+		local tier = if def.requiredLevel <= 5 then 1 elseif def.requiredLevel <= 15 then 2 else 3
+		table.insert(entries, {
+			kind = "Furnishing",
+			uid = id,
+			id = id,
+			displayName = def.displayName,
+			description = def.description,
+			tier = tier,
+			requiredLevel = def.requiredLevel,
+			price = progression().priceFor(player, def.cost * markup),
+			owned = table.find(profile.unlockedFurnishings, id) ~= nil,
+			equipped = profile.cabin[def.slot] == id,
+			forSale = stockedFurnishings[id] == true,
+			rarity = 0,
+			affixes = {},
+			stats = { { label = "Fitting", value = def.slot } },
 			carried = false,
 			sellValue = 0,
 		})
@@ -397,7 +443,10 @@ local function buildCatalogue(player: Player, profile: PlayerProfile, vendor: Ve
 		addWeapon(stack.uid, stack.id)
 	end
 	for _, id in profile.unlockedShips do
-		addSpeeder(id)
+		addShip(id)
+	end
+	for _, id in profile.unlockedFurnishings do
+		addFurnishing(id)
 	end
 	if shop then
 		for _, id in shop.outfits do
@@ -406,8 +455,11 @@ local function buildCatalogue(player: Player, profile: PlayerProfile, vendor: Ve
 		for _, id in shop.weapons do
 			addWeapon(id, id)
 		end
-		for _, id in shop.speeders do
-			addSpeeder(id)
+		for _, id in shop.ships do
+			addShip(id)
+		end
+		for _, id in shop.furnishings do
+			addFurnishing(id)
 		end
 	end
 
@@ -454,8 +506,10 @@ function ShopService.purchase(player: Player, kind: string, id: string): (boolea
 		list = shop.outfits
 	elseif kind == "Weapon" then
 		list = shop.weapons
+	elseif kind == "Furnishing" then
+		list = shop.furnishings
 	else
-		list = shop.speeders
+		list = shop.ships
 	end
 
 	local stocked = false
@@ -489,15 +543,22 @@ function ShopService.purchase(player: Player, kind: string, id: string): (boolea
 		local def = Weapons.get(id)
 		cost, requiredLevel, displayName = def.cost, def.requiredLevel, def.displayName
 		alreadyOwned = profile.inventory[id] ~= nil
-	elseif kind == "Speeder" then
+	elseif kind == "Vehicle" then
 		if not Ships.exists(id) then
 			return false, "Unknown item"
 		end
 		local def = Ships.get(id)
 		cost, requiredLevel, displayName = def.cost, def.requiredLevel, def.displayName
-		-- Speeders live in `unlockedShips`, not the bag, and there is nothing
+		-- Vehicles live in `unlockedShips`, not the bag, and there is nothing
 		-- a second copy of one could ever be for.
 		alreadyOwned = table.find(profile.unlockedShips, id) ~= nil
+	elseif kind == "Furnishing" then
+		if not Furnishings.exists(id) then
+			return false, "Unknown item"
+		end
+		local def = Furnishings.get(id)
+		cost, requiredLevel, displayName = def.cost, def.requiredLevel, def.displayName
+		alreadyOwned = table.find(profile.unlockedFurnishings, id) ~= nil
 	else
 		return false, "Unknown item"
 	end
@@ -515,8 +576,10 @@ function ShopService.purchase(player: Player, kind: string, id: string): (boolea
 		return false, "Not enough credits"
 	end
 
-	if kind == "Speeder" then
+	if kind == "Vehicle" then
 		ServiceLoader.get("VehicleService").grant(player, id)
+	elseif kind == "Furnishing" then
+		ServiceLoader.get("InteriorService").grant(player, id)
 	else
 		data().update(player, function(p: PlayerProfile)
 			Inventory.add(p.inventory, id, 1)
@@ -528,9 +591,9 @@ function ShopService.purchase(player: Player, kind: string, id: string): (boolea
 end
 
 --[[
-	Chooses which owned speeder the summon key calls in.
+	Chooses which owned vehicle the summon key calls in.
 
-	Takes a ship id rather than a uid, because a speeder is never a stack --
+	Takes a ship id rather than a uid, because a vehicle is never a stack --
 	see the note on `unlockedShips` in Types.luau. Selecting one does not
 	summon it: the two are separate on purpose, so changing your mind in the
 	inventory panel does not drop a landspeeder on the shopkeeper.
@@ -541,7 +604,7 @@ function ShopService.equipShip(player: Player, id: string): (boolean, string?)
 		return false, "Profile not loaded"
 	end
 	if not Ships.exists(id) then
-		return false, "Unknown speeder"
+		return false, "Unknown vehicle"
 	end
 	if not table.find(profile.unlockedShips, id) then
 		return false, "You do not own that"
@@ -717,7 +780,10 @@ function ShopService.init()
 		end
 	end, {
 		rateLimit = 4,
-		validate = Net.args(Net.check.oneOf({ "Outfit", "Weapon", "Speeder" }), Net.check.string(64)),
+		validate = Net.args(
+			Net.check.oneOf({ "Outfit", "Weapon", "Vehicle", "Furnishing" }),
+			Net.check.string(64)
+		),
 	})
 
 	Net.onServerEvent(Net.Event.EquipOutfit, function(player: Player, id: string)
@@ -763,7 +829,7 @@ end
 
 function ShopService.start()
 	-- Config errors surface at boot rather than at the moment of sale.
-	for _, problem in Shops.validate(Outfits.exists, Weapons.exists, Ships.exists) do
+	for _, problem in Shops.validate(Outfits.exists, Weapons.exists, Ships.exists, Furnishings.exists) do
 		warn(`[ShopService] {problem}`)
 	end
 	for _, problem in Outfits.validate(Costumes.exists) do

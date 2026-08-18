@@ -27,6 +27,7 @@ local UserInputService = game:GetService("UserInputService")
 local Shared = game:GetService("ReplicatedStorage"):WaitForChild("Shared")
 local Net = require(Shared.Core.Net)
 local Affixes = require(Shared.Config.Affixes)
+local Furnishings = require(Shared.Config.Furnishings)
 local Palette = require(Shared.Config.Palette)
 local Ships = require(Shared.Config.Ships)
 local Panels = require(Shared.Core.Panels)
@@ -213,12 +214,15 @@ local function buildTabs(parent: Frame)
 	local kinds = {
 		{ id = "Outfit", label = "OUTFITS" },
 		{ id = "Weapon", label = "WEAPONS" },
-		{ id = "Speeder", label = "SPEEDERS" },
+		{ id = "Vehicle", label = "VEHICLES" },
+		{ id = "Furnishing", label = "CABIN" },
 	}
 	for index, kind in kinds do
 		local b = button(kind.id, parent, kind.label)
-		b.Position = UDim2.fromOffset(16 + (index - 1) * 122, 60)
-		b.Size = UDim2.fromOffset(114, 28)
+		-- Four tabs across the 760-wide panel: 176 apiece was room for three
+		-- and is not room for four.
+		b.Position = UDim2.fromOffset(16 + (index - 1) * 96, 60)
+		b.Size = UDim2.fromOffset(88, 28)
 		b.TextSize = 12
 		tabButtons[kind.id] = b
 	end
@@ -365,8 +369,17 @@ local function renderDetail()
 
 	local underLevelled = snap.level < item.requiredLevel
 
-	if item.equipped then
-		actionButton.Text = if item.kind == "Speeder"
+	if item.equipped and item.kind == "Furnishing" then
+		-- The one "already in use" state that is still a button. Emptying a
+		-- slot is the only way to have a bare wall, and without this the
+		-- server's own clear path would be code no player can reach --
+		-- which this project has shipped twice and does not intend to again.
+		actionButton.Text = `REMOVE — PRESS {Furnishings.BOARD_KEY.Name} TO LOOK`
+		actionButton.BackgroundColor3 = ACCENT
+		actionButton.TextColor3 = Color3.new(0, 0, 0)
+		actionButton.Active = true
+	elseif item.equipped then
+		actionButton.Text = if item.kind == "Vehicle"
 			then `SELECTED — PRESS {Ships.SUMMON_KEY.Name}`
 			else "EQUIPPED"
 		actionButton.BackgroundColor3 = ROW
@@ -378,7 +391,8 @@ local function renderDetail()
 		-- as a failure.
 		actionButton.Text = if item.kind == "Outfit"
 			then "WEAR"
-			elseif item.kind == "Speeder" then `SELECT — PRESS {Ships.SUMMON_KEY.Name} TO CALL`
+			elseif item.kind == "Vehicle" then `SELECT — PRESS {Ships.SUMMON_KEY.Name} TO CALL`
+			elseif item.kind == "Furnishing" then "FIT TO CABIN"
 			else "EQUIP"
 		actionButton.BackgroundColor3 = ACCENT
 		actionButton.TextColor3 = Color3.new(0, 0, 0)
@@ -483,7 +497,10 @@ local function renderRow(item: ItemEntry, order: number)
 	end
 
 	if item.equipped then
-		price.Text = if item.kind == "Speeder" then "SELECTED" else "EQUIPPED"
+		price.Text = if item.kind == "Vehicle"
+			then "SELECTED"
+			elseif item.kind == "Furnishing" then "FITTED"
+			else "EQUIPPED"
 		price.TextColor3 = ACCENT
 	elseif item.owned then
 		price.Text = "OWNED"
@@ -531,11 +548,11 @@ local function renderList()
 	local mine: { ItemEntry } = {}
 	local theirs: { ItemEntry } = {}
 	for _, item in entriesFor(activeTab) do
-		-- A speeder is `owned` and never `carried`: it lives in the profile's
+		-- A vehicle is `owned` and never `carried`: it lives in the profile's
 		-- `unlockedShips`, not in the bag, precisely so that it cannot be sold
 		-- or take up a slot. Splitting on `carried` alone would therefore file
 		-- the speeder you just bought under the shopkeeper's stock.
-		local yours = item.carried or (item.kind == "Speeder" and item.owned)
+		local yours = item.carried or ((item.kind == "Vehicle" or item.kind == "Furnishing") and item.owned)
 		table.insert(if yours then mine else theirs, item)
 	end
 
@@ -558,7 +575,10 @@ local function renderList()
 		empty.Size = UDim2.new(1, -8, 0, 40)
 		empty.Text = if activeTab == "Outfit"
 			then "You are carrying no outfits. Find a trader to buy some."
-			elseif activeTab == "Speeder" then "You own no speeders. A trader will sell you one."
+			elseif activeTab == "Vehicle" then "You own no speeders or ships. A trader will sell you one."
+			elseif
+				activeTab == "Furnishing"
+			then `Your cabin is bare. Buy a fitting, then stand by your starship and press {Furnishings.BOARD_KEY.Name}.`
 			else "You are carrying no weapons. Find a trader to buy some."
 	end
 
@@ -690,15 +710,23 @@ function InventoryController.start()
 		if not item or not actionButton.Active then
 			return
 		end
+		-- A fitted furnishing is the one row whose action is still live: the
+		-- button reads REMOVE, and nil is how the server empties a slot.
+		if item.kind == "Furnishing" and item.owned then
+			local slot = Furnishings.get(item.id).slot
+			Net.fireServer(Net.Event.PlaceFurnishing, slot, if item.equipped then nil else item.id)
+			return
+		end
+
 		if item.equipped then
 			return
 		elseif item.owned then
 			-- Equipping names the stack, buying names the catalogue entry.
-			-- A speeder has no stack, so for that one kind they are the same
+			-- A vehicle has no stack, so for that one kind they are the same
 			-- string -- see the note on `unlockedShips` in Types.luau.
 			if item.kind == "Outfit" then
 				Net.fireServer(Net.Event.EquipOutfit, item.uid)
-			elseif item.kind == "Speeder" then
+			elseif item.kind == "Vehicle" then
 				Net.fireServer(Net.Event.EquipShip, item.id)
 			else
 				Net.fireServer(Net.Event.EquipWeapon, item.uid)

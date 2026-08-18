@@ -36,6 +36,7 @@ local Inventory = require(Shared.Core.Inventory)
 local Alignment = require(Shared.Config.Alignment)
 local Factions = require(Shared.Config.Factions)
 local Flags = require(Shared.Config.Flags)
+local Furnishings = require(Shared.Config.Furnishings)
 local Origins = require(Shared.Config.Origins)
 local Planets = require(Shared.Config.Planets)
 local Ships = require(Shared.Config.Ships)
@@ -134,6 +135,10 @@ local function defaultProfile(): PlayerProfile
 		-- speeder is the first real thing to save up for; being handed one
 		-- would have taken that away.
 		unlockedShips = {},
+		-- Empty for the same reason, and one step stronger: a cabin you were
+		-- handed furnished is a room you never chose anything about.
+		unlockedFurnishings = {},
+		cabin = {},
 		missions = {
 			active = {},
 			completed = {},
@@ -229,6 +234,34 @@ local function migrate(saved: any): PlayerProfile
 		for _, id in saved.unlockedShips do
 			if type(id) == "string" and Ships.exists(id) then
 				table.insert(base.unlockedShips, id)
+			end
+		end
+	end
+
+	if type(saved.unlockedFurnishings) == "table" then
+		for _, id in saved.unlockedFurnishings do
+			if type(id) == "string" and Furnishings.exists(id) then
+				table.insert(base.unlockedFurnishings, id)
+			end
+		end
+	end
+	--[[
+		A placed furnishing has to survive two filters, not one.
+
+		It must still exist, and it must still belong to the slot it is
+		filed under -- moving a piece from Trophy to Console in config would
+		otherwise leave it standing in an old profile at coordinates
+		`Furnishings.validate` has never measured it against.
+	]]
+	if type(saved.cabin) == "table" then
+		for slotId, id in saved.cabin do
+			if
+				type(slotId) == "string"
+				and type(id) == "string"
+				and Furnishings.exists(id)
+				and Furnishings.get(id).slot == slotId
+			then
+				base.cabin[slotId] = id
 			end
 		end
 	end
@@ -475,6 +508,8 @@ local function clientView(profile: PlayerProfile)
 		inventory = profile.inventory,
 		equipped = profile.equipped,
 		unlockedShips = profile.unlockedShips,
+		unlockedFurnishings = profile.unlockedFurnishings,
+		cabin = profile.cabin,
 		missions = profile.missions,
 		stats = profile.stats,
 	}

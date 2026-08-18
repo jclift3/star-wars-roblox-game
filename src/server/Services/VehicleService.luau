@@ -30,6 +30,7 @@
 	and the seat are all still decided here.
 ]]
 
+local CollectionService = game:GetService("CollectionService")
 local Players = game:GetService("Players")
 local Workspace = game:GetService("Workspace")
 
@@ -99,6 +100,86 @@ function VehicleService.grant(player: Player, shipId: string)
 			p.equipped.ship = shipId
 		end
 	end)
+end
+
+--------------------------------------------------------------------------------
+-- Landing pads
+--------------------------------------------------------------------------------
+
+--[[
+	The nearest free landing pad to `position`, or nil if there is none.
+
+	"Free" means no other player's ship is already sitting on it. A spaceport
+	draws three pads and the two brothers this game is for play in the same
+	room, so the case where both of them call a hull down onto the same disc
+	is not a corner -- it is Saturday. Two physics models occupying the same
+	coordinates shove each other off it.
+
+	Scanning every tagged pad in the world rather than only this planet's is
+	deliberate laziness that is also correct: there are fifteen pads across
+	nine worlds and the planets are 12,000 studs apart, so anything on
+	another world fails the range test before it fails anything else.
+]]
+local function nearestPad(position: Vector3): BasePart?
+	local taken: { [BasePart]: boolean } = {}
+	for _, model in spawned do
+		local chassis = model.PrimaryPart
+		if not chassis then
+			continue
+		end
+		for _, pad in CollectionService:GetTagged(Ships.PAD_TAG) do
+			if pad:IsA("BasePart") and (pad.Position - chassis.Position).Magnitude < pad.Size.Y * 0.5 then
+				taken[pad] = true
+			end
+		end
+	end
+
+	local best: BasePart? = nil
+	local bestDistance = Ships.PAD_RANGE
+	for _, pad in CollectionService:GetTagged(Ships.PAD_TAG) do
+		if not pad:IsA("BasePart") or taken[pad] then
+			continue
+		end
+		local distance = (pad.Position - position).Magnitude
+		if distance < bestDistance then
+			best = pad
+			bestDistance = distance
+		end
+	end
+	return best
+end
+
+--[[
+	The starship `player` is currently at the controls of, if any.
+
+	TravelService asks, because sitting in a hull you own is what turns a
+	chartered fare into a fuel bill. Deliberately the *driver's* seat and
+	nothing else: a passenger is riding, and letting a passenger buy the
+	cheap fare would mean one player with a Dagger discounting the whole
+	server's travel by standing still.
+]]
+function VehicleService.pilotedStarship(player: Player): string?
+	local model = spawned[player]
+	if not model then
+		return nil
+	end
+	local shipId = model:GetAttribute("ShipId")
+	if type(shipId) ~= "string" or not Ships.isStarship(shipId) then
+		return nil
+	end
+	local seat = ShipModel.driverSeat(model)
+	local occupant = seat and seat.Occupant
+	local character = occupant and occupant.Parent
+	local driver = if character and character:IsA("Model")
+		then Players:GetPlayerFromCharacter(character)
+		else nil
+	return if driver == player then shipId else nil
+end
+
+--- The vehicle `player` currently has out, if any. Read-only to callers;
+--- everything that creates or removes one goes through this service.
+function VehicleService.spawnedFor(player: Player): Model?
+	return spawned[player]
 end
 
 --------------------------------------------------------------------------------
@@ -193,10 +274,10 @@ function VehicleService.toggle(player: Player): (boolean, string?)
 
 	local shipId = profile.equipped.ship
 	if not shipId or not Ships.exists(shipId) then
-		return false, "You do not own a speeder"
+		return false, "You have no vehicle selected"
 	end
 	if not VehicleService.owns(profile, shipId) then
-		return false, "You do not own that speeder"
+		return false, "You do not own that"
 	end
 
 	local character = player.Character
@@ -207,22 +288,57 @@ function VehicleService.toggle(player: Player): (boolean, string?)
 	end
 
 	local def = Ships.get(shipId)
+
+	--[[
+		A starship needs somewhere to have been.
+
+		A speeder appearing out of nothing beside you is a repulsorlift
+		valet and reads as one. A freighter doing it does not, and the
+		refusal is worth more than the convenience: it is the only reason
+		the player ever walks to a spaceport, and the spaceports have been
+		standing on five worlds with three empty pads each since the first
+		planet was generated.
+
+		Checked before the model is built, so a refusal costs nothing.
+	]]
+	local pad: BasePart? = nil
+	if Ships.isStarship(shipId) then
+		pad = nearestPad(root.Position)
+		if not pad then
+			return false, "Starships launch from a landing pad. Find a spaceport."
+		end
+	end
+
 	local model = ShipModel.build(shipId)
 	local chassis = model.PrimaryPart :: BasePart
 
 	--[[
-		Placed ahead of the player at their own height plus the hover gap,
-		facing the same way they are.
+		On the pad if there is one, otherwise ahead of the player at their
+		own height plus the hover gap. Facing the way they are either way.
 
 		Not raycast down to find the ground: a speeder dropped a few studs
 		high falls those few studs, which looks like a delivery, whereas one
 		placed by a raycast that hit a rock ends up inside it. The hover loop
 		takes over on the first frame either way.
 	]]
-	local ahead = root.CFrame * CFrame.new(0, 0, -Ships.SUMMON_DISTANCE)
-	model:PivotTo(
-		CFrame.new(ahead.Position + Vector3.new(0, def.hoverHeight, 0), ahead.Position + ahead.LookVector)
-	)
+	local at: Vector3
+	if pad then
+		-- The pad is a cylinder stood on end, so its thickness is on X and
+		-- its 68-stud face is the disc. Reading `Size.Y` would put the ship
+		-- thirty-four studs in the air.
+		at = pad.Position + Vector3.new(0, pad.Size.X * 0.5 + def.hoverHeight, 0)
+	else
+		at = (root.CFrame * CFrame.new(0, 0, -Ships.SUMMON_DISTANCE)).Position
+			+ Vector3.new(0, def.hoverHeight, 0)
+	end
+
+	-- Flattened, because `CFrame.new(at, at)` throws and a character looking
+	-- straight down is the one way the two arguments can be equal.
+	local facing = root.CFrame.LookVector * Vector3.new(1, 0, 1)
+	if facing.Magnitude < 0.01 then
+		facing = Vector3.new(0, 0, -1)
+	end
+	model:PivotTo(CFrame.new(at, at + facing))
 
 	-- Parked speeders hover. Anchoring an idle one is not a shortcut around
 	-- physics, it is what a repulsorlift does when you get off it -- and it
