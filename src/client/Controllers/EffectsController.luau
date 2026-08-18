@@ -243,6 +243,8 @@ type SwingState = {
 local swings: { [Model]: SwingState } = {}
 setmetatable(swings :: any, { __mode = "k" })
 
+local warnedNoArm = false
+
 local function motor(character: Model, limb: string, joint: string): Motor6D?
 	local part = character:FindFirstChild(limb)
 	local found = if part then part:FindFirstChild(joint) else nil
@@ -264,6 +266,23 @@ end
 function EffectsController.swing(character: Model, weaponId: string)
 	local shoulder = motor(character, "RightUpperArm", "RightShoulder")
 	if not shoulder then
+		--[[
+			Said out loud, once, because the alternative is the exact bug this
+			whole section exists to fix: a swing that lands, deals damage and
+			draws nothing, with no way to tell that from a swing that never
+			happened.
+
+			`RightUpperArm` is an R15 part name. The likeliest reason it is
+			missing is an R6 avatar, which `PlayerService` also refuses to dress
+			-- so if this fires, check the output for its warning too and set
+			Avatar Type to R15 in Game Settings.
+		]]
+		if not warnedNoArm then
+			warnedNoArm = true
+			warn(
+				`[EffectsController] no RightUpperArm/RightShoulder on {character.Name}; swings cannot be drawn`
+			)
+		end
 		return
 	end
 	local elbow = motor(character, "RightLowerArm", "RightElbow")

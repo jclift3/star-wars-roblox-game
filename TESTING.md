@@ -1186,6 +1186,13 @@ away every melee `WeaponEffect` it was sent, so nothing about it was visible.
 2. Click. **The arm moves** — wind up, strike, return — and a **glowing arc**
    follows the blade and fades behind it. Hold the button: swings **alternate
    direction**, so it reads as a combo rather than a twitch.
+2a. **Do all of step 2 again with a vibroblade, a gaderffii and an
+   electrostaff.** Every melee weapon leaves an arc, not just the lit ones — a
+   steel edge draws a pale, shorter streak. The trail hangs off the *longest*
+   part, which is the blade on a vibroblade and the **shaft** on the two staves.
+   If the arm does not move at all on any weapon, check the output window: the
+   swing warns once about a missing `RightUpperArm`, which means an R6 avatar
+   (Game Settings → Avatar → Avatar Type → R15) and not a bug in the swing.
 3. **Hit something.** Sparks in the blade's colour appear *at the point the
    server says the hit landed*. Swing at empty air: arc, no sparks. A spark with
    no damage would mean the client is guessing.

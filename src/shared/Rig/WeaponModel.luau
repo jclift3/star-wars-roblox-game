@@ -95,21 +95,38 @@ end
 	the model means every machine that can see the character can already see
 	the arc, and switching it on is one property.
 
-	The blade is a Cylinder whose length runs along its own X -- see the `rot`
-	on `blade()` -- so the two ends are at plus and minus half the size's X.
+	IT IS NOT ONLY FOR LIT BLADES
+	This first shipped gated on `WeaponDef.blade`, which meant a lightsaber
+	drew an arc and a vibroblade drew nothing -- and a vibroblade is the
+	weapon most likely to be in a low-level character's hand. Reported
+	immediately: *"I just tried using my sword (vibroblade) but there doesn't
+	seem to be any animation."* A steel edge leaves a streak too; it is just
+	pale and short instead of glowing.
+
+	THE LONG AXIS IS FOUND, NOT ASSUMED
+	A lit blade is a Cylinder rotated so its length runs along X. The
+	vibroblade's blade is a plain block 2.2 studs long on **Z**, and the
+	gaderffii's shaft is a cylinder on X again. Reading `size.X` -- which is
+	what the lightsaber-only version did -- would have put both attachments
+	inside a 0.06-stud edge and drawn a trail with no width at all.
 ]]
-local function buildTrail(bladePart: BasePart, spec: Weapons.WeaponPart)
-	local half = spec.size.X * 0.5
+local function buildTrail(part: BasePart, spec: Weapons.WeaponPart, lit: boolean)
+	local size = spec.size
+	local half = math.max(size.X, size.Y, size.Z) * 0.5
+	local along = if size.X >= size.Y and size.X >= size.Z
+		then Vector3.xAxis
+		elseif size.Y >= size.Z then Vector3.yAxis
+		else Vector3.zAxis
 
 	local tip = Instance.new("Attachment")
 	tip.Name = "TrailTip"
-	tip.Position = Vector3.new(half, 0, 0)
-	tip.Parent = bladePart
+	tip.Position = along * half
+	tip.Parent = part
 
 	local base = Instance.new("Attachment")
 	base.Name = "TrailBase"
-	base.Position = Vector3.new(-half, 0, 0)
-	base.Parent = bladePart
+	base.Position = along * -half
+	base.Parent = part
 
 	local trail = Instance.new("Trail")
 	trail.Name = "SwingTrail"
@@ -117,16 +134,44 @@ local function buildTrail(bladePart: BasePart, spec: Weapons.WeaponPart)
 	trail.Attachment1 = base
 	trail.Color = ColorSequence.new(spec.color or Color3.new(1, 1, 1))
 	-- Solid at the leading edge, gone at the tail, so the arc reads as a
-	-- direction rather than a smear.
+	-- direction rather than a smear. An unlit edge starts fainter: steel
+	-- catches the light, it does not emit any.
 	trail.Transparency = NumberSequence.new({
-		NumberSequenceKeypoint.new(0, 0.3),
+		NumberSequenceKeypoint.new(0, if lit then 0.3 else 0.55),
 		NumberSequenceKeypoint.new(1, 1),
 	})
-	trail.Lifetime = 0.22
-	trail.LightEmission = 1
+	trail.Lifetime = if lit then 0.22 else 0.14
+	trail.LightEmission = if lit then 1 else 0.35
 	trail.FaceCamera = true
 	trail.Enabled = false
-	trail.Parent = bladePart
+	trail.Parent = part
+end
+
+--[[
+	The part whose sweep is worth drawing: the blade, or the longest thing the
+	weapon is made of.
+
+	"Longest" rather than a part called "Blade", because the thing that carves
+	the arc on a gaderffii and an electrostaff is the shaft, and neither has a
+	part by that name. It is also the honest general answer -- whatever sticks
+	out furthest is what an onlooker watches.
+]]
+local function trailSpec(def: Weapons.WeaponDef): Weapons.WeaponPart?
+	if def.blade then
+		return def.blade
+	end
+	if def.class ~= "Melee" then
+		return nil
+	end
+	local best: Weapons.WeaponPart? = nil
+	local bestLength = 1.0 -- shorter than this is a fitting, not a business end
+	for _, spec in def.parts do
+		local length = math.max(spec.size.X, spec.size.Y, spec.size.Z)
+		if length > bestLength then
+			best, bestLength = spec, length
+		end
+	end
+	return best
 end
 
 --[[
@@ -158,12 +203,13 @@ function WeaponModel.build(weaponId: string): Model
 		table.insert(specs, def.blade)
 	end
 
-	local bladePart: BasePart? = nil
+	local wantsTrail = trailSpec(def)
+	local trailPart: BasePart? = nil
 	for _, spec in specs do
 		local p = buildPart(spec, handle.CFrame)
 		p.Parent = model
-		if spec == def.blade then
-			bladePart = p
+		if spec == wantsTrail then
+			trailPart = p
 		end
 
 		local weld = Instance.new("WeldConstraint")
@@ -172,8 +218,8 @@ function WeaponModel.build(weaponId: string): Model
 		weld.Parent = p
 	end
 
-	if bladePart and def.blade then
-		buildTrail(bladePart, def.blade)
+	if trailPart and wantsTrail then
+		buildTrail(trailPart, wantsTrail, def.blade ~= nil)
 	end
 
 	-- Muzzle is an Attachment rather than a part so effects can be parented to
@@ -241,9 +287,9 @@ end
 --[[
 	The swing trail on the weapon `character` is holding, if it has one.
 
-	Searched by name rather than by walking to the Blade, because a vibroblade
-	also has a part called "Blade" and does not have one of these: only a
-	`WeaponDef.blade` -- a lit blade -- gets a trail.
+	Searched by name rather than by walking to a known part, because which part
+	carries it depends on the weapon: a lit blade for a lightsaber, the shaft
+	for a staff, the blade for a vibroblade. A blaster has none.
 ]]
 function WeaponModel.trail(character: Model): Trail?
 	local model = WeaponModel.equipped(character)
