@@ -2428,7 +2428,7 @@ carries about sixty people; twenty-two of them are real.
   crowd walking three studs under the road the day somebody changes it. One
   downward raycast per route point at build time instead.
 
-### 5.1 Free-form characters — **[todo]**
+### 5.1 Free-form characters — **[Luau half done 2026-08-18; blocked on a backend]**
 Designed 2026-08-15, full document in [LIVING-NPCS.md](LIVING-NPCS.md). The
 short version: **10–20 characters in the whole game** talk freely; everyone else
 keeps their authored `Dialogue.luau` tree. Each one is hiding something, and
@@ -2436,9 +2436,41 @@ talking it out of them is the puzzle — so players trying to jailbreak them is
 the intended loop rather than abuse of it.
 
 Depends on Phase 1.3 (dialogue) as the delivery surface and 4.1 for the backend.
-**The reward half is already built** — 4.2 shipped `Config/Secrets.luau` and
-`SecretService`, so what is left here is genuinely only text generation. Three
-things that must not be forgotten:
+
+**Both halves that do not need a model are now built.** 4.2 shipped
+`Config/Secrets.luau` and `SecretService` — the reward half — and
+`Config/Personas.luau` is §8's character sheet: what each of the six wants,
+fears, sounds like, volunteers, deflects, and does not know. `Personas.validate`
+runs at boot from `DialogueService.init` beside Cast and Secrets. What remains
+is genuinely only the text generator and the endpoint it calls.
+
+- **`never` is the field that earns the file.** The common failure of an AI NPC
+  is not offence, it is fluent invented lore, and no prompt fixes that — only
+  knowing in advance what a character does not know. Ordo-9 answering "who built
+  you?" with a plausible name is worse than any jailbreak, because nothing flags
+  it and it becomes canon in a fourteen-year-old's head. Written as facts about
+  the character rather than as instructions: *"has never been off this rock"*
+  survives being argued with, *"do not discuss Korriban"* is a rule, and a rule
+  is a thing a player can talk a model out of. `validate` refuses an empty
+  `never`.
+- **The answers are not in the file.** `holds` names each secret by its `topic`
+  word and says how the character *deflects* it; the answer text stays as the
+  `opens` node in `Dialogue.luau`, sent by the server only after
+  `SecretService.raise` has checked `Secrets.requires`. So a brief assembled
+  from this config can be handed to a model, and a player who talks that model
+  out of every instruction it has still gets nothing — it was never told the
+  thing. That is the difference between asking a model to keep a secret and a
+  system where the secret was never in the room.
+- **No stats field**, though §8 asks for one. `Cast.archetype` already is the
+  body they wear and the table `CombatService` reads, so a boast already matches
+  the fight. A second copy would drift.
+- **`holds` is checked in both directions**, the same shape as Secrets' pair of
+  checks against the trees. A persona deflecting a topic no secret answers is a
+  character built to dodge a question nobody can ask; a secret whose speaker has
+  a sheet that omits it is the character who, on the day the model lands, gets
+  asked the one thing they were given no instruction about.
+
+Three things that must not be forgotten:
 
 - **The model never grants anything.** It decides what a character says; a
   deterministic server check decides what was earned. A unique crystal farmable

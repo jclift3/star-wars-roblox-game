@@ -35,6 +35,7 @@ local Missions = require(Shared.Config.Missions)
 local NPCArchetypes = require(Shared.Config.NPCArchetypes)
 local Net = require(Shared.Core.Net)
 local Origins = require(Shared.Config.Origins)
+local Personas = require(Shared.Config.Personas)
 local Progression = require(Shared.Config.Progression)
 local Secrets = require(Shared.Config.Secrets)
 local ServiceLoader = require(Shared.Core.ServiceLoader)
@@ -462,6 +463,18 @@ function DialogueService.init()
 	-- it are the two that would close a cycle by requiring each other.
 	for _, problem in Secrets.validate(Missions.exists, Origins.exists, Flags.exists, statIsLive) do
 		warn(`[DialogueService] secrets config: {problem}`)
+	end
+
+	--[[
+		And the character sheets behind those secrets. Nothing generates text
+		yet -- this is the Luau half of ROADMAP 5.1, deliberately built ahead
+		of the model for the reason Secrets.luau was -- but the check has to
+		run from the day the file exists, because the failure it catches is a
+		persona and a secret drifting apart, and that drift is silent until
+		the day something asks a model a question the sheet never covered.
+	]]
+	for _, problem in Personas.validate() do
+		warn(`[DialogueService] personas config: {problem}`)
 	end
 
 	--[[
