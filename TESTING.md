@@ -695,6 +695,67 @@ is like before showing them this list.
 17. Boot output for all three: no `is in no district`, no `is marked drawn
     but…`, no band-overlap or XP-budget warnings.
 
+### 5.12 Named places — **new, never played**
+
+Seven landmarks that used to be generic buildings now have their own geometry.
+These are all *outside* the town grids, out in the far districts, so getting to
+each one is a walk — bring a speeder (§6.3).
+
+**The one-line summary of what this fixed: the Tomb of Tulak Hord was a crashed
+starship.** If any of these still looks like a wreck or a shed, the `landmark`
+field is not reaching the builder.
+
+1. **Korriban → the Tombs.** The **Tomb of Tulak Hord** is a **facade cut into a
+   cliff face**: two battered jambs under a heavy lintel, a stepped dais coming
+   down toward you, and two lit braziers. **The doorway is filled in** — there
+   is no way in and there is not meant to be. It is not a nose-down freighter.
+2. Compare it with the **Valley of the Dark Lords** in the same trip. Both are
+   tombs and they are *different* tombs — the Valley is four facades in the
+   drawn grid, this is one standing alone.
+3. **Coruscant → the Temple Ruin.** A raised terrace with a colonnade where
+   **most of the columns are down**: some standing with capitals, some snapped
+   to stumps, some with their drums lying beside them in a row. A spire lies
+   across the terrace at an angle. **One corner of the top step is missing.**
+   *(Before this it was Tython's intact ziggurat, and only the sign said ruin.)*
+4. **Coruscant → any of the three skylanes** (Alpha, Beta, Gamma). A control
+   deck with a rail on **three** sides — the fourth side is the lane, and it is
+   open. Then **two rows of pylons receding away into the fog**, each with a lit
+   marker on top: one row white, one row blue. All three lanes use the same
+   builder, so all three look alike; that is intended.
+5. Stand on a skylane deck and look along the pylons. They should read as *the
+   lane itself*, going somewhere, not as fourteen posts in a field.
+6. **Tatooine → the Farmstead.** The **Vantel Moisture Farm** is a **sunken
+   courtyard** inside a low kerb, with **one gap in the kerb** and a ramp down
+   through it, two domed huts and a cistern beside it — and then **two rings of
+   vaporators** standing out in the sand around the lot.
+   Count them: sixteen, seven in the inner ring and nine in the outer. The
+   config says forty; sixteen is what fits, and the point is that it reads as a
+   *field* of them rather than as one machine.
+7. **Tatooine → the Boneyard.** A hauler **broken in two** with its back arched
+   up and ribs across the gap, a row of **snapped** vaporator masts, three
+   speeder chassis up on blocks and a stack of panels. Everything stripped.
+   Compare with the **Dune Sea Wreck** on the same planet, which is still a
+   generic `Ruin` — they should look nothing alike.
+8. **Taris → the Sinking Sector.** Four towers, all leaning about the same
+   angle, with **catwalks between their feet** and rubble banked where each one
+   went into the ground. Sight along them: they lean at **twenty degrees**, the
+   number the config gives. Their window bands lean with them — no band should
+   be sitting level on a tilted wall.
+9. Try to walk between the towers. The rubble and the catwalks are there to be
+   climbed on; that is fine. Nothing should be floating clear of the ground.
+10. **Tython → Forge Ridge.** A **ring of standing stones with one gap** in it
+    (the way in), an anvil at the centre and **live coals** casting orange
+    light. This is where the lightsaber chain ends and it used to be a crashed
+    freighter.
+11. **All seven:** the nameplate is over the middle of the thing, not floating
+    off to one side, and the door/entrance faces the road you arrive on.
+12. **Nothing else changed.** Anchorhead's spaceport, Dune Cantina, Nagurra's
+    Estate, the Sandcrawler Wreck, the Jagged Wilds, the Works, the Gnarls and
+    Czerka Lot 9 are all exactly as they were. *(Only nine POIs got a
+    `landmark`; everything else still draws from its `kind`.)*
+13. Boot output: no `names unknown landmark` lines. *(That check is new — it is
+    what stops a misspelt `landmark` silently going back to being a shed.)*
+
 ---
 
 ## 6. Travel and origins

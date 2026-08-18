@@ -582,6 +582,11 @@ def({
 			id = "MoistureFarm",
 			displayName = "Vantel Moisture Farm",
 			kind = "Outpost",
+			-- The generic outpost drew one shed. "Forty vaporators" is the
+			-- description's own number and the whole silhouette of a farm on
+			-- this world: two domes in a walled yard, ringed by a field of
+			-- condensers.
+			landmark = "MoistureFarm",
 			description = "Forty vaporators and one family, on the edge of the Dune Sea.",
 			zone = "Farmstead",
 		},
@@ -591,6 +596,11 @@ def({
 			kind = "Ruin",
 			-- Gives the district a POI, which is what makes `Radiant` write
 			-- a Salvage here as well as a Cull.
+			--
+			-- `Ruin` draws one intact wreck, which is the opposite of the
+			-- word: a boneyard is the same machines the farm uses, stripped
+			-- and in rows.
+			landmark = "Boneyard",
 			description = "Vaporators, speeders and one hauler, all of them stripped. Anchorhead's answer to a graveyard.",
 			zone = "Boneyard",
 		},
@@ -714,6 +724,11 @@ def({
 			id = "JediTempleRuin",
 			displayName = "The Temple Ruin",
 			kind = "Temple",
+			-- It was drawing Tython's intact ziggurat, so the word "ruin" was
+			-- carried entirely by the sign. A colonnade with most of its
+			-- columns down and a spire lying across the terrace says
+			-- "never rebuilt" without the sign's help.
+			landmark = "TempleRuin",
 			description = "Never rebuilt. The Order says it is a memorial; everyone else can see it is an admission.",
 			zone = "TempleRuin",
 		},
@@ -749,6 +764,12 @@ def({
 			id = "SkylaneAlpha",
 			displayName = "Skylane Alpha",
 			kind = "Outpost",
+			-- All three shared one builder and all three were sheds, which
+			-- made the defining thing about Coruscant -- that the city is
+			-- vertical and the traffic is above you -- invisible from the
+			-- ground. A control deck and two rows of lit pylons receding into
+			-- the fog is the lane itself, and it reads from a long way off.
+			landmark = "Skylane",
 			description = "The high commercial lane. Traffic moves fast and does not stop for you.",
 			zone = "Skylane",
 		},
@@ -756,6 +777,7 @@ def({
 			id = "SkylaneBeta",
 			displayName = "Skylane Beta",
 			kind = "Outpost",
+			landmark = "Skylane",
 			description = "A mid-level freight lane threading between the towers.",
 			zone = "Skylane",
 		},
@@ -763,6 +785,7 @@ def({
 			id = "SkylaneGamma",
 			displayName = "Skylane Gamma",
 			kind = "Outpost",
+			landmark = "Skylane",
 			description = "The low lane, close enough to the underlevels that patrols go in pairs.",
 			zone = "Underlevels",
 		},
@@ -1130,6 +1153,10 @@ def({
 			id = "ForgeRidge",
 			displayName = "Forge Ridge",
 			kind = "Ruin",
+			-- The place the lightsaber chain ends, and it was a crashed
+			-- freighter. A standing ring with an anvil and live coals at the
+			-- centre is what the five quests have been walking towards.
+			landmark = "Forge",
 			description = "Where sabers are made. Getting up here is the easy half.",
 			zone = "ForgeRidge",
 		},
@@ -1373,6 +1400,11 @@ def({
 			id = "SinkingSector",
 			displayName = "The Sinking Sector",
 			kind = "Ruin",
+			-- "Twenty degrees" is a number in the description, so the builder
+			-- honours it exactly: four towers leaning about their feet at
+			-- twenty degrees, catwalks between them, rubble banked where each
+			-- one went in.
+			landmark = "LeaningTowers",
 			description = "Towers leaning at twenty degrees and still settling. You go up through them, not around.",
 			zone = "SinkingSector",
 		},
@@ -1709,6 +1741,13 @@ def({
 			id = "TombOfTulakHord",
 			displayName = "Tomb of Tulak Hord",
 			kind = "Ruin",
+			-- The worst case in the game before this line existed: `Ruin`
+			-- means "something that used to fly, nose-down in the ground",
+			-- so a world whose entire claim on the player is that it is a
+			-- valley of tombs had a crashed freighter in it with a sign
+			-- saying TOMB. A cut facade with a filled doorway is the whole
+			-- description -- sealed, and by someone who meant it.
+			landmark = "Tomb",
 			description = "Sealed, and the seal is not there to keep anything in.",
 			zone = "Tombs",
 		},
@@ -2502,10 +2541,15 @@ end
 	takes `planetExists`: the prefabs live in `PlanetBuilder`, which is a server
 	module that already requires this one, and requiring it back would be a
 	cycle -- and would drag the whole builder into every client that wants to
-	know a planet's name. `prefabHasRoom` comes the same way and for the same
-	reason; two predicates is the price of the boundary staying one-way.
+	know a planet's name. `prefabHasRoom` and `landmarkExists` come the same way
+	and for the same reason; three predicates is the price of the boundary
+	staying one-way.
 ]]
-function Planets.validate(prefabExists: (string) -> boolean, prefabHasRoom: (string) -> boolean): { string }
+function Planets.validate(
+	prefabExists: (string) -> boolean,
+	prefabHasRoom: (string) -> boolean,
+	landmarkExists: (string) -> boolean
+): { string }
 	local problems = {}
 
 	--[[
@@ -2800,6 +2844,21 @@ function Planets.validate(prefabExists: (string) -> boolean, prefabHasRoom: (str
 		for _, poi in p.pointsOfInterest do
 			if poi.zone and not seen[poi.zone] then
 				table.insert(problems, `{id}: POI "{poi.id}" names undeclared zone "{poi.zone}"`)
+			end
+			--[[
+				A `landmark` naming no builder.
+
+				`landmarkFor` falls back to an outpost, which is deliberate for
+				an unrecognised `kind` -- the builder set is smaller than the
+				vocabulary and a small building with the right sign over it is
+				an honest stand-in. It is the wrong answer for a `landmark`,
+				because that field is only ever written on purpose: misspell
+				it and the Tomb of Tulak Hord goes back to being a shed while
+				the config still says it is a tomb.
+			]]
+			local landmark = poi.landmark
+			if landmark and not landmarkExists(landmark) then
+				table.insert(problems, `{id}: POI "{poi.id}" names unknown landmark "{landmark}"`)
 			end
 		end
 	end

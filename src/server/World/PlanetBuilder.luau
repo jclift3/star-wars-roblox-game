@@ -3709,6 +3709,730 @@ local function buildTemple(parent: Instance, base: Vector3, style: Style, _rng: 
 	return y + 30
 end
 
+--------------------------------------------------------------------------------
+-- Named landmarks
+--------------------------------------------------------------------------------
+
+--[[
+	The eight builders above are *kinds*. A market is a market on any world,
+	and one builder serving nine planets is the right trade for it.
+
+	It is the wrong trade for a place with a name, and the state of the game
+	before this section is the argument: **the Tomb of Tulak Hord was a
+	crashed starship.** `Ruin` means "something that used to fly, nose-down in
+	the ground", it was the closest of the eight, and so Korriban -- a world
+	whose entire claim on the player is that it is a valley of tombs -- had a
+	downed freighter lying in it with a sign saying TOMB. The Jedi Temple
+	ruin was an intact ziggurat. The moisture farm the config describes as
+	"forty vaporators and one family" was a two-hut shed with one vaporator.
+
+	These cost no machinery. `landmarkFor` has read `poi.landmark or poi.kind`
+	since the sandcrawler, so a named place is a builder plus one line of
+	config, and the fallback for a world that has not earned one is still the
+	generic kind. What this section must not become is one builder per point
+	of interest: `LeaningTowers` serves two Taris districts and would serve
+	any fallen city. The test for adding one is whether **the description
+	already sitting in the config** describes something the generic builder
+	cannot draw -- every one of these was written from those words, and where
+	the words give a number ("towers leaning at twenty degrees") the number is
+	honoured exactly.
+]]
+
+--[[
+	A Sith tomb cut into a rock face, and sealed.
+
+	Built back to front from every other landmark here: the mass is a cliff
+	*behind* the door rather than a building in front of it, because a tomb is
+	a hole in something and a freestanding one is a mausoleum. The jambs are
+	battered -- they lean in six degrees -- since a trapezoid reads as ancient
+	and a rectangle reads as a doorframe.
+
+	The config says "Sealed, and the seal is not there to keep anything in",
+	so the doorway is filled flush and the braziers are lit. Somebody is still
+	coming out here to tend them, which is the more frightening reading.
+]]
+local function buildTomb(parent: Instance, base: Vector3, style: Style, rng: Random): number
+	local stone = shade(style.buildingColors[#style.buildingColors], -0.15)
+	local dark = shade(stone, -0.4)
+
+	-- One mass behind the facade, wider and deeper than anything in front of
+	-- it, so the tomb is seen against rock from every approach.
+	block(
+		parent,
+		CFrame.new(base + Vector3.new(-48, 34, 0)),
+		Vector3.new(76, 68, 150),
+		dark,
+		Enum.Material.Rock
+	).Name =
+		"Cliff"
+	for i = -1, 1, 2 do
+		block(
+			parent,
+			CFrame.new(base + Vector3.new(-16, 28, i * 52)) * CFrame.Angles(0, rng:NextNumber(-0.2, 0.2), 0),
+			Vector3.new(32, 56, 46),
+			dark,
+			Enum.Material.Rock
+		).Name =
+			"Buttress"
+	end
+
+	for _, side in { 1, -1 } do
+		block(
+			parent,
+			CFrame.new(base + Vector3.new(-2, 25, side * 15)) * CFrame.Angles(math.rad(6) * side, 0, 0),
+			Vector3.new(14, 42, 10),
+			stone,
+			Enum.Material.Slate
+		).Name =
+			"Jamb"
+	end
+	block(
+		parent,
+		CFrame.new(base + Vector3.new(-2, 49, 0)),
+		Vector3.new(18, 8, 46),
+		stone,
+		Enum.Material.Slate
+	).Name =
+		"Lintel"
+	block(
+		parent,
+		CFrame.new(base + Vector3.new(-3, 23, 0)),
+		Vector3.new(7, 38, 22),
+		shade(stone, -0.3),
+		Enum.Material.Slate
+	).Name =
+		"Seal"
+
+	-- The dais and its steps. The doorway standing a few studs proud of the
+	-- ground is what turns walking in into an approach.
+	block(parent, CFrame.new(base + Vector3.new(3, 2, 0)), Vector3.new(28, 4, 54), stone, Enum.Material.Slate).Name =
+		"Dais"
+	for step = 1, 3 do
+		local height = 4 - step
+		block(
+			parent,
+			CFrame.new(base + Vector3.new(17 + step * 5, height * 0.5, 0)),
+			Vector3.new(5, height, 54),
+			stone,
+			Enum.Material.Slate
+		).Name =
+			"Step"
+	end
+
+	for _, side in { 1, -1 } do
+		local at = base + Vector3.new(28, 0, side * 32)
+		block(
+			parent,
+			CFrame.new(at + Vector3.new(0, 17, 0)),
+			Vector3.new(8, 34, 8),
+			stone,
+			Enum.Material.Slate
+		).Name =
+			"Obelisk"
+		-- A tapered cap, because a flat-topped post is a bollard.
+		block(parent, CFrame.new(at + Vector3.new(0, 36, 0)), Vector3.new(5, 6, 5), dark, Enum.Material.Slate).Name =
+			"Cap"
+
+		-- Nothing else on this planet is lit at ground level, so from the
+		-- valley floor the tomb is two red points and a shape.
+		cylinder(
+			parent,
+			CFrame.new(at + Vector3.new(7, 7, 0)) * UPRIGHT,
+			Vector3.new(4, 10, 10),
+			Palette.DarkMetal,
+			Enum.Material.Metal
+		).Name =
+			"Brazier"
+		local fire = ball(
+			parent,
+			CFrame.new(at + Vector3.new(7, 10, 0)),
+			Vector3.new(8, 5, 8),
+			Palette.SaberRed,
+			Enum.Material.Neon
+		)
+		fire.Name = "Fire"
+		fire.CanCollide = false
+
+		local glow = Instance.new("PointLight")
+		glow.Color = Palette.SaberRed
+		glow.Range = 42
+		glow.Brightness = 2.5
+		glow.Parent = fire
+	end
+
+	return 58
+end
+
+--[[
+	A temple that came down, and was left down.
+
+	The hard part of a ruin is that "broken" is not a shape: a pile of rubble
+	reads as rubble, never as something that used to be a building. So this is
+	built as a temple that is *mostly still there* -- an intact terrace, a
+	colonnade with the columns knocked out of it, and the fallen ones lying
+	where they landed, still in their line and broken into drums. The eye
+	rebuilds the temple out of the gap, which no amount of debris would do.
+
+	One corner of the upper step is simply absent. A missing quarter says
+	"something hit this" more economically than anything scattered around it.
+]]
+local function buildTempleRuin(parent: Instance, base: Vector3, style: Style, rng: Random): number
+	local stone = style.buildingColors[#style.buildingColors]
+	local burnt = shade(stone, -0.45)
+
+	block(
+		parent,
+		CFrame.new(base + Vector3.new(0, 5, 0)),
+		Vector3.new(150, 10, 118),
+		stone,
+		Enum.Material.Slate
+	).Name =
+		"Terrace"
+	for _, quarter in { Vector2.new(-1, -1), Vector2.new(1, -1), Vector2.new(-1, 1) } do
+		block(
+			parent,
+			CFrame.new(base + Vector3.new(quarter.X * 30, 14, quarter.Y * 24)),
+			Vector3.new(58, 8, 46),
+			shade(stone, -0.1),
+			Enum.Material.Slate
+		).Name =
+			"Step"
+	end
+
+	--[[
+		The colonnade. How much of each bay is left is rolled per bay, and a
+		column that fell lies in three drums rather than one piece -- a
+		column that came down whole did not come down.
+	]]
+	for _, side in { 1, -1 } do
+		for bay = 1, 6 do
+			local at = base + Vector3.new((bay - 3.5) * 24, 0, side * 46)
+			local state = rng:NextInteger(1, 3)
+			if state == 1 then
+				cylinder(
+					parent,
+					CFrame.new(at + Vector3.new(0, 32, 0)) * UPRIGHT,
+					Vector3.new(44, 11, 11),
+					stone,
+					Enum.Material.Slate
+				).Name =
+					"Column"
+				block(
+					parent,
+					CFrame.new(at + Vector3.new(0, 56, 0)),
+					Vector3.new(14, 4, 14),
+					stone,
+					Enum.Material.Slate
+				).Name =
+					"Capital"
+			else
+				local height = if state == 2 then rng:NextNumber(9, 22) else 5
+				cylinder(
+					parent,
+					CFrame.new(at + Vector3.new(0, 10 + height * 0.5, 0)) * UPRIGHT,
+					Vector3.new(height, 11, 11),
+					burnt,
+					Enum.Material.Slate
+				).Name =
+					"Stump"
+			end
+
+			if state == 3 then
+				for drum = 1, 3 do
+					cylinder(
+						parent,
+						CFrame.new(at + Vector3.new(0, 15.5, side * (16 + drum * 15)))
+							* CFrame.Angles(0, math.pi * 0.5 + rng:NextNumber(-0.22, 0.22), 0),
+						Vector3.new(14, 11, 11),
+						stone,
+						Enum.Material.Slate
+					).Name =
+						"Drum"
+				end
+			end
+		end
+	end
+
+	-- The spire is the only diagonal on the site, which is what makes
+	-- everything else read as level ground rather than as a heap.
+	block(
+		parent,
+		CFrame.new(base + Vector3.new(28, 28, -20)) * CFrame.Angles(0, math.rad(24), math.rad(-58)),
+		Vector3.new(96, 20, 20),
+		shade(stone, -0.2),
+		Enum.Material.Slate
+	).Name =
+		"FallenSpire"
+	block(
+		parent,
+		CFrame.new(base + Vector3.new(-52, 32, 12)),
+		Vector3.new(24, 54, 24),
+		burnt,
+		Enum.Material.Slate
+	).Name =
+		"SpireStump"
+
+	return 66
+end
+
+--[[
+	A moisture farm: a sunken homestead in a field of vaporators.
+
+	The count is the whole landmark. `buildOutpost` puts up one vaporator and
+	that is enough to say somebody lives here; the config here says forty, and
+	forty is not a bigger version of one -- a lone mast is a homestead and a
+	field of them is an industry. Sixteen is what the part budget allows,
+	on two rings so the near masts do not stand in front of the far ones.
+
+	The house is a courtyard pit rather than another dome, which is the one
+	piece of Tatooine architecture that is actually about the planet: where
+	the problem is the sun, you live underground and the roof is a hole.
+]]
+local function buildMoistureFarm(parent: Instance, base: Vector3, style: Style, rng: Random): number
+	local wall = style.buildingColors[1]
+	local lip = 26
+
+	-- A dark floor inside a low kerb: a hole from outside, a room from the
+	-- edge of it. The segment facing the road is left out, and that gap is
+	-- the ramp down -- the same trick `roundWall` plays with its doorway.
+	for seg = 1, 16 do
+		if seg ~= 1 then
+			local angle = (seg - 1) * (math.pi * 2 / 16)
+			block(
+				parent,
+				CFrame.new(base + Vector3.new(math.cos(angle) * lip, 3, math.sin(angle) * lip))
+					* CFrame.Angles(0, -angle, 0),
+				Vector3.new(4, 6, 11),
+				wall,
+				Enum.Material.Sandstone
+			).Name =
+				"Kerb"
+		end
+	end
+	cylinder(
+		parent,
+		CFrame.new(base + Vector3.new(0, -1, 0)) * UPRIGHT,
+		Vector3.new(2, lip * 2, lip * 2),
+		shade(wall, -0.6),
+		Enum.Material.Sand
+	).Name =
+		"Courtyard"
+	block(
+		parent,
+		CFrame.new(base + Vector3.new(lip + 7, -1.5, 0)) * CFrame.Angles(0, 0, math.rad(9)),
+		Vector3.new(22, 2, 12),
+		shade(wall, -0.3),
+		Enum.Material.Sandstone
+	).Name =
+		"Ramp"
+
+	-- The only parts of the house above ground are the way in and the
+	-- condenser on top of it.
+	for _, at in { Vector3.new(-32, 0, 18), Vector3.new(-24, 0, -26) } do
+		local width = if at.Z > 0 then 26 else 18
+		cylinder(
+			parent,
+			CFrame.new(base + at + Vector3.new(0, 4, 0)) * UPRIGHT,
+			Vector3.new(8, width, width),
+			wall,
+			Enum.Material.Sandstone
+		).Name =
+			"Dome"
+		ball(
+			parent,
+			CFrame.new(base + at + Vector3.new(0, 8, 0)),
+			Vector3.new(width, width * 0.7, width),
+			wall,
+			Enum.Material.Sandstone
+		).Name =
+			"Cap"
+	end
+
+	-- Everything the farm exists to do ends up in the cistern, so it is the
+	-- one thing on the site that is metal and looked after.
+	cylinder(
+		parent,
+		CFrame.new(base + Vector3.new(-6, 9, 34)) * UPRIGHT,
+		Vector3.new(18, 30, 30),
+		Palette.WornSteel,
+		Enum.Material.Metal
+	).Name =
+		"Cistern"
+	block(
+		parent,
+		CFrame.new(base + Vector3.new(-6, 19, 34)),
+		Vector3.new(32, 2, 32),
+		Palette.DarkMetal,
+		Enum.Material.DiamondPlate
+	).Name =
+		"CisternLid"
+
+	for ring = 1, 2 do
+		local radius = 42 + ring * 18
+		local count = 5 + ring * 2
+		for i = 1, count do
+			local angle = (i - 1) * (math.pi * 2 / count) + ring * 0.45
+			local at = base + Vector3.new(math.cos(angle) * radius, 0, math.sin(angle) * radius)
+			local height = rng:NextNumber(20, 28)
+			cylinder(
+				parent,
+				CFrame.new(at + Vector3.new(0, height * 0.5, 0)) * UPRIGHT,
+				Vector3.new(height, 4, 4),
+				Palette.WornSteel,
+				Enum.Material.Metal
+			).Name =
+				"Vaporator"
+			for fin = 1, 3 do
+				local spoke = (fin - 1) * (math.pi * 2 / 3) + angle
+				block(
+					parent,
+					CFrame.new(at + Vector3.new(math.cos(spoke) * 3.5, height - 4, math.sin(spoke) * 3.5))
+						* CFrame.Angles(0, -spoke, 0),
+					Vector3.new(1.5, 8, 5),
+					Palette.DarkMetal,
+					Enum.Material.Metal
+				).Name =
+					"Fin"
+			end
+		end
+	end
+
+	return 34
+end
+
+--[[
+	A scrapyard, which is not the same thing as a wreck.
+
+	`Ruin` builds something that came down: one hull, at an angle, ground
+	disturbed around it. A boneyard is the opposite of a crash -- nothing here
+	fell, it was all dragged in and taken apart -- so everything is level, in
+	rows, and missing its panels. Rows are the cheap half of that: a straight
+	line of anything says a person put it there.
+
+	The hauler is the only large piece and it is on its side, because that is
+	how you get at the underside, and it is built as two hull sections with a
+	gap between them. The gap is the part that was cut out and sold, and it is
+	the entire difference between stripped and parked.
+]]
+local function buildBoneyard(parent: Instance, base: Vector3, style: Style, rng: Random): number
+	local rust = Palette.DroidRust
+	local root = CFrame.new(base + Vector3.new(-20, 22, 10)) * CFrame.Angles(0, math.rad(18), math.rad(74))
+
+	block(parent, root * CFrame.new(-26, 0, 0), Vector3.new(44, 26, 30), rust, Enum.Material.CorrodedMetal).Name =
+		"Hull"
+	block(parent, root * CFrame.new(30, 0, 0), Vector3.new(36, 26, 30), rust, Enum.Material.CorrodedMetal).Name =
+		"Hull"
+	for i = -1, 1 do
+		block(
+			parent,
+			root * CFrame.new(i * 8, 0, 0),
+			Vector3.new(2, 24, 28),
+			Palette.DarkMetal,
+			Enum.Material.Metal
+		).Name =
+			"Rib"
+	end
+
+	-- Masts snapped at different heights and stood in a line.
+	for i = 1, 6 do
+		local height = rng:NextNumber(6, 20)
+		cylinder(
+			parent,
+			CFrame.new(base + Vector3.new(22 + (i % 2) * 12, height * 0.5, (i - 3.5) * 15)) * UPRIGHT,
+			Vector3.new(height, 4, 4),
+			Palette.WornSteel,
+			Enum.Material.CorrodedMetal
+		).Name =
+			"Husk"
+	end
+
+	-- Chassis up on blocks with the engine bay empty. A speeder with its
+	-- body still on is a parked speeder.
+	for _ = 1, 3 do
+		local turn = CFrame.new(base + Vector3.new(rng:NextNumber(-48, -22), 0, rng:NextNumber(-54, -22)))
+			* CFrame.Angles(0, rng:NextNumber(0, math.pi * 2), 0)
+		block(parent, turn * CFrame.new(0, 4, 0), Vector3.new(24, 2, 8), rust, Enum.Material.CorrodedMetal).Name =
+			"Chassis"
+		for _, dx in { -9, 9 } do
+			block(
+				parent,
+				turn * CFrame.new(dx, 1.5, 0),
+				Vector3.new(4, 3, 7),
+				Palette.DarkMetal,
+				Enum.Material.Metal
+			).Name =
+				"Block"
+		end
+	end
+
+	-- Cut panels, stacked flat. Salvage is sorted; a crash site is not.
+	for i = 1, 4 do
+		block(
+			parent,
+			CFrame.new(base + Vector3.new(40, 1 + i * 1.6, -32))
+				* CFrame.Angles(0, rng:NextNumber(-0.15, 0.15), 0),
+			Vector3.new(26, 1.4, 18),
+			shade(style.buildingColors[1], -0.2),
+			Enum.Material.CorrodedMetal
+		).Name =
+			"Panel"
+	end
+
+	return 32
+end
+
+--[[
+	A city block that sank: towers off plumb, and a way up through them.
+
+	Twenty degrees comes from the config's own description and is worth
+	honouring to the number. Five degrees reads as a modelling mistake and
+	forty reads as falling over this second; twenty is unmistakably deliberate
+	and unmistakably wrong, which is the whole effect.
+
+	They lean in *different* directions on purpose. A row all leaning the same
+	way is a hillside. Leaning apart, they are a district that subsided
+	unevenly -- which is what "and still settling" means.
+
+	Each tower is rotated about its foot rather than its centre. Rotating a
+	box about the middle lifts one bottom corner clear of the ground and
+	buries the other, and the lifted corner is the tell.
+]]
+local function buildLeaningTowers(parent: Instance, base: Vector3, style: Style, rng: Random): number
+	local tallest = 0
+	local feet: { Vector3 } = {}
+
+	for i = 1, 4 do
+		local bearing = (i - 1) * (math.pi * 2 / 4) + 0.5
+		local at = base + Vector3.new(math.cos(bearing) * 38, 0, math.sin(bearing) * 38)
+		local height = rng:NextNumber(54, 98)
+		local width = rng:NextNumber(20, 30)
+		local wall = pick(style.buildingColors, rng)
+		table.insert(feet, at)
+		tallest = math.max(tallest, height * math.cos(math.rad(20)))
+
+		local root = CFrame.new(at)
+			* CFrame.Angles(0, -(bearing + rng:NextNumber(-0.9, 0.9)), 0)
+			* CFrame.Angles(0, 0, -math.rad(20) * rng:NextNumber(0.75, 1.15))
+			* CFrame.new(0, height * 0.5, 0)
+
+		block(parent, root, Vector3.new(width, height, width), wall, style.wallMaterial).Name = "Tower"
+		cornice(parent, at, 0, width, width, wall, style.wallMaterial)
+
+		-- Bands in the tower's own frame. `windowBands` takes a world point
+		-- and cannot tilt, which is fine for a building that stands up.
+		local floors = math.floor(height / style.floorHeight)
+		for floor = 1, floors do
+			local y = (floor - 0.5) * style.floorHeight - height * 0.5
+			for _, side in { 1, -1 } do
+				local band = block(
+					parent,
+					root * CFrame.new(0, y, side * width * 0.5),
+					Vector3.new(width * 0.8, 2.2, 0.4),
+					style.windowColor,
+					Enum.Material.Neon
+				)
+				band.Name = "Windows"
+				band.CanCollide = false
+			end
+		end
+
+		-- Rubble banked against the foot. Without it the tower meets flat
+		-- ground at an angle, and the gap under the raised edge is visible
+		-- from a hundred studs away.
+		for _ = 1, 4 do
+			local size = rng:NextNumber(6, 13)
+			block(
+				parent,
+				CFrame.new(at + Vector3.new(rng:NextNumber(-16, 16), size * 0.3, rng:NextNumber(-16, 16)))
+					* CFrame.Angles(
+						rng:NextNumber(-0.4, 0.4),
+						rng:NextNumber(0, math.pi),
+						rng:NextNumber(-0.4, 0.4)
+					),
+				Vector3.new(size, size * 0.6, size * rng:NextNumber(0.7, 1.3)),
+				shade(wall, -0.3),
+				Enum.Material.Concrete
+			).Name =
+				"Rubble"
+		end
+	end
+
+	-- "You go up through them, not around": a plank between two of the feet,
+	-- which is the only thing here that says these are passable rather than
+	-- scenery. It is not a real route -- the towers are solid -- but it is
+	-- the promise the district's interiors will have to keep.
+	for i = 1, #feet - 1 do
+		local a, b = feet[i], feet[i + 1]
+		local mid = (a + b) * 0.5 + Vector3.new(0, 26 + i * 5, 0)
+		local span = (b - a).Magnitude
+		block(
+			parent,
+			CFrame.new(mid, b + Vector3.new(0, mid.Y - base.Y, 0)) * CFrame.Angles(0, math.pi * 0.5, 0),
+			Vector3.new(span, 1.2, 7),
+			Palette.WornSteel,
+			Enum.Material.DiamondPlate
+		).Name =
+			"Catwalk"
+	end
+
+	return tallest + 12
+end
+
+--[[
+	A saber forge: standing stones, an anvil and a fire, on a ridge.
+
+	Deliberately the smallest thing in this section. The config's line is
+	"Where sabers are made. Getting up here is the easy half", and a building
+	would contradict it -- the point of the place is that there is nothing
+	here, and the difficulty is what you brought with you. So: a ring, a
+	stone to work on, and a fire, which is a forge in any culture that has
+	not yet invented a roof.
+
+	The stones are tilted a few degrees each and are not evenly spaced. An
+	even ring of upright posts is a fence.
+]]
+local function buildForge(parent: Instance, base: Vector3, style: Style, rng: Random): number
+	local stone = style.buildingColors[#style.buildingColors]
+
+	for i = 1, 9 do
+		-- The gap at the road end is the way in, so the ring is not closed.
+		local angle = (i - 1) * (math.pi * 2 / 10) + math.pi * 0.1
+		local at = base + Vector3.new(math.cos(angle) * 34, 0, math.sin(angle) * 34)
+		local height = rng:NextNumber(14, 26)
+		block(
+			parent,
+			CFrame.new(at + Vector3.new(0, height * 0.5, 0))
+				* CFrame.Angles(rng:NextNumber(-0.08, 0.08), -angle, rng:NextNumber(-0.08, 0.08)),
+			Vector3.new(rng:NextNumber(5, 9), height, rng:NextNumber(3, 5)),
+			shade(stone, rng:NextNumber(-0.2, 0.1)),
+			Enum.Material.Rock
+		).Name =
+			"Standing"
+	end
+
+	block(
+		parent,
+		CFrame.new(base + Vector3.new(0, 1.5, 0)),
+		Vector3.new(52, 3, 52),
+		stone,
+		Enum.Material.Rock
+	).Name =
+		"Floor"
+	block(
+		parent,
+		CFrame.new(base + Vector3.new(-8, 6, 0)),
+		Vector3.new(16, 6, 12),
+		shade(stone, -0.25),
+		Enum.Material.Rock
+	).Name =
+		"Anvil"
+
+	local coals = cylinder(
+		parent,
+		CFrame.new(base + Vector3.new(10, 4, 0)) * UPRIGHT,
+		Vector3.new(3, 16, 16),
+		Palette.MustafarLava,
+		Enum.Material.Neon
+	)
+	coals.Name = "Coals"
+	coals.CanCollide = false
+
+	local glow = Instance.new("PointLight")
+	glow.Color = Palette.MustafarLava
+	glow.Range = 48
+	glow.Brightness = 2.2
+	glow.Parent = coals
+
+	return 32
+end
+
+--[[
+	A traffic lane over a city with no ground.
+
+	Coruscant has three of these and they were three identical sheds, because
+	`Outpost` is what an unrecognised kind falls back to and a skylane is not
+	a building at all. It is a *direction*: the landmark is the lane, and the
+	only structure is the shelf you stand on to watch it go past.
+
+	So the pylons run along the lane rather than ringing the platform, and
+	they carry lit markers that recede. Two rows converging into the fog is
+	the one composition that says "this goes somewhere and you are standing
+	still", which is exactly the config's "traffic moves fast and does not
+	stop for you".
+]]
+local function buildSkylane(parent: Instance, base: Vector3, style: Style, rng: Random): number
+	local deck = shade(style.buildingColors[1], -0.15)
+
+	block(
+		parent,
+		CFrame.new(base + Vector3.new(0, 1, 0)),
+		Vector3.new(46, 2, 62),
+		deck,
+		Enum.Material.DiamondPlate
+	).Name =
+		"Deck"
+	-- A rail on three sides. The fourth is the lane, and a barrier across
+	-- the thing you came to look at is worse than a drop.
+	for _, edge in { Vector3.new(-23, 0, 0), Vector3.new(0, 0, -31), Vector3.new(0, 0, 31) } do
+		local along = if edge.X ~= 0 then Vector3.new(2, 5, 62) else Vector3.new(46, 5, 2)
+		block(
+			parent,
+			CFrame.new(base + edge + Vector3.new(0, 4, 0)),
+			along,
+			Palette.DarkMetal,
+			Enum.Material.Metal
+		).Name =
+			"Rail"
+	end
+
+	-- The control shack, at the back so it does not stand in the view.
+	block(
+		parent,
+		CFrame.new(base + Vector3.new(-16, 8, 20)),
+		Vector3.new(14, 12, 16),
+		style.buildingColors[1],
+		Enum.Material.Metal
+	).Name =
+		"Shack"
+	local pane = block(
+		parent,
+		CFrame.new(base + Vector3.new(-8.6, 10, 20)),
+		Vector3.new(0.6, 5, 12),
+		style.windowColor,
+		Enum.Material.Neon
+	)
+	pane.Name = "Pane"
+	pane.CanCollide = false
+
+	for lane = 1, 2 do
+		local side = if lane == 1 then 1 else -1
+		for i = 1, 7 do
+			local at = base + Vector3.new(34 + i * 30, 0, side * (22 + i * 9))
+			local height = rng:NextNumber(30, 54)
+			cylinder(
+				parent,
+				CFrame.new(at + Vector3.new(0, height * 0.5, 0)) * UPRIGHT,
+				Vector3.new(height, 4, 4),
+				Palette.DarkMetal,
+				Enum.Material.Metal
+			).Name =
+				"Pylon"
+
+			local marker_ = block(
+				parent,
+				CFrame.new(at + Vector3.new(0, height, 0)),
+				Vector3.new(9, 1.6, 1.6),
+				if lane == 1 then Palette.CoruscantLight else Palette.BlasterBlue,
+				Enum.Material.Neon
+			)
+			marker_.Name = "LaneMarker"
+			marker_.CanCollide = false
+		end
+	end
+
+	return 26
+end
+
 -- An unknown kind falls back to an outpost rather than to nothing: a config
 -- typo should leave a small building with the right name over it, which is
 -- visibly wrong, instead of empty ground, which is indistinguishable from the
@@ -3724,7 +4448,30 @@ local LANDMARKS: { [string]: LandmarkDef } = {
 	Outpost = OUTPOST,
 	Market = { radius = 58, build = buildMarket },
 	Temple = { radius = 74, build = buildTemple },
+
+	-- Named places. Keyed by the string a POI puts in `landmark`; the radius
+	-- is the footprint the marker reserves, and undersizing it is what sends
+	-- the crowd rings walking through the building.
+	Tomb = { radius = 70, build = buildTomb },
+	TempleRuin = { radius = 86, build = buildTempleRuin },
+	MoistureFarm = { radius = 84, build = buildMoistureFarm },
+	Boneyard = { radius = 68, build = buildBoneyard },
+	LeaningTowers = { radius = 74, build = buildLeaningTowers },
+	Forge = { radius = 56, build = buildForge },
+	Skylane = { radius = 54, build = buildSkylane },
 }
+
+--[[
+	True if `id` names a landmark builder.
+
+	Exists so `Planets.validate` can catch a `poi.landmark` no builder answers
+	to. Falling back to an outpost is right for an unknown *kind* and wrong for
+	a declared name: "Tomb" misspelt puts a small generic hut on the Valley of
+	the Dark Lords and says nothing about why.
+]]
+function PlanetBuilder.landmarkExists(id: string): boolean
+	return LANDMARKS[id] ~= nil
+end
 
 local function landmarkFor(poi: Planets.PointOfInterest): LandmarkDef
 	return LANDMARKS[poi.landmark or poi.kind] or OUTPOST

@@ -287,8 +287,13 @@ through whichever houses stood on the bearing, and inside the walls the street
 grid already is the road.
 
 That makes **following a road a navigation method that needs no UI**, and the
-things roads lead to are the Reach objectives. Still open: vehicles, and the
-vertical-city case, which is the harder half of this item.
+things roads lead to are the Reach objectives.
+
+*And the vehicles half, 2026-08-17* — see §2b. Five speeders, bought from the
+vendors that already exist, **V** to call one in. **Still open: the
+vertical-city case**, which is the harder half of this item and the one thing a
+speeder does not answer: Nar Shaddaa and Coruscant have no walkable ground to
+hover over, so they need platforms, lifts and air traffic, or they need a flier.
 
 **N5. Cities built out properly.** The standing request from day one, restated:
 better designs, **indoor spaces you can enter**, more detail. Interiors are the
@@ -1209,20 +1214,52 @@ Splitting the file means exporting seven local helpers plus 600 lines of
 value at nine prefabs. `PREFABS` lives next to `LANDMARKS` until the count
 justifies the move.
 
-### 3.2 The eight worlds — **[layouts done 2026-08-17; named prefabs still todo]**
+### 3.2 The eight worlds — **[layouts + named landmarks done 2026-08-17]**
 Contents specified per planet in [PLANETS.md](PLANETS.md) §3. Build order was
 depth-first: **Tatooine completely** as the vertical slice, then extract the
 layout system from what that taught, then Korriban, then the rest. That is what
 happened, and **every walkable world now has an authored grid with banded
 districts** (see §N5 for the eight of them and what each one was drawn around).
 
-What is left here is the *other* half of the item: **named, unique prefabs**.
-Today a grid cell hands a footprint to the planet's own `style.shape`, which is
-why one legend works on nine worlds — but it also means Anchorhead's cantina and
-Kaas City's antechambers are the same box in different colours. The per-planet
-prefab vocabularies in PLANETS.md §3 (`MoistureVaporator`, `HullSection`,
-`CitadelSpire`…) are all still unbuilt, and they are what would make a place
-recognisable rather than merely legible.
+**The other half — named landmarks — 2026-08-17.** The *undrawn* points of
+interest, the ones that stand alone outside a town grid, were each getting one
+of eight generic builders picked by `kind`. The state that argues the case
+better than any principle: **the Tomb of Tulak Hord was a crashed starship.**
+`Ruin` means "something that used to fly, nose-down in the ground", it was the
+closest of the eight, and so a world whose entire claim on the player is that it
+is a valley of tombs had a downed freighter in it under a sign saying TOMB. The
+Jedi Temple *Ruin* was Tython's intact ziggurat. The farm the config calls
+"forty vaporators and one family" was a shed with one vaporator.
+
+Seven new builders, and **no new machinery**: `landmarkFor` has read
+`poi.landmark or poi.kind` since the sandcrawler shipped, so a named place is a
+builder plus one config line, and a place that has not earned one still falls
+back to its kind.
+
+| `landmark` | where | what it draws |
+|---|---|---|
+| `Tomb` | Korriban, Tomb of Tulak Hord | cut cliff facade, battered jambs, a **filled** doorway, braziers |
+| `TempleRuin` | Coruscant, the Temple Ruin | colonnade with most columns down, spire lying across the terrace |
+| `MoistureFarm` | Tatooine, Vantel farm | two domes in a walled yard, ringed by two rings of condensers |
+| `Boneyard` | Tatooine, the Boneyard | a broken-backed hauler, snapped vaporator masts, stripped chassis |
+| `LeaningTowers` | Taris, the Sinking Sector | four towers leaning **twenty degrees** about their feet, catwalks between |
+| `Forge` | Tython, Forge Ridge | a standing ring with a gap, an anvil, live coals |
+| `Skylane` | Coruscant ×3 | a control deck and two rows of lit pylons receding into the fog |
+
+The scoping test, which is what keeps this from becoming one builder per POI:
+**does the description already sitting in the config describe something the
+generic builder cannot draw?** Applied honestly it yields seven, not thirty.
+Nagurra's Estate says "a compound behind a wall", which is exactly what `Base`
+builds, so it keeps `Base`. Where the description gives a number — "twenty
+degrees" — the number is honoured exactly. A `landmark` naming no builder is now
+a boot warning (`PlanetBuilder.landmarkExists`, injected into
+`Planets.validate`), because falling back to an outpost is the right answer for
+an unrecognised *kind* and the wrong one for a name written on purpose.
+
+Still open under this heading: the per-planet **prefab vocabularies** in
+PLANETS.md §3 (`CitadelSpire`, `HullSection`…) that would differentiate the
+*town grid* cells, where Anchorhead's cantina and Kaas City's antechambers are
+still the same box in different colours.
 
 The structural win: **four planets are both an origin world and a later act** —
 Korriban, Taris, Nar Shaddaa and Coruscant. That halves the worlds needing a high
