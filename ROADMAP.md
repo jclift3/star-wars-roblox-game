@@ -2119,7 +2119,7 @@ worked without it. See [LIVING-NPCS.md](LIVING-NPCS.md) §2.
 - ~~NPC schedules (day/night behaviour — the clock already runs)~~ —
   **DONE 2026-08-18**, below
 - Ambient crowd density per zone
-- Faction patrols that react to player rep
+- ~~Faction patrols that react to player rep~~ — **DONE 2026-08-18**, below
 
 ### 5.0 NPC schedules — **DONE 2026-08-18**
 `Shared/Core/WorldClock.luau` + `ArchetypeDef.shift` + a pass in `NPCService`'s
@@ -2169,6 +2169,61 @@ keep nights; everyone else is always about.
   Without a number on screen the only available reading of a market that has
   gone still is that the NPCs are broken — and a tester told to "wait for dusk"
   has nothing to wait on.
+
+### 5.0b Faction patrols — **DONE 2026-08-18**
+`Factions.suspects` + a `Suspicious` state in `NPCBrain` + a stagger in
+`setPatrolRoute`. Two of the three things this bullet asked for already existed;
+what shipped is the third, plus a defect found on the way.
+
+- **"React to player rep" was already half-built, and it was the hard half.**
+  `NPCBrain.isEnemy` has been reading `Factions.attitudeToward` all along, and
+  `shout`/`alertNear` already makes a squad turn together — the same trooper is
+  a threat to a Jedi and scenery to a loyalist without two archetypes. **When a
+  roadmap bullet says a thing is missing, grep first**; this is the third time.
+- **The defect: patrols were a conga line.** `placementFor` hands every NPC in a
+  district the *same* route array — the route is the district — and
+  `setPatrolRoute` started all of them at index 1 walking the same direction.
+  Four Imperials converged on one corner and followed each other for the rest of
+  the session. Each now starts at whichever point it already stands nearest, and
+  half of them walk the loop backwards. Two facts about the individual, no new
+  config, and a shared route reads as a beat being covered.
+- **The real gap: reputation had two settings.** Hostile meant shot on sight and
+  everything else meant completely ignored, so the whole band from your first
+  lost point down to `HOSTILE_BELOW = -500` did nothing at all — a switch with a
+  very long approach. `Suspicious` fills it: a faction's patrols break off and
+  shadow you, at a distance, without ever attacking.
+- **Population must never key off one player's standing.** The obvious version
+  of this bullet — more patrols out when a district dislikes you — is
+  unimplementable in co-op: the roster is per planet and shared, and the two
+  brothers land on the same world with different standings. **Anything that
+  answers to one player's reputation has to live in what an NPC *perceives*,
+  never in who exists.** That is why `isEnemy` was always the right place, and
+  the new posture is built beside it.
+- **`Suspicious` is not a `Behavior`**, exactly as Combat is not one: no
+  archetype may declare it as the thing it does all day. Entered from sensing,
+  left when the reason walks away, and **only checked when there is nobody to
+  shoot** — an enemy in the open always outranks somebody merely disliked.
+- **Only patrols and posted guards take it up.** A vendor or quest-giver who
+  walks away from their counter to follow you is a shop that cannot be reached,
+  which this project has now shipped twice. Aggressive archetypes are excluded
+  too — they already fire on anything short of Friendly, so there is no posture
+  in between for them to be in. Read off the **variant**, so a spawn rule that
+  promoted someone to Aggressive counts.
+- **`holdsGround` already meant the right thing** and is reused rather than
+  joined by a new flag: a Sith Honour Guard tracks you across the plaza without
+  stepping off the Dark Temple door, while a bounty hunter in the cantina — who
+  declares no such thing — gets up and follows. A leash of 80 studs stops the
+  garrison trailing one player off the map and leaving the district empty.
+- **`SUSPECT_BELOW` is -100, not 0.** `repOnKill` is negative on every archetype,
+  so at zero a single fight would switch the posture on permanently for anybody
+  who plays the game, which is wallpaper rather than a warning. Two soldiers or
+  five bystanders is a pattern; there are still 400 points before anyone fires.
+- **It says so, once.** A soldier who silently breaks formation to follow you
+  reads as pathfinding gone wrong, not as a standing you earned — the same
+  argument that put the clock on the HUD. One toast per faction per 90 seconds,
+  in the existing `Demotion` colour, which is exactly the right register.
+- `reviewShifts` leaves a suspicious NPC alone, beside Combat and Flee: whatever
+  else is true, somebody in front of you outranks the hour.
 
 ### 5.1 Free-form characters — **[todo]**
 Designed 2026-08-15, full document in [LIVING-NPCS.md](LIVING-NPCS.md). The

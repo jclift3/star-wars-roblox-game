@@ -1518,6 +1518,61 @@ only bug in the feature that a single player literally cannot see.
     config:` line naming a shift means one of those two rules was broken in
     config, and items 7 and 8 are what it would have cost.
 
+### 8.6 Being watched — **new, never played**
+
+Landed 2026-08-18 (ROADMAP 5.0b). To reach any of this you need reputation
+below **-100** with a faction you are not enlisted in. Killing does it —
+`repOnKill` is negative on every archetype — so **two Imperial soldiers on
+Korriban** is enough, or use `strengthandhonor` on a planet whose controller you
+want to like you and go and annoy somebody else. Standing is readable per
+destination on the galaxy map (**G**).
+
+1. **Patrols are not a queue.** Before anything else, stand in a district with
+   several patrolling soldiers (Coruscant and Nar Shaddaa are the busiest) and
+   just watch for a minute. **They must be spread around the circuit, some
+   walking it the other way.** Until now they all converged on one corner and
+   followed each other nose-to-tail forever, which is the thing being fixed and
+   is obvious once you know to look.
+2. **The warning arrives in words.** With Empire rep under -100, walk into sight
+   of an Imperial patrol. A single toast: *"Sith Empire patrols are watching
+   you."* **Once**, not once per soldier — a district holds a dozen and twelve
+   identical toasts is not information. Walk away and back within 90 seconds and
+   it must stay quiet.
+3. **You are followed, not attacked.** The soldier breaks off its route, closes
+   to about 16 studs and keeps facing you. **It must never fire.** Being watched
+   costs nothing mechanically; what it costs is moving through their ground
+   unnoticed.
+4. **You can still talk to them.** Walk up to your shadow and press **E** if the
+   archetype is interactable. A hostile-looking behaviour that silently removes
+   an interaction is the failure this project keeps re-shipping.
+5. **Guards on a door stay on the door.** A **Sith Honour Guard** (Dark Temple,
+   Nexus Road) or an **Imperial Commando** declares `holdsGround`: it must turn
+   and track you across the plaza **without stepping off its post**. A **bounty
+   hunter** in the Tatooine cantina declares no such thing and *should* get up
+   and follow. Both behaviours are correct; seeing only one means the flag is
+   not being read.
+6. **Nobody follows you out of the district.** Lead a watcher away. Past roughly
+   80 studs from where it started it must stop, hold, and keep looking at you —
+   then return to its beat when you leave. A garrison that trails one player
+   across the map leaves the place it was guarding empty, which is a far worse
+   bug than the one being fixed.
+7. **The shop does not walk away.** The one that matters. **Merchants, Jawas and
+   quest-givers must never do any of this**, whatever your standing. Get your
+   Hutt reputation under -100, then go and trade with a Nar Shaddaa vendor and
+   take a mission from a Hutt quest-giver. If a vendor is shadowing you around a
+   market instead of standing behind the counter, `ShopService`'s 30-stud
+   proximity check has a moving target and the shop is effectively gone.
+8. **Crossing -500 still means gunfire.** Keep killing until Empire rep passes
+   `HOSTILE_BELOW`. The posture must give way to an actual attack — suspicion is
+   the band *before* hostility, not a replacement for it.
+9. **Your own flag still protects you.** An **Acolyte** starts on Korriban with
+   zero Empire reputation; their own Academy must never watch them, at any
+   standing, because enlistment beats reputation here exactly as it does in
+   `isEnemy`.
+10. **Combat wins.** Shoot a watcher, or shoot its squadmate in earshot. It must
+    drop straight into a fight. Likewise the 5-second shift pass must not pull a
+    suspicious NPC back to its post mid-follow.
+
 ---
 
 ## 9. Combat and progression

@@ -45,11 +45,13 @@ local Workspace = game:GetService("Workspace")
 
 local Shared = game:GetService("ReplicatedStorage"):WaitForChild("Shared")
 local Cast = require(Shared.Config.Cast)
+local Factions = require(Shared.Config.Factions)
 local NPCArchetypes = require(Shared.Config.NPCArchetypes)
 local NPCNames = require(Shared.Config.NPCNames)
 local Planets = require(Shared.Config.Planets)
 local RigBuilder = require(Shared.Rig.RigBuilder)
 local WeaponModel = require(Shared.Rig.WeaponModel)
+local Net = require(Shared.Core.Net)
 local Signal = require(Shared.Core.Signal)
 local ServiceLoader = require(Shared.Core.ServiceLoader)
 local WorldClock = require(Shared.Core.WorldClock)
@@ -69,6 +71,9 @@ local FULL_DISTANCE = 220
 -- Beyond this an NPC drops to a slow heartbeat.
 local ACTIVE_DISTANCE = 520
 local DORMANT_INTERVAL = 1.5
+-- How long before a faction can tell you again that it is watching you.
+local WATCH_NOTICE_COOLDOWN = 90
+local watchNoticed: { [string]: number } = {}
 
 -- Hard ceiling across all planets. A safety net, not a design target.
 local MAX_NPCS = 260
@@ -605,8 +610,8 @@ end
 	walk back to where you spawned and hold there. Nobody is despawned and
 	nobody stops being interactable, so a shut market is a market you can still
 	walk into and ask questions in, which is what makes it a place rather than
-	a closed door. Combat and Flee are never overridden: whatever else is true,
-	being shot at outranks the hour.
+	a closed door. Combat, Suspicious and Flee are never overridden: whatever
+	else is true, someone in front of you outranks the hour.
 ]]
 local function reviewShifts()
 	local Behavior = NPCArchetypes.Behavior
@@ -646,7 +651,7 @@ local function reviewShifts()
 		end
 
 		local state = record.brain.state
-		if state == "Combat" or state == Behavior.Flee then
+		if state == "Combat" or state == "Suspicious" or state == Behavior.Flee then
 			continue
 		end
 
@@ -699,6 +704,37 @@ end
 	cascade from looping: each one shouts exactly once, on the transition into
 	combat, and a shout that reaches an NPC already in combat dies there.
 ]]
+--[[
+	Says once, in words, why a trooper has started following you.
+
+	Without it the behaviour is deniable: a soldier who breaks off a route and
+	shadows you in silence reads as pathfinding gone wrong, not as a standing
+	you have earned. The same argument that put the clock on the HUD.
+
+	Rate-limited per faction rather than per NPC, because a district holds a
+	dozen of them and twelve identical toasts is not information. `Demotion`
+	is the existing kind and exactly the right register -- this is a faction
+	thinking less of you -- so it needs no new colour.
+]]
+function NPCService.noticedBy(player: Player, faction: string)
+	local key = `{player.UserId}|{faction}`
+	local now = os.clock()
+	if now < (watchNoticed[key] or 0) then
+		return
+	end
+	watchNoticed[key] = now + WATCH_NOTICE_COOLDOWN
+
+	if not Factions.exists(faction) then
+		return
+	end
+	Net.fireClient(
+		Net.Event.Notify,
+		player,
+		`{Factions.get(faction).displayName} patrols are watching you.`,
+		"Demotion"
+	)
+end
+
 function NPCService.alertNear(position: Vector3, radius: number, faction: string, target: Model, exclude: any)
 	for _, record in records do
 		local brain = record.brain
@@ -797,6 +833,14 @@ function NPCService.start()
 		local source = info.source
 		if typeof(source) == "Instance" and source:IsA("Model") and source ~= target then
 			record.brain:provoke(source)
+		end
+	end)
+
+	Players.PlayerRemoving:Connect(function(player: Player)
+		for key in watchNoticed do
+			if string.match(key, `^{player.UserId}|`) then
+				watchNoticed[key] = nil
+			end
 		end
 	end)
 

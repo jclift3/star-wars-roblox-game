@@ -146,6 +146,17 @@ Factions.DEFAULT = "Independent"
 -- Reputation thresholds that drive NPC behaviour.
 Factions.HOSTILE_BELOW = -500
 Factions.FRIENDLY_ABOVE = 500
+--[[
+	Below this you are watched; below HOSTILE_BELOW you are shot.
+
+	Not zero, though that was the first instinct. `repOnKill` is negative on
+	every archetype, so a single fight drops you under zero with somebody and
+	the posture would be on permanently for anyone who plays the game -- which
+	makes it wallpaper rather than a warning. -100 is about two soldiers or
+	five bystanders: a pattern, not an accident, and still four hundred points
+	of warning before anyone opens fire.
+]]
+Factions.SUSPECT_BELOW = -100
 Factions.REP_MIN = -10000
 Factions.REP_MAX = 25000
 
@@ -223,6 +234,27 @@ function Factions.attitudeToward(npcFaction: string, playerRep: { [string]: numb
 		return "Friendly"
 	end
 	return "Neutral"
+end
+
+--[[
+	Whether a faction's people watch this player without yet shooting them.
+
+	`attitudeToward` is deliberately left alone -- four systems read its three
+	answers -- because suspicion is not a fourth attitude. It is a *posture*,
+	and only the NPCs standing a beat take it up.
+
+	The whole band between the first reputation you lose and `HOSTILE_BELOW`
+	did nothing before this: five hundred points in which a faction's troopers
+	treated you exactly as they treat a tourist, and then, at one point past
+	the line, opened fire. Something has to happen in between, or a standing
+	is a switch with a very long approach.
+]]
+function Factions.suspects(npcFaction: string, playerRep: { [string]: number }): boolean
+	if npcFaction == Factions.DEFAULT then
+		return false
+	end
+	local rep = playerRep[npcFaction] or 0
+	return rep < Factions.SUSPECT_BELOW and rep > Factions.HOSTILE_BELOW
 end
 
 --- Whether two factions fight each other on sight.

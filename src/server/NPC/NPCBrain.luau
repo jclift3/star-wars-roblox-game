@@ -63,6 +63,18 @@ local PERIPHERAL_RANGE = 22
 -- Nobody sees further than this, whatever their archetype claims.
 local MAX_SIGHT_RANGE = 150
 
+-- Watching someone. Deliberately shorter than a sight range: being followed
+-- should start when you walk up to a patrol, not from across a district.
+local WATCH_NOTICE_RANGE = 60
+-- How close the watcher tries to sit. Near enough to be unmistakably about
+-- you, far enough that it never becomes a shove.
+local WATCH_DISTANCE = 16
+-- Give up and go back to the beat past this.
+local WATCH_LOSE_RANGE = 90
+-- A watcher never strays further than this from its post. Without a leash the
+-- whole garrison follows one player off the map and the district is empty.
+local WATCH_LEASH = 80
+
 local WANDER_RADIUS = 45
 local WANDER_PAUSE_MIN = 2
 local WANDER_PAUSE_MAX = 7
@@ -84,6 +96,7 @@ export type Brain = typeof(setmetatable(
 		home: CFrame,
 		patrolPoints: { Vector3 },
 		patrolIndex: number,
+		patrolStep: number,
 
 		target: Model?,
 		lastSawTarget: number,
@@ -133,6 +146,7 @@ function NPCBrain.new(model: Model, archetypeId: string, level: number, home: CF
 		home = home,
 		patrolPoints = {},
 		patrolIndex = 1,
+		patrolStep = 1,
 
 		target = nil,
 		lastSawTarget = 0,
@@ -157,10 +171,32 @@ function NPCBrain.new(model: Model, archetypeId: string, level: number, home: CF
 	return self
 end
 
---- Assigns a patrol route. Without one, Patrol behaves as Guard.
+--[[
+	Assigns a patrol route. Without one, Patrol behaves as Guard.
+
+	Every NPC in a district is handed the *same* list of points, because the
+	route is the district. Starting all of them at index 1 walking the same
+	way round therefore made a conga line: four troopers converging on one
+	corner and then following each other for the rest of the session.
+
+	So each one starts at whichever point it is already standing nearest, and
+	every other one walks the loop backwards. Two facts about the individual,
+	no new configuration, and a shared route reads as a beat being covered
+	rather than a queue.
+]]
 function NPCBrain.setPatrolRoute(self: Brain, points: { Vector3 })
 	self.patrolPoints = points
 	self.patrolIndex = 1
+	self.patrolStep = if self.rng:NextNumber() < 0.5 then -1 else 1
+
+	local nearest = math.huge
+	for i, point in points do
+		local distance = (point - self.home.Position).Magnitude
+		if distance < nearest then
+			nearest = distance
+			self.patrolIndex = i
+		end
+	end
 end
 
 --------------------------------------------------------------------------------
@@ -393,6 +429,72 @@ local function findTarget(self: Brain): Model?
 	return best
 end
 
+--[[
+	Whether this NPC is one of the people who would take an interest.
+
+	Standing a beat is the qualification. A patrol or a posted guard watching
+	someone their faction has begun to dislike is what a patrol is *for*; a
+	shopkeeper doing it is a shop that has walked away from its counter, and
+	this project has twice shipped the bug where something finished was not
+	reachable. Vendors and quest givers therefore never take the posture, and
+	neither does anyone already Aggressive -- they open fire on anything short
+	of Friendly, so a posture in between is not a state they can be in.
+
+	Read off `self.archetype`, which is the per-spawn variant: a spawn rule
+	that promoted this NPC to Aggressive has to count.
+]]
+local function keepsWatch(self: Brain): boolean
+	local behavior = self.archetype.behavior
+	if behavior ~= Behavior.Patrol and behavior ~= Behavior.Guard then
+		return false
+	end
+	return self.archetype.weapon ~= nil and self.faction ~= Factions.DEFAULT
+end
+
+--- Nearest visible player this NPC's faction has begun to dislike, or nil.
+local function findSuspect(self: Brain): Model?
+	local best: Model? = nil
+	local bestDistance = WATCH_NOTICE_RANGE
+
+	for _, player in Players:GetPlayers() do
+		local character = player.Character
+		local targetRoot = character and character:FindFirstChild("HumanoidRootPart")
+		local humanoid = character and character:FindFirstChildOfClass("Humanoid")
+		if not humanoid or humanoid.Health <= 0 or not (targetRoot and targetRoot:IsA("BasePart")) then
+			continue
+		end
+
+		local distance = (targetRoot.Position - self.root.Position).Magnitude
+		if distance >= bestDistance then
+			continue
+		end
+
+		local ok, profile = pcall(function()
+			return ServiceLoader.get("DataService").get(player)
+		end)
+		if not ok or not profile then
+			continue
+		end
+		-- Enlistment beats reputation here for the same reason it does in
+		-- `isEnemy`: an Acolyte starts on Korriban at nought with the Empire,
+		-- and their own Academy tailing them across it is not a story.
+		if self.faction == profile.faction then
+			continue
+		end
+		if not Factions.suspects(self.faction, profile.factionRep) then
+			continue
+		end
+		if not hasLineOfSight(self, targetRoot) then
+			continue
+		end
+
+		best = character :: Model
+		bestDistance = distance
+	end
+
+	return best
+end
+
 --- Tells nearby allies about a target, so a squad reacts together.
 local function shout(self: Brain)
 	local target = self.target
@@ -496,9 +598,11 @@ states[Behavior.Patrol] = function(self, now)
 
 	local goal = self.patrolPoints[self.patrolIndex]
 	if (goal - self.root.Position).Magnitude < 8 then
-		self.patrolIndex += 1
+		self.patrolIndex += self.patrolStep
 		if self.patrolIndex > #self.patrolPoints then
 			self.patrolIndex = 1
+		elseif self.patrolIndex < 1 then
+			self.patrolIndex = #self.patrolPoints
 		end
 		-- A beat at each waypoint, so patrols do not look like conveyor belts.
 		self.nextActionAt = now + self.rng:NextNumber(1, 3)
@@ -555,6 +659,71 @@ states[Behavior.Flee] = function(self, now)
 	if now >= self.nextActionAt then
 		self.nextActionAt = now + 0.8
 		moveTo(self, self.root.Position + away.Unit * 40, true)
+	end
+end
+
+--[[
+	Being watched.
+
+	Not a `Behavior`, for the same reason Combat is not one: no archetype may
+	declare it as the thing it does all day. It is entered from sensing and
+	left the moment the reason for it walks away.
+
+	The NPC never attacks from here and never stops being interactable -- you
+	can turn round and talk to the trooper shadowing you, which is the point.
+	It costs the player nothing mechanically. What it costs is the ability to
+	move through a faction's ground unnoticed, and that is the only currency
+	reputation has between "tourist" and "shot on sight".
+]]
+states.Suspicious = function(self, now)
+	local target = self.target
+	local targetRoot = target and target:FindFirstChild("HumanoidRootPart")
+	local targetHumanoid = target and target:FindFirstChildOfClass("Humanoid")
+
+	local function standDown()
+		self.target = nil
+		self:setState(self.archetype.behavior)
+	end
+
+	if
+		not target
+		or not (targetRoot and targetRoot:IsA("BasePart"))
+		or not targetHumanoid
+		or targetHumanoid.Health <= 0
+	then
+		standDown()
+		return
+	end
+
+	local distance = (targetRoot.Position - self.root.Position).Magnitude
+	if distance > WATCH_LOSE_RANGE then
+		standDown()
+		return
+	end
+
+	if hasLineOfSight(self, targetRoot) then
+		self.lastSawTarget = now
+	elseif now - self.lastSawTarget > MEMORY_DURATION then
+		standDown()
+		return
+	end
+
+	--[[
+		Closing is optional; watching is not.
+
+		`holdsGround` already meant "does not give up this spot", and it is
+		exactly right here: a Sith Honour Guard on the Dark Temple door tracks
+		you across the plaza without stepping off the door, while a bounty
+		hunter in the cantina -- who declares no such thing -- gets up. Past
+		the leash, everyone holds.
+	]]
+	local strayed = (self.root.Position - self.home.Position).Magnitude
+	local mayFollow = not self.archetype.holdsGround and strayed < WATCH_LEASH
+	if distance > WATCH_DISTANCE and mayFollow then
+		moveTo(self, targetRoot.Position, false)
+	else
+		stopMoving(self)
+		faceTowards(self, targetRoot.Position)
 	end
 end
 
@@ -679,6 +848,25 @@ function NPCBrain.step(self: Brain, full: boolean)
 					shout(self)
 				else
 					self:setState(Behavior.Flee)
+				end
+			elseif keepsWatch(self) then
+				-- Checked only when there is nobody to shoot, so an enemy in
+				-- the open always outranks somebody merely disliked.
+				local suspect = findSuspect(self)
+				if suspect then
+					self.target = suspect
+					self.lastSawTarget = now
+					if self.state ~= "Suspicious" then
+						self:setState("Suspicious")
+						local watched = Players:GetPlayerFromCharacter(suspect)
+						local npcService = watched and ServiceLoader.find("NPCService")
+						if watched and npcService then
+							npcService.noticedBy(watched, self.faction)
+						end
+					end
+				elseif self.state == "Suspicious" then
+					self.target = nil
+					self:setState(self.archetype.behavior)
 				end
 			end
 		end
