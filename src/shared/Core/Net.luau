@@ -329,7 +329,19 @@ function Net.onClientEvent(name: string, handler: (...any) -> ()): RBXScriptConn
 	end)
 end
 
---- Every remote name used in the game, so typos become load-time errors.
+--[[
+	Every remote name used in the game, so typos become load-time errors.
+
+	"Used" is load-bearing rather than aspirational. `ensureRemotes` below
+	instantiates one RemoteEvent per entry at boot, so a name left here after
+	its feature was dropped is not a harmless dead identifier -- it is a live
+	remote sitting in `ReplicatedStorage.Remotes` with nothing listening on
+	either side, which reads to anyone poking at the place as a seam. Two of
+	those were found and removed on 2026-08-18 (`ToggleSaber`, from a saber
+	design that never shipped, and `TrackMission`, which the HUD made
+	unnecessary by rendering every active mission). Delete the entry when the
+	feature goes.
+]]
 Net.Event = {
 	-- Progression / data
 	ProfileUpdated = "ProfileUpdated",
@@ -339,7 +351,6 @@ Net.Event = {
 	FireWeapon = "FireWeapon",
 	WeaponEffect = "WeaponEffect",
 	EquipWeapon = "EquipWeapon",
-	ToggleSaber = "ToggleSaber",
 	SaberSwing = "SaberSwing",
 	DamageDealt = "DamageDealt",
 	-- Abilities
@@ -351,7 +362,6 @@ Net.Event = {
 	MissionUpdated = "MissionUpdated",
 	AcceptMission = "AcceptMission",
 	AbandonMission = "AbandonMission",
-	TrackMission = "TrackMission",
 	-- Shop / inventory
 	PurchaseItem = "PurchaseItem",
 	SellItem = "SellItem",

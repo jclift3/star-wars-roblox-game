@@ -936,9 +936,12 @@ and objective detail, accept and abandon, backed by the existing
 `InputController.uiHasFocus` now covers both so reading a briefing does not fire
 your blaster.
 
-`TrackMission` was left unimplemented on purpose: the HUD already renders *every*
-active mission (`HudController.luau:260`), so a single tracked mission is not a
-concept the game has.
+There is no `TrackMission`, on purpose: the HUD already renders *every* active
+mission (`HudController.luau:260`), so a single tracked mission is not a concept
+the game has. It sat in `Net.Event` unimplemented until 2026-08-18 and was then
+deleted, because `Net.ensureRemotes` builds a RemoteEvent for every declared
+name — an unused one is not a dead identifier, it is a live remote with nothing
+listening on either side.
 
 ### 1.2 Collect and Deliver objectives — **[done]**
 `PickupService.luau` puts the items in the world: one shared, respawning pile per
