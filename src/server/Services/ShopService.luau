@@ -29,6 +29,7 @@ local Affixes = require(Shared.Config.Affixes)
 local Outfits = require(Shared.Config.Outfits)
 local Costumes = require(Shared.Config.Costumes)
 local Shops = require(Shared.Config.Shops)
+local Ships = require(Shared.Config.Ships)
 local Weapons = require(Shared.Config.Weapons)
 local NPCArchetypes = require(Shared.Config.NPCArchetypes)
 local ServiceLoader = require(Shared.Core.ServiceLoader)
@@ -126,7 +127,7 @@ end
 --------------------------------------------------------------------------------
 
 export type ItemEntry = {
-	kind: string, -- "Outfit" | "Weapon"
+	kind: string, -- "Outfit" | "Weapon" | "Speeder"
 	--[[
 		The stack this row is, not the catalogue entry it came from.
 
@@ -188,6 +189,23 @@ local function weaponStatLines(def: Weapons.WeaponDef): { { label: string, value
 		{ label = "Damage", value = tostring(math.floor(def.damage + 0.5)) },
 		{ label = "Rate", value = `{string.format("%.1f", def.fireRate)}/s` },
 		{ label = "Range", value = tostring(math.floor(def.range + 0.5)) },
+	}
+end
+
+--[[
+	Speed as a multiple of running, not as a raw number.
+
+	"205 studs/sec" means nothing to anyone. "6.4x on foot" is the only
+	question the player is actually asking, and it stays true if the base
+	character speed is ever retuned.
+]]
+local RUNNING_SPEED = 32
+
+local function shipStatLines(def: Ships.ShipDef): { { label: string, value: string } }
+	return {
+		{ label = "Speed", value = `{string.format("%.1f", def.speed / RUNNING_SPEED)}x on foot` },
+		{ label = "Handling", value = `{math.floor(def.turnSpeed + 0.5)} deg/s` },
+		{ label = "Seats", value = tostring(1 + #def.passengerOffsets) },
 	}
 end
 
@@ -332,6 +350,45 @@ local function buildCatalogue(player: Player, profile: PlayerProfile, vendor: Ve
 		})
 	end
 
+	--[[
+		A speeder is never a stack, so this row is much simpler than the two
+		above it: no uid, no rolls, no rarity, nothing to sell back. The uid
+		field is the ship id, which is what every other row's uid would be if
+		it had never been rolled on.
+	]]
+	local stockedSpeeders: { [string]: boolean } = {}
+	if shop then
+		for _, id in shop.speeders do
+			stockedSpeeders[id] = true
+		end
+	end
+
+	local function addSpeeder(id: string)
+		if seen[id] or not Ships.exists(id) then
+			return
+		end
+		seen[id] = true
+		local def = Ships.get(id)
+		table.insert(entries, {
+			kind = "Speeder",
+			uid = id,
+			id = id,
+			displayName = def.displayName,
+			description = def.description,
+			tier = def.tier,
+			requiredLevel = def.requiredLevel,
+			price = progression().priceFor(player, def.cost * markup),
+			owned = table.find(profile.unlockedShips, id) ~= nil,
+			equipped = profile.equipped.ship == id,
+			forSale = stockedSpeeders[id] == true,
+			rarity = 0,
+			affixes = {},
+			stats = shipStatLines(def),
+			carried = false,
+			sellValue = 0,
+		})
+	end
+
 	-- Owned first, so the list is stable as you walk in and out of range of a
 	-- vendor: the same things stay in the same order, with stock appended.
 	addOutfit(Outfits.DEFAULT, Outfits.DEFAULT)
@@ -339,12 +396,18 @@ local function buildCatalogue(player: Player, profile: PlayerProfile, vendor: Ve
 		addOutfit(stack.uid, stack.id)
 		addWeapon(stack.uid, stack.id)
 	end
+	for _, id in profile.unlockedShips do
+		addSpeeder(id)
+	end
 	if shop then
 		for _, id in shop.outfits do
 			addOutfit(id, id)
 		end
 		for _, id in shop.weapons do
 			addWeapon(id, id)
+		end
+		for _, id in shop.speeders do
+			addSpeeder(id)
 		end
 	end
 
@@ -384,10 +447,18 @@ function ShopService.purchase(player: Player, kind: string, id: string): (boolea
 	end
 	local shop = Shops.get(vendor.shopId)
 
-	local stocked = false
 	-- Annotated because Luau types the if-expression as `{string} | {string}`
 	-- and then refuses to iterate the union.
-	local list: { string } = if kind == "Outfit" then shop.outfits else shop.weapons
+	local list: { string }
+	if kind == "Outfit" then
+		list = shop.outfits
+	elseif kind == "Weapon" then
+		list = shop.weapons
+	else
+		list = shop.speeders
+	end
+
+	local stocked = false
 	for _, stockId in list do
 		if stockId == id then
 			stocked = true
@@ -401,25 +472,37 @@ function ShopService.purchase(player: Player, kind: string, id: string): (boolea
 	local cost: number
 	local requiredLevel: number
 	local displayName: string
+	local alreadyOwned: boolean
 	if kind == "Outfit" then
 		if not Outfits.exists(id) then
 			return false, "Unknown item"
 		end
 		local def = Outfits.get(id)
 		cost, requiredLevel, displayName = def.cost, def.requiredLevel, def.displayName
+		-- Against the plain stack specifically, not the catalogue id: owning
+		-- a rolled robe is no reason to be refused an ordinary one.
+		alreadyOwned = profile.inventory[id] ~= nil
 	elseif kind == "Weapon" then
 		if not Weapons.exists(id) then
 			return false, "Unknown item"
 		end
 		local def = Weapons.get(id)
 		cost, requiredLevel, displayName = def.cost, def.requiredLevel, def.displayName
+		alreadyOwned = profile.inventory[id] ~= nil
+	elseif kind == "Speeder" then
+		if not Ships.exists(id) then
+			return false, "Unknown item"
+		end
+		local def = Ships.get(id)
+		cost, requiredLevel, displayName = def.cost, def.requiredLevel, def.displayName
+		-- Speeders live in `unlockedShips`, not the bag, and there is nothing
+		-- a second copy of one could ever be for.
+		alreadyOwned = table.find(profile.unlockedShips, id) ~= nil
 	else
 		return false, "Unknown item"
 	end
 
-	-- Against the plain stack specifically, not the catalogue id: owning a
-	-- rolled DH17 is no reason to be refused an ordinary one off the shelf.
-	if profile.inventory[id] then
+	if alreadyOwned then
 		return false, "You already own that"
 	end
 	if profile.level < requiredLevel then
@@ -432,11 +515,44 @@ function ShopService.purchase(player: Player, kind: string, id: string): (boolea
 		return false, "Not enough credits"
 	end
 
-	data().update(player, function(p: PlayerProfile)
-		Inventory.add(p.inventory, id, 1)
-	end)
+	if kind == "Speeder" then
+		ServiceLoader.get("VehicleService").grant(player, id)
+	else
+		data().update(player, function(p: PlayerProfile)
+			Inventory.add(p.inventory, id, 1)
+		end)
+	end
 
 	notify(player, `Bought {displayName} for {price} cr`, "Success")
+	return true, nil
+end
+
+--[[
+	Chooses which owned speeder the summon key calls in.
+
+	Takes a ship id rather than a uid, because a speeder is never a stack --
+	see the note on `unlockedShips` in Types.luau. Selecting one does not
+	summon it: the two are separate on purpose, so changing your mind in the
+	inventory panel does not drop a landspeeder on the shopkeeper.
+]]
+function ShopService.equipShip(player: Player, id: string): (boolean, string?)
+	local profile = data().get(player)
+	if not profile then
+		return false, "Profile not loaded"
+	end
+	if not Ships.exists(id) then
+		return false, "Unknown speeder"
+	end
+	if not table.find(profile.unlockedShips, id) then
+		return false, "You do not own that"
+	end
+	if profile.equipped.ship == id then
+		return true, nil
+	end
+
+	data().update(player, function(p: PlayerProfile)
+		p.equipped.ship = id
+	end)
 	return true, nil
 end
 
@@ -581,6 +697,7 @@ function ShopService.init()
 			level = profile.level,
 			equippedOutfit = profile.equipped.outfit,
 			equippedWeapon = profile.equipped.weapon,
+			equippedShip = profile.equipped.ship,
 			vendor = vendor,
 			-- How full the bag is. Only rolled items count against it; see
 			-- Inventory.MAX_ROLLED for why the rest need no ceiling.
@@ -600,11 +717,21 @@ function ShopService.init()
 		end
 	end, {
 		rateLimit = 4,
-		validate = Net.args(Net.check.oneOf({ "Outfit", "Weapon" }), Net.check.string(64)),
+		validate = Net.args(Net.check.oneOf({ "Outfit", "Weapon", "Speeder" }), Net.check.string(64)),
 	})
 
 	Net.onServerEvent(Net.Event.EquipOutfit, function(player: Player, id: string)
 		local ok, reason = ShopService.equipOutfit(player, id)
+		if not ok and reason then
+			notify(player, reason, "Error")
+		end
+	end, {
+		rateLimit = 4,
+		validate = Net.args(Net.check.string(64)),
+	})
+
+	Net.onServerEvent(Net.Event.EquipShip, function(player: Player, id: string)
+		local ok, reason = ShopService.equipShip(player, id)
 		if not ok and reason then
 			notify(player, reason, "Error")
 		end
@@ -636,7 +763,7 @@ end
 
 function ShopService.start()
 	-- Config errors surface at boot rather than at the moment of sale.
-	for _, problem in Shops.validate(Outfits.exists, Weapons.exists) do
+	for _, problem in Shops.validate(Outfits.exists, Weapons.exists, Ships.exists) do
 		warn(`[ShopService] {problem}`)
 	end
 	for _, problem in Outfits.validate(Costumes.exists) do

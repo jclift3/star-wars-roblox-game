@@ -38,6 +38,7 @@ local Factions = require(Shared.Config.Factions)
 local Flags = require(Shared.Config.Flags)
 local Origins = require(Shared.Config.Origins)
 local Planets = require(Shared.Config.Planets)
+local Ships = require(Shared.Config.Ships)
 
 type PlayerProfile = Types.PlayerProfile
 
@@ -127,8 +128,12 @@ local function defaultProfile(): PlayerProfile
 		-- path checks the inventory, so a weapon you begin holding but do not
 		-- own is one you can put down exactly once.
 		inventory = Inventory.load({ StimPack = 2, DH17 = 1, Smuggler = 1 }),
-		equipped = { weapon = "DH17", offhand = nil, outfit = "Smuggler" },
-		unlockedShips = { "Skiff" },
+		equipped = { weapon = "DH17", offhand = nil, outfit = "Smuggler", ship = nil },
+		-- Empty, and it used to say `{ "Skiff" }` -- an id no config has ever
+		-- defined, which nothing read and so nothing complained about. A
+		-- speeder is the first real thing to save up for; being handed one
+		-- would have taken that away.
+		unlockedShips = {},
 		missions = {
 			active = {},
 			completed = {},
@@ -217,8 +222,15 @@ local function migrate(saved: any): PlayerProfile
 			end
 		end
 	end
+	-- Filtered for the same reason flags are, and with a live example: every
+	-- profile saved before speeders existed holds `{ "Skiff" }`, a ship id
+	-- that no config has ever defined.
 	if type(saved.unlockedShips) == "table" then
-		base.unlockedShips = saved.unlockedShips
+		for _, id in saved.unlockedShips do
+			if type(id) == "string" and Ships.exists(id) then
+				table.insert(base.unlockedShips, id)
+			end
+		end
 	end
 
 	-- Reputation is merged rather than replaced, so a faction added after this

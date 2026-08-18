@@ -31,6 +31,7 @@ local Weapons = require(Shared.Config.Weapons)
 local Missions = require(Shared.Config.Missions)
 local Planets = require(Shared.Config.Planets)
 local Progression = require(Shared.Config.Progression)
+local Ships = require(Shared.Config.Ships)
 local ServiceLoader = require(Shared.Core.ServiceLoader)
 
 local HudController = {
@@ -329,6 +330,15 @@ local function buildLegend()
 		on screen that says abilities exist at all.
 	]]
 	entry("1-6", "POWERS")
+
+	--[[
+		The summon key is the other hand-written line, for the same reason: a
+		speeder is not a panel. It is listed before the player owns one on
+		purpose -- the legend is also the advertisement, and a player who
+		never learns the game has vehicles never walks into the shop to buy
+		one, which leaves them doing the walk they are complaining about.
+	]]
+	entry(Ships.SUMMON_KEY.Name, Ships.SUMMON_HINT)
 
 	for _, def in Panels.ALL do
 		local toggle = def.toggle

@@ -1001,9 +1001,9 @@ travelled on Scoundrel terms — the differences were built, tested and invisibl
 Shipped **before** flyable ships. Travel alone unlocks eight planets of existing
 content; flight is a separate, much larger problem.
 
-### 2b. Ship classes
-Proposed `Config/Ships.luau`, same shape as `Weapons.luau` — stats as data,
-geometry procedural via a `ShipBuilder` mirroring `RigBuilder`.
+### 2b. Ship classes — **speeders done 2026-08-17**
+`Config/Ships.luau`, same shape as `Weapons.luau` — stats as data, geometry
+procedural via `Shared/Rig/ShipModel.luau` mirroring `WeaponModel`.
 
 | Class | Example | Role | Crew |
 |---|---|---|---|
@@ -1019,6 +1019,34 @@ rather than needing new ones.
 
 Speeders are the cheapest real win: ground-only, no space scene required, and
 they fix the "3 minutes to walk across the map" problem immediately.
+
+**Done — the speeder half.** Five of them (`HoverSled` 900cr/L1 through
+`AssaultSpeeder` 26,000cr/L28), stocked by the two existing vendors, gated by
+the existing level checks, listed on a third **SPEEDERS** tab in the inventory
+panel. **V** calls one in; **V** again puts it away.
+
+Decisions worth not relitigating:
+- **A speeder is not an `ItemStack`.** It lives in `profile.unlockedShips` with
+  `profile.equipped.ship` naming the selected one. Putting it in the bag would
+  have meant teaching every drop, sell, discard, affix and bag-cap path about an
+  item all of them must refuse. (This also found `defaultProfile` shipping
+  `unlockedShips = { "Skiff" }` — an id no config ever defined, invisible for as
+  long as nothing read the field.)
+- **The driver's client drives the constraints.** With network ownership on the
+  client, a server Heartbeat loop learns `Throttle` late *and* replicates its
+  writes late — roughly double the input lag. The concession is that a modified
+  client can exceed the config's top speed; it buys nothing, since there is no
+  vehicle combat, no race and no reward for arriving early, and ownership, price,
+  level gate and seat are all still decided server-side.
+- **Velocity, not force.** `PlanetDef.gravity` differs across the nine worlds, so
+  a force-driven hover would need retuning nine times. `LinearVelocity` makes
+  handling exactly what the config says everywhere.
+- **An idle speeder is anchored.** A hover needs someone simulating it; anchoring
+  when the seat empties is also what a repulsorlift does when you get off it, and
+  costs the server nothing.
+- **Sold from the same counter, not a speeder yard.** A yard would exist on
+  whichever planets got one, and the point of a speeder is that the walk you are
+  sick of is the one you are standing in right now.
 
 ### 2c. Flight and interiors
 - Flight controller, hangar spawn/despawn, landing pads at existing Hangar POIs

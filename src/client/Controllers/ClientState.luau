@@ -39,7 +39,7 @@ export type Profile = {
 	currentPlanet: string,
 	homePlanet: string,
 	inventory: Inventory.Inventory,
-	equipped: { weapon: string?, offhand: string?, outfit: string? },
+	equipped: { weapon: string?, offhand: string?, outfit: string?, ship: string? },
 	unlockedShips: { string },
 	missions: {
 		active: {

@@ -28,6 +28,7 @@ local Shared = game:GetService("ReplicatedStorage"):WaitForChild("Shared")
 local Net = require(Shared.Core.Net)
 local Affixes = require(Shared.Config.Affixes)
 local Palette = require(Shared.Config.Palette)
+local Ships = require(Shared.Config.Ships)
 local Panels = require(Shared.Core.Panels)
 local ServiceLoader = require(Shared.Core.ServiceLoader)
 
@@ -83,6 +84,7 @@ type Snapshot = {
 	level: number,
 	equippedOutfit: string?,
 	equippedWeapon: string?,
+	equippedShip: string?,
 	vendor: { shopId: string, displayName: string, greeting: string, vendorName: string }?,
 	rolled: number,
 	maxRolled: number,
@@ -208,7 +210,11 @@ local function buildDetailPane(parent: Frame)
 end
 
 local function buildTabs(parent: Frame)
-	local kinds = { { id = "Outfit", label = "OUTFITS" }, { id = "Weapon", label = "WEAPONS" } }
+	local kinds = {
+		{ id = "Outfit", label = "OUTFITS" },
+		{ id = "Weapon", label = "WEAPONS" },
+		{ id = "Speeder", label = "SPEEDERS" },
+	}
 	for index, kind in kinds do
 		local b = button(kind.id, parent, kind.label)
 		b.Position = UDim2.fromOffset(16 + (index - 1) * 122, 60)
@@ -360,12 +366,20 @@ local function renderDetail()
 	local underLevelled = snap.level < item.requiredLevel
 
 	if item.equipped then
-		actionButton.Text = "EQUIPPED"
+		actionButton.Text = if item.kind == "Speeder"
+			then `SELECTED — PRESS {Ships.SUMMON_KEY.Name}`
+			else "EQUIPPED"
 		actionButton.BackgroundColor3 = ROW
 		actionButton.TextColor3 = DIM
 		actionButton.Active = false
 	elseif item.owned then
-		actionButton.Text = if item.kind == "Outfit" then "WEAR" else "EQUIP"
+		-- "SELECT", not "EQUIP": choosing a speeder does not call it in, and a
+		-- button that said EQUIP and then left the world unchanged would read
+		-- as a failure.
+		actionButton.Text = if item.kind == "Outfit"
+			then "WEAR"
+			elseif item.kind == "Speeder" then `SELECT — PRESS {Ships.SUMMON_KEY.Name} TO CALL`
+			else "EQUIP"
 		actionButton.BackgroundColor3 = ACCENT
 		actionButton.TextColor3 = Color3.new(0, 0, 0)
 		actionButton.Active = true
@@ -469,7 +483,7 @@ local function renderRow(item: ItemEntry, order: number)
 	end
 
 	if item.equipped then
-		price.Text = "EQUIPPED"
+		price.Text = if item.kind == "Speeder" then "SELECTED" else "EQUIPPED"
 		price.TextColor3 = ACCENT
 	elseif item.owned then
 		price.Text = "OWNED"
@@ -517,7 +531,12 @@ local function renderList()
 	local mine: { ItemEntry } = {}
 	local theirs: { ItemEntry } = {}
 	for _, item in entriesFor(activeTab) do
-		table.insert(if item.carried then mine else theirs, item)
+		-- A speeder is `owned` and never `carried`: it lives in the profile's
+		-- `unlockedShips`, not in the bag, precisely so that it cannot be sold
+		-- or take up a slot. Splitting on `carried` alone would therefore file
+		-- the speeder you just bought under the shopkeeper's stock.
+		local yours = item.carried or (item.kind == "Speeder" and item.owned)
+		table.insert(if yours then mine else theirs, item)
 	end
 
 	local order = 0
@@ -539,6 +558,7 @@ local function renderList()
 		empty.Size = UDim2.new(1, -8, 0, 40)
 		empty.Text = if activeTab == "Outfit"
 			then "You are carrying no outfits. Find a trader to buy some."
+			elseif activeTab == "Speeder" then "You own no speeders. A trader will sell you one."
 			else "You are carrying no weapons. Find a trader to buy some."
 	end
 
@@ -674,8 +694,12 @@ function InventoryController.start()
 			return
 		elseif item.owned then
 			-- Equipping names the stack, buying names the catalogue entry.
+			-- A speeder has no stack, so for that one kind they are the same
+			-- string -- see the note on `unlockedShips` in Types.luau.
 			if item.kind == "Outfit" then
 				Net.fireServer(Net.Event.EquipOutfit, item.uid)
+			elseif item.kind == "Speeder" then
+				Net.fireServer(Net.Event.EquipShip, item.id)
 			else
 				Net.fireServer(Net.Event.EquipWeapon, item.uid)
 			end

@@ -848,6 +848,71 @@ worlds out of nine buries the one that matters.
 
 ---
 
+### 6.3 Speeders — **new, 2026-08-17**
+
+The other half of travel: **G** moves you between worlds, this moves you across
+one. Anchorhead is about a minute across on foot and the map is several; the
+cheapest speeder is more than twice running speed.
+
+Everything below needs credits — `showmethemoney` — and, for the fast ones, a
+level: `greedisgood` for XP.
+
+1. Look at the **top-left legend** before doing anything else. It reads
+   `V SPEEDER` next to `1-6 POWERS`. *(A summon key nobody is told about is a
+   speeder nobody rides; that failure has already happened once, with the six
+   panel letters.)*
+2. Press **V** with nothing owned. One toast: **"You do not own a speeder"**.
+   Nothing spawns.
+3. Find a trader, **B**, and there is a third tab: **OUTFITS / WEAPONS /
+   SPEEDERS**. Open it. The general goods trader lists four; the Jawa lists
+   three, and **the Jawa's list is different** — he has the Swoop Racer and no
+   Flare-S. That is deliberate: a Jawa sells what fell off something.
+4. Buy the **Ubrikkian Hover-Sled** (900 cr, level 1). Credits drop, and the row
+   moves out of the vendor's stock and up under **your** heading. *(It is not in
+   your bag — a speeder is not an item and must never take a slot or be
+   sellable. Check the WEAPONS tab's carry count did not change.)*
+5. The button on it now reads **SELECTED — PRESS V**. Buying the first one
+   selects it for you; buying a second does not steal the selection.
+6. **V**. It appears a few studs ahead of you, hovering, facing the way you are.
+   Walk into the seat. **V** again while parked puts it away.
+7. Drive. W/S throttle, A/D steer, and it **leans into the turn**. It follows
+   the ground up and down a dune without either sinking into it or climbing
+   stairs off it. Take it off a ledge: it falls, and catches itself at hover
+   height on the way down.
+8. Reverse is deliberately slow — about a third of forward. Bumping a wall
+   should not launch you.
+9. Stand up. The speeder **stops where it is and hovers** rather than drifting
+   off or dropping. Get back on: it does not snap round to face you.
+10. **The important one, and the reason to do this with both boys in the room:**
+    one of you buys a two-seater (Hover-Sled or Flare-S), drives, and the other
+    sits in the passenger position. The passenger should ride along smoothly and
+    **must not be able to steer**. Then the driver stands up mid-motion — the
+    speeder stops, with the passenger still on it and not thrown.
+11. Press **V** while riding. It puts itself away and stands you both up on the
+    ground, not in the air.
+12. Die on one (`iseedeadpeople` off a cliff, or find something that shoots
+    back). The speeder **despawns** rather than sitting abandoned in the world.
+    Same when you travel with **G** — arrive on the new world and there is no
+    orphan speeder behind you, and none in front of you either.
+13. Buy a second, more expensive one. Select it from the panel: the old one's
+    button goes back to **SELECT** and the new one reads **SELECTED**.
+    **Selecting does not summon** — no speeder should appear on the shopkeeper.
+14. Try to buy the **Nubian Swoop Racer** (level 20) underlevelled. The row is
+    greyed and states the level, exactly as an outfit does.
+15. Rejoin. Both speeders are still owned and the selected one is still
+    selected. *(`unlockedShips` is filtered through `Ships.exists` on load, so
+    an id that stops existing is dropped quietly rather than producing a key
+    that does nothing.)*
+16. Boot output: no `[VehicleService]` warnings about a speeder reaching below
+    its own hover height.
+
+**Expected and not a bug:** the driver's own machine simulates the speeder, so
+the other brother sees it a fraction behind where its driver does. Also, there
+is no vehicle combat — you cannot shoot from the saddle, and nothing shoots the
+speeder itself.
+
+---
+
 ## 7. Missions
 
 1. **M** opens the board. Missions are listed per planet with their rewards.

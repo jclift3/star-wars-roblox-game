@@ -49,6 +49,16 @@ export type ShopDef = {
 	priceMult: number,
 	outfits: { string }, -- Outfits ids
 	weapons: { string }, -- Weapons ids
+	--[[
+		Ships ids.
+
+		Sold from the same counter as everything else rather than from a new
+		kind of vendor with a new archetype and a new spawn entry. A speeder
+		yard would be a better shop and a worse feature: it would exist on
+		whichever planets got one, and the point of a speeder is that the
+		walk you are sick of is the one you are standing in right now.
+	]]
+	speeders: { string },
 }
 
 local defs: { [string]: ShopDef } = {}
@@ -82,6 +92,12 @@ def({
 		"E5",
 		"VibroBlade",
 	},
+	speeders = {
+		"HoverSled",
+		"SaddleBike",
+		"FlareSpeeder",
+		"AssaultSpeeder",
+	},
 })
 
 def({
@@ -101,6 +117,13 @@ def({
 		"SE14C",
 		"Gaderffii",
 		"T21",
+	},
+	-- No landspeeder: a Jawa sells what fell off something, and what falls
+	-- off a swoop gang is a swoop.
+	speeders = {
+		"HoverSled",
+		"SaddleBike",
+		"SwoopRacer",
 	},
 })
 
@@ -129,7 +152,11 @@ end
 	otherwise surface as an item the player can see in the list, click, pay
 	for, and then not receive.
 ]]
-function Shops.validate(outfitExists: (string) -> boolean, weaponExists: (string) -> boolean): { string }
+function Shops.validate(
+	outfitExists: (string) -> boolean,
+	weaponExists: (string) -> boolean,
+	speederExists: (string) -> boolean
+): { string }
 	local problems: { string } = {}
 	for id, shop in defs do
 		if shop.priceMult <= 0 then
@@ -143,6 +170,11 @@ function Shops.validate(outfitExists: (string) -> boolean, weaponExists: (string
 		for _, weaponId in shop.weapons do
 			if not weaponExists(weaponId) then
 				table.insert(problems, `Shops: "{id}" stocks unknown weapon "{weaponId}"`)
+			end
+		end
+		for _, speederId in shop.speeders do
+			if not speederExists(speederId) then
+				table.insert(problems, `Shops: "{id}" stocks unknown speeder "{speederId}"`)
 			end
 		end
 	end

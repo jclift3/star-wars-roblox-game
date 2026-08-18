@@ -83,7 +83,11 @@ export type PlayerProfile = {
 	-- Stacks keyed by uid, not a bag of counts: see Core/Inventory.luau, and
 	-- change it only through that module.
 	inventory: Inventory.Inventory,
-	equipped: { weapon: string?, offhand: string?, outfit: string? },
+	equipped: { weapon: string?, offhand: string?, outfit: string?, ship: string? },
+	-- Plain ids, not inventory stacks: a speeder cannot be dropped, sold or
+	-- rolled with affixes, so it never needs a uid and must never count
+	-- against the bag cap. `equipped.ship` names which of these the summon
+	-- key calls in.
 	unlockedShips: { string },
 	missions: {
 		active: { [string]: MissionProgress },

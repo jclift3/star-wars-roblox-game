@@ -357,6 +357,9 @@ Net.Event = {
 	SellItem = "SellItem",
 	DiscardItem = "DiscardItem",
 	EquipOutfit = "EquipOutfit",
+	-- Vehicles
+	EquipShip = "EquipShip",
+	SummonVehicle = "SummonVehicle",
 	-- Character creation
 	ChooseOrigin = "ChooseOrigin",
 	-- Travel
