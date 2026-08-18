@@ -136,6 +136,26 @@ export type Choice = {
 	]]
 	alignment: number?,
 	sets: { string }?,
+	--[[
+		WHAT THIS LINE IS ASKING ABOUT, IF IT IS ASKING ABOUT SOMETHING HIDDEN
+
+		A word out of `Secrets.luau`'s closed vocabulary. Raising it does not
+		make anything happen here: the server looks up whether this speaker is
+		hiding something under that word, checks a condition *it* owns, and
+		only then sends the player to a different node than `next` names.
+
+		So a topic choice is a question the player is always allowed to ask
+		and usually gets deflected from -- `next` is the deflection, and the
+		node the secret opens is named by the secret, not by the tree. That
+		split is the whole point. When the free-form layer arrives it will
+		return one of these words for a line the player typed, and the reward
+		half will be unchanged, because the model was never what decided.
+
+		Deliberately not a field the *client* is told about. It is carried on
+		the server's copy of the choice and the panel shows an ordinary line;
+		a marked one would tell the player which questions are load-bearing.
+	]]
+	topic: string?,
 }
 
 --[[
@@ -991,8 +1011,37 @@ def({
 					next = "named",
 					condition = { flag = "NamedTheQuiet" },
 				},
+				--[[
+					The first of the six topic lines, and the reason they are
+					unconditioned.
+
+					Every other choice in this tree appears only once the
+					player has already earned it, so the conversation never
+					shows a door it will not open. A topic is the opposite: it
+					is a question anyone may ask at any level, and the answer
+					depends on something the *server* checks. Hiding it until
+					the condition passes would turn a puzzle into a
+					notification. See Secrets.luau.
+				]]
+				{
+					text = "Thirty years of forms. Where do they go?",
+					next = "askLedger",
+					topic = "theLedger",
+				},
 				LEAVE,
 			},
+		},
+		askLedger = {
+			lines = {
+				"To the archive, where they are counted and not read. -- You are asking me a filing question, which means you are asking me something else and have not decided how. Come back when you have.",
+			},
+			choices = { WORK, LEAVE },
+		},
+		theLedger = {
+			lines = {
+				"They go to the archive. -- Mine do not. -- Four hundred and six, in my own hand, in a footlocker under a bunk in a barracks that was decommissioned before you were born, because an Overseer who keeps a private record is a corpse and an Overseer who keeps a *duplicate* is merely thorough. -- I am telling you where it is. I am not going with you. If it comes back missing a page I will know which page, and I will know it was you, and I will not report it.",
+			},
+			choices = { WORK, LEAVE },
 		},
 		student = {
 			lines = {
@@ -1094,8 +1143,25 @@ def({
 					next = "named",
 					condition = { flag = "NamedTheQuiet" },
 				},
+				{
+					text = "The commendation you did not want. What was it for?",
+					next = "askCommendation",
+					topic = "theCommendation",
+				},
 				LEAVE,
 			},
+		},
+		askCommendation = {
+			lines = {
+				"Jabiim. It is in the citation, which you can read in any garrison on any world, and it says what citations say. -- No. Not today, and not to somebody who is still collecting.",
+			},
+			choices = { WORK, LEAVE },
+		},
+		theCommendation = {
+			lines = {
+				"Jabiim. -- The citation says I held a line. What I did was refuse an order to move eleven people forward into a bombardment, and stand there, and be right by accident. -- They could not court-martial the outcome, so they decorated the outcome, and I have worn a ribbon for eleven years that says the opposite of what happened. -- That is the whole of it. Take the kit off my shelf on your way out; I have not been able to look at it since either, and it fits somebody who is still going.",
+			},
+			choices = { WORK, LEAVE },
 		},
 		soldier = {
 			lines = {
@@ -1222,8 +1288,25 @@ def({
 					next = "watchedOne",
 					condition = { flag = "LetThemBreakHisHands" },
 				},
+				{
+					text = "You do not set your own prices. Who does?",
+					next = "askPartner",
+					topic = "theSilentPartner",
+				},
 				LEAVE,
 			},
+		},
+		askPartner = {
+			lines = {
+				"I do. -- That was a very fast answer and you noticed, and now we are both going to pretend you did not. Ask me about something I sell.",
+			},
+			choices = { WORK, LEAVE },
+		},
+		silentPartner = {
+			lines = {
+				"You have haggled me down four times this month and I let you, and a man who lets you do that is a man working off a margin somebody else set. -- There is a partner. Not a Hutt. A percentage that leaves this table every quarter to an account that has never once asked what it was buying, and the paperwork is Czerka, and I have stopped opening it. -- Take the DL-44 out of the drawer. It was the last thing I bought with money that was only mine.",
+			},
+			choices = { WORK, LEAVE },
 		},
 		debt = {
 			lines = {
@@ -1329,8 +1412,25 @@ def({
 					next = "lot9",
 					condition = { flag = "SawLot9" },
 				},
+				{
+					text = "*Open the maintenance log yourself.*",
+					next = "askField",
+					topic = "theClearedField",
+				},
 				LEAVE,
 			},
+		},
+		askField = {
+			lines = {
+				"Objection: that panel is welded, the interface predates your species' involvement in this sector, and you have brought a multitool. Assessment: I admire the confidence and I am going to enjoy watching it end.",
+			},
+			choices = { WORK, LEAVE },
+		},
+		clearedField = {
+			lines = {
+				"Concession: you are inside. Statement: I did not expect that and I am recording my surprise for later review. -- Retrieval: the clear instruction is timestamped, and there is a second timestamp forty seconds earlier, and it is an *inbound* command authorisation. Somebody told me to forget, from outside, and my own log dutifully wrote down that the order was mine. -- Conclusion: I am not the only unit that has been told that. Request: find out how many. Do not tell me the number until you have to.",
+			},
+			choices = { WORK, LEAVE },
 		},
 		repair = {
 			lines = {
@@ -1444,8 +1544,25 @@ def({
 					condition = { flag = "SaberPure" },
 				},
 				{ text = "Why would a Jedi talk to me at all?", next = "why" },
+				{
+					text = "You said four of you wrote it down. Who were the other three?",
+					next = "askBefore",
+					topic = "theOnesBefore",
+				},
 				LEAVE,
 			},
+		},
+		askBefore = {
+			lines = {
+				"Colleagues. -- That is the answer I give, and you have noticed that it is not one. I will give you the real one when I am sure what you would do with it, and I am not being coy; I have been wrong about that before and one of them is why.",
+			},
+			choices = { WORK, LEAVE },
+		},
+		onesBefore = {
+			lines = {
+				"Three. -- Master Ceyla Vorne, who filed the first report and is alive and has not spoken in six years. Knight Aden Ibisu, who filed the second and is listed as lost on assignment, and there was no assignment. -- And the third is not a Jedi. She is a Sith archivist on Dromund Kaas who has been writing to me for four years under a false name and has never once asked me for anything. -- That is what I have that the Council does not: proof it does not care whose side you are on. Do not make me regret which of you I told.",
+			},
+			choices = { WORK, LEAVE },
 		},
 		naming = {
 			lines = {
@@ -1527,8 +1644,25 @@ def({
 					condition = { flag = "NamedTheQuiet" },
 				},
 				{ text = "What exactly does Czerka procure?", next = "procure" },
+				{
+					text = "You have never met the client. You have seen the account.",
+					next = "askClient",
+					topic = "theClient",
+				},
 				LEAVE,
 			},
+		},
+		askClient = {
+			lines = {
+				"I have seen a routing number, the same as you would see on a shipment of hull bolts. -- I am not going to speculate in front of a stranger about a client who pays on time. That is not loyalty; it is that I would like to keep receiving post.",
+			},
+			choices = { WORK, LEAVE },
+		},
+		theClient = {
+			lines = {
+				"A routing number. Eleven digits, and the eleventh is a checksum, and the checksum is wrong. -- It has been wrong on every transfer for four years, which means no bank has ever processed one, which means the credits are arriving from inside whatever institution is supposed to be checking. -- I have raised it twice. Both queries were closed as resolved by an officer whose staff number does not appear in any directory I can reach. -- So: I am paid promptly by an account that does not exist, to a specification I did not write, and I have been telling myself that this is procurement. You may have that. I would like it to be somewhere other than my head.",
+			},
+			choices = { WORK, LEAVE },
 		},
 		procure = {
 			lines = {
@@ -1647,6 +1781,80 @@ function Dialogue.meets(condition: Condition?, ctx: Context): boolean
 end
 
 --[[
+	Everything wrong with one condition, each line prefixed by `label`.
+
+	Split out of `validate` rather than left inline because `Secrets.luau`
+	gates its unlocks on the same `Condition` type, evaluated by the same
+	`meets`. Two copies of these checks would drift, and the way that failure
+	shows up is the worst kind: a secret gated on a misspelt flag is a reward
+	nobody can ever earn, and nothing anywhere says so.
+
+	`label` is passed in whole rather than assembled here, because the two
+	callers name their subjects differently -- a tree knows a node and an
+	index, a secret knows its own id.
+]]
+function Dialogue.conditionProblems(
+	c: Condition?,
+	label: string,
+	missionExists: (string) -> boolean,
+	originExists: (string) -> boolean,
+	flagExists: (string) -> boolean,
+	statIsLive: (string) -> boolean
+): { string }
+	local problems: { string } = {}
+	if not c then
+		return problems
+	end
+
+	--[[
+		Checked field by field rather than gathered into a table first: the
+		fields are optional, so a literal built from them would have holes,
+		and generalised iteration stops at the first one.
+	]]
+	local function checkMission(named: string?)
+		if named ~= nil and not missionExists(named) then
+			table.insert(problems, `{label} names unknown mission "{named}"`)
+		end
+	end
+	checkMission(c.missionActive)
+	checkMission(c.missionCompleted)
+	checkMission(c.missionNotCompleted)
+
+	-- A misspelt origin is a line no character can ever be shown, which reads
+	-- exactly like a line nobody wrote.
+	if c.origin ~= nil and not originExists(c.origin) then
+		table.insert(problems, `{label} names unknown origin "{c.origin}"`)
+	end
+
+	local function checkFlag(named: string?)
+		if named ~= nil and not flagExists(named) then
+			table.insert(problems, `{label} reads undeclared flag "{named}"`)
+		end
+	end
+	checkFlag(c.flag)
+	checkFlag(c.notFlag)
+
+	--[[
+		A stat nothing reads is a line that fires on a number the player
+		cannot change, and a misspelt one reads as 0 forever -- so
+		`minStat = { SlicerTier = 2 }` would be a door that never opens and
+		never errors. Checked against the same live-stat table skills and
+		affixes are, so all three agree on what counts as real.
+	]]
+	local function checkStats(bounds: { [string]: number }?, role: string)
+		for stat in bounds or EMPTY_BOUNDS do
+			if not statIsLive(stat) then
+				table.insert(problems, `{label} {role} on "{stat}", which nothing reads`)
+			end
+		end
+	end
+	checkStats(c.minStat, "gates")
+	checkStats(c.maxStat, "caps")
+
+	return problems
+end
+
+--[[
 	Cross-checks every tree against itself and against the missions it names.
 
 	Same reasoning as Missions.validate: a choice pointing at a node that does
@@ -1697,6 +1905,20 @@ function Dialogue.validate(
 				end
 
 				--[[
+					A topic is a question that usually fails, and `next` is
+					where it lands when it does. Without one, asking about
+					something the player has not earned closes the panel in
+					their face -- which reads as the button being broken
+					rather than as the character declining to answer.
+				]]
+				if choice.topic and not choice.next then
+					table.insert(
+						problems,
+						`{id}.{nodeId}: choice {i} raises a topic with nowhere to deflect to`
+					)
+				end
+
+				--[[
 					An undeclared flag is written to a profile nothing reads and
 					no condition can ever match, which looks precisely like a
 					branch the author forgot to finish. Same check on both
@@ -1742,60 +1964,17 @@ function Dialogue.validate(
 					end
 				end
 
-				local c = choice.condition
-				if c then
-					--[[
-						Checked field by field rather than gathered into a
-						table first: the fields are optional, so a literal
-						built from them would have holes, and generalised
-						iteration stops at the first one.
-					]]
-					local function checkMission(named: string?)
-						if named ~= nil and not missionExists(named) then
-							table.insert(
-								problems,
-								`{id}.{nodeId}: choice {i} names unknown mission "{named}"`
-							)
-						end
-					end
-					checkMission(c.missionActive)
-					checkMission(c.missionCompleted)
-					checkMission(c.missionNotCompleted)
-					-- A misspelt origin is a line no character can ever be
-					-- shown, which reads exactly like a line nobody wrote.
-					if c.origin ~= nil and not originExists(c.origin) then
-						table.insert(problems, `{id}.{nodeId}: choice {i} names unknown origin "{c.origin}"`)
-					end
-					local function checkFlag(named: string?)
-						if named ~= nil and not flagExists(named) then
-							table.insert(
-								problems,
-								`{id}.{nodeId}: choice {i} reads undeclared flag "{named}"`
-							)
-						end
-					end
-					checkFlag(c.flag)
-					checkFlag(c.notFlag)
-					--[[
-						A stat nothing reads is a line that fires on a number
-						the player cannot change, and a misspelt one reads as
-						0 forever -- so `minStat = { SlicerTier = 2 }` would
-						be a door that never opens and never errors. Checked
-						against the same live-stat table skills and affixes
-						are, so all three agree on what counts as real.
-					]]
-					local function checkStats(bounds: { [string]: number }?, role: string)
-						for stat in bounds or EMPTY_BOUNDS do
-							if not statIsLive(stat) then
-								table.insert(
-									problems,
-									`{id}.{nodeId}: choice {i} {role} on "{stat}", which nothing reads`
-								)
-							end
-						end
-					end
-					checkStats(c.minStat, "gates")
-					checkStats(c.maxStat, "caps")
+				for _, problem in
+					Dialogue.conditionProblems(
+						choice.condition,
+						`{id}.{nodeId}: choice {i}`,
+						missionExists,
+						originExists,
+						flagExists,
+						statIsLive
+					)
+				do
+					table.insert(problems, problem)
 				end
 			end
 		end

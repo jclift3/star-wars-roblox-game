@@ -36,6 +36,7 @@ local NPCArchetypes = require(Shared.Config.NPCArchetypes)
 local Net = require(Shared.Core.Net)
 local Origins = require(Shared.Config.Origins)
 local Progression = require(Shared.Config.Progression)
+local Secrets = require(Shared.Config.Secrets)
 local ServiceLoader = require(Shared.Core.ServiceLoader)
 local Shops = require(Shared.Config.Shops)
 
@@ -70,6 +71,9 @@ type Resolved = {
 	-- for what that index costs is the list the server actually sent.
 	alignment: number?,
 	sets: { string }?,
+	-- Never sent to the client. See the note on `Dialogue.Choice.topic`: a
+	-- line the panel marked as load-bearing would stop being a question.
+	topic: string?,
 }
 
 type Session = {
@@ -108,6 +112,10 @@ local function progression()
 	return ServiceLoader.get("ProgressionService")
 end
 
+local function secrets()
+	return ServiceLoader.get("SecretService")
+end
+
 --------------------------------------------------------------------------------
 -- Building a node
 --------------------------------------------------------------------------------
@@ -121,6 +129,34 @@ local function offersFor(profile: any, giverId: string): { Missions.MissionDef }
 		end
 	end
 	return out
+end
+
+--[[
+	Everything a condition is allowed to ask about, for this player in front of
+	this speaker.
+
+	One builder, because two things now judge conditions against it: the filter
+	that decides which lines are shown, and SecretService, which decides
+	whether a question landed. `rep` is standing with the speaker's own
+	faction, so a second copy of this would eventually be built against a
+	different faction than the line the player clicked was -- and the symptom
+	would be a secret that opens for the wrong people.
+]]
+local function contextFor(player: Player, profile: any, faction: string): Dialogue.Context
+	return {
+		origin = profile.origin,
+		level = profile.level,
+		rep = profile.factionRep[faction] or 0,
+		alignment = profile.alignment,
+		flags = profile.flags,
+		activeMissions = profile.missions.active,
+		completedMissions = profile.missions.completed,
+		-- Skills folded together with the equipped outfit, which is why this
+		-- comes from ProgressionService rather than off the profile: it is
+		-- the same table combat reads, so a line that says "you could open
+		-- that" cannot be shown to somebody who could not.
+		stats = progression().getStats(player),
+	}
 end
 
 --[[
@@ -140,20 +176,7 @@ local function resolveChoices(
 	local out: { Resolved } = {}
 	local archetype = NPCArchetypes.get(session.archetypeId)
 
-	local ctx: Dialogue.Context = {
-		origin = profile.origin,
-		level = profile.level,
-		rep = profile.factionRep[session.faction] or 0,
-		alignment = profile.alignment,
-		flags = profile.flags,
-		activeMissions = profile.missions.active,
-		completedMissions = profile.missions.completed,
-		-- Skills folded together with the equipped outfit, which is why this
-		-- comes from ProgressionService rather than off the profile: it is
-		-- the same table combat reads, so a line that says "you could open
-		-- that" cannot be shown to somebody who could not.
-		stats = progression().getStats(player),
-	}
+	local ctx = contextFor(player, profile, session.faction)
 
 	local authored: { Dialogue.Choice } = node.choices or {}
 	for _, choice in authored do
@@ -177,6 +200,7 @@ local function resolveChoices(
 			action = choice.action,
 			alignment = choice.alignment,
 			sets = choice.sets,
+			topic = choice.topic,
 		})
 	end
 
@@ -374,6 +398,29 @@ function DialogueService.choose(player: Player, index: number)
 		progression().awardAlignment(player, choice.alignment or 0, choice.sets)
 	end
 
+	--[[
+		The one kind of choice whose destination the tree does not decide.
+
+		`choice.next` is the deflection the author wrote; the node a secret
+		opens is named by the secret. Which of the two the player lands on is
+		settled here, on the server, out of a config no client and no future
+		language model can reach -- see SecretService's header for why that
+		separation is the whole feature rather than an implementation detail.
+
+		After the flag block above, for the reason that block gives: a secret
+		whose condition reads a flag this very choice set must see it set.
+	]]
+	local topic = choice.topic
+	local profile = if topic then data().get(player) else nil
+	if topic and profile then
+		local ctx = contextFor(player, profile, session.faction)
+		local opened = secrets().raise(player, session.giverId, topic, ctx)
+		if opened then
+			goTo(player, session, opened)
+			return
+		end
+	end
+
 	-- Accepting is done before the panel closes so the refusal, if there is
 	-- one, reaches the player while they are still looking at the speaker.
 	if choice.missionId and choice.action == Action.Leave then
@@ -408,6 +455,13 @@ function DialogueService.init()
 	-- written for the cast and the cast names its trees.
 	for _, problem in Cast.validate(Dialogue.exists) do
 		warn(`[DialogueService] cast config: {problem}`)
+	end
+
+	-- Here for the same reason and with the same four predicates: a secret's
+	-- `requires` is a Dialogue.Condition, and the two files that could check
+	-- it are the two that would close a cycle by requiring each other.
+	for _, problem in Secrets.validate(Missions.exists, Origins.exists, Flags.exists, statIsLive) do
+		warn(`[DialogueService] secrets config: {problem}`)
 	end
 
 	--[[

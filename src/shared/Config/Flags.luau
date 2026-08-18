@@ -284,6 +284,62 @@ entry(
 )
 
 --------------------------------------------------------------------------------
+-- What people told you when they did not have to
+--------------------------------------------------------------------------------
+
+--[[
+	One per secret in `Secrets.luau`, and the only record that a secret was
+	ever granted.
+
+	No new profile field, deliberately. A `profile.secrets` set would be a
+	second thing to version, a second thing to replicate, and a second answer
+	to "has this happened" -- and the flag registry already does all three,
+	already survives a save, and already gives the journal something to show.
+	`Dialogue.Condition.flag` then gates later lines on having heard it, which
+	is the whole reason a secret should be worth more than its reward.
+
+	Filed under the act the conversation belongs to rather than a sixth act of
+	their own: these are things you learned while doing the campaign, not a
+	side story running beside it.
+]]
+entry(
+	"VashkKeptCopies",
+	"WhatTheyKept",
+	"Vashk kept a duplicate of all four hundred and six forms, in his own hand, in a footlocker in a decommissioned barracks. He told you where.",
+	"Secret VashkTheLedger: the Overseer's private duplicate. Granted by SecretService."
+)
+entry(
+	"MarrsCommendation",
+	"PaperTrail",
+	"Marr's commendation was for refusing an order. They could not court-martial the outcome, so they decorated it.",
+	"Secret MarrTheCommendation: what the citation from Jabiim actually covers up."
+)
+entry(
+	"KadarsSilentPartner",
+	"PaperTrail",
+	"Vess Kadar has a silent partner taking a percentage every quarter. The paperwork is Czerka and he has stopped opening it.",
+	"Secret KadarTheSilentPartner: the fixer does not set his own prices."
+)
+entry(
+	"NineClearedField",
+	"WhatTheyKept",
+	"The order that wiped Ordo-9's recipient field came from outside him, forty seconds before his own log claimed it was his.",
+	"Secret NineTheClearedField: the wipe was an inbound authorisation, not a decision."
+)
+entry(
+	"SolaaNamedTheThree",
+	"WhatTheyKept",
+	"Three others wrote The Quiet down: one silent for six years, one lost on an assignment that did not exist, and a Sith archivist on Dromund Kaas who writes to a Jedi under a false name.",
+	"Secret SolaaTheOnesBefore: proof the thing does not care whose side you are on."
+)
+entry(
+	"CorrsRoutingNumber",
+	"WhatTheyKept",
+	"Czerka is paid for Lot 9 by an account whose checksum has been wrong for four years. No bank has ever processed a transfer. The credits come from inside.",
+	"Secret CorrTheClient: the client account does not exist and is never late."
+)
+
+--------------------------------------------------------------------------------
 -- API
 --------------------------------------------------------------------------------
 
