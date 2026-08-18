@@ -126,6 +126,25 @@ type Style = {
 	scatter: string, -- "Dunes" | "Rocks" | "Trees" | "Drifts" | "None"
 	-- The building geometry itself. See the Architecture section below.
 	shape: (Instance, Vector3, Vector2, Style, Random) -> (),
+	--[[
+		The outside of a building that has an inside.
+
+		`shape` builds a solid silhouette and cannot be hollowed, so anything
+		a player walks into is built by `roomShell` instead -- and until this
+		field existed that shell was *one box on all nine worlds*, wearing the
+		planet's colour and nothing else. Those are not a rounding error:
+		`Hall` and `Shop` are 356 of the cells across the eight authored
+		towns, they are the only buildings with a door, and on Hoth they
+		outnumber that world's own houses 36 to 8.
+
+		Same arguments as `shape`, made in the room's own frame: takes the
+		shell's `base`, `size` and `color` so a dressing lines up with the
+		wall it is dressing, and owns the whole outside -- plinth, roofline
+		and trim. There is deliberately no generic fallback. A tenth
+		architecture must answer "what does a shop look like here", and a
+		silent default is how the nine came to share one box.
+	]]
+	dress: (Instance, CFrame, Vector3, Color3, Style, Random) -> (),
 }
 
 --------------------------------------------------------------------------------
@@ -1160,6 +1179,814 @@ local function gothicShape(parent: Instance, base: Vector3, footprint: Vector2, 
 	end
 end
 
+--------------------------------------------------------------------------------
+-- Room exteriors
+--------------------------------------------------------------------------------
+
+--[[
+	WHAT A SHOP LOOKS LIKE ON EACH WORLD
+
+	One `dress` per architecture, and between them the reason this section
+	exists: a building you can walk into is built as a shell rather than by
+	`shape` (see the Interiors section for why a solid silhouette cannot be
+	hollowed), and a shell is a box. Every cantina, market stall and mess
+	hall in eight authored towns was the same box.
+
+	EVERYTHING HERE IS WRITTEN IN THE ROOM'S OWN FRAME
+	`at` is the shell's centre turned so that local +X is the door and local
+	+Y is up; `size` is the shell measured the same way. So `at * CFrame.new(
+	size.X * 0.5, ...)` is the street front on every one of these whichever
+	way the building was turned, and a dressing never has to know. Identical
+	convention to the `room` fittings, for the identical reason: half of
+	these buildings are rotated a quarter circle and anything positioned in
+	world space ends up through a side wall.
+
+	THE BUDGET
+	Each of these is spent on the *roofline* first. A box's silhouette is its
+	roof edge, that is what reads from across a street, and it is the one
+	part of the shell no amount of colour can disguise. Wall trim comes
+	second and only where the world has a tell worth the parts.
+
+	The plinth is a dressing's own business rather than a shared line above
+	them, because two of the nine correctly refuse one: Ord Mantell builds
+	above its wet season on stilts and Hoth builds under the snow, and a
+	skirting board at ground level would contradict both.
+]]
+
+--- A plinth in the room's frame. The world-space `plinth` cannot be used on
+--- anything `doorFacing` has turned.
+local function roomPlinth(parent: Instance, at: CFrame, size: Vector3, color: Color3, material: Enum.Material)
+	local p = block(
+		parent,
+		at * CFrame.new(0, 1.4, 0),
+		Vector3.new(size.X * 1.07, 2.8, size.Z * 1.07),
+		shade(color, -0.18),
+		material
+	)
+	p.Name = "Plinth"
+	p.CanCollide = false
+end
+
+--- An overhanging lip at local `y`, in the room's frame.
+local function roomCornice(
+	parent: Instance,
+	at: CFrame,
+	size: Vector3,
+	y: number,
+	color: Color3,
+	material: Enum.Material
+)
+	local p = block(
+		parent,
+		at * CFrame.new(0, y, 0),
+		Vector3.new(size.X * 1.06, 1.6, size.Z * 1.06),
+		shade(color, -0.12),
+		material
+	)
+	p.Name = "Cornice"
+	p.CanCollide = false
+end
+
+--- Tatooine. A barrel vault over the box, and the water gear that pays for it.
+local function adobeDress(
+	parent: Instance,
+	at: CFrame,
+	size: Vector3,
+	color: Color3,
+	style: Style,
+	rng: Random
+)
+	roomPlinth(parent, at, size, color, Enum.Material.Sandstone)
+
+	--[[
+		A barrel vault, lying along the door axis so the curve is what you
+		see walking up to it. This is most of the dressing: Anchorhead's rule
+		is that nothing has a straight roof edge, and one lying cylinder buys
+		that on a rectangle, where the drum-and-dome the houses use cannot
+		sit. No `UPRIGHT` here -- a cylinder's axis is already its local X,
+		and local X is already the door axis.
+	]]
+	cylinder(
+		parent,
+		at * CFrame.new(0, size.Y, 0),
+		Vector3.new(size.X, size.Z * 0.92, size.Z * 0.92),
+		color,
+		Enum.Material.Sandstone
+	).Name =
+		"Vault"
+
+	-- Rounded corner piers, wind-worn proud of the wall. Adobe has no sharp
+	-- vertical edges either, and four cylinders cover all four of them.
+	for _, sx in { -1, 1 } do
+		for _, sz in { -1, 1 } do
+			cylinder(
+				parent,
+				at * CFrame.new(sx * size.X * 0.5, size.Y * 0.5, sz * size.Z * 0.5) * UPRIGHT,
+				Vector3.new(size.Y, 7, 7),
+				color,
+				Enum.Material.Sandstone
+			).Name =
+				"Pier"
+		end
+	end
+
+	-- Slits, not windows. The sun is the enemy here.
+	for _, sz in { -1, 1 } do
+		for i = -1, 1 do
+			local slit = block(
+				parent,
+				at * CFrame.new(i * size.X * 0.28, size.Y * 0.62, sz * size.Z * 0.5),
+				Vector3.new(2, 3.4, 1),
+				style.windowColor,
+				Enum.Material.Neon
+			)
+			slit.Name = "Slit"
+			slit.CanCollide = false
+		end
+	end
+
+	-- A condenser on the vault. Water on the skyline is the tell.
+	local mast = (at * CFrame.new(size.X * 0.24, size.Y + size.Z * 0.3, 0)).Position
+	conduit(parent, mast, 7, rng)
+	ball(
+		parent,
+		CFrame.new(mast + Vector3.new(0, 9, 0)),
+		Vector3.new(5, 5, 5),
+		Palette.WornSteel,
+		Enum.Material.Metal
+	).Name =
+		"Condenser"
+end
+
+--- Korriban. Even the archive is a tomb: stepped stone and two obelisks.
+local function zigguratDress(
+	parent: Instance,
+	at: CFrame,
+	size: Vector3,
+	color: Color3,
+	style: Style,
+	_rng: Random
+)
+	roomPlinth(parent, at, size, color, Enum.Material.Slate)
+	roomCornice(parent, at, size, size.Y, color, Enum.Material.Slate)
+
+	-- Two receding courses. A ziggurat is stacked horizontals and nothing
+	-- else, so the horizontals are the entire dressing.
+	local y = size.Y
+	local w, d = size.X, size.Z
+	for step = 1, 2 do
+		w *= 0.76
+		d *= 0.76
+		block(parent, at * CFrame.new(0, y + 3, 0), Vector3.new(w, 6, d), color, Enum.Material.Slate).Name =
+			`Step{step}`
+		y += 6
+		roomCornice(parent, at, Vector3.new(w, 0, d), y, color, Enum.Material.Slate)
+	end
+
+	--[[
+		Flanking the entrance, leaning very slightly out, as the tombs do.
+
+		Set *outside* the side walls rather than at the front corners.
+		`roomShell`'s doorway is a fixed 16 studs however small the building
+		is, and the smallest room here is a single 32-stud cell at `fill =
+		0.78`: a pair of obelisks measured in from the corners lands them in
+		the opening at that size. A solid part in a doorway is a shop the
+		pathfinder cannot deliver a customer to, and it would only show up on
+		the narrowest buildings on one world.
+	]]
+	for _, sz in { -1, 1 } do
+		local across = sz * (size.Z * 0.5 + 4)
+		local obelisk = block(
+			parent,
+			at * CFrame.new(size.X * 0.5 + 2, size.Y * 0.55, across),
+			Vector3.new(4.5, size.Y * 1.1, 4.5),
+			Palette.SithBlack,
+			Enum.Material.Slate
+		)
+		obelisk.Name = "Obelisk"
+		obelisk.CFrame = obelisk.CFrame * CFrame.Angles(sz * 0.04, 0, 0)
+
+		local flame = ball(
+			parent,
+			at * CFrame.new(size.X * 0.5 + 2, size.Y * 1.12, across),
+			Vector3.new(3.5, 3.5, 3.5),
+			style.windowColor,
+			Enum.Material.Neon
+		)
+		flame.Name = "Brazier"
+		flame.CanCollide = false
+
+		local glow = Instance.new("PointLight")
+		glow.Color = style.windowColor
+		glow.Range = 30
+		glow.Brightness = 1.5
+		glow.Parent = flame
+	end
+end
+
+--- Taris. It stands, but only the ground floor does. The rest is above you.
+local function ruinDress(
+	parent: Instance,
+	at: CFrame,
+	size: Vector3,
+	color: Color3,
+	_style: Style,
+	rng: Random
+)
+	roomPlinth(parent, at, size, color, Enum.Material.Concrete)
+
+	--[[
+		A broken cornice rather than a ring. Two segments with the front
+		corner missing says "this used to continue" for the same three parts
+		a whole one costs, and on the one world in the game whose entire
+		claim is that it was bombed flat, an intact trim line is the detail
+		that would give the game away.
+	]]
+	for _, sz in { -1, 1 } do
+		local run = block(
+			parent,
+			at * CFrame.new(-size.X * 0.12, size.Y, sz * size.Z * 0.53),
+			Vector3.new(size.X * 0.7, 1.6, size.Z * 0.06),
+			shade(color, -0.12),
+			Enum.Material.Concrete
+		)
+		run.Name = "Cornice"
+		run.CanCollide = false
+	end
+
+	-- The stump of the floor above, sheared off across the middle.
+	block(
+		parent,
+		at * CFrame.new(-size.X * 0.22, size.Y + 5, 0),
+		Vector3.new(size.X * 0.5, 10, size.Z * 0.9),
+		color,
+		Enum.Material.Concrete
+	).Name =
+		"Stump"
+
+	-- Bare columns carrying on past it to nothing, which is what a sheared
+	-- building actually looks like and what no amount of rubble conveys.
+	for _, sx in { -1, 1 } do
+		for _, sz in { -1, 1 } do
+			block(
+				parent,
+				at * CFrame.new(sx * size.X * 0.42, size.Y + 9, sz * size.Z * 0.42),
+				Vector3.new(2.2, 18, 2.2),
+				Palette.DroidRust,
+				Enum.Material.CorrodedMetal
+			).Name =
+				"Column"
+		end
+	end
+
+	-- A slab off the building next door, come to rest against the back wall.
+	local slab = wedge(
+		parent,
+		at
+			* CFrame.new(-size.X * 0.5 - 6, 7, rng:NextNumber(-size.Z * 0.2, size.Z * 0.2))
+			* CFrame.Angles(0, -math.pi * 0.5, 0),
+		Vector3.new(size.Z * 0.4, 14, 13),
+		shade(color, -0.06),
+		Enum.Material.Concrete
+	)
+	slab.Name = "FallenSlab"
+end
+
+--- Nar Shaddaa. Someone built on the roof, and the plumbing is on the outside.
+local function neonStackDress(
+	parent: Instance,
+	at: CFrame,
+	size: Vector3,
+	_color: Color3,
+	style: Style,
+	rng: Random
+)
+	-- No plinth, and the shell's own colour is not carried upward: nothing
+	-- on this world was set down carefully and nothing added to it matches.
+
+	--[[
+		A second storey shoved off the front, overhanging the street.
+
+		The Hutt-world rule from `neonStackShape` is that each slab shoves
+		sideways instead of stepping in -- an overhang says somebody claimed
+		the air above a shop they do not own, which is the entire character
+		of the place, and it costs one part.
+	]]
+	block(
+		parent,
+		at * CFrame.new(size.X * 0.22, size.Y + 7, rng:NextNumber(-size.Z * 0.16, size.Z * 0.16)),
+		Vector3.new(size.X * 0.8, 14, size.Z * 1.05),
+		pick(style.buildingColors, rng),
+		Enum.Material.DiamondPlate
+	).Name =
+		"Overhang"
+
+	-- The vertical strip up the door corner. Neon is the identity.
+	local strip = block(
+		parent,
+		at * CFrame.new(size.X * 0.5 + 1, size.Y * 0.55, size.Z * 0.5 - 2),
+		Vector3.new(1, size.Y * 0.9, 2.6),
+		Palette.SaberPurple,
+		Enum.Material.Neon
+	)
+	strip.Name = "Strip"
+	strip.CanCollide = false
+
+	local board = block(
+		parent,
+		at * CFrame.new(size.X * 0.2, size.Y + 15, size.Z * 0.52),
+		Vector3.new(size.X * 0.55, 7, 0.6),
+		style.windowColor,
+		Enum.Material.Neon
+	)
+	board.Name = "Board"
+	board.CanCollide = false
+
+	-- Pipework down the back and tanks on what roof is left.
+	for _ = 1, rng:NextInteger(2, 3) do
+		conduit(
+			parent,
+			(at * CFrame.new(-size.X * 0.5 - 1, 0, rng:NextNumber(-size.Z * 0.4, size.Z * 0.4))).Position,
+			size.Y * rng:NextNumber(0.7, 1),
+			rng
+		)
+	end
+	for _ = 1, rng:NextInteger(2, 3) do
+		local w = rng:NextNumber(3.5, 6)
+		local tank = cylinder(
+			parent,
+			at
+				* CFrame.new(
+					rng:NextNumber(-size.X * 0.4, -size.X * 0.1),
+					size.Y + w * 0.5 + 1,
+					rng:NextNumber(-size.Z * 0.3, size.Z * 0.3)
+				)
+				* UPRIGHT,
+			Vector3.new(w, w, w),
+			Palette.WornSteel,
+			Enum.Material.Metal
+		)
+		tank.Name = "Tank"
+		tank.CanCollide = false
+	end
+end
+
+--[[
+	Coruscant. Glazed, ledged and masted, like everything else here.
+
+	The one dressing not currently reachable: Coruscant is the only world
+	with no ground layout -- it is built by `buildVerticalCity` -- so nothing
+	calls `buildRoom` on it. It is written anyway because `spireShape` is in
+	exactly the same position, and a `Style` with a hole in it for one planet
+	is worse than a function waiting for a district.
+]]
+local function spireDress(
+	parent: Instance,
+	at: CFrame,
+	size: Vector3,
+	color: Color3,
+	style: Style,
+	_rng: Random
+)
+	roomPlinth(parent, at, size, color, Enum.Material.Metal)
+	roomCornice(parent, at, size, size.Y, color, Enum.Material.Metal)
+
+	-- Continuous glazing, which is what a Coruscant frontage is.
+	for _, sz in { -1, 1 } do
+		local band = block(
+			parent,
+			at * CFrame.new(0, size.Y * 0.62, sz * size.Z * 0.5),
+			Vector3.new(size.X * 0.86, size.Y * 0.3, 1),
+			style.windowColor,
+			Enum.Material.Neon
+		)
+		band.Name = "Band"
+		band.CanCollide = false
+	end
+
+	cylinder(
+		parent,
+		at * CFrame.new(0, size.Y + 12, 0) * UPRIGHT,
+		Vector3.new(22, 1.8, 1.8),
+		Palette.WornSteel,
+		Enum.Material.Metal
+	).Name =
+		"Mast"
+
+	local beacon = ball(
+		parent,
+		at * CFrame.new(0, size.Y + 23, 0),
+		Vector3.new(2.6, 2.6, 2.6),
+		Palette.BlasterRed,
+		Enum.Material.Neon
+	)
+	beacon.Name = "Beacon"
+	beacon.CanCollide = false
+end
+
+--- Ord Mantell. Corrugated pitch, a stovepipe, and a porch to stand on.
+local function frontierDress(
+	parent: Instance,
+	at: CFrame,
+	size: Vector3,
+	color: Color3,
+	_style: Style,
+	rng: Random
+)
+	-- No plinth: on this world the ground is what you build away from.
+
+	-- The pitch, from two mirrored wedges. Nothing else in this file changes
+	-- a building's read as completely as taking the flat top off it.
+	local pitch = 11
+	for _, side in { 1, -1 } do
+		wedge(
+			parent,
+			at
+				* CFrame.new(0, size.Y + pitch * 0.5, side * size.Z * 0.25)
+				* CFrame.Angles(0, if side > 0 then 0 else math.pi, 0),
+			Vector3.new(size.X * 1.08, pitch, size.Z * 0.54),
+			Palette.WornSteel,
+			Enum.Material.CorrodedMetal
+		).Name =
+			"Roof"
+	end
+
+	-- Eaves overhanging the gable ends, which is what stops the wedges
+	-- reading as a lid balanced on a box.
+	for _, sx in { -1, 1 } do
+		local eave = block(
+			parent,
+			at * CFrame.new(sx * size.X * 0.54, size.Y + 1, 0),
+			Vector3.new(2, 2, size.Z * 1.1),
+			shade(color, -0.15),
+			Enum.Material.CorrodedMetal
+		)
+		eave.Name = "Eave"
+		eave.CanCollide = false
+	end
+
+	cylinder(
+		parent,
+		at * CFrame.new(-size.X * 0.25, size.Y + pitch + 4, size.Z * 0.2) * UPRIGHT,
+		Vector3.new(11, 1.6, 1.6),
+		Palette.DarkMetal,
+		Enum.Material.CorrodedMetal
+	).Name =
+		"Stovepipe"
+
+	--[[
+		A porch across the door.
+
+		Deck, four corner posts and a canopy, every one of them clear of the
+		16-stud opening: the posts stand at the deck's two ends rather than
+		spaced evenly across it, which on the smallest buildings would put
+		two of the four squarely in the doorway. Nothing here collides, but a
+		post through the middle of a door reads as a bug whether or not you
+		can walk through it.
+	]]
+	local porch = 9
+	local front = size.X * 0.5 + porch * 0.5
+	local deck = block(
+		parent,
+		at * CFrame.new(front, 1.2, 0),
+		Vector3.new(porch, 1, size.Z * 0.75),
+		Palette.SmugglerBrown,
+		Enum.Material.WoodPlanks
+	)
+	deck.Name = "Porch"
+	deck.CanCollide = false
+
+	for _, sz in { -1, 1 } do
+		for _, x in { size.X * 0.5 + 0.5, size.X * 0.5 + porch } do
+			local post = block(
+				parent,
+				at * CFrame.new(x, 5, sz * size.Z * 0.36),
+				Vector3.new(0.8, 9, 0.8),
+				Palette.SmugglerBrown,
+				Enum.Material.WoodPlanks
+			)
+			post.Name = "Post"
+			post.CanCollide = false
+		end
+	end
+
+	local canopy = block(
+		parent,
+		at * CFrame.new(front, 9.6, 0),
+		Vector3.new(porch + 2, 0.8, size.Z * 0.8),
+		Palette.WornSteel,
+		Enum.Material.CorrodedMetal
+	)
+	canopy.Name = "Canopy"
+	canopy.CanCollide = false
+
+	-- A crate or two dumped beside the steps. Everything on Ord Mantell is
+	-- halfway to somewhere else. Off the door axis for the same reason the
+	-- posts are: these ones do collide.
+	for _ = 1, rng:NextInteger(1, 2) do
+		local s = rng:NextNumber(3, 4.5)
+		block(
+			parent,
+			at
+				* CFrame.new(
+					front,
+					s * 0.5,
+					(if rng:NextNumber() < 0.5 then -1 else 1) * rng:NextNumber(12, size.Z * 0.5 + 5)
+				)
+				* CFrame.Angles(0, rng:NextNumber(0, math.pi), 0),
+			Vector3.new(s, s, s),
+			Palette.DroidRust,
+			Enum.Material.CorrodedMetal
+		).Name =
+			"Crate"
+	end
+end
+
+--- Tython. A colonnade down both sides and a lid on top. Older than you.
+local function jediStoneDress(
+	parent: Instance,
+	at: CFrame,
+	size: Vector3,
+	color: Color3,
+	style: Style,
+	_rng: Random
+)
+	-- Two courses of stylobate. A building you step up to is the oldest
+	-- trick there is for making a single storey look like it matters.
+	for step = 1, 2 do
+		local spread = 1.18 - (step - 1) * 0.08
+		local course = block(
+			parent,
+			at * CFrame.new(0, (step - 0.5) * 1.6, 0),
+			Vector3.new(size.X * spread, 1.6, size.Z * spread),
+			shade(color, -0.1),
+			Enum.Material.Limestone
+		)
+		course.Name = "Stylobate"
+		course.CanCollide = false
+	end
+
+	-- Pillars standing proud of both long walls, and one pair either side of
+	-- the door. The colonnade is the silhouette; the wall behind it is not
+	-- supposed to be what you see.
+	for _, sz in { -1, 1 } do
+		for i = -2, 2 do
+			cylinder(
+				parent,
+				at * CFrame.new(i * size.X * 0.2, size.Y * 0.5 + 2, sz * (size.Z * 0.5 + 3)) * UPRIGHT,
+				Vector3.new(size.Y, 3.4, 3.4),
+				color,
+				Enum.Material.Limestone
+			).Name =
+				"Pillar"
+		end
+	end
+
+	-- The lid they carry, overhanging far enough to shade the walk.
+	block(
+		parent,
+		at * CFrame.new(0, size.Y + 1.6, 0),
+		Vector3.new(size.X * 1.12, 3.2, size.Z * 1.22),
+		color,
+		Enum.Material.Limestone
+	).Name =
+		"Lid"
+
+	for step = 1, 2 do
+		block(
+			parent,
+			at * CFrame.new(0, size.Y + 3.2 + step * 2.4, 0),
+			Vector3.new(size.X * (0.94 - step * 0.2), 2.4, size.Z * (0.94 - step * 0.2)),
+			color,
+			Enum.Material.Limestone
+		).Name =
+			"Roof"
+	end
+
+	local lantern = ball(
+		parent,
+		at * CFrame.new(0, size.Y + 11, 0),
+		Vector3.new(4, 4, 4),
+		style.windowColor,
+		Enum.Material.Neon
+	)
+	lantern.Name = "Lantern"
+	lantern.CanCollide = false
+end
+
+--- Hoth. Banked over on three sides and dug in. Only the door is above snow.
+local function iceBunkerDress(
+	parent: Instance,
+	at: CFrame,
+	size: Vector3,
+	_color: Color3,
+	style: Style,
+	rng: Random
+)
+	--[[
+		The one dressing that had to change the shape rather than trim it.
+
+		Hoth's authored town is 36 room cells against 8 of its own houses --
+		the worst ratio in the game, and the world where "every building is
+		the same box" was not a criticism of the towns so much as a
+		description of them. A bunker is defined by being *under* something,
+		so the snow is banked up the back and both sides and capped over the
+		roof, and what is left standing out of it is the door.
+	]]
+	local drift = size.Y * 0.72
+	for _, side in
+		{
+			{ at = Vector3.new(-size.X * 0.5 - 5, 0, 0), size = Vector3.new(12, drift, size.Z + 20) },
+			{ at = Vector3.new(0, 0, -size.Z * 0.5 - 5), size = Vector3.new(size.X + 8, drift, 12) },
+			{ at = Vector3.new(0, 0, size.Z * 0.5 + 5), size = Vector3.new(size.X + 8, drift, 12) },
+		}
+	do
+		local bank = block(
+			parent,
+			at * CFrame.new(side.at + Vector3.new(0, drift * 0.5, 0)),
+			side.size,
+			Palette.HothSnow,
+			Enum.Material.Snow
+		)
+		bank.Name = "Bank"
+		bank.CanCollide = false
+	end
+
+	-- A snow cap over the roof, flattened so it reads as drifted rather than
+	-- as a dome sitting on a shed.
+	ball(
+		parent,
+		at * CFrame.new(0, size.Y, 0),
+		Vector3.new(size.X * 1.05, size.Z * 0.55, size.Z * 1.05),
+		Palette.HothSnow,
+		Enum.Material.Snow
+	).Name =
+		"Cap"
+
+	--[[
+		The one thing that is meant to be seen: a steel tunnel mouth standing
+		out of the drift, which is how you find a door in a white field.
+
+		Built as two jambs and a roof slab rather than one box, for exactly
+		the reason `roomShell` splits its entrance wall the same way. A solid
+		part in front of the door would have plugged it: the opening is a
+		fixed 16 studs of the `+X` face, and every shop, cantina and mess hall
+		on Hoth is entered through it. The porch is the only thing standing
+		between the player and 36 sealed buildings on one world, and the
+		linter cannot see a doorway.
+	]]
+	for _, sz in { -1, 1 } do
+		block(
+			parent,
+			at * CFrame.new(size.X * 0.5 + 5, 8.5, sz * 10.5),
+			Vector3.new(11, 17, 5),
+			Palette.WornSteel,
+			Enum.Material.Metal
+		).Name =
+			"TunnelMouth"
+	end
+	block(
+		parent,
+		at * CFrame.new(size.X * 0.5 + 5, 18.5, 0),
+		Vector3.new(11, 3, 26),
+		Palette.WornSteel,
+		Enum.Material.Metal
+	).Name =
+		"TunnelRoof"
+
+	for _, sz in { -1, 1 } do
+		local lamp = block(
+			parent,
+			at * CFrame.new(size.X * 0.5 + 10.5, 12, sz * 9),
+			Vector3.new(0.6, 3, 3),
+			style.windowColor,
+			Enum.Material.Neon
+		)
+		lamp.Name = "Glow"
+		lamp.CanCollide = false
+
+		local glow = Instance.new("PointLight")
+		glow.Color = style.windowColor
+		glow.Range = 26
+		glow.Brightness = 1.4
+		glow.Parent = lamp
+	end
+
+	-- Aerials above the snowline, because a buried building needs to be
+	-- findable from the ridge as well as from the street.
+	for i = 1, 2 do
+		cylinder(
+			parent,
+			at * CFrame.new(-size.X * (0.1 + i * 0.15), size.Y + 14, size.Z * 0.2) * UPRIGHT,
+			Vector3.new(24, 1, 1),
+			Palette.DarkMetal,
+			Enum.Material.Metal
+		).Name =
+			"Aerial"
+	end
+
+	-- The supply dump *beside* the door: the detail that says people are
+	-- living in this rather than that it is a shape in the snow. Stacked off
+	-- the door axis on purpose -- the approach to the opening is 16 studs
+	-- wide and a 5-stud crate dropped in the middle of it is a shop with an
+	-- obstacle course, which is the same defect as sealing the door outright.
+	for i = 1, rng:NextInteger(3, 4) do
+		local s = rng:NextNumber(3, 5.5)
+		local spot = at
+			* CFrame.new(
+				size.X * 0.5 + rng:NextNumber(13, 22),
+				s * 0.5,
+				(if rng:NextNumber() < 0.5 then -1 else 1) * rng:NextNumber(12, size.Z * 0.5 + 6)
+			)
+		local crate = if i % 3 == 0
+			then cylinder(
+				parent,
+				spot * UPRIGHT,
+				Vector3.new(s, s * 0.8, s * 0.8),
+				Palette.DroidRust,
+				Enum.Material.CorrodedMetal
+			)
+			else block(
+				parent,
+				spot * CFrame.Angles(0, rng:NextNumber(0, math.pi), 0),
+				Vector3.new(s, s, s * rng:NextNumber(0.8, 1.2)),
+				Palette.WornSteel,
+				Enum.Material.DiamondPlate
+			)
+		crate.Name = "Supplies"
+	end
+end
+
+--- Dromund Kaas. Buttressed, banded and pointed, even for a grocer.
+local function gothicDress(
+	parent: Instance,
+	at: CFrame,
+	size: Vector3,
+	color: Color3,
+	style: Style,
+	_rng: Random
+)
+	roomPlinth(parent, at, size, color, Enum.Material.Slate)
+	roomCornice(parent, at, size, size.Y * 0.55, color, Enum.Material.Slate)
+	roomCornice(parent, at, size, size.Y, color, Enum.Material.Slate)
+
+	-- Corner fins leaning in. These do more for a silhouette than height.
+	for _, sx in { -1, 1 } do
+		for _, sz in { -1, 1 } do
+			local fin = block(
+				parent,
+				at * CFrame.new(sx * size.X * 0.5, size.Y * 0.5, sz * size.Z * 0.5),
+				Vector3.new(5, size.Y * 1.1, 5),
+				color,
+				Enum.Material.Slate
+			)
+			fin.Name = "Buttress"
+			fin.CFrame = fin.CFrame * CFrame.Angles(sz * 0.05, 0, -sx * 0.05)
+
+			-- A pinnacle on each, which is the difference between a
+			-- buttressed shop and a shop with four posts at the corners.
+			wedge(
+				parent,
+				at * CFrame.new(sx * size.X * 0.5, size.Y * 1.05 + 4, sz * size.Z * 0.5),
+				Vector3.new(5, 8, 5),
+				color,
+				Enum.Material.Slate
+			).Name =
+				"Pinnacle"
+		end
+	end
+
+	-- The crown. Nothing on this world is allowed to end flat.
+	local spike = 13
+	for _, side in { 1, -1 } do
+		wedge(
+			parent,
+			at
+				* CFrame.new(0, size.Y + 1.6 + spike * 0.5, side * size.Z * 0.25)
+				* CFrame.Angles(0, if side > 0 then 0 else math.pi, 0),
+			Vector3.new(size.X, spike, size.Z * 0.5),
+			color,
+			Enum.Material.Slate
+		).Name =
+			"Crown"
+	end
+
+	-- Slits rather than windows. Nothing here wants to be looked into.
+	for _, sz in { -1, 1 } do
+		for i = -1, 1 do
+			local slit = block(
+				parent,
+				at * CFrame.new(i * size.X * 0.28, size.Y * 0.5, sz * size.Z * 0.5),
+				Vector3.new(1.6, size.Y * 0.55, 0.6),
+				style.windowColor,
+				Enum.Material.Neon
+			)
+			slit.Name = "Slit"
+			slit.CanCollide = false
+		end
+	end
+end
+
 local ARCHITECTURE: { [string]: Style } = {
 	Adobe = {
 		buildingColors = { Palette.TatooineSand, Palette.TatooineRock, Palette.SandtrooperTan },
@@ -1170,6 +1997,7 @@ local ARCHITECTURE: { [string]: Style } = {
 		wallMaterial = Enum.Material.Sandstone,
 		scatter = "None",
 		shape = adobeShape,
+		dress = adobeDress,
 	},
 	SithZiggurat = {
 		buildingColors = { Palette.SithBlack, Palette.MustafarBasalt, Palette.DarkMetal },
@@ -1180,6 +2008,7 @@ local ARCHITECTURE: { [string]: Style } = {
 		wallMaterial = Enum.Material.Slate,
 		scatter = "None",
 		shape = zigguratShape,
+		dress = zigguratDress,
 	},
 	Ruin = {
 		buildingColors = { Palette.WornSteel, Palette.Gunmetal, Palette.NabooStone, Palette.CoruscantPlate },
@@ -1190,6 +2019,7 @@ local ARCHITECTURE: { [string]: Style } = {
 		wallMaterial = Enum.Material.Concrete,
 		scatter = "None",
 		shape = ruinShape,
+		dress = ruinDress,
 	},
 	NeonStack = {
 		buildingColors = { Palette.DarkMetal, Palette.Gunmetal, Palette.ImperialGrey, Palette.SmugglerBrown },
@@ -1200,6 +2030,7 @@ local ARCHITECTURE: { [string]: Style } = {
 		wallMaterial = Enum.Material.DiamondPlate,
 		scatter = "None",
 		shape = neonStackShape,
+		dress = neonStackDress,
 	},
 	Spire = {
 		buildingColors = { Palette.CoruscantPlate, Palette.HullGrey, Palette.WornSteel, Palette.NabooStone },
@@ -1210,6 +2041,7 @@ local ARCHITECTURE: { [string]: Style } = {
 		wallMaterial = Enum.Material.Metal,
 		scatter = "None",
 		shape = spireShape,
+		dress = spireDress,
 	},
 	Frontier = {
 		buildingColors = { Palette.RebelTan, Palette.SmugglerBrown, Palette.DroidRust, Palette.RebelOlive },
@@ -1220,6 +2052,7 @@ local ARCHITECTURE: { [string]: Style } = {
 		wallMaterial = Enum.Material.CorrodedMetal,
 		scatter = "None",
 		shape = frontierShape,
+		dress = frontierDress,
 	},
 	JediStone = {
 		buildingColors = { Palette.NabooStone, Palette.JediCream, Palette.SandtrooperTan },
@@ -1230,6 +2063,7 @@ local ARCHITECTURE: { [string]: Style } = {
 		wallMaterial = Enum.Material.Limestone,
 		scatter = "None",
 		shape = jediStoneShape,
+		dress = jediStoneDress,
 	},
 	IceBunker = {
 		buildingColors = { Palette.HothIce, Palette.StormtrooperShadow, Palette.WornSteel },
@@ -1240,6 +2074,7 @@ local ARCHITECTURE: { [string]: Style } = {
 		wallMaterial = Enum.Material.Metal,
 		scatter = "None",
 		shape = iceBunkerShape,
+		dress = iceBunkerDress,
 	},
 	ImperialGothic = {
 		buildingColors = { Palette.ImperialBlack, Palette.DarkMetal, Palette.ImperialGrey },
@@ -1250,6 +2085,7 @@ local ARCHITECTURE: { [string]: Style } = {
 		wallMaterial = Enum.Material.Slate,
 		scatter = "None",
 		shape = gothicShape,
+		dress = gothicDress,
 	},
 }
 
@@ -2646,10 +3482,20 @@ local function buildRoom(
 	-- to swap the footprint's axes or the room comes out across itself.
 	local inner = if turned then Vector2.new(footprint.Y, footprint.X) else footprint
 
-	plinth(parent, centre, footprint.X, footprint.Y, color, style.wallMaterial)
-	roomShell(parent, at, Vector3.new(inner.X, ROOM_HEIGHT, inner.Y), color, style.wallMaterial)
-	cornice(parent, centre, ROOM_HEIGHT + 2.5, footprint.X, footprint.Y, color, style.wallMaterial)
-	roofClutter(parent, centre, ROOM_HEIGHT + 3, footprint.X, footprint.Y, rng)
+	local size = Vector3.new(inner.X, ROOM_HEIGHT, inner.Y)
+	roomShell(parent, at, size, color, style.wallMaterial)
+
+	--[[
+		And then the planet gets the outside of it.
+
+		This used to be a plinth, a cornice and four roof vents, identically
+		on all nine worlds -- which is how Anchorhead's cantina and Kaas
+		City's antechambers came to be the same building in different paint.
+		See `Style.dress`. The shell stays one function because the door, the
+		sign, the fittings and the standing marker below are all measured off
+		it; only what a passer-by sees is per world.
+	]]
+	style.dress(parent, at, size, color, style, rng)
 
 	-- A lit plate on the lintel. The one part that says "this one opens" from
 	-- across the street, which is most of the value of building an inside.

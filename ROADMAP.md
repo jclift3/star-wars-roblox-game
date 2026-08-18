@@ -1328,7 +1328,7 @@ Splitting the file means exporting seven local helpers plus 600 lines of
 value at nine prefabs. `PREFABS` lives next to `LANDMARKS` until the count
 justifies the move.
 
-### 3.2 The eight worlds — **[layouts + named landmarks done 2026-08-17]**
+### 3.2 The eight worlds — **[done 2026-08-18]**
 Contents specified per planet in [PLANETS.md](PLANETS.md) §3. Build order was
 depth-first: **Tatooine completely** as the vertical slice, then extract the
 layout system from what that taught, then Korriban, then the rest. That is what
@@ -1370,10 +1370,73 @@ a boot warning (`PlanetBuilder.landmarkExists`, injected into
 `Planets.validate`), because falling back to an outpost is the right answer for
 an unrecognised *kind* and the wrong one for a name written on purpose.
 
-Still open under this heading: the per-planet **prefab vocabularies** in
-PLANETS.md §3 (`CitadelSpire`, `HullSection`…) that would differentiate the
-*town grid* cells, where Anchorhead's cantina and Kaas City's antechambers are
-still the same box in different colours.
+**The third half — what a shop looks like on each world — 2026-08-18.** The item
+left open above, closed. The exact charge was that "Anchorhead's cantina and Kaas
+City's antechambers are still the same box in different colours", and it was
+literally true: a building you can walk *into* cannot be built by `style.shape`
+(the nine shape functions draw solid silhouettes and there is no hollowing a
+solid), so every one of them went through `roomShell`, and `roomShell` is a box.
+
+The measurement first, because the size of it is the argument. Counting glyphs
+across the eight authored grids: **`Hall` 231 + `Shop` 125 = 356 cells** against
+`House` 450 and `Tower` 164 — and the houses and towers were the ones already
+routing through each planet's own architecture. Per world the ratio of shared box
+to native building is **Hoth 36:8**, Tython 54:30, Ord Mantell 44:24, Dromund
+Kaas 64:56. On Hoth the box outnumbers the planet's own houses four to one, so
+"every building looks the same" was not a criticism of that town so much as a
+description of it. The buildings with a door are also, by definition, the ones
+you walk right up to.
+
+So `Style` gained a second required function beside `shape`:
+
+```luau
+dress: (Instance, CFrame, Vector3, Color3, Style, Random) -> ()
+```
+
+`buildRoom` now calls `roomShell` and then `style.dress`. The shell stays one
+function — the door, the sign, the interior fittings and the standing marker are
+all measured off it — and only what a passer-by sees is per world. **There is
+deliberately no generic fallback**: all nine architectures declare `dress`, and
+`--!strict` makes a tenth answer "what does a shop look like here" rather than
+inherit a default. A silent default is exactly how the nine came to share one box.
+
+| architecture | world | what a room wears |
+|---|---|---|
+| `Adobe` | Tatooine | barrel vault along the door axis, rounded corner piers, sun slits, a condenser |
+| `Ziggurat` | Korriban | plinth, two receding stepped courses, two flanking obelisks with braziers |
+| `Ruin` | Taris | a **broken** cornice, the sheared stump of the floor above, bare columns past it, a fallen slab |
+| `NeonStack` | Nar Shaddaa | a second storey shoved off the front, neon strip and board, roof tanks, plumbing outside |
+| `Spire` | Coruscant | plinth, glazing bands, mast, beacon |
+| `Frontier` | Ord Mantell | corrugated pitched roof, eaves, stovepipe, a porch you stand on |
+| `JediStone` | Tython | two stylobate courses, a colonnade proud of both walls, an overhanging lid |
+| `IceBunker` | Hoth | snow banked over three sides and the roof; **the door is the only thing above the drift** |
+| `ImperialGothic` | Dromund Kaas | leaning corner buttresses with pinnacles, two cornices, a pointed crown |
+
+Three notes worth keeping:
+
+- **The budget goes on the roofline first.** A box's silhouette *is* its roof
+  edge, that is what reads from across a street, and it is the one part no amount
+  of colour disguises. Hoth is the only one that changes the mass rather than
+  trimming it, because a bunker is defined by being *under* something.
+- **The plinth is each dressing's own business** rather than a shared line above
+  them, because two of the nine correctly refuse one: Ord Mantell builds above
+  its wet season on stilts and Hoth builds under the snow.
+- **`Spire` is written but not currently reachable.** Coruscant is the one world
+  with no ground layout — `buildVerticalCity` draws it — so nothing calls
+  `buildRoom` there. `spireShape` has always been in the identical position. A
+  `Style` with a hole in it for one planet is worse than a function waiting for a
+  district, so it is written, and this note exists instead of a silence.
+
+**The recurring hazard, caught four times in one sitting: `roomShell`'s doorway is
+a fixed 16 studs however small the building is.** The smallest room is a single
+32-stud cell at `fill = 0.78`, about 25 studs across, leaving four and a half
+studs of jamb each side — so *anything* measured inward from a front corner lands
+in the opening, at that size only, on one world. Korriban's obelisks did (moved
+outside the side walls), Hoth's tunnel mouth did (rebuilt as two jambs and a roof
+slab, the same split `roomShell` uses for its own entrance wall), and Ord
+Mantell's porch posts and supply crates did. A solid part in a doorway is a shop
+the pathfinder cannot deliver a customer to. **Finished but unreachable is not
+finished** — and no linter can see a doorway.
 
 The structural win: **four planets are both an origin world and a later act** —
 Korriban, Taris, Nar Shaddaa and Coruscant. That halves the worlds needing a high

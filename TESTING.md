@@ -762,6 +762,61 @@ field is not reaching the builder.
 
 ---
 
+### 5.13 A shop looks like the world it is on — **new, never played**
+
+Landed 2026-08-18 (ROADMAP 3.2, the last item under that heading). Every
+building you can walk *into* — 356 cells across the eight towns, and on Hoth four
+of them for every house — was the same box in the planet's paint, because a room
+has to be built as a shell and the shell was shared. Each architecture now
+dresses its own. **Half the checks below are really one check: that no dressing
+ended up standing in a doorway.**
+
+1. **Tatooine → Anchorhead.** Walk the high street. Every shop and hall has a
+   **rounded roof** — a barrel vault lying front-to-back, so the curve is what
+   faces you as you approach — and **rounded corners**. No flat roof edges
+   anywhere; that is the Anchorhead rule and it now applies to the shops too.
+2. **Look up.** A condenser ball on a short mast over each. Water on the skyline.
+3. **Hoth → the outpost.** The strongest one and the reason for the work.
+   Buildings are **buried**: snow banked up the back and both sides and drifted
+   over the roof. **The steel tunnel mouth is the only thing standing out of the
+   white**, and it is how you find a door at all.
+4. **Walk into one.** The tunnel mouth is a **frame, not a plug** — two jambs and
+   a roof slab — and you walk straight through it into the shop. *(It was a solid
+   block first; it sealed all 36 buildings on the planet.)*
+5. **Korriban → the Academy.** Rooms are stepped like little tombs, with **two
+   black obelisks flanking the entrance, braziers lit on top**, casting real
+   light after dark. The obelisks stand **outside the side walls** — check the
+   narrowest building you can find and confirm you can still walk in.
+6. **Taris → the Dig.** Rooms look **sheared**: the trim line stops before the
+   front corner, a stump of the floor above sits on the back half, four rusted
+   columns carry on past it to nothing, and a slab off next door leans on the
+   back wall. Nothing here should look intact.
+7. **Nar Shaddaa.** A second storey **shoved sideways off the front**,
+   overhanging the street; a purple neon strip up the door corner and a lit board
+   over it; pipework down the back and tanks on what roof is left.
+8. **Ord Mantell → the Vale.** A **pitched corrugated roof** with eaves and a
+   stovepipe, and a **porch** across the front. Stand on it. Its four posts are
+   at the two ends, **not in front of the door**, and the crates are dumped to
+   one side rather than in your way.
+9. **Tython.** A **colonnade** of pillars standing proud of both long walls, two
+   steps of stylobate underneath, an overhanging lid and a lantern. This should
+   read as the oldest thing in the game.
+10. **Dromund Kaas → Kaas City.** Corner buttresses leaning in with **pinnacles**
+    on each, two trim lines, and a **pointed crown** — nothing on this world ends
+    flat. Compare it directly with Anchorhead: this was the pair named in the
+    complaint, and they should now be unmistakable.
+11. **The general test, on every world:** stand in the street and confirm you can
+    tell what planet you are on from the shops alone, with the sky hidden.
+12. **The general hazard, on every world:** find the *smallest* building with a
+    door — a single square cell — and walk in. Doorways are a fixed 16 studs no
+    matter how small the shell, so small buildings are where a dressing intrudes.
+13. **Vendors still trade.** Walk up to any shopkeeper and open the shop. Nothing
+    in a dressing should have moved the counter or blocked the approach.
+14. **Coruscant is unaffected** — it has no ground layout, so it has no rooms.
+    Its towers should look exactly as they did.
+
+---
+
 ## 6. Travel and origins
 
 1. **G** opens the galaxy map and lists all 9 planets: Tatooine, Korriban,
