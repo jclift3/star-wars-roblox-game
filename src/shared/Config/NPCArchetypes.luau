@@ -893,6 +893,51 @@ function NPCArchetypes.hostileIn(
 	return nil
 end
 
+--[[
+	The everyday people of a district, as archetype ids against head counts.
+
+	"Everyday" is `Behavior.Wander` and unarmed, which comes out as the
+	civilians, the moisture farmers, the Jawas and the protocol droids -- and
+	deliberately not the troopers standing a beat or anything Aggressive.
+	CrowdController draws its background bodies to look like whatever this
+	returns, so the rule is really "who could a picture of a person be mistaken
+	for without that being a problem": a distant civilian is scenery, and a
+	distant Imperial trooper is something the boys will try to shoot.
+
+	Counts come back rather than a set because a district that is nine tenths
+	civilians and one tenth Jawas should look like that from across the street.
+
+	Structurally typed for the same reason `hostileIn` is: the planet configs
+	require this file, so it must not require them back.
+]]
+function NPCArchetypes.crowdIn(
+	spawns: {
+		{
+			archetype: string,
+			count: number,
+			zone: string?,
+			behavior: string?,
+			cast: string?,
+		}
+	},
+	zoneId: string
+): { { archetype: string, count: number } }
+	local out = {}
+	for _, rule in spawns do
+		if rule.zone ~= zoneId or rule.cast or not NPCArchetypes.exists(rule.archetype) then
+			continue
+		end
+		local archetype = NPCArchetypes.get(rule.archetype)
+		-- The override is what actually spawns, so three districts' Smugglers
+		-- are Aggressive here even though the archetype is not.
+		local behavior = rule.behavior or archetype.behavior
+		if behavior == Behavior.Wander and not archetype.weapon then
+			table.insert(out, { archetype = rule.archetype, count = rule.count })
+		end
+	end
+	return out
+end
+
 function NPCArchetypes.healthFor(id: string, level: number): number
 	local a = NPCArchetypes.get(id)
 	return a.baseHealth + (a.healthPerLevel or 0) * math.max(0, level - a.minLevel)

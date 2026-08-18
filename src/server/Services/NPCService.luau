@@ -698,13 +698,6 @@ end
 --------------------------------------------------------------------------------
 
 --[[
-	Pulls nearby allies into a fight.
-
-	Only NPCs not already fighting are provoked, which is what stops the
-	cascade from looping: each one shouts exactly once, on the transition into
-	combat, and a shout that reaches an NPC already in combat dies there.
-]]
---[[
 	Says once, in words, why a trooper has started following you.
 
 	Without it the behaviour is deniable: a soldier who breaks off a route and
@@ -735,6 +728,13 @@ function NPCService.noticedBy(player: Player, faction: string)
 	)
 end
 
+--[[
+	Pulls nearby allies into a fight.
+
+	Only NPCs not already fighting are provoked, which is what stops the
+	cascade from looping: each one shouts exactly once, on the transition into
+	combat, and a shout that reaches an NPC already in combat dies there.
+]]
 function NPCService.alertNear(position: Vector3, radius: number, faction: string, target: Model, exclude: any)
 	for _, record in records do
 		local brain = record.brain

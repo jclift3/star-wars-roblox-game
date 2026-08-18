@@ -2118,7 +2118,7 @@ worked without it. See [LIVING-NPCS.md](LIVING-NPCS.md) §2.
 
 - ~~NPC schedules (day/night behaviour — the clock already runs)~~ —
   **DONE 2026-08-18**, below
-- Ambient crowd density per zone
+- ~~Ambient crowd density per zone~~ — **DONE 2026-08-18**, below
 - ~~Faction patrols that react to player rep~~ — **DONE 2026-08-18**, below
 
 ### 5.0 NPC schedules — **DONE 2026-08-18**
@@ -2224,6 +2224,67 @@ what shipped is the third, plus a defect found on the way.
   in the existing `Demotion` colour, which is exactly the right register.
 - `reviewShifts` leaves a suspicious NPC alone, beside Combat and Flee: whatever
   else is true, somebody in front of you outranks the hour.
+
+### 5.0c Ambient crowd density — **DONE 2026-08-18**
+`CrowdController` + `NPCArchetypes.crowdIn`. A second crowd, drawn on the client
+only, behind the real one: bodies with no Humanoid, no brain, no prompt and no
+collision, whose position is a function of the clock. Anchorhead's main street
+carries about sixty people; twenty-two of them are real.
+
+- **The static half of this bullet was already true, and worth writing down
+  before building anything.** Per-district population is authored in
+  `Planets.spawns` and varies from 4 (Ord Mantell's Market) to 65 (Coruscant's
+  Plaza) across 45 districts, and `PlanetBuilder` already sizes each district's
+  ring off it (`ZONE_POINT_LOAD`). What did not exist was any way to have *more*
+  people than the ones you can talk to.
+- **Thinning the real population after dark was costed and refused.** The
+  receipts are in `Missions.luau`: `giver = "ProtocolDroid"`,
+  `giver = "MoistureFarmer"`, and three separate `TalkTo target = "Civilian"`
+  objectives. The only anonymous archetypes in the game are mission givers and
+  mission targets, so despawning "just the crowd" is *finished but unreachable*
+  for the third time. `NPCArchetypes.Shift` had already written the same rule in
+  its own header: it does not despawn anybody.
+- **A body that was never real can be removed freely** — which is how the crowd
+  gets to thin out at night after all. `NIGHT_SHARE` leaves 30% of it on the
+  street at 01:00, because zero would be correct and unusable: the district's
+  real people are all still standing there, and an empty street with sixty-five
+  survivors in it makes *them* look like the anomaly.
+- **They live under `Workspace.CurrentCamera`,** the same trick as the sky
+  traffic and the companion sun. That is what makes the whole thing safe rather
+  than merely cheap: `ShopService`'s vendor sweep, `VendorController`, the NPC
+  placement raycasts and combat targeting all walk Workspace looking for people,
+  and none of them can find one, because they are not there.
+- **Nobody is ever within reach.** Faded out over the fifty studs before a player
+  could arrive at one — about three seconds of walking — so the crowd gets
+  sparser as you push into it and the real people are standing exactly where the
+  picture thins. A figure you can walk up to is a bug report: no name, no
+  answer, no blood.
+- **No new config field, on purpose.** `NPCArchetypes.crowdIn` reads the
+  district's own spawn rules, so a district gains a background crowd by gaining
+  people the ordinary way, and the two cannot drift. A `ZoneDef.crowdDensity`
+  would say a second time what the spawn table already says — this codebase's
+  most-repeated failure. The figures also *look* like whoever really stands
+  there, drawn in proportion: a district nine-tenths civilian and one-tenth Jawa
+  reads that way from across the street.
+- **"Everyday" is `Behavior.Wander` and unarmed** — civilians, moisture farmers,
+  Jawas, protocol droids. Never a trooper on a beat and never anything
+  Aggressive, because the real question is *who can a picture of a person be
+  mistaken for without that being a problem*. A distant civilian is scenery. A
+  distant Imperial trooper is something the boys will try to shoot.
+- **Seeded off the planet and zone ids, walked off `GetServerTimeNow()`,** so
+  both brothers see one crowd without a remote or a replicated model. Same
+  argument, and the same five lines, as `SkyTrafficController`.
+- **Four parts each: trousers, coat, head.** Past a hundred studs a person is a
+  vertical stack of three tones, and a fifth part would be an arm nobody can
+  see. The species' own `heightScale`/`widthScale` are applied, so the
+  silhouettes agree with the real rigs even though nothing else about the two
+  models does. `PER_REAL = 2` with a ceiling of 80 on the planet you are
+  standing on; only Coruscant reaches it.
+- **Route points come from the ground, not from a constant.** The zone markers
+  float a fixed lift above the pavement, but that lift belongs to
+  `PlanetBuilder`, which is server-only — a private copy on the client is a
+  crowd walking three studs under the road the day somebody changes it. One
+  downward raycast per route point at build time instead.
 
 ### 5.1 Free-form characters — **[todo]**
 Designed 2026-08-15, full document in [LIVING-NPCS.md](LIVING-NPCS.md). The
