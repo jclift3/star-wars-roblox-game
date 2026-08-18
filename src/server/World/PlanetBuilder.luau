@@ -37,6 +37,39 @@ local Ships = require(Shared.Config.Ships)
 
 local PlanetBuilder = {}
 
+--[[
+	Attribute set on a zone marker that is a place to stand and not a place to
+	walk through.
+
+	A zone folder's parts mean two different things to `NPCService`: somewhere
+	to stand, and, taken together, the district's patrol route. That was fine
+	while every marker was a patch of street, and stopped being fine the moment
+	buildings got standing room -- the route then ran through the inside of
+	every shop in town, so the whole district's foot traffic tried to walk
+	through walls to the same back room and heaped up against it.
+
+	Named for what it does rather than for the usual reason, because the reason
+	is not always a wall. Anchorhead's landing field is out past the settlement
+	and perfectly open, and a patrol route through it would still march
+	thirty-two townspeople half a kilometre into the desert and back.
+
+	Marked here rather than inferred from the name downstream, because
+	`Inside`/`Inside07` is a naming convention and a convention is a thing a
+	future builder breaks silently. An attribute is a fact the part carries.
+]]
+PlanetBuilder.OFF_ROUTE = "OffRoute"
+
+--[[
+	Attribute naming the point of interest a marker is the inside of.
+
+	A district's markers are otherwise interchangeable, which is the whole
+	reason `NPCService` can hand them out emptiest-first. This is the one
+	question that cannot be answered by "any of them will do": `SpawnRule.poi`
+	asks for the inside of a *particular* building, and the marker's name --
+	`Inside`, or `Inside07` for a room off the grid -- cannot say which.
+]]
+PlanetBuilder.AT_POI = "Poi"
+
 local SETTLEMENT_RADIUS = 520
 local BLOCK_SIZE = 130
 local STREET_WIDTH = 26
@@ -3838,14 +3871,23 @@ end
 type Landmark = (Instance, Vector3, Style, Random) -> number
 
 --[[
-	`interior`, when a landmark has one, is where inside it people stand --
-	an offset from the building's own base. It becomes a part in the
-	landmark's district zone, which NPCService reads as somewhere to spawn
-	and as a stop on that district's patrol route, so a cantina has drinkers
-	in it and the guards outside walk in and back out again.
+	`interior`, when a landmark has one, is where at it people stand -- an
+	offset from the building's own base, written in the frame the building is
+	built in, so +X is whichever way its door ends up facing. It becomes a
+	part in the landmark's district zone, which NPCService reads as somewhere
+	to spawn, so a cantina has drinkers in it.
 
 	A room nobody is in is a room, not a place; furniture was the cheap half
 	of the job.
+
+	It is deliberately *not* a stop on the district's patrol route, though it
+	used to be: the guards outside were meant to walk in and back out again,
+	and what they did instead was press into the wall beside the door until
+	the server restarted. See `PlanetBuilder.OFF_ROUTE`.
+
+	Usually inside, occasionally just outside it. A spaceport is three pads
+	and a solid tower with nowhere in it to stand, and the place a ship broker
+	belongs is the apron in front of the tower door.
 ]]
 type LandmarkDef = { radius: number, build: Landmark, interior: Vector3? }
 
@@ -5296,7 +5338,10 @@ local OUTPOST: LandmarkDef = { radius = 50, build = buildOutpost }
 local LANDMARKS: { [string]: LandmarkDef } = {
 	Sandcrawler = { radius = 78, build = buildSandcrawler },
 	Ruin = { radius = 62, build = buildWreck },
-	Spaceport = { radius = 116, build = buildSpaceport },
+	-- Thirty studs out the front of the tower: clear of its 22-stud footprint
+	-- and well inside the pads, which ring the base at 78. The apron, in
+	-- other words -- facing the way you walk in from.
+	Spaceport = { radius = 116, build = buildSpaceport, interior = Vector3.new(30, 0, 0) },
 	Cantina = { radius = 52, build = buildCantina, interior = Vector3.new(0, 0, 0) },
 	Base = { radius = 92, build = buildBase, interior = Vector3.new(20, 0, 0) },
 	Outpost = OUTPOST,
@@ -5819,7 +5864,7 @@ local function buildMarkers(
 		end
 		table.insert(reached, { kind = poi.kind, at = position })
 
-		-- Standing room indoors, added to the district the landmark belongs
+		-- The landmark's own standing room, added to the district it belongs
 		-- to. Small on purpose: NPCService scatters within a zone part and
 		-- then drops whatever it picks to the floor, so a box the size of
 		-- the room would put people on the tables and behind the bar.
@@ -5832,12 +5877,14 @@ local function buildMarkers(
 			-- the door" -- so leaving it in world space would put the
 			-- standing room outside a rotated building, in a wall.
 			local inside = CFrame.Angles(0, facingAngle(facing), 0) * def.interior
-			marker(
+			local room = marker(
 				folder(poi.zone, zoneRoot),
 				"Inside",
 				position + inside + Vector3.new(0, 3, 0),
 				Vector3.new(16, 1, 16)
 			)
+			room:SetAttribute(PlanetBuilder.OFF_ROUTE, true)
+			room:SetAttribute(PlanetBuilder.AT_POI, poi.id)
 		end
 		-- The marker is sized to the landmark rather than to a fixed box, so
 		-- everything measuring against it -- "have I reached this", "where do
@@ -5979,7 +6026,7 @@ local function buildMarkers(
 				`Inside{string.format("%02d", index)}`,
 				room.at + Vector3.new(0, 3, 0),
 				Vector3.new(room.size, 1, room.size)
-			)
+			):SetAttribute(PlanetBuilder.OFF_ROUTE, true)
 		end
 	end
 

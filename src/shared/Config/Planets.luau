@@ -111,6 +111,23 @@ export type SpawnRule = {
 		Lord who attacks his own student.
 	]]
 	cast: string?,
+	--[[
+		Stand inside this landmark, rather than anywhere in the district.
+
+		A zone is normally the right unit -- a merchant belongs in the market
+		and it does not matter which end of it. It is the wrong unit when the
+		whole point of the NPC is *where he is*: the ship broker only makes
+		sense on the landing field, and Anchorhead's landing field is a
+		building at one edge of a district with thirty-two other people in it,
+		so a rule that named only "Town" would put the one man who sells
+		starships anywhere but the pad.
+
+		Names a point of interest on this same planet. `validate` requires
+		that it is not `drawn` and that it sits in `zone`: a drawn place has
+		no building of its own to have an inside, and its district *is* the
+		landmark, so the zone alone already says everything this field could.
+	]]
+	poi: string?,
 }
 
 --- An inclusive level range. See `Planets.bandFor`.
@@ -563,6 +580,21 @@ def({
 		-- given shop had anybody in it, and an empty shop you can walk into is
 		-- worse than a solid one. Adding a tenth `s` costs a trader, not a bug.
 		{ archetype = "Merchant", count = 9, zone = "Market" },
+		--[[
+			The only man in the galaxy who will sell you a hull, times five.
+
+			One per spaceport and nowhere else, which is the whole change:
+			starships used to sit on the general counter next to the ration
+			packs, so the trader in the market sold you something that could
+			only ever be landed at a field two districts away.
+
+			`poi` rather than the zone alone, because Anchorhead's landing
+			field is too wide for a city block and stands out past the wall,
+			while the Town district it belongs to has thirty-two other people
+			in it. Named by district on the three worlds whose spaceport is
+			drawn into the grid -- there the district *is* the landing field.
+		]]
+		{ archetype = "ShipBroker", count = 1, zone = "Town", poi = "Anchorhead" },
 		{ archetype = "Smuggler", count = 8, zone = "Cantina" },
 		-- Out in the Dune Sea rather than sharing the Wastes with the Jawas.
 		-- Level 5-16 and aggressive at 180 studs, against a level 1 story
@@ -720,6 +752,7 @@ def({
 		{ archetype = "Civilian", count = 40, zone = "Plaza" },
 		{ archetype = "ProtocolDroid", count = 12, zone = "Plaza" },
 		{ archetype = "Merchant", count = 8, zone = "Plaza" },
+		{ archetype = "ShipBroker", count = 1, zone = "Plaza", poi = "CoruscantSpaceport" },
 		{ archetype = "RepublicSecurity", count = 24, zone = "Skylane" },
 		{ archetype = "RepublicVeteran", count = 6, zone = "Works" },
 		{ archetype = "Civilian", count = 20, zone = "Works" },
@@ -941,6 +974,9 @@ def({
 		{ archetype = "RepublicPilot", count = 8, zone = "Hangar" },
 		{ archetype = "Civilian", count = 10, zone = "Base" },
 		{ archetype = "ProtocolDroid", count = 4, zone = "Hangar" },
+		-- No `poi`: Aurek Hangar is drawn into the grid, so the Hangar
+		-- district is the landing field rather than containing it.
+		{ archetype = "ShipBroker", count = 1, zone = "Hangar" },
 		--[[
 			Both sides are salvaging the same wrecks and neither filed for the
 			claim, so past the wire everything on this planet shoots.
@@ -1142,6 +1178,7 @@ def({
 		{ archetype = "Merchant", count = 6, zone = "Stalls" },
 		{ archetype = "ProtocolDroid", count = 6, zone = "Temple" },
 		{ archetype = "RepublicSecurity", count = 10, zone = "Spaceport" },
+		{ archetype = "ShipBroker", count = 1, zone = "Spaceport" },
 		{ archetype = "RepublicVeteran", count = 6, zone = "Gnarls" },
 		-- Nothing here is fortified, and the Empire has noticed. Patrols probe
 		-- the Gnarls; the Order calls it a training opportunity. They shoot on
@@ -1913,6 +1950,7 @@ def({
 	spawns = {
 		{ archetype = "Civilian", count = 26, zone = "Promenade" },
 		{ archetype = "Smuggler", count = 16, zone = "Docks" },
+		{ archetype = "ShipBroker", count = 1, zone = "Docks" },
 		{ archetype = "Merchant", count = 10, zone = "Market" },
 		{ archetype = "CartelEnforcer", count = 18, zone = "Promenade" },
 		{
@@ -2849,6 +2887,39 @@ function Planets.validate(
 				table.insert(problems, `{id}: spawn "{rule.archetype}" names undeclared zone "{rule.zone}"`)
 				continue
 			end
+			--[[
+				A rule that asks to stand somewhere that cannot be stood in.
+
+				All three ways this goes wrong fail the same way at runtime --
+				`placementFor` finds no marker and falls back to the district,
+				so the broker is somewhere in town and nothing says otherwise.
+				That is the config-that-silently-does-nothing failure mode, and
+				the only cheap place to catch it is here.
+			]]
+			local wanted = rule.poi
+			if wanted then
+				local target: PointOfInterest? = nil
+				for _, poi in p.pointsOfInterest do
+					if poi.id == wanted then
+						target = poi
+						break
+					end
+				end
+				if not target then
+					table.insert(problems, `{id}: spawn "{rule.archetype}" names unknown POI "{wanted}"`)
+				elseif target.drawn then
+					table.insert(
+						problems,
+						`{id}: spawn "{rule.archetype}" stands at drawn POI "{wanted}", which has no interior`
+					)
+				elseif target.zone ~= rule.zone then
+					table.insert(
+						problems,
+						`{id}: spawn "{rule.archetype}" stands at POI "{wanted}", which is not in zone "{rule.zone}"`
+					)
+				end
+			end
+
 			if not NPCArchetypes.exists(rule.archetype) then
 				continue
 			end

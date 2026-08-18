@@ -718,6 +718,47 @@ def({
 })
 
 def({
+	--[[
+		The only person who will sell you a hull, and he stands on a landing
+		field.
+
+		Split out of `Merchant` rather than given a `shop` override on it,
+		because the two are not the same job in the fiction or in the spawn
+		table: a general trader stands on a street in every town on seven
+		worlds, and there are five spaceports in the galaxy. Making this its
+		own archetype is what lets the spawn rules put one in each of them
+		and nowhere else -- which is the whole feature, since `Ships.PAD_TAG`
+		already meant a spaceport is the only place a starship can come down.
+
+		DELIBERATELY NO `shift`
+		An off-shift NPC walks home and holds there, and `ShopService` finds
+		a vendor by standing within thirty studs of him. A broker who keeps
+		hours is a broker the boys will find closed with no way to tell that
+		from a bug, on the one errand in the game that costs thirty thousand
+		credits.
+	]]
+	id = "ShipBroker",
+	displayName = "Ship Broker",
+	faction = "Independent",
+	costume = "Merchant",
+	speciesPool = pool({ Human = 5, Twilek = 2, Rodian = 2, Trandoshan = 2 }),
+	behavior = Behavior.Vendor,
+	-- Higher than the general trader because the shelf is: the cheapest hull
+	-- he stocks costs more than everything in a General Goods put together.
+	minLevel = 10,
+	maxLevel = 20,
+	baseHealth = 90,
+	walkSpeed = 8,
+	xpReward = 12,
+	creditReward = { min = 120, max = 400 },
+	repOnKill = -40,
+	dialogue = "Merchant",
+	shop = "ShipYard",
+	nameStyle = "Common",
+	interactable = true,
+})
+
+def({
 	-- Kaminoans are an old enough species to belong here; Kamino's cloning
 	-- industry is not. So the species stays in the pool and the job changes:
 	-- Czerka runs research contracts for both governments in this era.
@@ -875,6 +916,7 @@ function NPCArchetypes.hostileIn(
 			zone: string?,
 			behavior: string?,
 			cast: string?,
+			poi: string?,
 		}
 	},
 	zoneId: string
@@ -918,6 +960,7 @@ function NPCArchetypes.crowdIn(
 			zone: string?,
 			behavior: string?,
 			cast: string?,
+			poi: string?,
 		}
 	},
 	zoneId: string

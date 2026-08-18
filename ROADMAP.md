@@ -687,6 +687,85 @@ it. No new remote and no new field. See TESTING §6.1 step 4 and §7.2 step 0.
 
 ---
 
+## Playtest findings — 2026-08-18
+
+Three findings, one of them a screenshot rather than a sentence.
+
+> *"not sure what's happening here."* (a photograph of seven NPCs heaped
+> against the side of a building, interpenetrating)
+> *"Id think purchasing vehicles / spaceships should be colocated with
+> spaceports or other areas where it makes sense vs having one guy who sells
+> everything."*
+> *"how do i ride in the vehicles?"*
+
+**C8. The whole district was walking into the same wall.** — **[fixed]** Two
+defects, either of which is survivable alone.
+
+- **The patrol route ran through the inside of every building in town.** A
+  zone folder's parts have always meant two things to `NPCService` — one is
+  handed out as somewhere to stand, and all of them together are the
+  district's circuit. That was true and harmless while a marker was a patch
+  of street. Then 3.2 gave rooms interiors and `PlanetBuilder` started
+  writing an `Inside` marker into the zone folder for every authored room and
+  every landmark, so the circuit acquired a stop inside each of them and the
+  district's entire foot traffic was under standing orders to walk through a
+  wall. Markers that are places to stand rather than places to walk through
+  now carry **`PlanetBuilder.OFF_ROUTE`**, and `placementFor` builds the
+  route from the rest — an attribute rather than a name match, because
+  `Inside07` is a convention and a convention breaks silently. Somebody
+  spawned *on* one gets no route at all, which drops `Patrol` through to
+  `Guard`: a shop gets a shopkeeper, which is what the room was for. Fewer
+  than two outdoor points left means no route either — a one-point circuit is
+  an instruction for the district to converge on a single spot, which is this
+  bug again with fewer steps.
+- **Nothing in the brain ever gave up.** `requestPath`'s failure branch walks
+  at the goal in a straight line and lets the Humanoid bump into things,
+  which is right for a rock and wrong for a building, because the bump never
+  ends. Nothing above it asked whether the walking was getting anywhere, so
+  an NPC whose goal sat behind a wall pressed into that wall for the rest of
+  the session — and several of them heading for the same unreachable room
+  pressed into it together, which is the photograph. `moveTo` now samples
+  progress (four studs in six seconds, measured on the root, sampled only
+  when the NPC is actually being *asked* to move, so standing still on
+  purpose is never mistaken for stuck). Patrol skips the waypoint; Guard
+  stands down where it is and keeps the post's facing.
+
+**C9. One trader sold everything, including starships.** — **[fixed]** The
+counter that hands you a hyperdrive between the ration packs and the blaster
+charges. Split by the user's call — **starships only**: a new `ShipYard` shop
+and a `ShipBroker` archetype that spawns at all five spaceports and nowhere
+else, carrying the three hulls and the twelve cabin furnishings; `GeneralGoods`
+keeps the four speeders, because the point of a speeder is that the walk you
+are sick of is the one you are in the middle of right now, and selling them out
+of a garage district is the joke that writes itself. It costs the player
+nothing they had: `Ships.PAD_TAG` already meant a hull could only be *called
+down* at a spaceport, so the change is that you can no longer buy something you
+could not use without first walking to where it works.
+
+Placing him needed **`SpawnRule.poi`**. Three of the five spaceports are drawn
+into their grid and their district *is* the landing field, so the zone was
+enough. Anchorhead's and Coruscant's are single buildings — and a spaceport is
+too wide for a city block, so it stands out past the last street while the
+district it belongs to holds thirty-two other people. `poi` names the landmark
+and takes the marker tagged `PlanetBuilder.AT_POI`. `Planets.validate` refuses
+one that names an unknown POI, a drawn one, or one in a different zone: all
+three would fail identically at runtime by falling back to the district, which
+is the config-that-silently-does-nothing failure mode. `LANDMARKS.Spaceport`
+gained an `interior` for this — thirty studs out the front of the tower, clear
+of its footprint and well inside the pad ring. Not everything called an
+interior is indoors.
+
+**C10. Nothing said how to board a vehicle.** — **[fixed]** Seats are entered
+by touch, which is a Roblox convention and not a fact about this game; there is
+no prompt over the saddle, and `VehicleSeat` turns WASD into `Throttle` and
+`Steer` for free, which is exactly why no screen ever mentioned it. The summon
+toast now says it. The pitch keys are named only on a starship — a speeder has
+no use for them, and a line listing two controls that do nothing teaches the
+player the rest of the line might be wrong too. Same shape of fix as the three
+Phase 6 omissions: extend a message that already exists.
+
+---
+
 ## Design direction — Diablo-style (decided 2026-08-14)
 
 The target is an action-RPG loop: kill things, level, spend points, find better

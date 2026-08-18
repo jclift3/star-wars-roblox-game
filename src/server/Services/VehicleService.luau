@@ -351,7 +351,25 @@ function VehicleService.toggle(player: Player): (boolean, string?)
 
 	watch(model)
 
-	notify(player, `{def.displayName} standing by`, "Info")
+	--[[
+		The toast says how to ride it, because nothing else in the game does.
+
+		Seats are entered by touch, which is a Roblox convention and not a
+		fact about this game -- there is no prompt over the saddle, and a
+		player who does not already know to walk into it is looking at a
+		speeder they own, that they paid for, that they cannot get on. The
+		steering is the same omission: `VehicleSeat` turns WASD into
+		`Throttle` and `Steer` for free, and free is exactly why no screen
+		ever mentioned it.
+
+		The pitch keys are named only on a starship. A speeder has no use for
+		them, and a line that lists two controls that do nothing teaches the
+		player that the rest of the line might be wrong too.
+	]]
+	local how = if Ships.isStarship(shipId)
+		then `Walk into the seat. WASD to fly, {Ships.PITCH_UP_KEY.Name} up, {Ships.PITCH_DOWN_KEY.Name} down.`
+		else "Walk into the seat, then WASD."
+	notify(player, `{def.displayName} standing by. {how}`, "Info")
 	return true, nil
 end
 

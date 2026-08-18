@@ -50,30 +50,33 @@ export type ShopDef = {
 	outfits: { string }, -- Outfits ids
 	weapons: { string }, -- Weapons ids
 	--[[
-		Ships ids -- both classes, speeders and starships alike.
+		Ships ids -- both classes, but never from the same counter.
 
-		Sold from the same counter as everything else rather than from a new
-		kind of vendor with a new archetype and a new spawn entry. A speeder
-		yard would be a better shop and a worse feature: it would exist on
-		whichever planets got one, and the point of a speeder is that the
-		walk you are sick of is the one you are standing in right now.
+		A SPEEDER IS SOLD WHERE YOU ARE STANDING
+		Every general trader carries them, because the point of a speeder is
+		that the walk you are sick of is the one you are in the middle of
+		right now. Selling them out of a garage district would mean walking
+		to the garage, which is the joke that writes itself.
 
-		That argument holds for starships too, but only barely, and the shop
-		that carries them says so on the shelf: `GeneralGoods` stocks all
-		three hulls and the Jawa stocks none, because a Czerka Dagger is not
-		something that falls off anything. The real gate on a starship is
-		not who will sell you one -- it is `Ships.PAD_TAG`. You can buy a
-		hull on a world with no spaceport; you simply cannot call it down.
+		A STARSHIP IS SOLD AT A SPACEPORT
+		The hulls used to sit on the same shelf, and the argument for it was
+		always thin -- a General Goods counter that hands you a hyperdrive
+		between the ration packs and the blaster charges. They now live with
+		`ShipYard`, which spawns only in a spaceport district, and that costs
+		nothing the player had: `Ships.PAD_TAG` already meant a hull could
+		only ever be *called down* at a spaceport, so the one thing this
+		changes is that you can no longer buy something you could not use
+		without first walking to where it works.
 	]]
 	ships: { string },
 	--[[
 		Furnishings ids -- the things that go inside a starship.
 
-		Stocked by the same counter that sells the hull, and by that counter
-		only: a chandler who sells you a bunk but not the ship to put it in
-		is a shop whose entire stock is unusable to most of the people
-		standing in front of it. The Jawa carries none for the reason they
-		carry no starship.
+		Stocked by the counter that sells the hull, and by that counter only:
+		a chandler who sells you a bunk but not the ship to put it in is a
+		shop whose entire stock is unusable to most of the people standing in
+		front of it. That rule is why these followed the starships out to the
+		spaceport rather than staying behind on the general shelf.
 	]]
 	furnishings: { string },
 }
@@ -109,23 +112,46 @@ def({
 		"E5",
 		"VibroBlade",
 	},
+	-- Groundcars only. The hulls are two districts away at the spaceport,
+	-- which is also the only place you could have landed one.
 	ships = {
 		"HoverSled",
 		"SaddleBike",
 		"FlareSpeeder",
 		"AssaultSpeeder",
-		-- The starship shelf. Priced and level-gated far above everything
-		-- else in this list on purpose: a General Goods counter that can
-		-- sell you a hyperdrive at level 16 is only strange if you think a
-		-- Longhaul is a luxury. It is a job.
+	},
+	furnishings = {},
+})
+
+def({
+	id = "ShipYard",
+	displayName = "Hangar Row",
+	greeting = "Hulls, berths and everything that bolts into one. Cash, no questions.",
+	-- A broker's markup. He knows there is no second yard on this rock, and
+	-- so does the player, who walked here past a general trader who does not
+	-- stock a single thing on these shelves.
+	priceMult = 1.1,
+	-- Nothing to wear and nothing to shoot with. A yard that also sold you a
+	-- coat would be the general counter again under a different sign, and the
+	-- whole point of the split is that a shop is a reason to go somewhere.
+	outfits = {},
+	weapons = {},
+	--[[
+		All three hulls, and no speeder.
+
+		A yard on a landing field selling repulsor sleds would undo the other
+		half of the split -- the speeder has to stay where the walking is, and
+		this is the one district you did not walk to.
+	]]
+	ships = {
 		"SkipjackCourier",
 		"LonghaulFreighter",
 		"DaggerInterceptor",
 	},
 	-- The whole catalogue. Twelve pieces across four slots is a shelf, not a
 	-- warehouse, and the level gates already stage them out over the game --
-	-- listing a subset here would only mean a slot the player can never
-	-- fill on the one world they trade on.
+	-- listing a subset here would only mean a slot the player can never fill
+	-- on the one world they trade on.
 	furnishings = {
 		"SpacerBunk",
 		"MeditationSlab",

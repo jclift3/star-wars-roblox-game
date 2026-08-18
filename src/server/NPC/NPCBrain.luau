@@ -81,6 +81,26 @@ local WANDER_PAUSE_MAX = 7
 -- Paths further than this are recomputed rather than followed to the end.
 local REPATH_DISTANCE = 12
 
+--[[
+	When to accept that somewhere cannot be walked to.
+
+	`requestPath` already has a failure branch, and what it does with a
+	failure is walk at the goal in a straight line and let the Humanoid bump
+	into things -- which is the right call for a rock and the wrong one for a
+	building, because the bump never ends. Nothing above it ever asked
+	whether the walking was getting anywhere, so an NPC whose goal sat behind
+	a wall pressed into that wall for the rest of the session, and several of
+	them heading for the same unreachable spot pressed into it together.
+
+	Six seconds and four studs, measured on the root rather than on the path,
+	because the whole point is to catch the case where there is no path and
+	nobody noticed. A walk that is genuinely progressing clears four studs in
+	well under six seconds at every `walkSpeed` in the archetype table -- the
+	slowest is 8 -- and a walk that is blocked clears none.
+]]
+local STUCK_SECONDS = 6
+local STUCK_DISTANCE = 4
+
 export type Brain = typeof(setmetatable(
 	{} :: {
 		model: Model,
@@ -110,6 +130,10 @@ export type Brain = typeof(setmetatable(
 		waypointIndex: number,
 		pathPending: boolean,
 		nextRepathAt: number,
+		--- Where this NPC last made real progress, and when. Only written by
+		--- `moveTo`, so standing still on purpose is never mistaken for stuck.
+		movedFrom: Vector3,
+		movedAt: number,
 
 		animator: any,
 		rng: Random,
@@ -160,6 +184,8 @@ function NPCBrain.new(model: Model, archetypeId: string, level: number, home: CF
 		waypointIndex = 1,
 		pathPending = false,
 		nextRepathAt = 0,
+		movedFrom = root.Position,
+		movedAt = now,
 
 		animator = RigAnimator.new(model),
 		rng = Random.new(),
@@ -274,9 +300,37 @@ local function followPath(self: Brain): boolean
 	return true
 end
 
+--[[
+	Whether this NPC has been trying to walk somewhere and getting nowhere.
+
+	Read by the states that have somewhere else to be, and deliberately not
+	by the combat ones: a shooter held against cover while it fires is doing
+	its job, and giving up on a target because the geometry is awkward is a
+	worse bug than the one this exists to fix.
+]]
+local function stuck(self: Brain, now: number): boolean
+	return now - self.movedAt > STUCK_SECONDS
+end
+
+--- Forgets any suspicion of being stuck. Called when the goal changes, so a
+--- fresh destination is always given the full window to prove itself.
+local function progressed(self: Brain, now: number)
+	self.movedFrom = self.root.Position
+	self.movedAt = now
+end
+
 --- Moves toward `goal`, pathfinding when far and walking directly when near.
 local function moveTo(self: Brain, goal: Vector3, running: boolean)
 	local archetype = self.archetype
+
+	-- Sampled here rather than on a timer because this is the only place the
+	-- NPC is being *asked* to move. An idle vendor never accumulates
+	-- stillness, so nothing that stands still on purpose can be declared
+	-- stuck by standing still.
+	if (self.root.Position - self.movedFrom).Magnitude > STUCK_DISTANCE then
+		progressed(self, os.clock())
+	end
+
 	self.humanoid.WalkSpeed = if running
 		then (archetype.runSpeed or archetype.walkSpeed)
 		else archetype.walkSpeed
@@ -597,13 +651,17 @@ states[Behavior.Patrol] = function(self, now)
 	end
 
 	local goal = self.patrolPoints[self.patrolIndex]
-	if (goal - self.root.Position).Magnitude < 8 then
+	-- Arrived, or given up. A waypoint that cannot be reached is skipped
+	-- rather than retried, because the reason is always the same one -- there
+	-- is a building in the way -- and it will still be there next time round.
+	if (goal - self.root.Position).Magnitude < 8 or stuck(self, now) then
 		self.patrolIndex += self.patrolStep
 		if self.patrolIndex > #self.patrolPoints then
 			self.patrolIndex = 1
 		elseif self.patrolIndex < 1 then
 			self.patrolIndex = #self.patrolPoints
 		end
+		progressed(self, now)
 		-- A beat at each waypoint, so patrols do not look like conveyor belts.
 		self.nextActionAt = now + self.rng:NextNumber(1, 3)
 		return
@@ -617,6 +675,21 @@ end
 states[Behavior.Guard] = function(self, now)
 	local drift = (self.root.Position - self.home.Position).Magnitude
 	if drift > 6 then
+		--[[
+			A post that cannot be walked back to stops being the post.
+
+			Patrol can skip a waypoint because it has others; a guard has one
+			place to be, and if something is between him and it he would shove
+			the wall for the rest of the session. Standing down where he
+			actually is looks like a man who stopped somewhere, which is a
+			far cheaper lie than the alternative. The facing is kept so he
+			still watches the direction the post was pointed at.
+		]]
+		if stuck(self, now) then
+			self.home = CFrame.lookAlong(self.root.Position, self.home.LookVector)
+			progressed(self, now)
+			return
+		end
 		moveTo(self, self.home.Position, false)
 	else
 		stopMoving(self)

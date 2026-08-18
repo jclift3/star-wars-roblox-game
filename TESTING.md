@@ -1022,18 +1022,22 @@ level: `greedisgood` for XP.
 2. Press **V** with nothing owned. One toast: **"You have no vehicle selected"**.
    Nothing spawns.
 3. Find a trader, **B**, and there is a third tab: **OUTFITS / WEAPONS /
-   VEHICLES**. Open it. The general goods trader lists seven — four speeders and
-   three starships; the Jawa lists three, and **the Jawa's list is different** —
-   he has the Swoop Racer, no Flare-S and no starship at all. That is
-   deliberate: a Jawa sells what fell off something.
+   VEHICLES**. Open it. The general goods trader lists **four, all speeders** —
+   the hulls moved to the spaceport on 2026-08-18, see §8.9. The Jawa lists
+   three, and **the Jawa's list is different** — he has the Swoop Racer and no
+   Flare-S. That is deliberate: a Jawa sells what fell off something.
 4. Buy the **Ubrikkian Hover-Sled** (900 cr, level 1). Credits drop, and the row
    moves out of the vendor's stock and up under **your** heading. *(It is not in
    your bag — a speeder is not an item and must never take a slot or be
    sellable. Check the WEAPONS tab's carry count did not change.)*
 5. The button on it now reads **SELECTED — PRESS V**. Buying the first one
    selects it for you; buying a second does not steal the selection.
-6. **V**. It appears a few studs ahead of you, hovering, facing the way you are.
-   Walk into the seat. **V** again while parked puts it away.
+6. **V**. It appears a few studs ahead of you, hovering, facing the way you are,
+   **and the toast says how to ride it**: `... standing by. Walk into the seat,
+   then WASD.` *(Added 2026-08-18 from "how do i ride in the vehicles?" — seats
+   are entered by touch, which is a Roblox convention and not a fact about this
+   game, and no screen had ever said it.)* Do that. **V** again while parked
+   puts it away.
 7. Drive. W/S throttle, A/D steer, and it **leans into the turn**. It follows
    the ground up and down a dune without either sinking into it or climbing
    stairs off it. Take it off a ledge: it falls, and catches itself at hover
@@ -1078,15 +1082,19 @@ Needs `showmethemoney` (30,000 cr minimum) and `greedisgood` to level 16.
 
 **Buying and launching**
 
-1. **B**, VEHICLES tab. Below the four speeders are three more:
-   **Corellian Skipjack** (30,000 / L16), **Rendili Longhaul** (85,000 / L26),
-   **Czerka Dagger** (175,000 / L36). Buy the Skipjack and select it.
+1. **B** at a **Ship Broker** — not a general trader; see §8.9 — VEHICLES tab.
+   Three hulls: **Corellian Skipjack** (30,000 / L16), **Rendili Longhaul**
+   (85,000 / L26), **Czerka Dagger** (175,000 / L36), each 10% over base
+   because a broker is the only yard on the rock. Buy the Skipjack and select
+   it.
 2. Press **V** *away from a spaceport* — in the middle of Anchorhead, say. One
    toast: **"Starships launch from a landing pad. Find a spaceport."** Nothing
    spawns. *(Select a speeder again and **V** still works normally — the rule is
    per class, not global.)*
-3. Walk to the **Anchorhead spaceport** and stand on or near a landing disc.
-   **V**. The Skipjack appears **on the pad**, sitting on its landing gear —
+3. Walk to the **Anchorhead spaceport** — where you bought it — and stand on or
+   near a landing disc. **V**. The toast names the pitch keys as well as the
+   throttle, which a speeder's deliberately does not. The Skipjack appears **on
+   the pad**, sitting on its landing gear —
    not floating a body-length above it, and not sunk into it. Check all three
    hulls for this if you can afford them; each has different leg lengths.
 4. Two of you, one pad. The second brother's ship must land on a **different**
@@ -1175,12 +1183,14 @@ map is the way off it.
 
 **Furnishing it**
 
-10. **B** → the fourth tab, **CABIN**. Twelve pieces across four fittings
-    (Berth, Table, Console, Trophy). The cheap ones (**Spacer's Bunk** 600 cr,
-    **Crate Table**) are level 1; the **Nal Hutta Silk Berth** and the
-    **Dejarik Table** are gated higher.
-11. Buy the Spacer's Bunk at a **General Goods** vendor. It appears under
-    "yours", and — because the Berth slot was empty — it is **already fitted**.
+10. **B** at a **Ship Broker** → the fourth tab, **CABIN**. Twelve pieces across
+    four fittings (Berth, Table, Console, Trophy). The cheap ones (**Spacer's
+    Bunk** 600 cr, **Crate Table**) are level 1; the **Nal Hutta Silk Berth**
+    and the **Dejarik Table** are gated higher. **A General Goods trader has no
+    CABIN stock at all** — the counter that sells the bunk has to sell the ship
+    to put it in, or its whole shelf is unusable to whoever is standing there.
+11. Buy the Spacer's Bunk. It appears under "yours", and — because the Berth
+    slot was empty — it is **already fitted**.
 12. **H** in. There is a bunk against the **port** wall, standing on the deck,
     **inside** the room — not half-buried in the wall, not sticking through it.
     Walk all the way around everything you fit; nothing may overhang a wall.
@@ -1717,6 +1727,70 @@ they stayed scenery.
     travel to another planet and confirm the old planet's crowd is gone and the
     new one appears within a few seconds — the build retries while the server's
     zones are still replicating.
+
+### 8.8 Nobody standing in a wall — **new, 2026-08-18**
+
+Fixed from a photograph: seven NPCs heaped against the side of a shop in
+Anchorhead, interpenetrating, at night. Two causes — the district's patrol route
+ran through the inside of every building in town, and nothing in the brain ever
+gave up on a walk it could not finish. **This is the check that matters most,
+because it is the one thing here a player notices without being told to look.**
+
+1. **The pile is gone.** Walk a full lap of Anchorhead's **Town** and
+   **Market**, and of Nar Shaddaa's **Promenade**. Nowhere should there be two
+   or more NPCs pressed into one flat surface, overlapping, all facing the same
+   way. One NPC standing near a wall is fine; a heap is the bug.
+2. **Shops have shopkeepers in them and they stay there.** Walk into a drawn
+   shop. Somebody is standing in it. Come back five minutes later — same
+   person, still inside. Previously they were on the circuit and would try to
+   leave through a wall.
+3. **Patrols still patrol.** Stand on a street corner in Anchorhead's Town for
+   two minutes. People should walk past, pause, and go on: the circuit is still
+   there, it just no longer runs indoors. A district where **nobody** moves
+   means the route came out empty — check the console for `[NPCService]`.
+4. **Six seconds, not forever.** If you do catch somebody shoving a wall, time
+   it. They must stop within about six seconds — patrols move on to the next
+   waypoint, guards stand down where they are and keep their facing. Still
+   pushing after fifteen seconds is a real failure and worth a screenshot.
+5. **Nobody is sealed in or under the floor.** Look for a figure inside a solid
+   building, on a roof, or shin-deep in the ground. A spawn is dropped to the
+   floor by a downward raycast; one that missed shows as a person standing at
+   marker height on nothing.
+
+### 8.9 Buying a ship where ships are — **new, 2026-08-18**
+
+Landed 2026-08-18 from *"purchasing vehicles / spaceships should be colocated
+with spaceports"*. Starships moved off the general counter to a new **Ship
+Broker**, one at each of the five spaceports. Speeders did not move.
+`showmethemoney` for credits.
+
+1. **The general trader no longer sells hulls.** Trade with a **Merchant** in
+   Anchorhead's Market. The speeders are there — Hover Sled, Saddle Bike, Flare
+   Speeder, Assault Speeder. **No Skipjack, no Longhaul, no Dagger, and no
+   cabin furnishings.**
+2. **The broker exists and is findable.** Walk out of Anchorhead to the landing
+   field. A **Ship Broker** stands on the apron in front of the control tower,
+   between it and the pads, facing the way you came in. Trading opens **Hangar
+   Row**.
+3. **He carries the hulls and the furniture and nothing else.** Three
+   starships, twelve furnishings, and **no outfits and no weapons** — a yard
+   that also sold you a coat is the general counter under a different sign.
+4. **He is dearer.** `priceMult` 1.1: a broker who knows there is no second
+   yard on this rock. Compare a hull's price against its `Ships` base cost.
+5. **Buy one and fly it.** Purchase the Skipjack, then **V** on the landing
+   field — it comes down on a pad. Walk two districts into town and press **V**
+   again: it must refuse, because `Ships.PAD_TAG` has always meant a hull is
+   called down at a spaceport. **That refusal is the whole argument for the
+   split** — you can no longer buy something you cannot use where you bought it.
+6. **All five spaceports have one.** Anchorhead (Tatooine), the Senate landing
+   platform (Coruscant), Aurek Hangar (Hoth), the Tython spaceport, Nar
+   Shaddaa's docks. On the last three the district *is* the landing field, so
+   he may be anywhere in it; on the first two he must be at the building. **A
+   world with no broker is the bug** — check the console for `[NPCService] ...
+   wants POI`.
+7. **He never walks.** `ShopService` finds a vendor within thirty studs, so a
+   broker who wanders is a shop that closes. Watch him for a minute, including
+   across dusk — he has no `shift` on purpose and must not walk home at night.
 
 ---
 

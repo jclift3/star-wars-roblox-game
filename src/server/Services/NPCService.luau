@@ -25,10 +25,11 @@
 
 	MAP CONTRACT
 	Spawn zones are read from Workspace/Zones/<PlanetId>/<ZoneName>, which
-	holds one or more parts. A zone with several parts also doubles as a
-	patrol route. If a planet has no zones the service falls back to
-	scattering around its spawn points, so an unfinished map still shows a
-	living world instead of nothing at all.
+	holds one or more parts. Several of them also double as a patrol route --
+	all but the ones marked `PlanetBuilder.OFF_ROUTE`, which are places to
+	stand rather than places to walk through. If a planet has no zones the
+	service falls back to scattering around its spawn points, so an unfinished
+	map still shows a living world instead of nothing at all.
 
 	Parts are handed out emptiest-first rather than at random. That is what
 	makes a part able to mean somewhere in particular -- the inside of a shop,
@@ -57,6 +58,10 @@ local ServiceLoader = require(Shared.Core.ServiceLoader)
 local WorldClock = require(Shared.Core.WorldClock)
 
 local NPCBrain = require(script.Parent.Parent.NPC.NPCBrain)
+-- Required for one constant: the attribute the builder stamps on a marker that
+-- stands inside a building. The alternative is matching the marker's name here,
+-- which makes a naming convention load-bearing across two files.
+local PlanetBuilder = require(script.Parent.Parent.World.PlanetBuilder)
 
 local NPCService = {
 	name = "NPCService",
@@ -286,14 +291,67 @@ local function placementFor(planetId: string, rule: SpawnRule): (CFrame?, { Vect
 		return nil, {}, nil
 	end
 
-	local stand = leastUsed(parts)
+	--[[
+		A rule that named a landmark takes that landmark's room, or none.
+
+		Falling back to the district would be the quiet failure this is meant
+		to avoid -- a ship broker standing in a residential street, indistinct
+		from the thirty other people in the district, with nothing anywhere
+		saying he was supposed to be at the pad. `Planets.validate` already
+		refuses a `poi` that cannot resolve, so reaching here and finding
+		nothing means the world was built differently than it was declared,
+		and a warning is the only useful thing left to do.
+	]]
+	local stand: BasePart
+	if rule.poi then
+		local room: BasePart? = nil
+		for _, p in parts do
+			if p:GetAttribute(PlanetBuilder.AT_POI) == rule.poi then
+				room = p
+				break
+			end
+		end
+		if not room then
+			warn(`[NPCService] "{rule.archetype}" wants POI "{rule.poi}" on "{planetId}"; no marker for it`)
+			return nil, {}, nil
+		end
+		stand = room
+	else
+		stand = leastUsed(parts)
+	end
+
 	standing[stand] = (standing[stand] or 0) + 1
 	local home = pointOn(stand, scatter)
 
+	--[[
+		The route is the street, never the rooms.
+
+		A zone folder's parts are handed out one at a time as standing room and
+		read all together as the district's patrol circuit, and those two
+		readings stopped agreeing the moment buildings got interiors: an indoor
+		marker is somewhere to *be*, and putting it on a circuit tells everyone
+		in the district to walk through a wall to get to it. They cannot, so
+		they press into the wall -- which is exactly what the 2026-08-18
+		playtest screenshot showed, seven NPCs interpenetrating against the
+		side of a shop.
+
+		Someone who is already indoors gets no route at all. `Behavior.Patrol`
+		with an empty route falls through to `Guard`, and a shopkeeper who
+		holds his shop is the thing the room was built for.
+
+		Two points minimum, because a one-point route is not a circuit -- it is
+		an instruction for the whole district to converge on a single spot,
+		which is the pile again with fewer steps.
+	]]
 	local route: { Vector3 } = {}
-	if #parts > 1 and not scatter then
+	if not scatter and not stand:GetAttribute(PlanetBuilder.OFF_ROUTE) then
 		for _, p in parts do
-			table.insert(route, p.Position)
+			if not p:GetAttribute(PlanetBuilder.OFF_ROUTE) then
+				table.insert(route, p.Position)
+			end
+		end
+		if #route < 2 then
+			table.clear(route)
 		end
 	end
 
