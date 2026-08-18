@@ -198,6 +198,92 @@ knows where the geometry came from.
 
 ---
 
+## 7. Publishing
+
+Everything above runs the game on one machine. Publishing is what lets somebody
+else press Play, and it is the only step in this document that cannot be done
+from a terminal — it needs a Roblox account, so it is a Studio action performed
+by whoever owns the game.
+
+### First publish
+
+1. Have `rojo serve` running and Studio **Connected**, so the place in front of
+   you is the current code and not a stale copy.
+2. Press Play once and read the Output. Publish from a boot that printed
+   `[ServiceLoader] 7 services started.` and nothing else in red. A published
+   place is what other people load; a failed service is a broken game for them,
+   not a warning they can ignore.
+3. Stop the playtest. **File → Publish to Roblox As…**
+4. Choose **Create new game**. Name it **The Hollowing**. Put the era in the
+   description — "a free-roam RPG set in the Old Republic, some three and a half
+   thousand years before an Empire" — and *not* in the name. That distinction is
+   deliberate and is explained in ROADMAP.md.
+5. Publish.
+
+Roblox has now created a **universe** (the game) containing one **place** (the
+starting level). Everything the codebase does with DataStores is keyed against
+that universe, which is why this step matters more than it looks.
+
+### Let the others in
+
+**Home → Game Settings → Permissions → Playability.** The three settings mean:
+
+| Setting | Who can join |
+| --- | --- |
+| Private | Only you |
+| Friends | Anyone on your Roblox friends list |
+| Public | Everybody |
+
+**Friends** is the one to want for a while. It requires that the accounts you
+want to play are actually friends of the owner account — being family is not a
+Roblox relationship.
+
+### DataStores start working here
+
+`DataService` writes real, persistent profiles — levels, credits, skill points,
+mission state — but a DataStore belongs to a universe, so before the first
+publish there is nothing to write to. Up to this point the service has been
+running its in-memory fallback and warning about it in Output.
+
+This means the first published session is the first one whose progress is real.
+Anything the boys did in a Studio playtest is gone, and that is expected rather
+than a bug.
+
+Note that step 3's **Enable Studio Access to API Services** is a *separate*
+switch and still matters: it is what lets your Studio playtests read and write
+the same live DataStore the published game uses.
+
+### Publishing again
+
+**File → Publish to Roblox** (Alt+P) overwrites the same place, no dialog.
+
+The thing to internalise: **Rojo syncing does not publish.** `rojo serve` moves
+code from disk into your open Studio session, and that session is a working
+copy. Until you press Alt+P, everyone else is playing the last snapshot you
+uploaded. A change that "did not take effect for the boys" is almost always
+this.
+
+If a publish turns out to have been a mistake, the Creator Dashboard keeps
+**Version History** for the place, and restoring an older version is two clicks.
+That is the undo, and it is worth knowing about *before* needing it.
+
+---
+
+## 8. Talking to a backend
+
+Not built yet — see [LIVING-NPCS.md](LIVING-NPCS.md) — but the Roblox-side
+switch is one checkbox and belongs with the rest of the setup:
+
+**Home → Game Settings → Security → Allow HTTP Requests.**
+
+`HttpService` is server-only and refuses anything that is not HTTPS, so a client
+cannot see, spoof or replay a backend call. That property is the reason the
+design in LIVING-NPCS.md puts an API key behind an edge function rather than in
+the game, and it is worth leaving this switch *off* until something actually
+needs it.
+
+---
+
 ## Troubleshooting
 
 **Studio shows nothing after connecting.** Check `rojo serve` is still running
