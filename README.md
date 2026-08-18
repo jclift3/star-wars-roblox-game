@@ -14,8 +14,9 @@ marketplace asset IDs, and nothing that only exists inside somebody's copy of
 Studio. Characters, weapons, cities and the HUD are all built at runtime from
 config tables, which means a change to `Planets.luau` changes the game.
 
-> **Note:** this is a rewrite. The original 2024 project is still in
-> `StarWarsGame/` for reference and is no longer wired into anything.
+> **Note:** this is a rewrite. The original 2024 project lived in
+> `StarWarsGame/` and was deleted in August 2026, once nothing referred to it
+> any more. It is in git history if it is ever wanted.
 
 ---
 
@@ -245,8 +246,3 @@ difference. Jump height and fall speed both follow from that for free.
 
 Dialogue, shops, the mission board, the skill tree and quest pickups are all
 built and reachable in-game — see [ROADMAP.md](ROADMAP.md) Phase 1.
-
-## Open questions
-
-- **The old project.** `StarWarsGame/` is dead code kept for reference. It is in
-  git history either way, so it can be deleted whenever.

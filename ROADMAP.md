@@ -2533,7 +2533,13 @@ Also where a galaxy-wide war state, leaderboards or a shared economy would live.
   Deliberately no "Star Wars" in the title: the mark in a game's *name* is the
   highest-risk part of a fan project and the cheapest risk to drop. The era goes
   in the store description instead
-- Delete legacy `StarWarsGame/`
+- ~~Delete legacy `StarWarsGame/`~~ — done 2026-08-18. The 15 files went, and
+  with them `UPDATE_ALL_SCRIPTS.bat` (which existed only to copy them),
+  `IMPORT_TO_ROBLOX_STUDIO.lua` (the paste-into-Studio importer Rojo replaced)
+  and `MONETIZATION_STRATEGY.md` (which still used the rejected game name and
+  predated every decision in this file). Kept for a year as "reference", and in
+  that year nothing was ever read out of it — a second copy of the game in the
+  tree is a thing greps hit, not a thing anyone consults. It is in git history
 - Playtest with the boys, tune numbers
 
 ---

@@ -138,10 +138,11 @@ Pair it with a **free daily allowance** so a non-paying player still meets the
 feature. A player who has never talked to one of these characters will not buy
 charges for one.
 
-> `MONETIZATION_STRATEGY.md` at the repo root is a legacy document from the
-> original prototype — it still uses the old game name and predates every
-> decision in ROADMAP.md and CAMPAIGN.md. Do not treat it as current. It needs
-> rewriting or deleting before launch.
+> There is no monetization document. The prototype's one was deleted in August
+> 2026 along with the rest of `StarWarsGame/` — it used the old, rejected game
+> name and predated every decision in ROADMAP.md and CAMPAIGN.md, so it was
+> misleading rather than merely out of date. The pricing above is the only
+> current thinking, and it is a sketch.
 
 ---
 

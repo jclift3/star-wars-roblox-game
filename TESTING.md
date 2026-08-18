@@ -2181,8 +2181,9 @@ Do not spend time filing these. They are on the roadmap.
   that changes how you play; nothing else rewards specialising yet.
 - Radiant missions have no authored dialogue of their own — the giver offers
   them, but the briefing text is generated and the same shape every time.
-- `MONETIZATION_STRATEGY.md` is stale legacy and describes a game that no
-  longer exists.
+- Nothing is monetized. There are no Robux products, no passes and no premium
+  currency, so credits are the only economy and every price in the game is
+  payable by playing it.
 
 ---
 
