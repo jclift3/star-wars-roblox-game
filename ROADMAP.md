@@ -2055,23 +2055,120 @@ dependency on anything else in Phase 4 or 5 — it can ship the day someone want
 it. Design and the backend shape are in [LIVING-NPCS.md](LIVING-NPCS.md) §5,
 because analytics and the conversation feature share one backend.
 
-### 4.2 Secret unlock conditions — **[todo]**
-Ordinary Luau config declaring "this reward is granted when the server sees
-these conditions," with a `validate()` pass like `Missions.luau` has. Works
-against authored dialogue on day one and needs no backend.
+### 4.2 Secret unlock conditions — **DONE 2026-08-18**
+`Config/Secrets.luau` + `SecretService.luau` + one new field on
+`Dialogue.Choice`. Six secrets, one per named character in `Cast.luau`. Built
+before the free-form layer rather than with it, exactly as planned: the model,
+when it arrives, is a text generator bolted onto a reward system that already
+worked without it. See [LIVING-NPCS.md](LIVING-NPCS.md) §2.
 
-Worth building before the free-form layer rather than with it: it is the half
-that must be deterministic and testable, and doing it first means the model,
-when it arrives, is only a text generator bolted onto a reward system that
-already works. See [LIVING-NPCS.md](LIVING-NPCS.md) §2.
+- **The whole security argument is that `SecretService` is boring.** `raise` is
+  handed a speaker, a topic word, and a `Dialogue.Context` the *server* built
+  out of the player's own profile. It looks the word up in a table nobody
+  outside the machine can edit, runs the same `Dialogue.meets` every other
+  conversation line runs, and pays out. Nothing it reads came from the client,
+  and nothing it reads will have come from a language model either — the model
+  gets to pick a word out of a closed vocabulary, and that is all it gets. The
+  worst a jailbroken character can do is *say* something it should not have. It
+  cannot open the drawer, because the drawer was never listening to it.
+- **`Choice.topic` is the seam, and it never leaves the server.** A choice that
+  carries a topic still has a `next`, and that `next` is the *deflection* — the
+  character changing the subject. If the check passes, `SecretService` returns
+  `opens` and the conversation goes there instead. So an unqualified player sees
+  a real, in-character non-answer rather than a greyed-out line advertising that
+  there is something here, and the client is never told which of the lines it
+  was handed is the interesting one.
+- **The record is a `Flags` id, not a new `profile.secrets` set.** No
+  `PROFILE_VERSION` bump, free `JournalController` integration, and later
+  dialogue can gate on having heard it with the `flag` condition that already
+  exists. Raised *last*, through `awardAlignment(player, 0, { record })` — the
+  same choke point every other flag in the game goes through, so an undeclared
+  record id is the same boot warning here as anywhere.
+- **It pays once and answers forever.** The reward is gated on the flag; the
+  *answer* is not. Ask twice and the character tells you again, which is what a
+  person does, and gets you nothing, which is what a ledger does. One flag, so
+  the two cannot disagree.
+- **Rejected: adding `hasItem` to `Dialogue.Condition`,** which is what
+  LIVING-NPCS §2's sketch used. It would have needed `Context.inventory`, a
+  change to `meets`, and a fifth predicate at two validate call sites. The
+  twelve conditions that already exist — origin, level, rep, mission ×3, flag
+  ×2, alignment ×2, stat ×2 — expressed all six secrets without straining.
+  `Dialogue.conditionProblems` was extracted so both validators share one
+  implementation rather than drifting into two.
+- **Reachability is validated in both directions**, because *finished but
+  unreachable is not finished* is now a rule with a scar behind it.
+  `Secrets.validate` fails a secret whose topic no choice in that speaker's tree
+  asks about, *and* a `Choice.topic` that no secret in that same tree answers —
+  keyed by tree, so a topic word learned from one character cannot be aimed at
+  another.
+- **Rolled affixes only on things you can equip.** `ProgressionService.gearStats`
+  reads rolls from the outfit and weapon slots only, so `validate` refuses rolls
+  on a quest item and refuses an affix whose `slot` does not match. Credits are
+  awarded `raw`: every other credit in the game is a price or a fee and scaling
+  those is Bargaining's whole point, but what somebody *tells* you is not a
+  transaction, and a secret worth 40% more to one build would be the only
+  farmable value in the file.
+- **The one refusal:** a rolled item into a full bag does not pay and does not
+  raise the flag, so the secret can be earned again once there is room. A unique
+  object that silently evaporates is a loss a player cannot diagnose.
 
 ---
 
 ## Phase 5 — Living world
 
-- NPC schedules (day/night behaviour — the clock already runs)
+- ~~NPC schedules (day/night behaviour — the clock already runs)~~ —
+  **DONE 2026-08-18**, below
 - Ambient crowd density per zone
 - Faction patrols that react to player rep
+
+### 5.0 NPC schedules — **DONE 2026-08-18**
+`Shared/Core/WorldClock.luau` + `ArchetypeDef.shift` + a pass in `NPCService`'s
+existing five-second review. Civilians and moisture farmers keep days, smugglers
+keep nights; everyone else is always about.
+
+- **"The clock already runs" was wrong, and that was the real work.** The clock
+  was a private accumulator inside `AtmosphereController`, reset to 09:00 every
+  time you landed. Two players standing next to each other on Tatooine were in
+  different hours of the same afternoon if they had arrived five minutes apart,
+  and nobody had noticed because **nothing but the sky read it**. The moment
+  NPCs started going home at dusk that stopped being a curiosity: one brother
+  would watch a market close while the other watched it stay open, in one room,
+  looking at each other's screens.
+- **`WorldClock` is a pure function of `Workspace:GetServerTimeNow()` and the
+  planet's own `dayLength`.** No state, no ticking, nothing to replicate, no
+  service to start — the server and every client compute the same number to the
+  frame. `SkyTrafficController` had already reached this conclusion on its own
+  for the same reason; this is that idea with a name, and Atmosphere now reads
+  it instead of advancing anything.
+- **Each world keeps its own time**, offset by a hash of the planet id, so it is
+  not simultaneously noon across nine planets. You can now land on Korriban at
+  02:00, which the old `ARRIVAL_CLOCK` existed to prevent — `MAX_NIGHT` already
+  keeps night lit enough to play in, and a night you can never arrive in is not
+  a time of day, it is a screensaver.
+- **A schedule changes what people do, never whether they exist.** Off-shift is
+  `Behavior.Guard`, which already means *walk back to where you spawned and hold
+  there*. Nobody despawns and nobody stops being interactable, so a shut market
+  is one you can still walk into and ask questions in. Despawning would have
+  meant a vendor or mission-giver who cannot be found at 21:00, and this project
+  has learned once already that **finished but unreachable is not finished**.
+- **`validate` refuses a shift on an Aggressive archetype or on a vendor.** An
+  enemy that stands down on a timer is free XP on a timer, and the boys play in
+  one room. A trader who does is a shop that is shut and does not say so.
+- **The check that config alone could not make.** A *spawn rule* can promote a
+  peaceful archetype to `Aggressive`, and three districts do exactly that to
+  Smugglers — who keep a night shift. So the runtime pass skips anyone whose
+  **variant** behaviour is Aggressive, not just anyone whose archetype declares
+  it. Where the schedule and the fight disagree, the fight wins.
+- **Dawn and dusk are neither shift**, two hours each. Whoever is walking home
+  gets that whole window, so nobody turns on their heel at the stroke of an
+  hour. The pass re-asserts rather than reacting to a phase change: there is no
+  flag to keep in sync, an NPC that came out of a fight in the wrong state fixes
+  itself on the next pass, and a planet that was empty through all of dusk is
+  correct the moment somebody lands on it.
+- **The HUD says the time**, next to the planet name it was already drawing.
+  Without a number on screen the only available reading of a market that has
+  gone still is that the NPCs are broken — and a tester told to "wait for dusk"
+  has nothing to wait on.
 
 ### 5.1 Free-form characters — **[todo]**
 Designed 2026-08-15, full document in [LIVING-NPCS.md](LIVING-NPCS.md). The
@@ -2080,12 +2177,16 @@ keeps their authored `Dialogue.luau` tree. Each one is hiding something, and
 talking it out of them is the puzzle — so players trying to jailbreak them is
 the intended loop rather than abuse of it.
 
-Depends on Phase 1.3 (dialogue) as the delivery surface, 4.1 for the backend and
-4.2 for the reward half. Three things that must not be forgotten:
+Depends on Phase 1.3 (dialogue) as the delivery surface and 4.1 for the backend.
+**The reward half is already built** — 4.2 shipped `Config/Secrets.luau` and
+`SecretService`, so what is left here is genuinely only text generation. Three
+things that must not be forgotten:
 
 - **The model never grants anything.** It decides what a character says; a
   deterministic server check decides what was earned. A unique crystal farmable
-  by prompt injection would be public knowledge within hours.
+  by prompt injection would be public knowledge within hours. This is settled
+  and enforced: the model's only output that reaches the reward system is a word
+  from `SecretDef.topic`'s closed vocabulary, handed to `SecretService.raise`.
 - **Scarcity is the cost control**, not per-token pricing. Sell an in-fiction
   consumable with a free daily allowance; never meter tokens at a fourteen-year
   -old.

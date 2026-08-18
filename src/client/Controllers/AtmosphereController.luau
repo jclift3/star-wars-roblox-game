@@ -14,6 +14,12 @@
 	the profile's currentPlanet changing. Arriving somewhere new is a two second
 	cross-fade rather than a hard cut, which reads as the ship settling rather
 	than as a glitch.
+
+	The one thing it does not own is the time. `Shared/Core/WorldClock` derives
+	the hour from the server clock, so the sky here is the same sky the NPCs
+	are going home under and the same sky the other player is standing in.
+	This file used to keep its own accumulator and reset it to 09:00 on
+	arrival, which meant two people on one planet were in different afternoons.
 ]]
 
 local Lighting = game:GetService("Lighting")
@@ -24,6 +30,7 @@ local Workspace = game:GetService("Workspace")
 local Shared = game:GetService("ReplicatedStorage"):WaitForChild("Shared")
 local Planets = require(Shared.Config.Planets)
 local ServiceLoader = require(Shared.Core.ServiceLoader)
+local WorldClock = require(Shared.Core.WorldClock)
 
 local AtmosphereController = {
 	name = "AtmosphereController",
@@ -41,7 +48,6 @@ local atmosphere: Atmosphere
 local tint: ColorCorrectionEffect
 
 local currentPlanet: string? = nil
-local secondsPerDay = 900
 
 -- Moonlight. Night is dimmed towards this rather than towards black, because a
 -- planet you cannot see is not atmospheric, it is just broken -- and with a
@@ -88,15 +94,6 @@ local MAX_DENSITY = 0.45
 -- Night dims towards NIGHT_TINT but never all the way: a fifteen-to-thirty
 -- minute day means a full blackout costs you a real chunk of a play session.
 local MAX_NIGHT = 0.7
---[[
-	You always arrive in the morning.
-
-	Clock time is global to Lighting, so before this you inherited whatever
-	hour the *previous* planet had drifted to and could land on Korriban at
-	02:00 through no fault of its palette. Continuity across worlds means
-	nothing anyway -- each one declares its own day length.
-]]
-local ARRIVAL_CLOCK = 9
 
 --------------------------------------------------------------------------------
 -- Companion sun
@@ -223,8 +220,12 @@ local function apply(planetId: string, instant: boolean)
 	local planet = Planets.get(planetId)
 	local air = TERRAIN_AIR[planet.terrain] or DEFAULT_AIR
 
-	secondsPerDay = math.max(60, planet.dayLength * 3600)
-	Lighting.ClockTime = ARRIVAL_CLOCK
+	-- The hour is not set here. It belongs to the planet, WorldClock derives it
+	-- from the server clock, and the loop below reads it every frame -- so
+	-- arriving somewhere puts you in that world's *actual* time rather than
+	-- restarting a private morning. You can now land at 02:00 on Korriban,
+	-- which is the point: MAX_NIGHT keeps it lit enough to play in.
+	Lighting.ClockTime = WorldClock.hourOn(planetId)
 
 	-- Handed to the clock loop rather than tweened here; see the note by the
 	-- declarations above.
@@ -282,7 +283,6 @@ function AtmosphereController.init()
 	Lighting.EnvironmentDiffuseScale = 0.6
 	Lighting.EnvironmentSpecularScale = 0.6
 	Lighting.ExposureCompensation = 0.1
-	Lighting.ClockTime = ARRIVAL_CLOCK
 
 	tint.Saturation = 0.08
 	tint.Contrast = 0.12
@@ -315,11 +315,13 @@ function AtmosphereController.start()
 	end
 
 	-- Time of day. Short days are deliberate: a planet whose light never
-	-- changes stops being a place after ten minutes.
+	-- changes stops being a place after ten minutes. Read rather than
+	-- advanced, so nothing here can drift away from what the server thinks.
 	RunService.Heartbeat:Connect(function(dt: number)
-		Lighting.ClockTime = (Lighting.ClockTime + dt * (24 / secondsPerDay)) % 24
+		local hour = if currentPlanet then WorldClock.hourOn(currentPlanet) else 12
+		Lighting.ClockTime = hour
 
-		local night = nightFactor(Lighting.ClockTime)
+		local night = nightFactor(hour)
 		local targetAmbient = dayAmbient:Lerp(afterDark(dayAmbient), night)
 		local targetOutdoor = dayOutdoor:Lerp(afterDark(dayOutdoor), night)
 

@@ -52,6 +52,7 @@ local RigBuilder = require(Shared.Rig.RigBuilder)
 local WeaponModel = require(Shared.Rig.WeaponModel)
 local Signal = require(Shared.Core.Signal)
 local ServiceLoader = require(Shared.Core.ServiceLoader)
+local WorldClock = require(Shared.Core.WorldClock)
 
 local NPCBrain = require(script.Parent.Parent.NPC.NPCBrain)
 
@@ -591,6 +592,69 @@ local function occupiedPlanets(): { [string]: boolean }
 	return out
 end
 
+--[[
+	Sends the off-shift home and puts the on-shift back to work.
+
+	Runs on the same five second beat as the population review, and re-asserts
+	rather than reacting to a phase change: there is no flag to keep in sync,
+	an NPC that came out of a fight in the wrong state fixes itself on the next
+	pass, and a planet that was empty through the whole of dusk is correct the
+	moment somebody lands on it.
+
+	`Guard` is the off-shift state because it already means exactly this --
+	walk back to where you spawned and hold there. Nobody is despawned and
+	nobody stops being interactable, so a shut market is a market you can still
+	walk into and ask questions in, which is what makes it a place rather than
+	a closed door. Combat and Flee are never overridden: whatever else is true,
+	being shot at outranks the hour.
+]]
+local function reviewShifts()
+	local Behavior = NPCArchetypes.Behavior
+	local phases: { [string]: WorldClock.Phase } = {}
+
+	for _, record in records do
+		local archetype = record.brain.archetype
+		local shift = archetype.shift
+		if not shift then
+			continue
+		end
+
+		--[[
+			The behaviour on the *variant*, not the one the archetype
+			declares. `NPCArchetypes.validate` refuses a shift on an
+			Aggressive archetype, but a spawn rule can promote a peaceful one
+			-- three districts do it to Smugglers, who keep a night shift --
+			and an enemy that goes home on a schedule is an enemy the boys
+			can farm on one. Where the two disagree the fight wins.
+		]]
+		if archetype.behavior == Behavior.Aggressive then
+			continue
+		end
+
+		local planetId = record.planetId
+		local phase = phases[planetId]
+		if not phase then
+			phase = WorldClock.phaseOn(planetId)
+			phases[planetId] = phase
+		end
+
+		-- Dawn and dusk are deliberately neither shift: whoever is walking
+		-- home gets that whole window to do it in, and nobody turns on their
+		-- heel at the stroke of an hour.
+		if phase == "Dawn" or phase == "Dusk" then
+			continue
+		end
+
+		local state = record.brain.state
+		if state == "Combat" or state == Behavior.Flee then
+			continue
+		end
+
+		local working = if shift == NPCArchetypes.Shift.Night then phase == "Night" else phase == "Day"
+		record.brain:setState(if working then archetype.behavior else Behavior.Guard)
+	end
+end
+
 local function reviewPopulation()
 	local occupied = occupiedPlanets()
 	local now = os.clock()
@@ -760,6 +824,7 @@ function NPCService.start()
 		if sinceReview >= POPULATION_CHECK_INTERVAL then
 			sinceReview = 0
 			reviewPopulation()
+			reviewShifts()
 		end
 	end)
 end

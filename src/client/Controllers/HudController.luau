@@ -34,6 +34,7 @@ local Progression = require(Shared.Config.Progression)
 local Ships = require(Shared.Config.Ships)
 local Furnishings = require(Shared.Config.Furnishings)
 local ServiceLoader = require(Shared.Core.ServiceLoader)
+local WorldClock = require(Shared.Core.WorldClock)
 
 local HudController = {
 	name = "HudController",
@@ -429,6 +430,28 @@ local function refreshTracker()
 	trackerList.Visible = order > 0
 end
 
+--[[
+	The planet and its local time, on one line.
+
+	Separate from `refreshProfile` because it is the one thing on the HUD that
+	changes without the profile doing anything, and rebuilding the mission
+	tracker once a second to move a clock would be a waste and a flicker.
+
+	The clock is here at all because as of the day/night schedules it decides
+	something: who is out on the street. Without a number on screen the only
+	reading of a market that has gone still is that the NPCs are broken -- and
+	a tester asked to "wait for dusk" has nothing to wait on.
+]]
+local function refreshClock()
+	local profile = state().get()
+	if not profile then
+		return
+	end
+	local planetId = profile.currentPlanet
+	local displayName = if Planets.exists(planetId) then Planets.get(planetId).displayName else planetId
+	planetLabel.Text = `{displayName}  {WorldClock.label(planetId)}`
+end
+
 local function refreshProfile()
 	local profile = state().get()
 	if not profile then
@@ -441,9 +464,7 @@ local function refreshProfile()
 	local needed = Progression.xpForNextLevel(profile.level)
 	setBar(xpFill, if needed > 0 then profile.xp / needed else 1)
 
-	planetLabel.Text = if Planets.exists(profile.currentPlanet)
-		then Planets.get(profile.currentPlanet).displayName
-		else profile.currentPlanet
+	refreshClock()
 
 	-- Not `equipped.weapon` itself: that is a stack uid, and a rolled blaster's
 	-- uid is `DH17#2`. The player is holding a Vicious DH-17, so say so.
@@ -588,6 +609,15 @@ function HudController.start()
 	end
 	player.CharacterAdded:Connect(function(character)
 		task.spawn(hookCharacter, character)
+	end)
+
+	-- The clock moves without the profile changing, and a shortest day is
+	-- fifteen real minutes, so a minute of planet time is under a second here.
+	task.spawn(function()
+		while true do
+			task.wait(1)
+			refreshClock()
+		end
 	end)
 end
 

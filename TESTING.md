@@ -1385,6 +1385,139 @@ the level gate, `showmethemoney` covers the Scoundrel's debt.
     wrote — which is why the flags are declared in `Flags.luau` in the first
     place. Cross-check against the boot log being silent (item 1).
 
+### 8.4 The six secrets — **new, never played**
+
+Landed 2026-08-18 (ROADMAP 4.2). Each of the six cast members is hiding one
+thing, and there is now one reply in each tree that asks about it. **The whole
+point of this section is the difference between a refusal and a payout**, and
+they are deliberately hard to tell apart from the outside — an unqualified
+player gets a real in-character non-answer, not a greyed-out line. So the test
+is always: ask *before* you qualify, then ask again *after*.
+
+This is also the dress rehearsal for 5.1. When a language model eventually
+writes these characters' lines, this reward path is the one it will not be
+allowed to touch — so anything wrong here is wrong in a system that is supposed
+to be the trustworthy half.
+
+1. **The boot log is silent.** `Secrets.validate` runs from `DialogueService` at
+   startup. A `[DialogueService] secrets config:` line means a secret names a
+   speaker, node, flag, item or affix that does not exist — *or*, and this is the
+   one worth reading twice, that a topic is asked in a tree nothing answers, or
+   answered in a tree nothing asks. Both directions are checked because
+   **finished but unreachable is not finished**.
+2. **The refusal comes first.** Before qualifying for any of them, talk to each
+   of the six and take the reply below. Every one must give you a **short
+   deflection and return you to the conversation**. No toast, no XP, nothing in
+   the log. If a deflection *does* pay, that is the exploit — one of the boys
+   will be standing behind the other while it happens.
+   - **Vashk** (Korriban, Academy) — *Thirty years of forms. Where do they go?*
+   - **Tolen Marr** (Ord Mantell, Garrison) — *The commendation you did not
+     want. What was it for?*
+   - **Vess Kadar** (Nar Shaddaa, Promenade) — *You do not set your own prices.
+     Who does?*
+   - **Ordo-9** (Taris, Camp) — *\*Open the maintenance log yourself.\**
+   - **Ryn Solaa** (Tython, Temple) — *You said four of you wrote it down. Who
+     were the other three?*
+   - **Aneth Corr** (Taris, Lot 9) — *You have never met the client. You have
+     seen the account.*
+3. **Each one opens for its own reason.** Qualify and ask again. A **Reward**
+   toast fires, and the conversation goes to a node that is a *paragraph*, not a
+   line. What each wants:
+   - **Vashk** — `NamedTheQuiet` (Solaa's level-20 *Say what it is. Out loud.*)
+     and **level 24**. Pays 1600 XP, 2400 credits.
+   - **Tolen Marr** — `HasTheManifest` (finish *CorPaperTrail*) and **alignment
+     0 or better**. Pays 1400 XP, 1200 credits and a **Republic Veteran outfit
+     with two rolled defensive affixes** — check `B`: the name is decorated, not
+     plain.
+   - **Vess Kadar** — `DebtSettled` (either debt mission) and **`PriceMult` at
+     0.92 or lower**, which means real Bargaining ranks or a Haggling roll. This
+     is the only secret in the game earned by *building* rather than
+     *finishing*, so it is the one most likely to be mis-gated. Pays a **rolled
+     DL-44**.
+   - **Ordo-9** — `HeardNineRemember` (*TarTheSealedCrate*) and **SliceTier 2**.
+     Nobody talks him into this; you open the log yourself. It is also the only
+     reader of `SliceTier` outside a terminal, so if this refuses at rank 2 the
+     bug is in the stat, not the secret.
+   - **Ryn Solaa** — `NamedTheQuiet` and **alignment +250**. A character playing
+     the Empire straight must **not** be able to hear this; check that with
+     `iamacolyte` and a negative figure.
+   - **Aneth Corr** — `SawLot9` (*TarWhatTheyKept*) and **level 30**. No
+     alignment gate at all, on purpose. Pays the most: 2000 XP, 3000 credits.
+4. **It pays once and answers forever.** Ask the same character the same thing a
+   third time. They **tell you again** — the paragraph is still there, they are
+   people — and **nothing is awarded**: no toast, no credits, no second copy of
+   the outfit. Check `showmethemoney`-free credits before and after. Two players
+   in one room will try exactly this.
+5. **A full bag does not eat the outfit.** Fill the inventory to the cap
+   (§2 covers how), then qualify for **Marr** or **Kadar** and ask. You get an
+   **Error** toast reading *No room — come back with an empty hand*, and the
+   conversation does **not** open the answer node. Drop something and ask again:
+   it must pay in full. A unique item that silently vanished into a full bag is
+   the one failure here a player cannot diagnose.
+6. **Bargaining does not inflate the money.** Compare a secret's credit payout
+   on a character with heavy Bargaining against one with none. **The numbers are
+   identical.** Prices scale with that stat; what somebody tells you does not,
+   and if it did this would be the only farmable value in the file.
+7. **The journal noticed.** Open **J** after each secret. A new line appears
+   under *Paper Trail* (Marr, Kadar) or *What They Kept* (the other four),
+   written as something you now know rather than something you did. This came
+   for free because the record is a `Flags` entry and not a private list, and it
+   is the check that proves it.
+
+### 8.5 Day, night, and who is out — **new, never played**
+
+Landed 2026-08-18 (ROADMAP 5.0). Days are short on purpose — Tatooine's is
+fifteen real minutes, Dromund Kaas's thirty-six — so **every check here is a
+matter of waiting a few minutes, not a session**. The HUD now reads e.g. `Tatooine 14:23`
+under the health bar; that clock is the instrument for all of this.
+
+**The half of this worth testing with two people is the first item.** It is the
+only bug in the feature that a single player literally cannot see.
+
+1. **Both of you are in the same afternoon.** Two clients, same planet, joined
+   several minutes apart. **The HUD clock reads the same on both screens**, and
+   the sky matches. This is what the whole `WorldClock` module exists for: the
+   old code gave each client a private clock starting at 09:00 on arrival, so
+   two brothers in one room were hours apart and the sky was the only thing that
+   knew. If the numbers differ, nothing else in this section means anything.
+2. **The clock actually moves, and it wraps.** Watch the HUD for a minute — a
+   planet minute is well under a real second. Let it roll past `23:59` to
+   `00:0x` without going negative or sticking.
+3. **Landing does not reset it.** Note the time on Tatooine, travel to Ord
+   Mantell and back. The Tatooine clock must have **advanced by roughly the time
+   you were away**, not restarted at 09:00.
+4. **Every world keeps its own time.** Check the clock on three planets in quick
+   succession. They must read **different hours** — the offset is a hash of the
+   planet id, so nine worlds do not share one sunset. Travelling to Korriban and
+   finding it is 02:00 is correct and is the point.
+5. **The street empties after dark.** Stand in a town square (Mos Eisley is the
+   clearest) and watch it cross `20:00`. **Civilians and moisture farmers walk
+   back to where they spawned and stop** — they walk, over the dusk window; they
+   do not teleport or freeze mid-stride. Then wait for `07:00` and watch them
+   start milling again.
+6. **Somebody else is out instead.** In the same window, **smugglers** do the
+   opposite: still by day, wandering by night. A night town that is simply
+   emptier than a day town is only half the feature working.
+7. **A closed market is still a market.** With the crowd stood down at 22:00,
+   walk up to a civilian and press **E**. **The Talk prompt is still there and
+   the conversation still works.** Nobody is ever despawned by the clock, and a
+   vendor is never put on a shift at all — check a **Merchant** and a **Jawa**
+   trade fine at 03:00. A shop you cannot use at night would be this feature
+   causing exactly the class of bug it was written to avoid.
+8. **Nothing hostile takes the night off.** The one that matters, because it is
+   the exploit. Find the **aggressive smugglers** in the Tatooine Wastes or the
+   Nar Shaddaa Fields/Wilds — a Smuggler's archetype keeps a night shift, but
+   those spawn rules promote them to `Aggressive`. **At high noon they must
+   still hunt you exactly as they do at midnight.** Free XP on a timer is the
+   first thing that would be found and the last thing that would be reported.
+9. **Combat outranks the hour.** Get into a fight just before `20:00` and let it
+   run through. The NPC must not wander home mid-exchange; the shift pass skips
+   anything in Combat or Flee and only takes effect once the fight is over.
+10. **The boot log is silent.** `NPCArchetypes.validate` now also refuses a
+    shift on an Aggressive archetype and on a vendor. An `[NPCService] archetype
+    config:` line naming a shift means one of those two rules was broken in
+    config, and items 7 and 8 are what it would have cost.
+
 ---
 
 ## 9. Combat and progression

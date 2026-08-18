@@ -34,6 +34,33 @@ local Behavior = {
 }
 NPCArchetypes.Behavior = Behavior
 
+--[[
+	When somebody is out.
+
+	A moisture farmer works the vaporators in daylight and a Cartel runner
+	does not come out until it is dark, and until now both milled around the
+	same square forever. `Shift` is the whole of that: an off-shift NPC is put
+	into `Guard`, which walks them back to where they spawned and holds them
+	there, and an on-shift one is returned to their archetype's own behaviour.
+
+	WHAT IT DELIBERATELY IS NOT
+	It does not despawn anybody. A schedule that removes people would mean a
+	vendor, a mission-giver or a cast member who cannot be found at the wrong
+	hour, and this project has already learned once that *finished but
+	unreachable is not finished* -- a fourteen-year-old who cannot hand in a
+	mission at 21:00 has hit a bug, whatever the design document says.
+
+	It is also refused on anything `Aggressive` (see `validate`). Enemies that
+	stand down at noon would be free XP on a timer, and the boys play in one
+	room and will find it. Combat is identical around the clock; this is
+	atmosphere, and it is confined to being atmosphere.
+]]
+local Shift = {
+	Day = "Day",
+	Night = "Night",
+}
+NPCArchetypes.Shift = Shift
+
 export type SpeciesWeight = { species: string, weight: number }
 
 export type Archetype = {
@@ -47,6 +74,8 @@ export type Archetype = {
 	-- Stands and fights rather than repositioning. Guards and droids hold;
 	-- civilians and smugglers break contact.
 	holdsGround: boolean?,
+	-- One of `Shift`, or nil for somebody who is always about. See `Shift`.
+	shift: string?,
 
 	minLevel: number,
 	maxLevel: number,
@@ -517,6 +546,8 @@ def({
 	costume = "Smuggler",
 	speciesPool = pool({ Human = 6, Twilek = 2, Rodian = 2, Wookiee = 1 }),
 	behavior = Behavior.Wander,
+	-- The reason a night street is not simply an empty day street.
+	shift = Shift.Night,
 	-- Down to 3 so the Ord Mantell irregulars -- a level 1-6 world, and the
 	-- Conscript's first fight -- are not all pinned to the archetype's floor.
 	minLevel = 3,
@@ -626,6 +657,10 @@ def({
 		Gungan = 1,
 	}),
 	behavior = Behavior.Wander,
+	-- The archetype this feature is really about: there are more of these in
+	-- the game than anything else, so a street that empties after dark is
+	-- mostly this one line.
+	shift = Shift.Day,
 	minLevel = 1,
 	maxLevel = 5,
 	baseHealth = 60,
@@ -646,6 +681,9 @@ def({
 	costume = "MoistureFarmer",
 	speciesPool = pool({ Human = 8, Twilek = 1 }),
 	behavior = Behavior.Wander,
+	-- Vaporators are worked in daylight, and there is nowhere on Tatooine
+	-- anyone sane is standing around at 02:00.
+	shift = Shift.Day,
 	minLevel = 1,
 	maxLevel = 6,
 	baseHealth = 70,
@@ -914,6 +952,21 @@ function NPCArchetypes.validate(): { string }
 		end
 		if a.maxLevel < a.minLevel then
 			table.insert(problems, `{id}: maxLevel < minLevel`)
+		end
+		local shift = a.shift
+		if shift then
+			if not Shift[shift] then
+				table.insert(problems, `{id}: unknown shift "{shift}"`)
+			end
+			-- The two refusals that keep a schedule from being a bug. An
+			-- enemy that stands down on a timer is free XP; a trader who
+			-- does is a shop that is shut and does not say so.
+			if a.behavior == Behavior.Aggressive then
+				table.insert(problems, `{id}: an Aggressive archetype may not keep a shift`)
+			end
+			if a.shop then
+				table.insert(problems, `{id}: a vendor may not keep a shift`)
+			end
 		end
 	end
 	table.sort(problems)
