@@ -103,6 +103,44 @@ If any of these fail, stop. Nothing further is worth testing.
 
 ---
 
+## 1b. What the game tells a new player — **new, never played**
+
+Needs a **fresh character** — Studio's DataStores are memory-only, so stopping
+and restarting Play is enough. Everything here is text on a screen; none of it
+can be checked by reading the code, because the question is whether a boy who
+has never played this reads it and knows what to do.
+
+1. The creation modal appears with no key pressed, and refuses to close until
+   you pick an origin.
+2. Pick one. The card names your mentor, then reads: *"Press M for work that
+   needs doing, and J for who you are and what you have learned so far. 1 skill
+   point is already waiting under K."*
+   - **The letters must match the ones the legend shows.** They are read from
+     `Panels.toggleKey`, not typed, so a mismatch means the registry and the
+     legend disagree — a real bug, not a typo.
+3. Dismiss the card. The legend across the top now starts **LMB ATTACK** ·
+   **SHIFT SPRINT** · **1-6 POWERS**, then V, H, and the five panel letters.
+   - **"SHIFT" fits inside its box**, not clipped or overflowing. The box has
+     three widths and this is the only row that needs the widest.
+4. Press **K**. The subtitle reads **"Level 1 · 1 skill point"** in the accent
+   colour, and at least one rank is affordable. Spend it; the subtitle goes to
+   "0 skill points" and dims.
+   *(Before this change nothing in the game ever mentioned that point. The
+   level-up toast only fires on a level gained, and this one arrives at
+   creation.)*
+5. Hold **shift** and run. You visibly speed up. (Also smoke test §1.3 — it is
+   here as well because now something on screen claims it.)
+6. Click the left mouse button with an enemy in front of you. You attack.
+7. Reach level 2. The toast still announces the point *that* level granted; the
+   creation card's sentence has not doubled it up or replaced it.
+
+**The point of this section is that nothing here is new machinery.** Both fixes
+are extra lines in surfaces that already worked, so the failure mode to watch
+for is not a crash but a lie: a legend row naming a key that no longer does
+that, or a card promising a point that is not in the panel.
+
+---
+
 ## 2. Bag cap, selling and discarding — **new, never played**
 
 This shipped in `94ce9d4` and has not been in front of a person yet. It is the

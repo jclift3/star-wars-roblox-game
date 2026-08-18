@@ -20,6 +20,20 @@ Progression.SKILL_POINTS_PER_LEVEL = 1
 Progression.MAX_NODE_RANK = 5
 
 --[[
+	The point you already have before you have done anything.
+
+	A character is created holding one, so the tree has something in it to
+	answer on the first visit rather than being a locked diagram. It lives
+	here rather than as a literal in `DataService.defaultProfile` for two
+	reasons: the budget check at the bottom of this file was counting only
+	the 49 points that levelling grants and so understated a level-50
+	character by one, and the client cannot see the server's default profile
+	-- `CreationController` needs this number to tell a new player that the
+	point exists at all.
+]]
+Progression.STARTING_SKILL_POINTS = 1
+
+--[[
 	XP required to advance FROM `level` to level+1.
 
 	Cheap early so the first hour is generous, steepening toward the cap. Level
@@ -1152,7 +1166,8 @@ function Progression.validate(): { string }
 		quietly destroy, and it is invisible when you are looking at that
 		node -- so it is checked here rather than remembered.
 	]]
-	local points = (Progression.MAX_LEVEL - 1) * Progression.SKILL_POINTS_PER_LEVEL
+	local points = Progression.STARTING_SKILL_POINTS
+		+ (Progression.MAX_LEVEL - 1) * Progression.SKILL_POINTS_PER_LEVEL
 	local buyable = 0
 	for _, tree in Progression.TREES do
 		buyable += reachableRanksInTree(tree, nil)

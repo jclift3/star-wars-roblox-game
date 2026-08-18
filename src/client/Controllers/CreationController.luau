@@ -39,6 +39,7 @@ local Factions = require(Shared.Config.Factions)
 local Origins = require(Shared.Config.Origins)
 local Palette = require(Shared.Config.Palette)
 local Planets = require(Shared.Config.Planets)
+local Progression = require(Shared.Config.Progression)
 local Panels = require(Shared.Core.Panels)
 local ServiceLoader = require(Shared.Core.ServiceLoader)
 
@@ -367,6 +368,7 @@ local function showCard()
 	local origin = Origins.get(selected)
 	local missions = keyOf("MissionBoardController")
 	local journal = keyOf("JournalController")
+	local skills = keyOf("SkillTreeController")
 
 	cardTitle.Text = origin.displayName
 	cardWhere.Text =
@@ -375,8 +377,20 @@ local function showCard()
 	-- currently knows this character exists, and "go and find someone" is a
 	-- worse first instruction than "go and find Vashk".
 	cardBody.Text = `{origin.blurb}\n\n{origin.mentor} is expecting you.`
+	--[[
+		The skill point is named here because nothing else will ever name it.
+
+		The level-up toast is the only thing that announces points, and it
+		only fires when a level was actually gained -- so the point a
+		character is created holding is the one point in the game that
+		arrives silently, in the panel a new player has the least reason to
+		open. Saying it out loud on the one screen everybody sees is cheaper
+		than a second notification path.
+	]]
+	local point = Progression.STARTING_SKILL_POINTS
 	cardNext.Text = `Press {missions} for work that needs doing, and {journal} for who you are and what you have`
-		.. ` learned so far. All of this is on the journal's first page -- you are not meant to remember it.`
+		.. ` learned so far. {point} skill point is already waiting under {skills}.`
+		.. ` All of this is on the journal's first page -- you are not meant to remember it.`
 
 	pickerRoot.Visible = false
 	cardRoot.Visible = true

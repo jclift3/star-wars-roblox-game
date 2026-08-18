@@ -39,6 +39,7 @@ local Flags = require(Shared.Config.Flags)
 local Furnishings = require(Shared.Config.Furnishings)
 local Origins = require(Shared.Config.Origins)
 local Planets = require(Shared.Config.Planets)
+local Progression = require(Shared.Config.Progression)
 local Ships = require(Shared.Config.Ships)
 
 type PlayerProfile = Types.PlayerProfile
@@ -110,7 +111,7 @@ local function defaultProfile(): PlayerProfile
 		credits = 250,
 		level = 1,
 		xp = 0,
-		skillPoints = 1,
+		skillPoints = Progression.STARTING_SKILL_POINTS,
 		skills = {},
 		-- A placeholder until the player picks. It is deliberately the origin
 		-- with no patron and no restrictions, so a character who somehow never

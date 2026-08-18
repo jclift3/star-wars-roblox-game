@@ -2385,7 +2385,36 @@ Also where a galaxy-wide war state, leaderboards or a shared economy would live.
 ## Phase 6 — Ship it
 
 - Publish the place (also fixes DataStores — saves currently run memory-only)
-- Onboarding / first-time-user flow
+- ~~Onboarding / first-time-user flow~~ — **the three unstated things, done
+  2026-08-18.** Audited by walking the first five minutes rather than by writing
+  a tutorial, and most of it turned out to be covered already: the legend names
+  every panel key, the creation card names two of them in a sentence, and the
+  mission board says where to go. Three things were genuinely never said
+  anywhere.
+  - **Nothing stated that the left mouse button attacks** — in an action RPG
+    whose entire loop is swinging at something. `InputController` has bound it
+    all along; no screen mentioned it. Now the first row of the legend.
+  - **Nothing stated that shift sprints**, while "the walking is too slow" is a
+    standing complaint. Second row.
+  - **The starting skill point was never announced.** `ProgressionService`
+    toasts points only when `levelsGained > 0`, and this one is granted in
+    `DataService.defaultProfile`, so the point every character begins with was
+    the one point nothing ever mentioned, sitting in the panel a new player has
+    the least reason to open. The creation card now names the key and says the
+    point is waiting.
+
+  Both fixes extend a surface that already exists rather than adding a tutorial
+  system: the legend already had a hand-written non-panel section (`1-6
+  POWERS`), and the card already resolves keys through `Panels.toggleKey`, so
+  neither can go stale after a rebind. The legend's key box grew a third width
+  — "SHIFT" in a box cut for "1-6" is a legend you have to guess at.
+
+  Found on the way: `Progression.validate`'s scarcity check was off by one,
+  computing a level-50 budget as `(MAX_LEVEL - 1) * points` and missing the
+  point granted at creation. That literal is now
+  `Progression.STARTING_SKILL_POINTS`, read by the check, by `defaultProfile`
+  and by the card — one number in one place. The design conclusion is
+  unchanged: capstones cost 51 ranks against 50 points, so at most two.
 - ~~Game name~~ — **The Hollowing**, set 2026-08-14 in `default.project.json`.
   Deliberately no "Star Wars" in the title: the mark in a game's *name* is the
   highest-risk part of a fan project and the cheapest risk to drop. The era goes

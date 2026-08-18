@@ -308,7 +308,10 @@ local function buildLegend()
 		inner.Parent = holder
 
 		local key = panel("Key", holder)
-		key.Size = UDim2.fromOffset(if #cap > 1 then 34 else 18, 18)
+		-- Three widths, not two: every panel key is a single letter, but the
+		-- hand-written rows below spell out whole words, and "SHIFT" in a box
+		-- cut for "1-6" is a legend that has to be guessed at.
+		key.Size = UDim2.fromOffset(if #cap > 3 then 44 elseif #cap > 1 then 34 else 18, 18)
 		key.LayoutOrder = 1
 
 		local letter = text("Letter", key, 11, ACCENT)
@@ -325,11 +328,29 @@ local function buildLegend()
 	end
 
 	--[[
-		The number keys are not a panel, so they are the one line written by
-		hand. They are also the answer to the half of the report that was
-		about powers, and they go first: the bar itself is invisible until the
-		tree has unlocked something, so before that this row is the only thing
-		on screen that says abilities exist at all.
+		The two verbs a player has before they have anything else, and the two
+		the game never said out loud.
+
+		This is an action RPG whose whole loop is swinging at something, and
+		until now nothing anywhere -- not the legend, not the creation card,
+		not a mission -- stated that the mouse button is how you swing. It was
+		left to be discovered, which works for the boy who has played one of
+		these before and not for the one who hasn't. Sprint is the same
+		omission one rank down: the walk between two markers is the most
+		common complaint about the game and the fix was already bound.
+
+		They go first because they are the only two rows that are true of a
+		character who has unlocked nothing.
+	]]
+	entry("LMB", "ATTACK")
+	entry("SHIFT", "SPRINT")
+
+	--[[
+		The number keys are not a panel, so they are written by hand too. They
+		are also the answer to the half of the report that was about powers,
+		and they go early: the bar itself is invisible until the tree has
+		unlocked something, so before that this row is the only thing on
+		screen that says abilities exist at all.
 	]]
 	entry("1-6", "POWERS")
 
