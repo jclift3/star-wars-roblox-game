@@ -50,6 +50,10 @@ local function progression()
 	return ServiceLoader.get("ProgressionService")
 end
 
+local function analytics()
+	return ServiceLoader.get("AnalyticsService")
+end
+
 --------------------------------------------------------------------------------
 -- Paying out
 --------------------------------------------------------------------------------
@@ -151,6 +155,11 @@ function SecretService.raise(player: Player, speaker: string, topic: string, ctx
 	if line then
 		Net.fireClient(Net.Event.Notify, player, line, "Reward")
 	end
+
+	-- Only the first telling, because that is the one `pay` ran for. A repeat
+	-- ask returns above and is a `talk`, which is what it is.
+	local telemetry = analytics()
+	telemetry.log(player, telemetry.Kind.Secret, { secret = secret.id, speaker = speaker })
 	return secret.opens
 end
 

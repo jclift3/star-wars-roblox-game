@@ -76,6 +76,10 @@ local function progression()
 	return ServiceLoader.get("ProgressionService")
 end
 
+local function analytics()
+	return ServiceLoader.get("AnalyticsService")
+end
+
 local function notify(player: Player, message: string, kind: string?)
 	Net.fireClient(Net.Event.Notify, player, message, kind or "Mission")
 end
@@ -208,6 +212,9 @@ function MissionService.accept(player: Player, missionId: string): (boolean, str
 	notify(player, `Accepted: {mission.displayName}`, "Mission")
 	notify(player, mission.briefing, "Briefing")
 	push(player, missionId, "Accepted", {})
+
+	local telemetry = analytics()
+	telemetry.log(player, telemetry.Kind.MissionAccept, { mission = missionId })
 	return true, nil
 end
 
@@ -220,6 +227,11 @@ function MissionService.abandon(player: Player, missionId: string): boolean
 		p.missions.active[missionId] = nil
 	end)
 	push(player, missionId, "Abandoned")
+
+	-- The reason 4.1 exists at all: nothing in the game has ever recorded
+	-- which missions people give up on.
+	local telemetry = analytics()
+	telemetry.log(player, telemetry.Kind.MissionAbandon, { mission = missionId })
 	return true
 end
 

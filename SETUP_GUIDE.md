@@ -271,16 +271,79 @@ That is the undo, and it is worth knowing about *before* needing it.
 
 ## 8. Talking to a backend
 
-Not built yet — see [LIVING-NPCS.md](LIVING-NPCS.md) — but the Roblox-side
-switch is one checkbox and belongs with the rest of the setup:
+Two switches, both in Studio:
 
 **Home → Game Settings → Security → Allow HTTP Requests.**
 
 `HttpService` is server-only and refuses anything that is not HTTPS, so a client
-cannot see, spoof or replay a backend call. That property is the reason the
-design in LIVING-NPCS.md puts an API key behind an edge function rather than in
-the game, and it is worth leaving this switch *off* until something actually
-needs it.
+cannot see, spoof or replay a backend call. That property is why the design in
+[LIVING-NPCS.md](LIVING-NPCS.md) can put a secret behind an edge function rather
+than in the game.
+
+**Enable Studio Access to API Services** (step 3) also matters here, because the
+endpoint and key are read out of a DataStore — see below.
+
+---
+
+## 9. Turning on telemetry
+
+`AnalyticsService` posts gameplay events to a Supabase edge function, which
+writes them to Postgres. It is off until configured, and a fresh clone with no
+configuration runs the entire game normally — that is the intended default, not
+a degraded mode.
+
+### Why the configuration is not in this repository
+
+Two reasons, and they are the same two that apply to every secret this project
+will ever have:
+
+1. **This repository is public.** An endpoint and key committed to it are an
+   open write handle to the database.
+2. **A secret in the place file cannot be rotated without republishing.** Server
+   scripts are not visible to players, but they are still baked into the
+   uploaded build, so changing a key would mean a new deploy of the game.
+
+So both live in a DataStore, written once. Rotating them later is one command,
+no republish, no commit.
+
+### Setting it
+
+In Studio, with API services enabled, run this in the **command bar** — once
+per universe, not per session:
+
+```lua
+game:GetService("DataStoreService"):GetDataStore("Config"):SetAsync("analytics", {
+	url = "https://<project>.supabase.co/functions/v1/ingest",
+	key = "<the ingest key>",
+})
+```
+
+The same key goes in Supabase under **Project Settings → Edge Functions →
+Secrets**, as `INGEST_KEY`. The function refuses every request until it is set —
+it fails closed, so an unset secret never means "no authentication".
+
+On the next boot, Output will say:
+
+```
+[AnalyticsService] telemetry on, posting to https://...
+```
+
+If that line is missing, nothing is being recorded. This is deliberate: the
+failure mode of an analytics system is being quietly off, and "no data arrived"
+otherwise looks exactly like "nobody played".
+
+### What gets recorded
+
+One row per event in `public.events`, with the planet and level filled in
+automatically. The vocabulary is `AnalyticsService.Kind` — sessions, level-ups,
+deaths and where they happened, missions accepted, completed and **abandoned**,
+purchases and what was actually paid, who gets talked to, secrets, and travel.
+
+No names, no chat, no positions except the spot a character died on.
+
+Studio playtests are recorded too, under `job_id = 'studio'`, so a developer's
+fifty test deaths can be excluded with one `where` clause instead of making the
+feature impossible to test.
 
 ---
 

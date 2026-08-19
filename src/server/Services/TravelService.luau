@@ -75,6 +75,10 @@ local function progression()
 	return ServiceLoader.get("ProgressionService")
 end
 
+local function analytics()
+	return ServiceLoader.get("AnalyticsService")
+end
+
 --------------------------------------------------------------------------------
 -- Quotes
 --------------------------------------------------------------------------------
@@ -280,6 +284,11 @@ function TravelService.travelTo(player: Player, planetId: string): (boolean, str
 	-- the cockpit between opening the map and pressing the button pays a fare.
 	local hull = ownHull(player)
 
+	-- Read before the jump. `travelTo` rewrites `currentPlanet`, and the
+	-- telemetry below runs after it, so this is the only point at which the
+	-- origin of the route still exists.
+	local from = profile.currentPlanet
+
 	local now = os.time()
 	if not hull then
 		local waiting = cooldownLeft(profile, now)
@@ -331,6 +340,15 @@ function TravelService.travelTo(player: Player, planetId: string): (boolean, str
 			else `Arrived at {planet.displayName} -- {passage.credits} cr`,
 		"Success"
 	)
+
+	-- The destination is the `planet` column, filled from the profile that
+	-- `travelTo` has just updated, so only the origin needs carrying.
+	local telemetry = analytics()
+	telemetry.log(player, telemetry.Kind.Travel, {
+		from = from,
+		credits = passage.credits,
+		flown = hull ~= nil,
+	})
 	return true, nil
 end
 

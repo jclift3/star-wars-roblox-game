@@ -50,6 +50,10 @@ local function progression()
 	return ServiceLoader.get("ProgressionService")
 end
 
+local function analytics()
+	return ServiceLoader.get("AnalyticsService")
+end
+
 local function notify(player: Player, message: string, kind: string)
 	Net.fireClient(Net.Event.Notify, player, message, kind)
 end
@@ -587,6 +591,17 @@ function ShopService.purchase(player: Player, kind: string, id: string): (boolea
 	end
 
 	notify(player, `Bought {displayName} for {price} cr`, "Success")
+
+	-- `price` rather than `cost`: what was actually paid, after the shop's
+	-- multiplier and the player's Bargaining. The list price is in config and
+	-- can be joined back to; what a given player was charged cannot.
+	local telemetry = analytics()
+	telemetry.log(player, telemetry.Kind.Purchase, {
+		kind = kind,
+		item = id,
+		price = price,
+		shop = shop.id,
+	})
 	return true, nil
 end
 

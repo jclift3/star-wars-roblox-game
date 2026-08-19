@@ -2189,16 +2189,41 @@ Targets 1-5 are done. What §4.3 still wants is the *volume* — three stat-gate
 dialogue lines is a proof, not a body of work — and that is content, written
 alongside the campaign, not another system.
 
-### 4.1 Analytics — **[todo]**
+### 4.1 Analytics — **DONE 2026-08-18**
 The cheapest item on this roadmap that measurably improves the game, and the
-only one that makes every later balance decision better informed. Right now
-every number in `Config/` was picked by feel and nothing reports back: we do not
-know which missions get abandoned, where players die, or what they actually buy.
+only one that makes every later balance decision better informed. Every number
+in `Config/` was picked by feel and nothing reported back: we did not know which
+missions get abandoned, where players die, or what they actually buy.
 
-A Roblox server posting events to an HTTP endpoint, and Postgres behind it. No
-dependency on anything else in Phase 4 or 5 — it can ship the day someone wants
-it. Design and the backend shape are in [LIVING-NPCS.md](LIVING-NPCS.md) §5,
-because analytics and the conversation feature share one backend.
+`AnalyticsService.luau` batches events and posts them to a Supabase edge
+function, which writes one row per event to Postgres. Turning it on is
+[SETUP_GUIDE.md](SETUP_GUIDE.md) §9.
+
+Built before 5.1 deliberately. It shares the whole Roblox → edge function →
+Postgres path with the conversation feature ([LIVING-NPCS.md](LIVING-NPCS.md)
+§5) but needs no API key and costs nothing per call, so the transport gets
+proved by something cheap before anything expensive rides on it.
+
+Four decisions worth keeping:
+
+- **It cannot break the game.** `log` never yields, never raises, and fetches
+  every dependency with `ServiceLoader.find`. It is called from combat and the
+  shop, where an error is a visible failure of something the player was doing.
+- **It drops rather than grows.** A capped queue is a hole in a graph; an
+  uncapped one is a memory leak on a live server. Every loss says so in Output,
+  because a silent gap is indistinguishable from a quiet week.
+- **It observes where a signal exists and calls where one does not** — and does
+  not add a signal for telemetry's sake. A signal is a public event other
+  systems come to depend on, and one that exists because a graph wanted it is
+  architecture answering to nobody.
+- **Studio is labelled, not excluded** (`job_id = 'studio'`). Excluding it would
+  make the feature untestable by the only means available; mixing it would let
+  fifty test deaths drown four real ones.
+
+The `zone` column was designed and then dropped before any row existed: no
+caller knows a player's district when an event fires, so it would have been null
+everywhere — a schema promising an answer the game cannot give, which is this
+project's named recurring failure mode wearing SQL.
 
 ### 4.2 Secret unlock conditions — **DONE 2026-08-18**
 `Config/Secrets.luau` + `SecretService.luau` + one new field on
