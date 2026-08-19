@@ -49,12 +49,33 @@ local CHOICE_HEIGHT = 30
 
 local ONE_KEY = Enum.KeyCode.One.Value
 
+--[[
+	The longest question the box will take.
+
+	The server and the edge function both enforce the same number. This copy
+	is the courteous one -- it stops a sentence at the point it would have been
+	rejected instead of letting somebody type a paragraph and lose it.
+]]
+local MAX_SAID = 300
+
+--[[
+	Required, throughout the interaction, by Roblox's policy on generative AI.
+
+	Not a nicety and not a one-time toast: it is on screen for every frame the
+	box is, and it is drawn *only* in ask mode. A notice shown above an
+	authored `Dialogue.luau` tree would be false, and a notice shown
+	everywhere is a notice nobody reads.
+]]
+local AI_NOTICE = "AI-generated conversation, not a real person. It may make mistakes."
+
 --- A node as the server describes it. Choices are answered by index.
 type Payload = {
 	speaker: string,
 	title: string,
 	text: string,
 	choices: { { text: string, kind: string? } },
+	-- Free-form. Draws the box and the notice; see AI_NOTICE.
+	ask: boolean?,
 }
 
 local screen: ScreenGui
@@ -63,11 +84,18 @@ local speakerLabel: TextLabel
 local titleLabel: TextLabel
 local bodyLabel: TextLabel
 local choiceFrame: Frame
+local askNote: TextLabel
+local askBox: TextBox
 
 local open = false
 -- How many replies are on screen, so the number keys cannot select a button
 -- that is not there.
 local choiceCount = 0
+-- Whether the box is up, so the number keys stay out of the way of typing.
+local asking = false
+
+-- How much of the panel the box and its notice take when they are shown.
+local ASK_HEIGHT = 58
 
 --------------------------------------------------------------------------------
 -- Construction
@@ -153,6 +181,45 @@ local function build()
 	layout.SortOrder = Enum.SortOrder.LayoutOrder
 	layout.Padding = UDim.new(0, 4)
 	layout.Parent = choiceFrame
+
+	askNote = Instance.new("TextLabel")
+	askNote.Name = "AiNotice"
+	askNote.BackgroundTransparency = 1
+	askNote.Font = Enum.Font.Gotham
+	askNote.TextSize = 11
+	askNote.TextColor3 = DIM
+	askNote.TextXAlignment = Enum.TextXAlignment.Left
+	askNote.AnchorPoint = Vector2.new(0, 1)
+	askNote.Position = UDim2.new(0, 0, 1, -38)
+	askNote.Size = UDim2.new(1, 0, 0, 14)
+	askNote.Text = AI_NOTICE
+	askNote.Visible = false
+	askNote.Parent = root
+
+	askBox = Instance.new("TextBox")
+	askBox.Name = "Ask"
+	askBox.AnchorPoint = Vector2.new(0, 1)
+	askBox.Position = UDim2.new(0, 0, 1, 0)
+	askBox.Size = UDim2.new(1, 0, 0, 34)
+	askBox.BackgroundColor3 = ROW
+	askBox.BackgroundTransparency = 0.1
+	askBox.BorderSizePixel = 0
+	askBox.Font = Enum.Font.Gotham
+	askBox.TextSize = 14
+	askBox.TextColor3 = TEXT
+	askBox.PlaceholderText = "  Say something, then press Enter"
+	askBox.PlaceholderColor3 = DIM
+	askBox.TextXAlignment = Enum.TextXAlignment.Left
+	askBox.ClearTextOnFocus = false
+	askBox.Text = ""
+	askBox.Visible = false
+	askBox.Parent = root
+	corner(askBox, 4)
+
+	local boxPadding = Instance.new("UIPadding")
+	boxPadding.PaddingLeft = UDim.new(0, 10)
+	boxPadding.PaddingRight = UDim.new(0, 10)
+	boxPadding.Parent = askBox
 end
 
 --------------------------------------------------------------------------------
@@ -166,6 +233,21 @@ local function clearChoices()
 			child:Destroy()
 		end
 	end
+end
+
+--[[
+	Takes the box away and gives the keyboard back.
+
+	`ReleaseFocus` matters more than the two Visible flags: a hidden TextBox
+	that still holds focus eats every keypress, so the player would walk away
+	from the conversation and find that W no longer moved them.
+]]
+local function hideAsk()
+	asking = false
+	askNote.Visible = false
+	askBox.Visible = false
+	askBox.Text = ""
+	askBox:ReleaseFocus(false)
 end
 
 --- Sends a reply. Shared by the buttons and the number keys.
@@ -215,6 +297,25 @@ local function render(payload: Payload)
 		addChoice(index, entry)
 	end
 	choiceCount = #payload.choices
+
+	local wantsBox = payload.ask == true
+	-- The replies give up the bottom of the panel rather than the panel
+	-- growing: a box that appears by pushing the whole conversation upward
+	-- moves the line the player is in the middle of reading.
+	choiceFrame.Size = UDim2.new(1, 0, 1, if wantsBox then -112 - ASK_HEIGHT else -112)
+
+	if not wantsBox then
+		hideAsk()
+		return
+	end
+
+	asking = true
+	askNote.Visible = true
+	askBox.Visible = true
+	askBox.Text = ""
+	-- Focused for them. The box only ever appears because they asked for it,
+	-- so making them click it as well is a step with no decision in it.
+	askBox:CaptureFocus()
 end
 
 --------------------------------------------------------------------------------
@@ -241,6 +342,7 @@ function DialogueController.setOpen(value: boolean)
 	screen.Enabled = value
 	if not value then
 		clearChoices()
+		hideAsk()
 		Net.fireServer(Net.Event.EndDialogue)
 	end
 end
@@ -251,6 +353,38 @@ end
 
 function DialogueController.init()
 	build()
+
+	--[[
+		Cuts the question off where the server would have rejected it.
+
+		Roblox has no maximum-length property on a TextBox, so this is the
+		only place it can be done, and doing it as they type is much better
+		than the alternative -- a player writing four hundred characters and
+		being told afterwards that none of them arrived.
+	]]
+	askBox:GetPropertyChangedSignal("Text"):Connect(function()
+		if #askBox.Text > MAX_SAID then
+			askBox.Text = string.sub(askBox.Text, 1, MAX_SAID)
+		end
+	end)
+
+	--[[
+		Enter sends. Losing focus any other way -- clicking off, pressing
+		Escape -- leaves what was typed alone rather than firing it, because
+		a half-written question sent by a stray click is a turn spent.
+	]]
+	askBox.FocusLost:Connect(function(enterPressed: boolean)
+		if not enterPressed or not asking then
+			return
+		end
+		local said = askBox.Text
+		askBox.Text = ""
+		if string.match(said, "%S") then
+			Net.fireServer(Net.Event.DialogueSay, said)
+		else
+			askBox:CaptureFocus()
+		end
+	end)
 end
 
 function DialogueController.start()
@@ -275,6 +409,7 @@ function DialogueController.start()
 		open = false
 		screen.Enabled = false
 		clearChoices()
+		hideAsk()
 
 		-- "Let me see what you have" ends the conversation and opens the till.
 		-- ShopService re-checks proximity when anything is actually bought, so

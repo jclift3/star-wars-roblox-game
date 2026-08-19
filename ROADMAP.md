@@ -2456,7 +2456,7 @@ carries about sixty people; twenty-two of them are real.
   crowd walking three studs under the road the day somebody changes it. One
   downward raycast per route point at build time instead.
 
-### 5.1 Free-form characters — **[Luau half done 2026-08-18; blocked on a backend]**
+### 5.1 Free-form characters — **[done 2026-08-18]**
 Designed 2026-08-15, full document in [LIVING-NPCS.md](LIVING-NPCS.md). The
 short version: **10–20 characters in the whole game** talk freely; everyone else
 keeps their authored `Dialogue.luau` tree. Each one is hiding something, and
@@ -2465,12 +2465,53 @@ the intended loop rather than abuse of it.
 
 Depends on Phase 1.3 (dialogue) as the delivery surface and 4.1 for the backend.
 
-**Both halves that do not need a model are now built.** 4.2 shipped
-`Config/Secrets.luau` and `SecretService` — the reward half — and
-`Config/Personas.luau` is §8's character sheet: what each of the six wants,
-fears, sounds like, volunteers, deflects, and does not know. `Personas.validate`
-runs at boot from `DialogueService.init` beside Cast and Secrets. What remains
-is genuinely only the text generator and the endpoint it calls.
+**Built in three layers, in the order that let each one be finished before the
+next needed it.** 4.2 shipped `Config/Secrets.luau` and `SecretService` — the
+reward half — then `Config/Personas.luau` became §8's character sheet: what each
+of the six wants, fears, sounds like, volunteers, deflects, and does not know.
+The model arrived last, into a system where the only thing left for it to do was
+*talk*.
+
+**The shape as built.** `Personas.brief(id)` renders the sheet as prompt text on
+the Roblox server; `ConverseService` posts it, the last twelve turns and one
+filtered line to a Supabase edge function, which calls Claude Haiku with a
+forced tool call and hands back a line plus zero or more topic words.
+`DialogueService` grows one extra choice on a free-form character's root node,
+and `DialogueController` grows a text box under the choice list. Setup, the two
+secrets and the kill switch are [SETUP_GUIDE.md](SETUP_GUIDE.md) §10.
+
+- **Roblox's AI policy was checked first and changed the design** — findings in
+  [LIVING-NPCS.md](LIVING-NPCS.md) §6. The load-bearing one: an *uncapped*
+  conversation counts as "extended AI interaction" and would rate this
+  experience **Restricted**, which is to say outside the age bracket of the two
+  people it was written for. The turn cap was a cost optimisation when §3 was
+  written and is a compliance boundary now, and the header of `ConverseService`
+  says so, because that is the constant somebody will otherwise raise on a slow
+  afternoon.
+- **The crisis check runs before the model, not through it.** String match, on
+  the server, ahead of the length check and the filter and the HTTP call — so it
+  fires when the backend is down, when the API key is unset, and when the kill
+  switch is off. It names 988 and findahelpline.com rather than saying "talk to
+  someone", because "talk to someone" is not a resource. It also breaks
+  character completely, which is the one place in this game where breaking the
+  fiction is the correct behaviour.
+- **The prompt lives in the repo, the key does not.** The sheet is assembled in
+  Luau and posted whole every turn, rather than kept in the edge function where
+  it would be one `git revert` out of reach, unvalidated, and free to drift from
+  the `Cast` and `Secrets` entries it has to agree with. The function is a
+  transport with a rate limit.
+- **Having a persona *is* the declaration.** No `freeform = true` field
+  anywhere: a second switch beside `Personas.luau` is a switch that eventually
+  disagrees with it. `ConverseService.available` is "there is a sheet, and the
+  feature is on".
+- **The turn cap returns you to the tree root**, not to an ending. The
+  character's own authored opening line closes the beat — no new writing, and
+  always in one of six voices rather than in a narrator's.
+- **Filtering fails closed in both directions.** `FilterStringAsync` can throw
+  and does; nil is a refusal, never a pass-through. Every failure path in the
+  service answers with a written line in the character's register — "They look
+  at you and say nothing" — because a dead backend should read as a person with
+  nothing to say, not as a broken game.
 
 - **`never` is the field that earns the file.** The common failure of an AI NPC
   is not offence, it is fluent invented lore, and no prompt fixes that — only
@@ -2507,11 +2548,13 @@ Three things that must not be forgotten:
   from `SecretDef.topic`'s closed vocabulary, handed to `SecretService.raise`.
 - **Scarcity is the cost control**, not per-token pricing. Sell an in-fiction
   consumable with a free daily allowance; never meter tokens at a fourteen-year
-  -old.
-- **Moderation is not a late task.** Filter in and out through
-  `TextService:FilterStringAsync`, keep a kill switch back to authored trees,
-  and read Roblox's current AI policy before building — it governs whether this
-  is publishable at all.
+  -old. **Not yet built** — for two players the turn cap and the hourly ceiling
+  in the edge function are the whole cost story, and an allowance nobody needs
+  is a purchase flow standing between the boys and the feature.
+- **Moderation is not a late task.** Done, and done first: filtered in and out
+  through `TextService:FilterStringAsync`, both halves of every turn logged to
+  `public.conversations` for reading, and a kill switch in a DataStore that
+  every server honours within a minute.
 
 ### 5.2 Cross-server state — **[todo]**
 Same backend as 4.1. Makes "one of a kind" mean something: the first player on

@@ -40,6 +40,20 @@ local Action: { [string]: string } = {
 	Leave = "Leave", -- ends the conversation
 	Shop = "Shop", -- ends it and opens the trade panel
 	Work = "Work", -- walks to the generated list of this speaker's missions
+	--[[
+		Opens the text box.
+
+		Never authored. DialogueService appends this choice to the root node
+		of any speaker who has a `Personas.luau` sheet and a reachable
+		backend, the same way the Work list is generated rather than written
+		-- so turning the feature on adds a line to six conversations without
+		editing any of them, and turning it off removes it again.
+
+		It lives in this table anyway, because the server switches on the
+		string and the client colours it, and an action that existed only as
+		a literal in two files is the typo this table was built to prevent.
+	]]
+	Ask = "Ask",
 }
 Dialogue.Action = Action
 

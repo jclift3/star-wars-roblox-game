@@ -95,7 +95,35 @@ type Session = {
 	faction: string,
 	treeId: string,
 	nodeId: string,
+	-- The line last sent. Kept only so that opening the text box can leave it
+	-- on screen: the character should not have to say something new to be
+	-- asked a question, and any line written for that moment would be written
+	-- in one of the six voices and wrong in the other five.
+	line: string,
 	choices: { Resolved },
+	--[[
+		Free-form state. Lives here rather than in ConverseService for the
+		reason SecretService takes its context as an argument: this session is
+		already the record of what is happening in front of this NPC, and a
+		second one keyed by player would have to be torn down in all the same
+		places -- walking away, dying, the server closing -- and would
+		eventually miss one.
+	]]
+	asking: boolean,
+	turns: number,
+	-- Declared here rather than imported from ConverseService: services reach
+	-- each other through ServiceLoader in this codebase, and a `require` of a
+	-- sibling service purely to borrow a two-field type would be the first
+	-- one. The shape is checked where it matters, at the JSON encoder.
+	history: { { role: string, text: string } },
+	--[[
+		A turn is in flight.
+
+		Not a nicety: every turn costs money, and the rate limiter in Net
+		allows a burst. Without this a client that fires the remote three
+		times in a second buys three calls to answer one question.
+	]]
+	pending: boolean,
 }
 
 local sessions: { [Player]: Session } = {}
@@ -115,6 +143,10 @@ end
 
 local function secrets()
 	return ServiceLoader.get("SecretService")
+end
+
+local function converse()
+	return ServiceLoader.get("ConverseService")
 end
 
 --------------------------------------------------------------------------------
@@ -271,6 +303,31 @@ local function inRange(player: Player, session: Session): boolean
 end
 
 --[[
+	Draws the panel. Both the authored path and the free-form one end here.
+
+	`ask` is the whole of what the client is told about free-form mode, and it
+	does two things there: it puts a text box under the reply list, and it
+	shows the notice saying the answers are generated. That notice is required
+	by Roblox policy for the length of the interaction, which is the reason
+	this is a per-node flag rather than something set once when the box opens
+	-- every frame the box is on screen is a frame that has to carry it.
+]]
+local function sendNode(player: Player, session: Session, line: string, choices: { Resolved }, ask: boolean)
+	local wire = {}
+	for _, choice in choices do
+		table.insert(wire, { text = choice.text, kind = choice.kind })
+	end
+
+	Net.fireClient(Net.Event.StartDialogue, player, {
+		speaker = session.speaker,
+		title = session.title,
+		text = line,
+		choices = wire,
+		ask = ask,
+	})
+end
+
+--[[
 	Sends `nodeId` to the player and records what they were offered.
 
 	Generated nodes are handled first because they have no entry in the tree.
@@ -313,20 +370,28 @@ local function goTo(player: Player, session: Session, nodeId: string)
 		table.insert(choices, { text = "Goodbye.", action = Action.Leave })
 	end
 
-	session.nodeId = nodeId
-	session.choices = choices
+	--[[
+		The one choice nobody wrote.
 
-	local wire = {}
-	for _, choice in choices do
-		table.insert(wire, { text = choice.text, kind = choice.kind })
+		Appended at the top of the conversation only, and only for a speaker
+		who has a character sheet and a backend that answers. Generated rather
+		than authored for the same reason the mission list is: six trees would
+		otherwise each carry a line that has to be added when the feature
+		arrives and deleted when the kill switch is thrown, and the second of
+		those would not happen.
+	]]
+	if nodeId == Dialogue.rootOf(Dialogue.get(session.treeId)) and converse().available(session.giverId) then
+		table.insert(
+			choices,
+			{ text = "Actually -- I want to ask you something.", kind = Action.Ask, action = Action.Ask }
+		)
 	end
 
-	Net.fireClient(Net.Event.StartDialogue, player, {
-		speaker = session.speaker,
-		title = session.title,
-		text = line,
-		choices = wire,
-	})
+	session.nodeId = nodeId
+	session.line = line
+	session.choices = choices
+
+	sendNode(player, session, line, choices, false)
 end
 
 --- Opens a conversation with `npc`. Called from NPCService's proximity prompt.
@@ -359,7 +424,12 @@ function DialogueService.begin(player: Player, npc: Model, archetypeId: string)
 		faction = archetype.faction,
 		treeId = treeId,
 		nodeId = "",
+		line = "",
 		choices = {},
+		asking = false,
+		turns = 0,
+		history = {},
+		pending = false,
 	}
 	sessions[player] = session
 
@@ -369,6 +439,132 @@ function DialogueService.begin(player: Player, npc: Model, archetypeId: string)
 	end
 
 	goTo(player, session, Dialogue.rootOf(Dialogue.get(treeId)))
+end
+
+--------------------------------------------------------------------------------
+-- Free-form
+--------------------------------------------------------------------------------
+
+--[[
+	Draws the panel in ask mode, with one way out and a box to type in.
+
+	The reply list collapses to a single "Never mind." on purpose. A menu
+	beside a text box is a menu the player will use, and the moment they do,
+	the thing this feature was built to be -- a person you have to talk to --
+	is a thing you can click past.
+]]
+local ASK_CHOICES: { Resolved } = { { text = "Never mind.", kind = Action.Leave, action = Action.Leave } }
+
+local function askMode(player: Player, session: Session, line: string)
+	session.asking = true
+	session.choices = ASK_CHOICES
+	sendNode(player, session, line, ASK_CHOICES, true)
+end
+
+--[[
+	Leaves free-form and returns to the top of the authored tree.
+
+	Back to the tree rather than out of the conversation, because the turn cap
+	is the common way to arrive here and being thrown out of the panel for
+	having talked too long reads as a bug. The root node's own opening line is
+	written in this character's voice, so the conversation comes back around
+	instead of ending on a message from the game.
+]]
+local function stopAsking(player: Player, session: Session, notice: string?)
+	session.asking = false
+	session.history = {}
+	session.turns = 0
+	if notice then
+		Net.fireClient(Net.Event.Notify, player, notice, "Info")
+	end
+	goTo(player, session, Dialogue.rootOf(Dialogue.get(session.treeId)))
+end
+
+--[[
+	One turn. The player typed `said`; the character answers.
+
+	The order of the checks below is the security argument, so it is worth
+	reading as a list rather than as code. Nothing reaches the model until the
+	player is in a session, in free-form, in range, and not already waiting on
+	an answer -- and nothing the model says reaches a reward until
+	`SecretService.raise` has judged it against a profile the model has never
+	been shown.
+]]
+function DialogueService.say(player: Player, said: string)
+	local session = sessions[player]
+	if not session or not session.asking or session.pending then
+		return
+	end
+	-- An empty box is a mis-click on the send key, not a question. Caught
+	-- here so it costs a return rather than a round trip and a row.
+	if not string.match(said, "%S") then
+		return
+	end
+	if not inRange(player, session) then
+		finish(player, "OutOfRange")
+		return
+	end
+
+	session.pending = true
+	session.turns += 1
+
+	local reply = converse().ask({
+		player = player,
+		speaker = session.giverId,
+		sessionId = tostring(player.UserId) .. ":" .. session.giverId,
+		turn = session.turns,
+		history = session.history,
+		said = said,
+	})
+
+	session.pending = false
+
+	-- Everything below acts on a session that may have ended while the call
+	-- was out: the player can walk off, die or quit inside a round trip.
+	if sessions[player] ~= session then
+		return
+	end
+	if not inRange(player, session) then
+		finish(player, "OutOfRange")
+		return
+	end
+
+	table.insert(session.history, { role = "user", text = said })
+	table.insert(session.history, { role = "assistant", text = reply.line })
+
+	--[[
+		The handoff, and the only thing the model's output is allowed to do.
+
+		A tag is a request to be asked a question, not an answer to it:
+		`raise` re-reads the profile, runs the same `Dialogue.meets` an
+		authored choice runs, and returns a node only if the player had
+		already earned it. So the best possible jailbreak buys a player the
+		right to have their own inventory checked.
+	]]
+	for _, topic in reply.topics do
+		local profile = data().get(player)
+		if not profile then
+			break
+		end
+		local ctx = contextFor(player, profile, session.faction)
+		local opened = secrets().raise(player, session.giverId, topic, ctx)
+		if opened then
+			-- The answer is authored, in the tree, and always was. The model
+			-- found the door; it did not write what is behind it.
+			session.asking = false
+			session.history = {}
+			session.turns = 0
+			goTo(player, session, opened)
+			return
+		end
+	end
+
+	if reply.ended then
+		stopAsking(player, session, "They have said all they mean to, for now.")
+		return
+	end
+
+	askMode(player, session, reply.line)
 end
 
 --- Acts on the player's pick. `index` is into the list they were last sent.
@@ -384,6 +580,20 @@ function DialogueService.choose(player: Player, index: number)
 
 	local choice = session.choices[index]
 	if not choice then
+		return
+	end
+
+	--[[
+		Re-checked here and not only where the choice was offered. The switch
+		can be thrown between the panel being drawn and the button being
+		pressed, and a kill switch that a conversation already in progress
+		gets to ignore is not one.
+	]]
+	if choice.action == Action.Ask then
+		if not converse().available(session.giverId) then
+			return
+		end
+		askMode(player, session, session.line)
 		return
 	end
 
@@ -498,6 +708,26 @@ function DialogueService.init()
 	end, {
 		rateLimit = 6,
 		validate = Net.args(Net.check.integer(1, 32)),
+	})
+
+	--[[
+		The only place in the game a player sends free text to the server.
+
+		Rate limited to one a second rather than the usual six, because unlike
+		every other remote here a call costs money at a third party. The real
+		budget is enforced in Postgres, across servers -- this is just the
+		part a single game server can see.
+
+		The length cap is the same 300 the edge function enforces and the
+		client's box allows. Three copies of one number is worth it: the
+		client's is a courtesy, this one keeps a hostile client from making
+		the game pay for a novel, and the backend's is the boundary.
+	]]
+	Net.onServerEvent(Net.Event.DialogueSay, function(player: Player, said: string)
+		DialogueService.say(player, said)
+	end, {
+		rateLimit = 1,
+		validate = Net.args(Net.check.string(300)),
 	})
 
 	Net.onServerEvent(Net.Event.EndDialogue, function(player: Player)

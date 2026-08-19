@@ -347,6 +347,97 @@ feature impossible to test.
 
 ---
 
+## 10. Turning on free-form dialogue
+
+Six named characters can be talked to freely instead of picking from a list —
+Ordo-9, Vess, and the other four with an entry in `Config/Personas.luau`. A
+`converse` edge function assembles their character sheet and calls Claude; the
+Roblox server does the filtering, the counting, and every decision about what a
+player has actually earned.
+
+Like telemetry, it is **off until configured, and a fresh clone runs the whole
+game normally without it** — the six characters simply keep their authored
+trees, which is what every other NPC does anyway. Nothing looks broken, because
+nothing is.
+
+### The two secrets
+
+Both go in Supabase under **Project Settings → Edge Functions → Secrets**, and
+neither belongs in this repository or in the place file, for the two reasons in
+§9:
+
+| Secret | What it is |
+| --- | --- |
+| `ANTHROPIC_API_KEY` | From console.anthropic.com. Bills real money. |
+| `CONVERSE_KEY` | Invented here; the shared secret between the Roblox server and the function. |
+
+`CONVERSE_KEY` exists so that the endpoint, which is public and unauthenticated
+by necessity, cannot be used by anyone who finds the URL to spend the API key.
+The function **fails closed**: with either secret unset it answers 500 and calls
+nothing, so a half-finished setup never means "no authentication".
+
+### Setting it
+
+In Studio, with API services enabled (step 3), in the **command bar**, once per
+universe:
+
+```lua
+game:GetService("DataStoreService"):GetDataStore("Config"):SetAsync("converse", {
+	url = "https://<project>.supabase.co/functions/v1/converse",
+	key = "<the converse key>",
+	enabled = true,
+})
+```
+
+On the next boot, Output will say:
+
+```
+[ConverseService] free-form dialogue on for 6 characters
+```
+
+If that line is missing, the six are on their authored trees and the extra
+"Actually — I want to ask you something." choice does not appear.
+
+### The kill switch
+
+Set `enabled = false` and re-run the snippet. Every running server re-reads the
+config on a 60-second timer and logs
+`[ConverseService] free-form dialogue OFF (config changed)` — no republish, no
+restart, nobody kicked, and the conversation someone is *already* in reverts on
+its next line rather than being allowed to finish. That is the whole point of
+the field: at 2am the game should degrade to last week's behaviour rather than
+go down.
+
+### What Roblox requires, and where it lives
+
+Free-form AI text has policy attached to it (the findings are in
+[LIVING-NPCS.md](LIVING-NPCS.md) §6). Three of the four are in the code and stay
+there:
+
+- **The AI notice** is drawn above the text box whenever it is on screen.
+- **The turn cap** is `MAX_TURNS` = 8, at the top of `ConverseService`. It is
+  not a tuning knob:
+  an unlimited conversation is what Roblox calls "extended AI interaction", and
+  it would push this experience to a **Restricted** maturity rating. Do not
+  raise it without re-reading the policy.
+- **Mental-health routing** runs *before* the model, by string match, so it
+  still works when the backend is down or this whole section was never done.
+
+The fourth is yours and cannot be automated: **disclose generative AI in the
+Content Maturity questionnaire** when publishing (step 7). Until you do, the
+experience is mislabelled.
+
+### What gets recorded
+
+One row per turn in `public.conversations`: who was spoken to, what was said,
+what came back, how long it took, and what it cost in tokens. Both halves of the
+conversation, deliberately — the jailbreak attempts are the fun part *and* the
+safety review, and those are the same reading session. A turn we declined to
+send has a null `replied` and a `refused` reason, so an outage never looks like
+a quiet one.
+
+---
+
 ## Troubleshooting
 
 **Studio shows nothing after connecting.** Check `rojo serve` is still running

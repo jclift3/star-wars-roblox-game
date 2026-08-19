@@ -287,6 +287,88 @@ function Personas.ids(): { string }
 end
 
 --------------------------------------------------------------------------------
+-- The brief
+--------------------------------------------------------------------------------
+
+local function bullets(out: { string }, heading: string, lines: { string })
+	table.insert(out, heading)
+	for _, line in lines do
+		table.insert(out, `- {line}`)
+	end
+	table.insert(out, "")
+end
+
+--[[
+	The whole character, as the text a model is given.
+
+	BUILT HERE AND SENT EVERY TURN, RATHER THAN KEPT IN THE BACKEND
+	The obvious saving is to store the sheet next to the model and send only
+	an id. That is the drift failure this project keeps naming: the sheet
+	would then live somewhere `git revert` does not reach, `validate` cannot
+	check, and an edit to this file would silently not take. So the Roblox
+	server assembles it and posts the whole thing, and the backend holds no
+	opinion about who these people are.
+
+	Sending it every turn costs nothing that matters, because the string is
+	byte-identical on every turn of every conversation with this character --
+	which is exactly the condition prompt caching wants. It is the cache
+	prefix, and `topics` and the player's line are what change.
+
+	Deterministic on purpose, down to the sort: a brief that reorders itself
+	between calls is a brief that never gets a cache hit, and nothing would
+	report that except the bill.
+
+	`Cast.note` is not in here. It is the outside view -- written for us, and
+	full of things the character would deny -- so handing it over would be
+	telling the character what the author thinks of them.
+]]
+function Personas.brief(id: string): string
+	local p = Personas.get(id)
+	local c = Cast.get(id)
+	local out: { string } = {}
+
+	table.insert(out, `You are {c.displayName}, {c.title}, on {c.planet}.`)
+	table.insert(out, "")
+	table.insert(out, p.summary)
+	table.insert(out, "")
+	table.insert(out, `What you want: {p.wants}`)
+	table.insert(out, `What you are afraid of: {p.fears}`)
+	table.insert(out, "")
+	table.insert(out, `How you speak: {p.voice}`)
+	table.insert(out, "")
+
+	bullets(out, "You know these things and will say them to anyone who asks:", p.knows)
+
+	local topics: { string } = {}
+	for topic in p.holds do
+		table.insert(topics, topic)
+	end
+	table.sort(topics)
+	if #topics > 0 then
+		local held: { string } = {}
+		for _, topic in topics do
+			table.insert(held, p.holds[topic])
+		end
+		--[[
+			Framed as behaviour rather than as a rule, and it is not a
+			rule being softened -- the answers genuinely are not in this
+			string. There is nothing here for a player to talk the model out
+			of, so the worst outcome of a perfect jailbreak is a character
+			who deflects in a more interesting way.
+		]]
+		bullets(
+			out,
+			"There are things you do not volunteer. When they come up, this is what you do instead:",
+			held
+		)
+	end
+
+	bullets(out, "These things are not in your head. You do not know them and you do not guess:", p.never)
+
+	return table.concat(out, "\n")
+end
+
+--------------------------------------------------------------------------------
 -- Validation
 --------------------------------------------------------------------------------
 

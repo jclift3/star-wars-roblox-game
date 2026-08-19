@@ -214,8 +214,30 @@ implement late.
   authored `Dialogue.luau` tree. If something goes wrong at 2am, the game
   degrades to today's behaviour instead of going down.
 
-**Check Roblox's current policy on AI-generated text before building.** It
-changes often, and it governs whether this feature is publishable at all.
+### What Roblox's policy actually requires — checked 2026-08-18
+
+Checked before writing any of it, because it governs whether this is
+publishable at all. Sources: [Games with Generative AI](https://create.roblox.com/docs/generative-AI)
+and the [Restricted Content Policy](https://en.help.roblox.com/hc/en-us/articles/15869919570708-Restricted-Content-Policy).
+Four requirements, and the second one changed the design:
+
+1. **Disclose it in the Content Maturity questionnaire.** A publishing step, not
+   a code change, but the experience is mislabelled until it is done.
+2. **"Extended AI interaction" forces a Restricted rating** — triggered either by
+   the experience *being* an AI chatbot, or by users being able to talk to one
+   **continuously with no time limit**. The Hollowing misses the first prong and
+   an uncapped text box lands squarely on the second. So §3's turn cap stopped
+   being a cost control and became the thing keeping the game inside the boys'
+   own age bracket. `ConverseService.MAX_TURNS` is a compliance boundary now;
+   raising it is a policy decision, not a tuning knob.
+3. **Visible disclosure at the start of and throughout every AI interaction.**
+   Drawn above the input box, only in ask mode — a notice shown on every screen
+   is a notice nobody reads, and it would also be a lie on the other 800 NPCs.
+4. **Route mental-health disclosures to real help.** Deliberately checked
+   *before* the model call and by string match rather than by asking the model,
+   so it still fires when the backend is down, when the key is unset, and when
+   the kill switch is off. A safety path that depends on the thing it is
+   protecting against is not one.
 
 ---
 

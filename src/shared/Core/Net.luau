@@ -381,6 +381,7 @@ Net.Event = {
 	-- Dialogue
 	StartDialogue = "StartDialogue",
 	DialogueChoice = "DialogueChoice",
+	DialogueSay = "DialogueSay",
 	EndDialogue = "EndDialogue",
 	-- Sprint (server-authoritative, unlike the old client-only version)
 	SetSprinting = "SetSprinting",
