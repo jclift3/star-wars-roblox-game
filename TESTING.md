@@ -1047,6 +1047,20 @@ level: `greedisgood` for XP.
    should not launch you.
 9. Stand up. The speeder **stops where it is and hovers** rather than drifting
    off or dropping. Get back on: it does not snap round to face you.
+9a. **Whichever seat you land in, you can drive — new 2026-08-19.** Reported
+    from play: *"I was able to sit in the ship but it doesn't move. I tried the
+    arrows and I tried the normal w/a/s/d."* Only the driver's seat is a
+    `VehicleSeat`, only a `VehicleSeat` turns WASD into throttle and steer, and
+    seats are entered by walking into them — no prompt, no label, and on the
+    freighter the pilot's seat is eight studs back and three up while the
+    passenger seats sit in the doorway you walk through. Sitting in a vehicle
+    **nobody is flying** now moves you to the controls.
+    - Walk deliberately into a *passenger* seat of an empty Hover-Sled. You
+      should end up at the wheel, and W should drive.
+    - Do the same on the Longhaul, whose four seats are furthest apart.
+    - Then check it does **not** fire when it should not: with one brother
+      already in the pilot's seat, the other sits in a passenger seat and
+      **stays there**. That case is what passenger seats are for.
 10. **The important one, and the reason to do this with both boys in the room:**
     one of you buys a two-seater (Hover-Sled or Flare-S), drives, and the other
     sits in the passenger position. The passenger should ride along smoothly and
@@ -1225,6 +1239,40 @@ map is the way off it.
 **Expected and not a bug:** the room is purely cosmetic. Nothing in it heals you,
 buffs you, saves the game or advances a mission, and no NPC ever appears in it.
 You cannot fly while aboard — the cabin and the cockpit are different places.
+
+### 6.6 The hulls have surfaces — **new, 2026-08-19**
+
+Reported from play: *"the really sad / blocky ship."* Every hull was a handful
+of large boxes, and a large box is exactly as blocky at ten studs as at a
+hundred. All eight now carry a detail pass — panel seams, vents, ribs, deck
+clutter, running lights, engine cowls and a soft exhaust plume — generated from
+two helpers rather than authored per hull.
+
+1. Summon each of the eight in turn and walk a full circle round it on foot,
+   close up. No hull should present a flat face wider than about three studs
+   with nothing crossing it.
+2. **Nothing floats and nothing is buried.** Every seam, louvre and crate sits
+   *on* the surface it belongs to. The wing ribs on the Skipjack follow the
+   wings' seven-degree roll rather than cutting through them.
+3. **Red to port, green to starboard**, on all eight, in the places you would
+   expect from the outside — the Dagger's are at the swept wingtips, which is a
+   stud and a half further forward than a straight-out-to-the-side guess.
+4. **The engines.** Each turbine has a dark cowl ring standing proud of its
+   glowing mouth; each starship thruster has a bell, a bright core and a wider,
+   faint plume behind it. It should read as an engine, not a torch bulb.
+5. **The glass is glass.** Windscreen, view slit, canopy and viewport all catch
+   a highlight now. A pane you cannot see at all is the failure this fixes.
+6. **The clutter is the same clutter for both boys.** Park two of the same hull
+   side by side, or look at your brother's: the crates and boxes are in
+   identical positions. They are seeded, not rolled, and a hull that reshuffles
+   per client would mean the seed is not being honoured.
+7. **Handling did not change.** Drive and fly each one exactly as §6.3 and §6.4
+   describe. The collider is sized from the part list, so a decorative part in
+   the wrong place would show up here as a vehicle catching on a doorway it
+   visibly fits through — especially at the tail, where the plume is.
+8. Boot output: still no `[VehicleService]` warnings about a hull reaching below
+   its own hover height. `Ships.validate` measures the *lowest* part through its
+   rotation, and every engine on every hull just grew slightly.
 
 ---
 
@@ -1956,9 +2004,24 @@ away every melee `WeaponEffect` it was sent, so nothing about it was visible.
    electrostaff.** Every melee weapon leaves an arc, not just the lit ones — a
    steel edge draws a pale, shorter streak. The trail hangs off the *longest*
    part, which is the blade on a vibroblade and the **shaft** on the two staves.
-   If the arm does not move at all on any weapon, check the output window: the
-   swing warns once about a missing `RightUpperArm`, which means an R6 avatar
-   (Game Settings → Avatar → Avatar Type → R15) and not a bug in the swing.
+2b. **The swept arc — new 2026-08-19, and the thing to check first.**
+   Reported from play: *"I'm still not able to swing my lightsaber"*, and asked
+   what happened on screen, **"nothing at all moves"**. The arm animation runs
+   on a Motor6D belonging to a rig the game does not build — a *player* wears
+   Roblox's own avatar, only NPCs get a `RigBuilder` rig — so the whole swing
+   could be silent while still dealing full damage. There is now a **second,
+   independent** visual that no rig can withhold: a blade-shaped streak swept
+   through the air in front of you, drawn from the root part.
+   - It fires on **every** click that swings, whatever the avatar is.
+   - It is **the crystal's colour** if one is socketed, the blade's colour if
+     not, and pale steel on an unlit weapon.
+   - Its length is the weapon's **real reach** (`range * 1.1`), so step 4 can be
+     checked against the drawing instead of by feel.
+   - If the *arm* does not move but the arc does, the output window has warned
+     once about a missing `RightUpperArm`: that is an R6 avatar (Game Settings →
+     Avatar → Avatar Type → R15), and it is now cosmetic rather than fatal.
+   - If **neither** appears, the click never reached `InputController` — check
+     that no panel is open, since every one of them takes focus.
 3. **Hit something.** Sparks in the blade's colour appear *at the point the
    server says the hit landed*. Swing at empty air: arc, no sparks. A spark with
    no damage would mean the client is guessing.

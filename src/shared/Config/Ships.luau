@@ -137,9 +137,12 @@ local V3 = Vector3.new
 --[[
 	A repulsorlift turbine: a cylinder lying along Z with a glowing intake.
 
-	Returned as two parts because the glow has to be its own part to be Neon
-	while the housing stays Metal -- material is per-part, and a turbine that
-	glows all over reads as a lightsaber rather than an engine.
+	The glow has to be its own part to be Neon while the housing stays Metal
+	-- material is per-part, and a turbine that glows all over reads as a
+	lightsaber rather than an engine. The cowl ring around the mouth is there
+	for the reason the whole detailing pass below exists: a bare cylinder
+	with a bright disc on the end is a torch, and a lip standing proud of it
+	is an engine.
 ]]
 local function turbine(name: string, at: Vector3, length: number, radius: number, glow: Color3): { ShipPart }
 	return {
@@ -150,6 +153,15 @@ local function turbine(name: string, at: Vector3, length: number, radius: number
 			offset = at,
 			rot = V3(0, 90, 0),
 			color = Palette.Gunmetal,
+			material = Enum.Material.Metal,
+		},
+		{
+			name = name .. "Cowl",
+			shape = "Cylinder",
+			size = V3(0.5, radius * 2.1, radius * 2.1),
+			offset = at + V3(0, 0, -length * 0.5 + 0.2),
+			rot = V3(0, 90, 0),
+			color = Palette.DarkMetal,
 			material = Enum.Material.Metal,
 		},
 		{
@@ -165,11 +177,128 @@ local function turbine(name: string, at: Vector3, length: number, radius: number
 	}
 end
 
+--[[
+	A running light: Neon, and deliberately without a `light`.
+
+	On a player's own hull a PointLight here would be a fourth or fifth light
+	on a model that already has one per engine, lighting a wingtip nobody is
+	looking at. Up in a traffic lane it is worse: two hundred studs away it
+	illuminates nothing at all and still costs the renderer a light, twenty-six
+	times over. Neon plus the bloom the AtmosphereController already runs is
+	the entire read at both ranges.
+]]
+local function lamp(name: string, at: Vector3, colour: Color3, size: number?): ShipPart
+	local s = size or 0.7
+	return {
+		name = name,
+		shape = "Ball",
+		size = V3(s, s, s),
+		offset = at,
+		color = colour,
+		material = Enum.Material.Neon,
+	}
+end
+
 --- Appends `extra` to `into` in place. Purely to keep the part lists readable.
 local function add(into: { ShipPart }, extra: { ShipPart })
 	for _, p in extra do
 		table.insert(into, p)
 	end
+end
+
+--------------------------------------------------------------------------------
+-- Detailing
+--
+-- Reported from play, 2026-08-19: *"I was able to sit in the really sad /
+-- blocky ship."* Every hull below was a handful of large boxes, and a large
+-- box is exactly as blocky at ten studs as it is at a hundred. What fixes that
+-- is not a bigger box or a better colour -- it is edges. A face broken by a
+-- seam, a hatch and a pipe stops being read as a face and starts being read as
+-- a surface, and this is the whole of what "greebling" means.
+--
+-- Both helpers here generate rather than declare, for the same reason
+-- `Radiant` composes its missions and `Weapons.maxima` derives its ceilings: a
+-- hull needs thirty or forty of these to work, and thirty or forty authored
+-- Vector3s are thirty or forty numbers that can never be changed again.
+--------------------------------------------------------------------------------
+
+--[[
+	A row of one small part, stepped.
+
+	Panel seams, vent slats, hull ribs and rivet lines are all this, which is
+	why it takes a step vector instead of coming in four named flavours -- the
+	only thing that differs between a seam and a vent is which way the row
+	runs.
+
+	`rot` is not decoration. A rib laid flat across a wing that is rolled seven
+	degrees is buried at one tip and floating at the other, on a wing half a
+	stud thick -- so any row landing on a rotated part has to carry that part's
+	rotation, and there is nothing here that can work it out on its own.
+]]
+local function row(
+	name: string,
+	count: number,
+	size: Vector3,
+	from: Vector3,
+	step: Vector3,
+	colour: Color3,
+	rot: Vector3?
+): { ShipPart }
+	local out: { ShipPart } = {}
+	for i = 1, count do
+		table.insert(out, {
+			name = `{name}{i}`,
+			size = size,
+			offset = from + step * (i - 1),
+			rot = rot,
+			color = colour,
+			material = Enum.Material.Metal,
+		})
+	end
+	return out
+end
+
+--[[
+	Machinery bolted to a surface: hatches, boxes, conduit, capacitor cans.
+
+	Seeded, because the one thing that makes clutter work is that it is
+	irregular, and the seed is an argument so a hull's clutter is fixed the
+	moment it is chosen. Both brothers see the same ship, and so does the same
+	ship tomorrow -- which matters here in a way it would not in a single
+	player game, since they fly past each other's speeders in the same room.
+
+	`at` is a SURFACE, not a volume. Every piece stands on it, so nothing this
+	returns can sink into the hull it decorates or -- the failure that would
+	actually be caught late -- hang below a speeder and eat the ground
+	clearance `Ships.validate` checks.
+]]
+local CLUTTER_SHADES = { Palette.DarkMetal, Palette.Gunmetal, Palette.WornSteel, Palette.CopperTrim }
+
+local function greebles(
+	name: string,
+	seed: number,
+	at: Vector3,
+	width: number,
+	length: number,
+	count: number
+): { ShipPart }
+	local rng = Random.new(seed)
+	local out: { ShipPart } = {}
+	for i = 1, count do
+		local h = rng:NextNumber(0.14, 0.5)
+		-- Kept under a stud and a bit in both directions so a patch's real
+		-- footprint stays close to the rectangle it was given. A piece that
+		-- can be 1.8 long makes the caller add a stud of slack at both ends,
+		-- and the slack is what puts a crate hanging off the tail.
+		table.insert(out, {
+			name = `{name}{i}`,
+			size = V3(rng:NextNumber(0.3, 0.9), h, rng:NextNumber(0.4, 1.2)),
+			offset = at + V3(rng:NextNumber(-0.5, 0.5) * width, h * 0.5, rng:NextNumber(-0.5, 0.5) * length),
+			color = CLUTTER_SHADES[rng:NextInteger(1, #CLUTTER_SHADES)],
+			material = Enum.Material.Metal,
+		})
+	end
+	return out
 end
 
 --------------------------------------------------------------------------------
@@ -217,6 +346,14 @@ local sledParts: { ShipPart } = {
 }
 add(sledParts, turbine("PodLeft", V3(-1.8, -1.2, 2.2), 4.4, 0.7, Palette.BlasterBlue))
 add(sledParts, turbine("PodRight", V3(1.8, -1.2, 2.2), 4.4, 0.7, Palette.BlasterBlue))
+-- Deck plates, then the junk nobody unloaded, then the two lights every hull
+-- in this file carries: red to port, green to starboard, the way they are.
+add(sledParts, row("DeckSeam", 5, V3(4.7, 0.08, 0.16), V3(0, -0.42, -3.2), V3(0, 0, 1.6), Palette.DarkMetal))
+add(sledParts, greebles("SledCrate", 11, V3(0, -0.43, 3.6), 4, 1.2, 6))
+add(sledParts, {
+	lamp("LampPort", V3(-2.4, 0.6, -3.4), Palette.BlasterRed, 0.42),
+	lamp("LampStarboard", V3(2.4, 0.6, -3.4), Palette.BlasterGreen, 0.42),
+})
 
 def({
 	id = "HoverSled",
@@ -302,6 +439,14 @@ local bikeParts: { ShipPart } = {
 }
 add(bikeParts, turbine("OutriggerLeft", V3(-1, -0.9, 1.4), 3.6, 0.55, Palette.BlasterBlue))
 add(bikeParts, turbine("OutriggerRight", V3(1, -0.9, 1.4), 3.6, 0.55, Palette.BlasterBlue))
+-- Ribs around the spar, which is the whole trick on something this thin: a
+-- ten-stud tube reads as a pipe until something crosses it.
+add(bikeParts, row("Rib", 6, V3(1.34, 0.5, 0.12), V3(0, -0.4, -0.4), V3(0, 0, 1), Palette.DarkMetal))
+add(bikeParts, greebles("BikeGear", 22, V3(0, 0.1, 3.6), 0.9, 2.4, 5))
+add(bikeParts, {
+	lamp("LampPort", V3(-1.15, 0.85, -3.4), Palette.BlasterRed, 0.34),
+	lamp("LampStarboard", V3(1.15, 0.85, -3.4), Palette.BlasterGreen, 0.34),
+})
 
 def({
 	id = "SaddleBike",
@@ -360,6 +505,9 @@ local flareParts: { ShipPart } = {
 		color = Palette.CockpitGlass,
 		material = Enum.Material.Glass,
 		transparency = 0.55,
+		-- Glass with no reflectance is a coloured hole. The sheen is what
+		-- tells you there is a pane there at all.
+		reflectance = 0.25,
 	},
 	{
 		name = "Spine",
@@ -372,6 +520,15 @@ local flareParts: { ShipPart } = {
 add(flareParts, turbine("TurbineLeft", V3(-3, -0.2, -1.4), 5.2, 0.95, Palette.BlasterBlue))
 add(flareParts, turbine("TurbineRight", V3(3, -0.2, -1.4), 5.2, 0.95, Palette.BlasterBlue))
 add(flareParts, turbine("TurbineRear", V3(0, -0.2, 4.6), 4.2, 0.95, Palette.BlasterBlue))
+-- Louvres in the bonnet and a chrome line down each flank. This is the hull
+-- somebody bought to be looked at, so it gets the trim rather than the crates.
+add(flareParts, row("Louvre", 4, V3(3.4, 0.07, 0.2), V3(0, 0.82, -4.4), V3(0, 0, 0.7), Palette.DarkMetal))
+add(flareParts, row("Flank", 2, V3(0.12, 0.34, 9.4), V3(-2.74, -0.35, 0), V3(5.48, 0, 0), Palette.CopperTrim))
+add(flareParts, greebles("FlareTank", 33, V3(0, 0.31, 4.2), 3.6, 1.4, 6))
+add(flareParts, {
+	lamp("LampPort", V3(-2.6, 0.4, -5.4), Palette.BlasterRed, 0.4),
+	lamp("LampStarboard", V3(2.6, 0.4, -5.4), Palette.BlasterGreen, 0.4),
+})
 
 def({
 	id = "FlareSpeeder",
@@ -457,6 +614,16 @@ local swoopParts: { ShipPart } = {
 	},
 }
 add(swoopParts, turbine("Intake", V3(0, 0.1, -6.9), 1.2, 1.05, Palette.BlasterRed))
+add(swoopParts, row("Rib", 5, V3(1.16, 0.42, 0.1), V3(0, -0.3, 2.6), V3(0, 0, 0.9), Palette.DarkMetal))
+add(
+	swoopParts,
+	row("BlockVent", 3, V3(2.66, 0.5, 0.16), V3(0, 0.5, -5.4), V3(0, 0, 0.8), Palette.ImperialBlack)
+)
+add(swoopParts, greebles("SwoopPump", 44, V3(0, 0.16, 4.8), 0.8, 2, 5))
+add(swoopParts, {
+	lamp("LampPort", V3(-1.9, 1.2, -2.6), Palette.BlasterRed, 0.32),
+	lamp("LampStarboard", V3(1.9, 1.2, -2.6), Palette.BlasterGreen, 0.32),
+})
 
 def({
 	id = "SwoopRacer",
@@ -526,6 +693,9 @@ local assaultParts: { ShipPart } = {
 		color = Palette.CockpitGlass,
 		material = Enum.Material.Glass,
 		transparency = 0.35,
+		-- Glass with no reflectance is a coloured hole. The sheen is what
+		-- tells you there is a pane there at all.
+		reflectance = 0.25,
 	},
 	{
 		name = "EmptyMount",
@@ -538,6 +708,25 @@ local assaultParts: { ShipPart } = {
 }
 add(assaultParts, turbine("TurbineLeft", V3(-2.4, -1, 2), 6, 1.2, Palette.BlasterRed))
 add(assaultParts, turbine("TurbineRight", V3(2.4, -1, 2), 6, 1.2, Palette.BlasterRed))
+-- A strake right round the hull at eye height and cooling louvres cut into
+-- both skirts, which is what surplus armour actually looks like.
+add(
+	assaultParts,
+	row("Strake", 7, V3(6.3, 0.13, 0.16), V3(0, 0.2, -4.2), V3(0, 0, 1.4), Palette.ImperialBlack)
+)
+add(
+	assaultParts,
+	row("LouvrePort", 4, V3(0.68, 0.9, 0.18), V3(-3.3, -0.7, -3), V3(0, 0, 2), Palette.DarkMetal)
+)
+add(
+	assaultParts,
+	row("LouvreStarboard", 4, V3(0.68, 0.9, 0.18), V3(3.3, -0.7, -3), V3(0, 0, 2), Palette.DarkMetal)
+)
+add(assaultParts, greebles("AssaultStow", 55, V3(0, 0.81, 5), 5, 1.2, 7))
+add(assaultParts, {
+	lamp("LampPort", V3(-3.3, 0.3, -4.6), Palette.BlasterRed, 0.4),
+	lamp("LampStarboard", V3(3.3, 0.3, -4.6), Palette.BlasterGreen, 0.4),
+})
 
 def({
 	id = "AssaultSpeeder",
@@ -588,6 +777,15 @@ local function thruster(name: string, at: Vector3, length: number, radius: numbe
 			material = Enum.Material.Metal,
 		},
 		{
+			name = name .. "Bell",
+			shape = "Cylinder",
+			size = V3(0.7, radius * 2.3, radius * 2.3),
+			offset = at + V3(0, 0, length * 0.5 - 0.25),
+			rot = V3(0, 90, 0),
+			color = Palette.DarkMetal,
+			material = Enum.Material.Metal,
+		},
+		{
 			name = name .. "Flame",
 			shape = "Cylinder",
 			-- Nose is -Z, so the flame hangs off the +Z face.
@@ -597,6 +795,31 @@ local function thruster(name: string, at: Vector3, length: number, radius: numbe
 			color = glow,
 			material = Enum.Material.Neon,
 			light = { color = glow, range = 18, brightness = 2 },
+		},
+		--[[
+			The plume: wider, longer, and mostly transparent.
+
+			One bright disc on the end of a tube is a torch bulb. What makes
+			an exhaust read is that it has depth and no edge, and a second
+			Neon cylinder at 0.6 transparency is the cheapest thing that has
+			both -- a ParticleEmitter would look better and would be emitting
+			on every hull in every lane whether or not anyone is aboard.
+
+			Kept short deliberately. `ShipModel.boundingSize` walks every part
+			in this list to size the invisible collider, so a plume trailing
+			three studs behind the nozzle would be three studs of collision
+			box made of light. Seven tenths of a stud disappears inside the
+			8% the chassis is already shrunk by.
+		]]
+		{
+			name = name .. "Plume",
+			shape = "Cylinder",
+			size = V3(1, radius * 2.4, radius * 2.4),
+			offset = at + V3(0, 0, length * 0.5 + 0.55),
+			rot = V3(0, 90, 0),
+			color = glow,
+			material = Enum.Material.Neon,
+			transparency = 0.6,
 		},
 	}
 end
@@ -670,6 +893,9 @@ local courierParts: { ShipPart } = {
 		color = Palette.CockpitGlass,
 		material = Enum.Material.Glass,
 		transparency = 0.45,
+		-- Glass with no reflectance is a coloured hole. The sheen is what
+		-- tells you there is a pane there at all.
+		reflectance = 0.25,
 	},
 	{
 		name = "WingLeft",
@@ -707,6 +933,37 @@ local courierParts: { ShipPart } = {
 add(courierParts, gear(2.6, 3.4, 5))
 add(courierParts, thruster("EngineLeft", V3(-2.2, -0.1, 6.6), 5, 1.1, Palette.BlasterBlue))
 add(courierParts, thruster("EngineRight", V3(2.2, -0.1, 6.6), 5, 1.1, Palette.BlasterBlue))
+add(courierParts, row("HullSeam", 5, V3(6.08, 0.1, 0.18), V3(0, 0.4, -4), V3(0, 0, 2.2), Palette.Gunmetal))
+-- Rolled to match the wings they sit on; see `row`.
+add(
+	courierParts,
+	row(
+		"WingRibPort",
+		3,
+		V3(5.6, 0.14, 0.2),
+		V3(-5.4, -0.02, 0.4),
+		V3(0, 0, 1.6),
+		Palette.Gunmetal,
+		V3(0, 0, -7)
+	)
+)
+add(
+	courierParts,
+	row(
+		"WingRibStarboard",
+		3,
+		V3(5.6, 0.14, 0.2),
+		V3(5.4, -0.02, 0.4),
+		V3(0, 0, 1.6),
+		Palette.Gunmetal,
+		V3(0, 0, 7)
+	)
+)
+add(courierParts, greebles("CourierPlant", 66, V3(0, 1.11, 4.4), 4.4, 4, 9))
+add(courierParts, {
+	lamp("LampPort", V3(-7.9, 0.15, 2), Palette.BlasterRed, 0.5),
+	lamp("LampStarboard", V3(7.9, 0.15, 2), Palette.BlasterGreen, 0.5),
+})
 
 def({
 	id = "SkipjackCourier",
@@ -799,6 +1056,9 @@ local haulerParts: { ShipPart } = {
 		color = Palette.CockpitGlass,
 		material = Enum.Material.Glass,
 		transparency = 0.4,
+		-- Glass with no reflectance is a coloured hole. The sheen is what
+		-- tells you there is a pane there at all.
+		reflectance = 0.25,
 	},
 	{
 		name = "MandibleLeft",
@@ -837,6 +1097,27 @@ add(haulerParts, gear(3.6, 4.6, 8))
 add(haulerParts, thruster("EngineLeft", V3(-4, 0.2, 11.4), 6, 1.6, Palette.BlasterBlue))
 add(haulerParts, thruster("EngineCentre", V3(0, 0.2, 11.4), 6, 1.6, Palette.BlasterBlue))
 add(haulerParts, thruster("EngineRight", V3(4, 0.2, 11.4), 6, 1.6, Palette.BlasterBlue))
+--[[
+	Radiator banks down both hold walls, and the clutter goes on the foredeck.
+
+	Not in the hold: that is where the passenger seats are, and this is the
+	one hull in the file where a decorative box in the wrong place would be a
+	box somebody is sitting inside.
+]]
+add(
+	haulerParts,
+	row("RadiatorPort", 6, V3(1.72, 2, 0.3), V3(-5.2, 0.8, -8), V3(0, 0, 3.2), Palette.DarkMetal)
+)
+add(
+	haulerParts,
+	row("RadiatorStarboard", 6, V3(1.72, 2, 0.3), V3(5.2, 0.8, -8), V3(0, 0, 3.2), Palette.DarkMetal)
+)
+add(haulerParts, row("KeelRib", 5, V3(12.1, 0.16, 0.24), V3(0, -1.2, -8), V3(0, 0, 4), Palette.DarkMetal))
+add(haulerParts, greebles("HaulerPlant", 77, V3(3.4, 3.01, -6.4), 3.6, 3, 8))
+add(haulerParts, {
+	lamp("LampPort", V3(-7.65, 0.4, -12), Palette.BlasterRed, 0.6),
+	lamp("LampStarboard", V3(7.65, 0.4, -12), Palette.BlasterGreen, 0.6),
+})
 
 def({
 	id = "LonghaulFreighter",
@@ -919,6 +1200,9 @@ local daggerParts: { ShipPart } = {
 		color = Palette.CockpitGlass,
 		material = Enum.Material.Glass,
 		transparency = 0.35,
+		-- Glass with no reflectance is a coloured hole. The sheen is what
+		-- tells you there is a pane there at all.
+		reflectance = 0.25,
 	},
 	{
 		name = "CannonLeft",
@@ -949,6 +1233,15 @@ local daggerParts: { ShipPart } = {
 add(daggerParts, gear(2.4, 3, 5))
 add(daggerParts, thruster("EngineLeft", V3(-1.5, 0, 8.6), 5.4, 1.2, Palette.BlasterRed))
 add(daggerParts, thruster("EngineRight", V3(1.5, 0, 8.6), 5.4, 1.2, Palette.BlasterRed))
+add(daggerParts, row("SpineSeam", 5, V3(2.68, 0.1, 0.2), V3(0, 0.5, -4), V3(0, 0, 2), Palette.NabooRoyal))
+add(daggerParts, greebles("DaggerPlant", 88, V3(0, 1.01, 4.4), 2, 2.6, 6))
+-- The wings are yawed eighteen degrees, so the tip is not simply out to the
+-- side: it is 3.5 studs along the wing's own right vector from its centre,
+-- which lands a stud and a half forward of where an eyeballed X would put it.
+add(daggerParts, {
+	lamp("LampPort", V3(-7.5, -0.05, -1.2), Palette.BlasterRed, 0.42),
+	lamp("LampStarboard", V3(7.5, -0.05, -1.2), Palette.BlasterGreen, 0.42),
+})
 
 def({
 	id = "DaggerInterceptor",
@@ -1000,27 +1293,6 @@ export type TrafficHull = {
 	id: string,
 	parts: { ShipPart },
 }
-
---[[
-	A running light: Neon, and deliberately without a `light`.
-
-	A PointLight on a player's speeder throws a pool onto the road in front
-	of them, which is the point of it. Two hundred studs up and four hundred
-	away, the same light illuminates nothing at all and still costs the
-	renderer a light -- twenty-six times over. Neon plus the bloom the
-	AtmosphereController already runs is the entire read at that range.
-]]
-local function lamp(name: string, at: Vector3, colour: Color3, size: number?): ShipPart
-	local s = size or 0.7
-	return {
-		name = name,
-		shape = "Ball",
-		size = V3(s, s, s),
-		offset = at,
-		color = colour,
-		material = Enum.Material.Neon,
-	}
-end
 
 --- An airbus: the commuter traffic, and most of what is in the air.
 local busParts: { ShipPart } = {

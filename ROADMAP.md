@@ -2420,6 +2420,69 @@ tall box and wrong for every one-line label on the HUD.
 
 ---
 
+### 4.5 The 2026-08-19 playtest — three items, one shape — DONE 2026-08-19
+
+> *"I'm still not able to swing my lightsaber. to shoot, I click, is it different
+> for the light saber? also, I was able to sit in the really sad / blocky ship but
+> it doesn't move. I tried the arrows and I tried the normal w / a / s / d letters
+> too."*
+
+One sentence, three items, and the same lesson under two of them: **a feature is
+only as reachable as its least reliable dependency.** Both the saber and the ship
+were finished, correct systems that the player could not get to work.
+
+**The saber swing was drawn on a joint the game does not own.** Damage was being
+dealt — the server never doubted it — but the entire visual was a `Motor6D.C0`
+write on `RightShoulder`. The player's body is Roblox's own avatar, not a
+`RigBuilder` rig, so an R6 avatar (or any rig without `RightUpperArm`) meant
+`motor()` returned nil and `swing` bailed before drawing anything at all. Asked
+what he actually saw, the answer was *"nothing at all moves"* — which is the
+signature of a guard clause, not of a subtle animation.
+
+The fix is a **root-driven swept arc** — an anchored Neon part with a `Trail`,
+swung through 150° of yaw and a 35° falling pitch in world space from the
+character's `PrimaryPart`, tinted by the socketed crystal. It runs
+**unconditionally, before the arm code**, so the picture and the damage can no
+longer disagree. The arm motion is still attempted and still better; it is now
+*polish on top of* the swing rather than the whole of it, and its absence warns
+once instead of failing silently.
+
+**The ship was a seat-choice problem wearing a controls bug.** Only `DriverSeat`
+is a `VehicleSeat`, and only a `VehicleSeat` turns WASD into `Throttle` and
+`Steer`. But seats are entered by `Touched` — no prompt, no label — and on the
+freighter the pilot's seat is eight studs back and three up in a cockpit while
+three identical black passenger seats sit at floor level in the doorway you walk
+through. Landing in the wrong one was not a mistake the player made; it was the
+only outcome available. **Sitting down in a ship nobody is flying now moves you
+to the pilot's seat** (deferred by one frame, so the reseat does not race the sit
+that triggered it). No new interface, and co-op is untouched: while one brother
+is flying, the other stays where he sat, which is what the passenger seats are
+for.
+
+**"Really sad / blocky" is answered with edges, not with boxes.** A large box is
+exactly as blocky at ten studs as at a hundred; what reads as a surface is a face
+broken by a seam, a hatch and a pipe. Two generators — `row` (a repeated rib,
+seam or louvre along an axis) and `greebles` (a seeded scatter of small clutter
+over a rectangle) — plus turbine cowls, thruster bells and plumes, running lights
+(**red to port, green to starboard**) and `reflectance` on every canopy. All
+eight player hulls got a pass; the traffic hulls did not, because their small
+part counts are deliberate and they are only ever seen at distance.
+
+Both helpers **generate rather than declare**, for the same reason `Radiant`
+composes its missions and `Weapons.maxima` derives its ceilings: a hull needs
+thirty or forty of these to work, and thirty or forty authored `Vector3`s are
+thirty or forty numbers nobody will ever dare change again. Two constraints fell
+out of that and are commented in place: `row`'s `rot` must match the wing it sits
+on (a flat rib on a wing rolled 7° is buried at one tip and floating at the
+other), and `greebles`' `at` is a **surface, not a volume** — nothing it returns
+may sink into the hull or hang below a speeder, where it would silently eat the
+ground clearance `Ships.validate` checks. The thruster plume is kept under a stud
+for the same reason: **`ShipModel.boundingSize` walks every part in the def** to
+size the invisible collider, so a three-stud tail of light would be three studs
+of collision box made of light.
+
+---
+
 ## Phase 5 — Living world
 
 - ~~NPC schedules (day/night behaviour — the clock already runs)~~ —

@@ -252,6 +252,58 @@ local function watch(model: Model)
 			chassis.Anchored = true
 		end
 	end)
+
+	--[[
+		NOBODY IS A PASSENGER IN AN EMPTY SHIP
+
+		Reported from play, 2026-08-19: *"I was able to sit in the ship but it
+		doesn't move. I tried the arrows and I tried the normal w/a/s/d."*
+
+		Only `DriverSeat` is a `VehicleSeat`, and only a `VehicleSeat` turns
+		WASD into `Throttle` and `Steer` -- so the whole of driving hangs on
+		which of two to four identical black seats you happened to touch. And
+		you do not choose: seats are entered by `Touched`, there is no prompt
+		and no label, and on the freighter the pilot's seat is eight studs
+		back and three studs up in a cockpit while three passenger seats sit
+		at cabin floor level in the doorway you walk through. Landing in the
+		wrong one was not a mistake the player made; it was the only outcome
+		available to them.
+
+		The rule that fixes it needs no interface: sitting down in a ship that
+		nobody is flying means you meant to fly it. Co-op is untouched --
+		while one brother is in the pilot's seat the other stays put, which is
+		the case the passenger seats exist for.
+
+		Deferred rather than immediate because this runs from inside the
+		`Occupant` change that seated them, and `Sit` reseats the same
+		humanoid; letting the first sit finish keeps the two welds from
+		racing.
+	]]
+	for _, part in model:GetChildren() do
+		-- `VehicleSeat` does not inherit from `Seat`, so this is exactly the
+		-- passenger seats and never the one already being watched above.
+		if not part:IsA("Seat") then
+			continue
+		end
+		part:GetPropertyChangedSignal("Occupant"):Connect(function()
+			local occupant = part.Occupant
+			local character = occupant and occupant.Parent
+			if not (character and character:IsA("Model")) then
+				return
+			end
+			if not Players:GetPlayerFromCharacter(character) then
+				return
+			end
+			if seat.Occupant then
+				return
+			end
+			task.defer(function()
+				if seat.Parent and not seat.Occupant and part.Occupant == occupant then
+					seat:Sit(occupant :: Humanoid)
+				end
+			end)
+		end)
+	end
 end
 
 --[[

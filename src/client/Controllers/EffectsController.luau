@@ -249,6 +249,141 @@ setmetatable(swings :: any, { __mode = "k" })
 
 local warnedNoArm = false
 
+--[[
+	THE ARC IS DRAWN FROM THE ROOT, NOT FROM THE ARM
+
+	Reported from play, 2026-08-19: *"I'm still not able to swing my
+	lightsaber. To shoot, I click -- is it different for the light saber?"*
+	Asked what happens on screen: **nothing at all moves.**
+
+	The 2026-08-17 fix put the whole swing on the character's shoulder joint,
+	and everything below this comment still does. What that quietly assumed is
+	that the player is standing in a rig this code recognises -- and the
+	player is not wearing a `RigBuilder` rig. NPCs are; a *player* keeps
+	Roblox's own avatar, which `PlayerService` dresses but does not rebuild
+	(hence the R15 check it warns about at `PlayerService.luau:179`). So the
+	one thing the swing had to say was said through a joint the game does not
+	own, on a body it did not build, and if that joint is not there the swing
+	is silent -- while still dealing full damage. That is the same "finished
+	but unreachable" shape as last time, one level further down.
+
+	So the swing gets a second visual that cannot be withheld: a blade-shaped
+	sliver swept through the air in front of the character, from the root
+	part, which every character has by definition. The arm arc stays -- it is
+	free and it is better when it works -- but it is no longer the only
+	evidence a swing happened.
+
+	IT IS THE REAL REACH, NOT A NICE-LOOKING LENGTH
+	`CombatService.swingMelee` sweeps a sphere of `range * 0.7` centred
+	`range * 0.4` ahead of the root, so the blade can kill about `range * 1.1`
+	away and that is exactly how long this is drawn. The reticle is derived
+	from `spread` and the stat bars from `maxima` for the same reason: a
+	drawing that disagrees with the rule it depicts teaches the player
+	something false, and they will trust it over the rule.
+]]
+local ARC_DEGREES = 150
+local ARC_RISE = 35 -- degrees above level at the top of the cut
+
+local function swingColour(character: Model, def: Weapons.WeaponDef): Color3
+	-- The crystal first, for the same reason the bolts read it: what the
+	-- player fitted is what the player should see cut the air.
+	local tint = WeaponModel.tintOf(character)
+	if tint then
+		return tint
+	end
+	if def.blade then
+		return def.blade.color or Palette.SaberBlue
+	end
+	-- Steel has no colour of its own to show, so it gets a pale highlight.
+	return Color3.fromRGB(214, 220, 236)
+end
+
+local function sweepArc(character: Model, def: Weapons.WeaponDef, duration: number)
+	local root = character:FindFirstChild("HumanoidRootPart")
+	if not (root and root:IsA("BasePart")) then
+		return
+	end
+
+	local lit = def.blade ~= nil
+	local colour = swingColour(character, def)
+	local reach = def.range * 1.1
+	local half = math.rad(ARC_DEGREES) * 0.5
+
+	local blade = Instance.new("Part")
+	blade.Name = "SwingArc"
+	blade.Size = Vector3.new(0.1, 0.1, reach)
+	blade.Anchored = true
+	blade.CanCollide = false
+	blade.CanQuery = false
+	blade.CanTouch = false
+	blade.CastShadow = false
+	blade.Color = colour
+	blade.Material = Enum.Material.Neon
+	-- Invisible until the cut starts. The wind-up is the blade going *up*,
+	-- and drawing that would put an arc above the player's head every time
+	-- they swing at nothing.
+	blade.Transparency = 1
+	blade.CFrame = root.CFrame * CFrame.new(0, 0.5, -reach * 0.5)
+	blade.Parent = container()
+	-- Backstop: a character destroyed mid-swing must not leave this behind.
+	Debris:AddItem(blade, duration + 1)
+
+	local tip = Instance.new("Attachment")
+	tip.Position = Vector3.new(0, 0, -reach * 0.5)
+	tip.Parent = blade
+
+	local hilt = Instance.new("Attachment")
+	hilt.Position = Vector3.new(0, 0, reach * 0.5)
+	hilt.Parent = blade
+
+	local trail = Instance.new("Trail")
+	trail.Attachment0 = tip
+	trail.Attachment1 = hilt
+	trail.Color = ColorSequence.new(colour)
+	trail.Transparency = NumberSequence.new({
+		NumberSequenceKeypoint.new(0, if lit then 0.25 else 0.5),
+		NumberSequenceKeypoint.new(1, 1),
+	})
+	trail.Lifetime = 0.28
+	trail.LightEmission = if lit then 1 else 0.35
+	trail.FaceCamera = true
+	trail.Enabled = false
+	trail.Parent = blade
+
+	task.spawn(function()
+		task.wait(duration * WINDUP)
+		if not (blade.Parent and root.Parent) then
+			return
+		end
+		blade.Transparency = if lit then 0.35 else 0.6
+		trail.Enabled = true
+
+		local started = os.clock()
+		local span = duration * STRIKE
+		while true do
+			local a = (os.clock() - started) / span
+			if a >= 1 or not root.Parent then
+				break
+			end
+			-- The same easing curve the arm uses, so on a rig where both are
+			-- drawn the blade and the hand are in the same place.
+			local eased = a ^ 0.55
+			blade.CFrame = root.CFrame
+				* CFrame.Angles(0, half - eased * half * 2, 0)
+				* CFrame.Angles(math.rad(ARC_RISE) * (1 - eased * 2), 0, 0)
+				* CFrame.new(0, 0.5, -reach * 0.5)
+			RunService.RenderStepped:Wait()
+		end
+
+		-- The part goes now, the streak it laid down fades on its own for
+		-- another `Lifetime` -- so the arc hangs in the air off a blade that
+		-- has already finished, which is what makes it read as a cut.
+		trail.Enabled = false
+		blade.Transparency = 1
+		Debris:AddItem(blade, trail.Lifetime + 0.1)
+	end)
+end
+
 local function motor(character: Model, limb: string, joint: string): Motor6D?
 	local part = character:FindFirstChild(limb)
 	local found = if part then part:FindFirstChild(joint) else nil
@@ -268,13 +403,25 @@ end
 	resolved.
 ]]
 function EffectsController.swing(character: Model, weaponId: string)
+	if not Weapons.exists(weaponId) then
+		return
+	end
+	local def = Weapons.get(weaponId)
+	-- Slightly quicker than the weapon can be swung again, so the arm is back
+	-- at rest before the next one starts rather than snapping there.
+	local duration = math.max(0.18, Weapons.cooldown(weaponId) * 0.85)
+
+	-- First, and unconditionally: the arc is the one part of the swing that
+	-- does not need the rig's cooperation. Everything below it does.
+	sweepArc(character, def, duration)
+
 	local shoulder = motor(character, "RightUpperArm", "RightShoulder")
 	if not shoulder then
 		--[[
-			Said out loud, once, because the alternative is the exact bug this
-			whole section exists to fix: a swing that lands, deals damage and
-			draws nothing, with no way to tell that from a swing that never
-			happened.
+			Said out loud, once. The arc above already went out, so this is no
+			longer the difference between a visible swing and an invisible one
+			-- it is the difference between a swing and a good one, and it is
+			still worth knowing about.
 
 			`RightUpperArm` is an R15 part name. The likeliest reason it is
 			missing is an R6 avatar, which `PlayerService` also refuses to dress
@@ -283,9 +430,7 @@ function EffectsController.swing(character: Model, weaponId: string)
 		]]
 		if not warnedNoArm then
 			warnedNoArm = true
-			warn(
-				`[EffectsController] no RightUpperArm/RightShoulder on {character.Name}; swings cannot be drawn`
-			)
+			warn(`[EffectsController] no RightUpperArm/RightShoulder on {character.Name}; arm swing skipped`)
 		end
 		return
 	end
@@ -312,10 +457,6 @@ function EffectsController.swing(character: Model, weaponId: string)
 	state.token += 1
 	local token = state.token
 	local swing = SWINGS[(state.index % #SWINGS) + 1]
-
-	-- Slightly quicker than the weapon can be swung again, so the arm is back
-	-- at rest before the next one starts rather than snapping there.
-	local duration = math.max(0.18, Weapons.cooldown(weaponId) * 0.85)
 	local trail = WeaponModel.trail(character)
 
 	task.spawn(function()

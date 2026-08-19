@@ -218,15 +218,12 @@ local function outfitStatLines(id: string): { StatLine }
 	local maxima = Outfits.maxima()
 	for stat, value in Outfits.statsFor(id) do
 		if stat == "DamageReduction" then
-			table.insert(
-				lines,
-				{
-					label = "Armour",
-					value = `{math.floor(value * 100 + 0.5)}%`,
-					raw = value,
-					max = maxima[stat],
-				}
-			)
+			table.insert(lines, {
+				label = "Armour",
+				value = `{math.floor(value * 100 + 0.5)}%`,
+				raw = value,
+				max = maxima[stat],
+			})
 		elseif stat == "MoveSpeedMult" then
 			local pct = math.floor(value * 100 + 0.5)
 			table.insert(lines, {
@@ -236,15 +233,12 @@ local function outfitStatLines(id: string): { StatLine }
 				max = maxima[stat],
 			})
 		elseif stat == "PriceMult" then
-			table.insert(
-				lines,
-				{
-					label = "Prices",
-					value = `{math.floor(value * 100 + 0.5)}%`,
-					raw = value,
-					max = maxima[stat],
-				}
-			)
+			table.insert(lines, {
+				label = "Prices",
+				value = `{math.floor(value * 100 + 0.5)}%`,
+				raw = value,
+				max = maxima[stat],
+			})
 		end
 	end
 	table.sort(lines, function(a, b)
