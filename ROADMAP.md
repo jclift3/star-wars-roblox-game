@@ -812,6 +812,26 @@ built:
    also pays the least), **DISCARD** away from one, with a two-press confirm.
    Neither will touch what is equipped: `profile.equipped` naming a uid that no
    longer exists would hand the player nothing on their next respawn.
+
+   **The affix slot was too coarse, and is now `WeaponDef.class`** (2026-08-18,
+   from a playtest: *"when I'm wielding a lightsaber, seems weird to modify
+   blaster power since that's not a thing"*). `slot` had only been Weapon or
+   Outfit, so `Affixes.validate` could prove a stat had *a* reader but not a
+   reader on the item it rolled on — and `BlasterDamageMult`'s reader returns
+   early on anything that is not a blaster. Four combinations printed a number,
+   priced it into the rarity and did nothing. The Legendary-pool check now walks
+   `Weapons.classes()` rather than a list written here, so a class nobody has
+   written affixes for arrives as a boot warning. `MeleeDamageMult` followed on
+   2026-08-19: with the dead affixes gone, Melee's pool was exactly
+   `MAX_AFFIXES`, which made every Legendary vibroblade identical.
+
+   **`Loot.repair` is the one migration in the game.** Fixing the roller did
+   nothing for saves that already held a *Vicious Lightsaber*, so every load
+   re-rolls dead affixes onto the item's real pool. It **replaces rather than
+   strips**: rarity is derived from affix count, so deleting them would demote a
+   Legendary won fairly on the strength of a bug that was ours. Rolled at the
+   item's `requiredLevel`, the only level the item itself carries — it errs low,
+   which is the right direction for a rewrite nobody can audit.
 3. ~~**A large world banded by level.**~~ **Done 2026-08-16.** `ZoneDef.distance`
    was already the difficulty dial in intent; it is one in fact now.
    `Planets.bandFor(planetId, zoneId)` spreads the planet's own

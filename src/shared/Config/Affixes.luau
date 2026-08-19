@@ -375,14 +375,28 @@ end
 
 	Exists for DevService. A Legendary is about one drop in a hundred and
 	seventy, so the only practical way to look at one is to ask for it.
+
+	`exclude` holds stats the item already has, and is here rather than in the
+	one caller that needs it (`Loot.repair`) so that the level-scaled range
+	below has exactly one implementation. Two of it would drift, and a
+	migration quietly rolling numbers a drop could not is the kind of thing
+	nobody would notice for months.
 ]]
 function Affixes.rollExactly(
 	rng: Random,
 	slot: string,
 	itemLevel: number,
-	count: number
+	count: number,
+	exclude: { [string]: number }?
 ): { [string]: number }?
 	local pool = Affixes.forSlot(slot)
+	if exclude then
+		for i = #pool, 1, -1 do
+			if exclude[pool[i].stat] then
+				table.remove(pool, i)
+			end
+		end
+	end
 	local wanted = math.min(count, #pool)
 	if wanted <= 0 then
 		return nil

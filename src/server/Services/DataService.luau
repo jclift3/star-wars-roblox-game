@@ -37,6 +37,7 @@ local Alignment = require(Shared.Config.Alignment)
 local Factions = require(Shared.Config.Factions)
 local Flags = require(Shared.Config.Flags)
 local Furnishings = require(Shared.Config.Furnishings)
+local Loot = require(Shared.Config.Loot)
 local Origins = require(Shared.Config.Origins)
 local Planets = require(Shared.Config.Planets)
 local Progression = require(Shared.Config.Progression)
@@ -55,6 +56,10 @@ local DataService = {
 -- half-deployed build still loads -- it is a record of what the shape is.
 local PROFILE_VERSION = 2
 local STORE_NAME = "PlayerProfiles_v1"
+
+-- Unseeded, like every other roll in the game: two players whose saves are
+-- repaired on the same server must not be handed the same numbers.
+local rng = Random.new()
 local AUTOSAVE_INTERVAL = 90
 
 -- A lock older than this is assumed to belong to a server that crashed. Long
@@ -203,6 +208,23 @@ local function migrate(saved: any): PlayerProfile
 	-- back into something the rest of the game can read.
 	if saved.inventory ~= nil then
 		base.inventory = Inventory.load(saved.inventory)
+		--[[
+			Then re-roll any affix that cannot do anything on the item holding
+			it -- see `Loot.repair`. Here rather than inside `Inventory.load`
+			because that function is the *shape* of a bag and knows nothing
+			about weapon classes, and because this runs on the way in, once per
+			session, which is the only place a save can be corrected without
+			asking anybody to do anything.
+
+			It is not gated on `PROFILE_VERSION`. The field has never been
+			branched on, `migrate` fixes each field on its own terms, and a
+			one-shot flag would mean a bag that came back from a half-deployed
+			build could never be looked at again.
+		]]
+		local repaired = Loot.repair(rng, base.inventory)
+		if repaired > 0 then
+			print(`[DataService] re-rolled dead affixes on {repaired} carried item(s)`)
+		end
 	end
 	if type(saved.equipped) == "table" then
 		base.equipped = saved.equipped

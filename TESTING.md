@@ -2245,6 +2245,22 @@ The only checks that cannot be done in one sitting.
    second time after a rejoin.
 8. **A save from before 2026-08-16 loads.** It has neither field; it should come
    back at `Unaligned  (+0)` with no flags rather than erroring.
+9. **A lightsaber that used to roll blaster damage is repaired.** Any save made
+   before 2026-08-18 may hold one — a *Vicious Lightsaber*, a *Rapid Lightsaber*,
+   a vibroblade with a fire-rate line. On the next load the output window says
+   `re-rolled dead affixes on N carried item(s)`, and in **B** every one of those
+   items:
+   - is **the same rarity it was** — a Legendary is still orange, still worth
+     what it was worth. `Loot.repair` swaps dead stats for live ones and never
+     removes them, because the count is the rarity;
+   - shows **only stat lines its own class can read** — no blaster damage on a
+     saber, no fire rate on anything swung;
+   - **may have a different name**, since the name is built from the affixes.
+     Expected, and worth telling the boys before they notice.
+
+   Rejoin once more: the message must **not** appear a second time. It is not
+   gated on a version flag — it simply finds nothing left to fix, which is what
+   makes it safe to leave in place.
 
 ---
 

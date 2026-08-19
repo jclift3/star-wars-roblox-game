@@ -135,6 +135,86 @@ function Loot.forceDrop(rng: Random, itemLevel: number, affixCount: number): Dro
 	return draw(rng, math.max(1, math.floor(itemLevel)), affixCount)
 end
 
+--[[
+	Re-rolls affixes that cannot do anything on the item carrying them.
+
+	A migration, and the only one in the game. Until 2026-08-18 an affix's slot
+	was just Weapon or Outfit, so a lightsaber could roll blaster damage: a real
+	number, shown in the panel, counted toward the item's rarity, read by
+	nothing. Fixing the roller stopped new ones being made and did nothing at
+	all for the saves that already had them -- and "your Vicious Lightsaber is
+	lying to you, sorry" is not a thing to tell a player who earned it.
+
+	IT REPLACES, IT DOES NOT STRIP. Rarity is derived from how many affixes an
+	item has, so deleting the dead ones would demote a Legendary to a Common and
+	take away something that was won fairly, on the strength of a bug that was
+	ours. Each dead stat becomes a live one drawn from the item's real pool, and
+	the count -- so the rarity, the name and the sale price -- is unchanged.
+
+	There is always room. The smallest pool is five (Melee, since
+	`MeleeDamageMult` landed) against four affixes at most, and every stat that
+	survives is one fewer to replace, so the pool can never run out mid-item and
+	silently hand back a worse thing than it was given.
+
+	Rolled at the item's `requiredLevel` because that is the only level the item
+	itself carries -- what it dropped at was never stored. It errs low, which is
+	the right direction for a rewrite nobody can audit: this must not be able to
+	produce an item better than the one the player actually found.
+
+	Returns how many stacks were changed. Safe to run on anything: a bag with no
+	dead rolls is untouched, and an id no catalogue knows is left exactly alone
+	rather than guessed at.
+]]
+function Loot.repair(rng: Random, inv: Inventory.Inventory): number
+	local changed = 0
+
+	for _, stack in inv do
+		local rolls = stack.rolls
+		if not rolls then
+			continue
+		end
+
+		local slot, level
+		if Weapons.exists(stack.id) then
+			local w = Weapons.get(stack.id)
+			slot, level = w.class, w.requiredLevel
+		elseif Outfits.exists(stack.id) then
+			slot, level = "Outfit", Outfits.get(stack.id).requiredLevel
+		else
+			continue
+		end
+
+		local legal: { [string]: boolean } = {}
+		for _, a in Affixes.forSlot(slot) do
+			legal[a.stat] = true
+		end
+
+		local kept: { [string]: number } = {}
+		local dead = 0
+		for stat, value in rolls do
+			if legal[stat] then
+				kept[stat] = value
+			else
+				dead += 1
+			end
+		end
+		if dead == 0 then
+			continue
+		end
+
+		local fresh = Affixes.rollExactly(rng, slot, math.max(1, level), dead, kept)
+		if fresh then
+			for stat, value in fresh do
+				kept[stat] = value
+			end
+		end
+		stack.rolls = kept
+		changed += 1
+	end
+
+	return changed
+end
+
 --- The dropped item's decorated name, for the pickup message.
 function Loot.nameOf(drop: Drop): string
 	local base = if drop.kind == "Weapon"
