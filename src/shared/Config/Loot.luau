@@ -46,12 +46,18 @@ Loot.DROP_CHANCE = 0.35
 local LEVEL_BAND = 6
 
 export type Drop = {
-	kind: string, -- "Weapon" | "Outfit", and also the affix slot
+	kind: string, -- "Weapon" | "Outfit", the inventory kind
 	id: string,
 	rolls: Inventory.Rolls,
 }
 
-type Candidate = { kind: string, id: string, requiredLevel: number }
+--[[
+	`slot` is what the item draws affixes from, and it is NOT `kind`. A weapon's
+	slot is its `WeaponDef.class`, so a lightsaber cannot roll blaster damage --
+	see the note at the top of Affixes.luau for the bug that came of the two
+	being the same field.
+]]
+type Candidate = { kind: string, slot: string, id: string, requiredLevel: number }
 
 local function gather(itemLevel: number): { Candidate }
 	local eligible: { Candidate } = {}
@@ -62,14 +68,20 @@ local function gather(itemLevel: number): { Candidate }
 	for _, id in Weapons.ids() do
 		local w = Weapons.get(id)
 		if w.cost > 0 and w.requiredLevel <= itemLevel then
-			table.insert(eligible, { kind = "Weapon", id = id, requiredLevel = w.requiredLevel })
+			table.insert(
+				eligible,
+				{ kind = "Weapon", slot = w.class, id = id, requiredLevel = w.requiredLevel }
+			)
 			best = math.max(best, w.requiredLevel)
 		end
 	end
 	for _, id in Outfits.ids() do
 		local o = Outfits.get(id)
 		if o.cost > 0 and o.requiredLevel <= itemLevel then
-			table.insert(eligible, { kind = "Outfit", id = id, requiredLevel = o.requiredLevel })
+			table.insert(
+				eligible,
+				{ kind = "Outfit", slot = "Outfit", id = id, requiredLevel = o.requiredLevel }
+			)
 			best = math.max(best, o.requiredLevel)
 		end
 	end
@@ -91,7 +103,7 @@ local function draw(rng: Random, level: number, count: number): Drop?
 		return nil
 	end
 	local pick = pool[rng:NextInteger(1, #pool)]
-	local rolls = Affixes.rollExactly(rng, pick.kind, level, count)
+	local rolls = Affixes.rollExactly(rng, pick.slot, level, count)
 	if not rolls then
 		return nil
 	end

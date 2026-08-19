@@ -2630,6 +2630,7 @@ for anyone else, so a stranger who guesses a real word learns nothing.
 | Code | Effect |
 |---|---|
 | `thereisnocow` | +10,000 cr and up to level 12 — enough to reach most worlds |
+| `whosyourdaddy` | Level 50 and 5× the dearest price in the game — enough to buy the top tier of ships, which `thereisnocow` deliberately does not reach |
 | `iamacolyte` `iamconscript` `iamscoundrel` `iamscrapper` | Set your origin and its faction |
 
 The origin codes still matter now that 3b.1 has shipped a creation screen: that

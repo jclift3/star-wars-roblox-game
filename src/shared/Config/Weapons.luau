@@ -1102,4 +1102,25 @@ function Weapons.ids(): { string }
 	return out
 end
 
+--[[
+	The distinct classes a weapon in the catalogue can be, sorted.
+
+	Derived rather than listed because `WeaponDef.class` is also the affix slot
+	a weapon draws from (`Affixes.forSlot`), and a class with no affixes written
+	for it is a silent gap. Reading the catalogue means adding one weapon of a
+	new class makes `Affixes.validate` say so at boot.
+]]
+function Weapons.classes(): { string }
+	local seen: { [string]: boolean } = {}
+	local out = {}
+	for _, w in defs do
+		if not seen[w.class] then
+			seen[w.class] = true
+			table.insert(out, w.class)
+		end
+	end
+	table.sort(out)
+	return out
+end
+
 return Weapons

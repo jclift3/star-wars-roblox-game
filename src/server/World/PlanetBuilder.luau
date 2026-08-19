@@ -2709,7 +2709,38 @@ local FLOOR_Y = 0.5
 	that holds it up: legs under a table, posts under a bunk, a stem above a
 	lamp. Three or four parts each, and the room stops being a box with
 	rubbish in it.
+
+	...AND IT IS MEASURED OFF THE PEOPLE USING IT.
+
+	Reported from play, 2026-08-18: *"the cantinas look weird with oversized
+	tables."* They were -- and so was everything else indoors, by about three
+	times. The bar was ten studs tall, which is a bar you walk under; the
+	stools were as tall as the customers; a bunk was six feet wide and twenty
+	long. Nobody wrote a wrong number, because there was no right one to
+	write: every builder guessed independently and nothing here held a tape
+	measure.
+
+	`metres` is the tape measure. An R15 character is about 5.7 studs from
+	sole to head -- the same figure `DEFAULT_BLADE` in Weapons.luau is cut
+	from, and for the same reason -- so a stud is a little under a third of a
+	metre and every furniture dimension below is a real measurement.
+
+	THE ROOM DOES NOT SCALE WITH THEM. `ROOM_HEIGHT` stays 22 because it is
+	set by the camera, which sits behind and above the player; a ceiling at a
+	realistic 2.7 metres is one you play from inside. Rooms are generous and
+	the things in them are not, which is what a hangar or a cantina looks
+	like anyway.
+
+	`BULK` is the one concession. An R15 is about 2 studs across the
+	shoulders where a person of that height would be 1.4, so anything people
+	sit or stand *around* gets it applied to the plan -- otherwise four
+	characters at a correctly sized table sit in each other's laps.
 ]]
+local function metres(m: number): number
+	return m * (5.7 / 1.8)
+end
+
+local BULK = 1.4
 
 --- A ceiling lamp: stem, shade, and a bulb under the shade rather than a
 --- glowing ball hanging in mid-air, which reads as a small indoor sun.
@@ -2725,7 +2756,7 @@ local function ceilingLamp(parent: Instance, position: Vector3, color: Color3, r
 	cylinder(
 		parent,
 		CFrame.new(position) * UPRIGHT,
-		Vector3.new(1.5, 9, 9),
+		Vector3.new(1.2, metres(1.1), metres(1.1)),
 		Palette.DarkMetal,
 		Enum.Material.Metal
 	).Name =
@@ -2733,8 +2764,8 @@ local function ceilingLamp(parent: Instance, position: Vector3, color: Color3, r
 
 	local bulb = ball(
 		parent,
-		CFrame.new(position - Vector3.new(0, 1.5, 0)),
-		Vector3.new(3, 3, 3),
+		CFrame.new(position - Vector3.new(0, 1.2, 0)),
+		Vector3.new(2, 2, 2),
 		color,
 		Enum.Material.Neon
 	)
@@ -2754,7 +2785,7 @@ local function table_(parent: Instance, base: Vector3, size: Vector3, color: Col
 	block(
 		parent,
 		CFrame.new(base + Vector3.new(0, height, 0)),
-		Vector3.new(size.X, 1.5, size.Z),
+		Vector3.new(size.X, 0.4, size.Z),
 		color,
 		material
 	).Name =
@@ -2764,9 +2795,9 @@ local function table_(parent: Instance, base: Vector3, size: Vector3, color: Col
 			block(
 				parent,
 				CFrame.new(
-					base + Vector3.new(x * (size.X * 0.5 - 1.5), height * 0.5, z * (size.Z * 0.5 - 1.5))
+					base + Vector3.new(x * (size.X * 0.5 - 0.8), height * 0.5, z * (size.Z * 0.5 - 0.8))
 				),
-				Vector3.new(1.5, height, 1.5),
+				Vector3.new(0.8, height, 0.8),
 				Palette.DarkMetal,
 				Enum.Material.Metal
 			).Name =
@@ -2778,12 +2809,16 @@ end
 --- A double bunk: corner posts the whole height, two frames, and bedding, so
 --- it reads as somewhere a soldier sleeps rather than as two black shelves.
 local function bunk(parent: Instance, base: Vector3, blanket: Color3)
+	local long = metres(2.05)
+	local wide = metres(0.95) * BULK
+	local tall = metres(1.75)
+
 	for _, x in { -1, 1 } do
 		for _, z in { -1, 1 } do
 			block(
 				parent,
-				CFrame.new(base + Vector3.new(x * 8.4, 8, z * 4.4)),
-				Vector3.new(1.4, 16, 1.4),
+				CFrame.new(base + Vector3.new(x * (long * 0.5 - 0.4), tall * 0.5, z * (wide * 0.5 - 0.4))),
+				Vector3.new(0.8, tall, 0.8),
 				Palette.WornSteel,
 				Enum.Material.Metal
 			).Name =
@@ -2791,35 +2826,37 @@ local function bunk(parent: Instance, base: Vector3, blanket: Color3)
 		end
 	end
 
-	for _, y in { 4, 11 } do
+	-- A mattress you could climb onto and one above head height sitting up:
+	-- the two heights are what makes it a bunk rather than two beds stacked.
+	for _, y in { metres(0.4), metres(1.15) } do
 		block(
 			parent,
 			CFrame.new(base + Vector3.new(0, y, 0)),
-			Vector3.new(18, 1, 10),
+			Vector3.new(long, 0.35, wide),
 			Palette.WornSteel,
 			Enum.Material.Metal
 		).Name =
 			"BunkFrame"
 		block(
 			parent,
-			CFrame.new(base + Vector3.new(0, y + 1.4, 0)),
-			Vector3.new(17, 1.8, 9),
+			CFrame.new(base + Vector3.new(0, y + 0.5, 0)),
+			Vector3.new(long - 0.5, 0.6, wide - 0.5),
 			Palette.HullWhite,
 			Enum.Material.Fabric
 		).Name =
 			"Mattress"
 		block(
 			parent,
-			CFrame.new(base + Vector3.new(-3, y + 1.8, 0)),
-			Vector3.new(10, 1.6, 9.4),
+			CFrame.new(base + Vector3.new(-long * 0.16, y + 0.7, 0)),
+			Vector3.new(long * 0.6, 0.55, wide - 0.3),
 			blanket,
 			Enum.Material.Fabric
 		).Name =
 			"Blanket"
 		block(
 			parent,
-			CFrame.new(base + Vector3.new(7, y + 2, 0)),
-			Vector3.new(3.5, 1.6, 6),
+			CFrame.new(base + Vector3.new(long * 0.36, y + 0.85, 0)),
+			Vector3.new(long * 0.2, 0.5, wide * 0.6),
 			Palette.HullWhite,
 			Enum.Material.Fabric
 		).Name =
@@ -2830,18 +2867,19 @@ end
 --- A footlocker: a box with a lid, which is the difference between a chest
 --- and a cube.
 local function footlocker(parent: Instance, base: Vector3)
+	local high = metres(0.5)
 	block(
 		parent,
-		CFrame.new(base + Vector3.new(0, 2.5, 0)),
-		Vector3.new(6, 5, 8),
+		CFrame.new(base + Vector3.new(0, high * 0.5, 0)),
+		Vector3.new(metres(0.55), high, metres(1.0)),
 		Palette.DarkMetal,
 		Enum.Material.DiamondPlate
 	).Name =
 		"Footlocker"
 	block(
 		parent,
-		CFrame.new(base + Vector3.new(0, 5.5, 0)),
-		Vector3.new(6.6, 1.2, 8.6),
+		CFrame.new(base + Vector3.new(0, high + 0.2, 0)),
+		Vector3.new(metres(0.6), 0.4, metres(1.05)),
 		Palette.WornSteel,
 		Enum.Material.Metal
 	).Name =
@@ -3100,10 +3138,11 @@ local function fitShop(parent: Instance, at: CFrame, inner: Vector2, style: Styl
 	]]
 	local back = -inner.X * 0.5 + WALL_THICKNESS * 0.5
 
+	local shelfHigh = metres(2.1)
 	block(
 		parent,
-		at * CFrame.new(back + 1.5, 9, 0),
-		Vector3.new(2.5, 18, run + 6),
+		at * CFrame.new(back + 1.5, shelfHigh * 0.5, 0),
+		Vector3.new(metres(0.4), shelfHigh, run + 6),
 		Palette.WornSteel,
 		Enum.Material.Metal
 	).Name =
@@ -3112,11 +3151,11 @@ local function fitShop(parent: Instance, at: CFrame, inner: Vector2, style: Styl
 	-- face rather than in front of it: the smallest shop here is 25 studs
 	-- deep and three of those are the walk behind the counter.
 	for column = -1, 1 do
-		for _, y in { 6, 13 } do
+		for _, y in { metres(0.7), metres(1.5) } do
 			local goods = block(
 				parent,
-				at * CFrame.new(back + 2.5, y, column * run * 0.3),
-				Vector3.new(2, 3.5, 5),
+				at * CFrame.new(back + 2, y, column * run * 0.3),
+				Vector3.new(1.2, metres(0.4), metres(0.5)),
 				style.windowColor,
 				Enum.Material.Neon
 			)
@@ -3129,18 +3168,20 @@ local function fitShop(parent: Instance, at: CFrame, inner: Vector2, style: Styl
 	-- the two. Overhang and stock behind are the details that say "someone
 	-- sells things here" rather than "there is a box in this room".
 	local counter = back + 11
+	local counterHigh = metres(1.05)
+	local counterDeep = metres(0.6) * BULK
 	block(
 		parent,
-		at * CFrame.new(counter, 5, 0),
-		Vector3.new(5, 10, run),
+		at * CFrame.new(counter, counterHigh * 0.5, 0),
+		Vector3.new(counterDeep, counterHigh, run),
 		Palette.SmugglerBrown,
 		Enum.Material.WoodPlanks
 	).Name =
 		"Counter"
 	block(
 		parent,
-		at * CFrame.new(counter + 1.5, 10.4, 0),
-		Vector3.new(8, 1.4, run + 2),
+		at * CFrame.new(counter + 0.6, counterHigh + 0.2, 0),
+		Vector3.new(counterDeep + 1.4, 0.4, run + 1.5),
 		Palette.DarkMetal,
 		Enum.Material.Wood
 	).Name =
@@ -3154,8 +3195,8 @@ local function fitShop(parent: Instance, at: CFrame, inner: Vector2, style: Styl
 		for _, side in { -1, 1 } do
 			block(
 				parent,
-				at * CFrame.new(inner.X * 0.5 - 8, 3, side * (inner.Y * 0.5 - 7)),
-				Vector3.new(7, 6, 7),
+				at * CFrame.new(inner.X * 0.5 - 8, metres(0.6), side * (inner.Y * 0.5 - 7)),
+				Vector3.new(metres(1.2), metres(1.2), metres(1.2)),
 				Palette.DroidRust,
 				Enum.Material.CorrodedMetal
 			).Name =
@@ -3181,12 +3222,16 @@ end
 --- difference between somewhere people are called to and a shed.
 local function fitHall(parent: Instance, at: CFrame, inner: Vector2, style: Style): Vector3
 	local length = inner.X * 0.55
-	local width = math.min(13, inner.Y * 0.3)
+	-- A refectory table is as wide as two people's reach, however big the
+	-- hall is: past that it is a stage with benches beside it.
+	local width = math.min(metres(0.95) * BULK, inner.Y * 0.3)
+	local high = metres(0.75)
+	local seat = metres(0.45)
 
 	block(
 		parent,
-		at * CFrame.new(0, 9, 0),
-		Vector3.new(length, 1.6, width),
+		at * CFrame.new(0, high, 0),
+		Vector3.new(length, 0.4, width),
 		Palette.SmugglerBrown,
 		Enum.Material.WoodPlanks
 	).Name =
@@ -3195,8 +3240,8 @@ local function fitHall(parent: Instance, at: CFrame, inner: Vector2, style: Styl
 		for _, z in { -1, 1 } do
 			block(
 				parent,
-				at * CFrame.new(x * (length * 0.5 - 2), 4.5, z * (width * 0.5 - 2)),
-				Vector3.new(2, 9, 2),
+				at * CFrame.new(x * (length * 0.5 - 1.5), high * 0.5, z * (width * 0.5 - 0.8)),
+				Vector3.new(0.8, high, 0.8),
 				Palette.DarkMetal,
 				Enum.Material.Metal
 			).Name =
@@ -3205,11 +3250,11 @@ local function fitHall(parent: Instance, at: CFrame, inner: Vector2, style: Styl
 	end
 
 	for _, side in { -1, 1 } do
-		local bench = width * 0.5 + 5
+		local bench = width * 0.5 + metres(0.55)
 		block(
 			parent,
-			at * CFrame.new(0, 5, side * bench),
-			Vector3.new(length, 1.4, 5),
+			at * CFrame.new(0, seat, side * bench),
+			Vector3.new(length, 0.35, metres(0.35) * BULK),
 			Palette.SmugglerBrown,
 			Enum.Material.Wood
 		).Name =
@@ -3217,8 +3262,8 @@ local function fitHall(parent: Instance, at: CFrame, inner: Vector2, style: Styl
 		for _, x in { -1, 1 } do
 			block(
 				parent,
-				at * CFrame.new(x * (length * 0.5 - 3), 2.5, side * bench),
-				Vector3.new(1.6, 5, 4),
+				at * CFrame.new(x * (length * 0.5 - 3), seat * 0.5, side * bench),
+				Vector3.new(0.7, seat, metres(0.3) * BULK),
 				Palette.DarkMetal,
 				Enum.Material.Metal
 			).Name =
@@ -4208,18 +4253,21 @@ local function buildCantina(parent: Instance, base: Vector3, style: Style, rng: 
 
 	-- The bar, opposite the door, so walking in points you at it. Overhang
 	-- and a foot rail: the two details that say "bar" rather than "wall".
+	local barRun = 42
+	local barHigh = metres(1.05)
+	local barDeep = metres(0.6) * BULK
 	block(
 		parent,
-		CFrame.new(base + Vector3.new(-16, 5, 0)),
-		Vector3.new(5, 10, 42),
+		CFrame.new(base + Vector3.new(-16, barHigh * 0.5, 0)),
+		Vector3.new(barDeep, barHigh, barRun),
 		Palette.SmugglerBrown,
 		Enum.Material.WoodPlanks
 	).Name =
 		"Counter"
 	block(
 		parent,
-		CFrame.new(base + Vector3.new(-15, 10.5, 0)),
-		Vector3.new(9, 1.4, 44),
+		CFrame.new(base + Vector3.new(-15.4, barHigh + 0.2, 0)),
+		Vector3.new(barDeep + 1.4, 0.4, barRun + 1.5),
 		dark,
 		Enum.Material.Wood
 	).Name =
@@ -4228,25 +4276,27 @@ local function buildCantina(parent: Instance, base: Vector3, style: Style, rng: 
 		parent,
 		-- Lying along Z, so it is turned about Y rather than the usual
 		-- quarter turn about Z that stands a cylinder up.
-		CFrame.new(base + Vector3.new(-11, 2, 0)) * CFrame.Angles(0, math.pi * 0.5, 0),
-		Vector3.new(42, 1.6, 1.6),
+		CFrame.new(base + Vector3.new(-13.6, metres(0.15), 0)) * CFrame.Angles(0, math.pi * 0.5, 0),
+		Vector3.new(barRun, 0.6, 0.6),
 		Palette.WornSteel,
 		Enum.Material.Metal
 	).Name =
 		"FootRail"
+
+	local shelfHigh = metres(2.1)
 	block(
 		parent,
-		CFrame.new(base + Vector3.new(-27, 8, 0)),
-		Vector3.new(3, 16, 38),
+		CFrame.new(base + Vector3.new(-27, shelfHigh * 0.5, 0)),
+		Vector3.new(metres(0.4), shelfHigh, 38),
 		dark,
 		Enum.Material.Metal
 	).Name =
 		"Shelf"
-	for i = -3, 3 do
+	for i = -5, 5 do
 		local bottle = cylinder(
 			parent,
-			CFrame.new(base + Vector3.new(-25, 13, i * 5)) * UPRIGHT,
-			Vector3.new(5, 2, 2),
+			CFrame.new(base + Vector3.new(-26.2, metres(1.45), i * 3)) * UPRIGHT,
+			Vector3.new(metres(0.3), 0.6, 0.6),
 			style.windowColor,
 			Enum.Material.Neon
 		)
@@ -4254,40 +4304,83 @@ local function buildCantina(parent: Instance, base: Vector3, style: Style, rng: 
 		bottle.CanCollide = false
 	end
 
-	-- Tables around the floor. The bearings skip due -X, which is the bar,
-	-- and are pulled off due +X, which is the walk in from the door.
-	for _, bearing in { 30, 90, 270, 330 } do
-		local angle = math.rad(bearing)
-		local at = base + Vector3.new(math.cos(angle) * 22, 0, math.sin(angle) * 22)
+	local seatHigh = metres(0.45)
+	local tableHigh = metres(0.75)
+	local tableWide = metres(0.9) * BULK
 
+	--- A stem and a seat, rather than the drum a solid cylinder reads as.
+	local function stool(at: Vector3)
 		cylinder(
 			parent,
-			CFrame.new(at + Vector3.new(0, 4, 0)) * UPRIGHT,
-			Vector3.new(8, 3, 3),
+			CFrame.new(at + Vector3.new(0, seatHigh * 0.5, 0)) * UPRIGHT,
+			Vector3.new(seatHigh, 0.6, 0.6),
+			Palette.DarkMetal,
+			Enum.Material.Metal
+		).Name =
+			"StoolStem"
+		cylinder(
+			parent,
+			CFrame.new(at + Vector3.new(0, seatHigh, 0)) * UPRIGHT,
+			Vector3.new(0.4, metres(0.42) * BULK, metres(0.42) * BULK),
+			dark,
+			Enum.Material.Metal
+		).Name =
+			"Stool"
+	end
+
+	local function cantinaTable(at: Vector3)
+		cylinder(
+			parent,
+			CFrame.new(at + Vector3.new(0, tableHigh * 0.5, 0)) * UPRIGHT,
+			Vector3.new(tableHigh, 1, 1),
 			Palette.DarkMetal,
 			Enum.Material.Metal
 		).Name =
 			"TablePost"
+		-- A pedestal table on a bare post falls over, and looks like it.
 		cylinder(
 			parent,
-			CFrame.new(at + Vector3.new(0, 8.5, 0)) * UPRIGHT,
-			Vector3.new(1.5, 13, 13),
+			CFrame.new(at + Vector3.new(0, 0.25, 0)) * UPRIGHT,
+			Vector3.new(0.5, tableWide * 0.6, tableWide * 0.6),
+			Palette.DarkMetal,
+			Enum.Material.Metal
+		).Name =
+			"TableFoot"
+		cylinder(
+			parent,
+			CFrame.new(at + Vector3.new(0, tableHigh, 0)) * UPRIGHT,
+			Vector3.new(0.4, tableWide, tableWide),
 			Palette.SmugglerBrown,
 			Enum.Material.WoodPlanks
 		).Name =
 			"Table"
 
-		for stool = 1, 3 do
-			local around = angle + stool * (math.pi * 2 / 3)
-			cylinder(
-				parent,
-				CFrame.new(at + Vector3.new(math.cos(around) * 11, 3, math.sin(around) * 11)) * UPRIGHT,
-				Vector3.new(6, 6, 6),
-				dark,
-				Enum.Material.Metal
-			).Name =
-				"Stool"
+		local reach = tableWide * 0.5 + metres(0.6)
+		for i = 1, 3 do
+			local around = i * (math.pi * 2 / 3)
+			stool(at + Vector3.new(math.cos(around) * reach, 0, math.sin(around) * reach))
 		end
+	end
+
+	--[[
+		Tables around the floor, and stools along the bar.
+
+		Eight tables, not the four this started with. At the scale the people
+		are, a table and its stools is a cluster about nine studs across, and
+		four of those in a 74-stud drum is a hall with the furniture pushed
+		against the walls. The bearings skip due -X, which is the bar, and
+		due +X, which is the walk in from the door.
+	]]
+	for _, bearing in { 40, 75, 110, 250, 285, 320 } do
+		local angle = math.rad(bearing)
+		cantinaTable(base + Vector3.new(math.cos(angle) * 27, 0, math.sin(angle) * 27))
+	end
+	for _, bearing in { 90, 270 } do
+		local angle = math.rad(bearing)
+		cantinaTable(base + Vector3.new(math.cos(angle) * 14, 0, math.sin(angle) * 14))
+	end
+	for i = -2, 2 do
+		stool(base + Vector3.new(-12, 0, i * 8))
 	end
 
 	ceilingLamp(parent, base + Vector3.new(0, ROOM_HEIGHT - 3, 0), style.windowColor, 60)
@@ -4365,15 +4458,15 @@ local function buildBase(parent: Instance, base: Vector3, style: Style, rng: Ran
 	-- Bunks down the back wall with footlockers beside them, and a briefing
 	-- table: enough that the room says who sleeps here.
 	for i = -1, 1 do
-		local at = base + Vector3.new(-22, 0, i * 17)
+		local at = base + Vector3.new(-22, 0, i * 12)
 		bunk(parent, at, wallColor)
-		footlocker(parent, at + Vector3.new(13, 0, 0))
+		footlocker(parent, at + Vector3.new(6, 0, 0))
 	end
 
 	table_(
 		parent,
 		base + Vector3.new(8, 0, 0),
-		Vector3.new(20, 5, 14),
+		Vector3.new(12, metres(0.9), 7),
 		Palette.WornSteel,
 		Enum.Material.Metal
 	)
@@ -4381,8 +4474,8 @@ local function buildBase(parent: Instance, base: Vector3, style: Style, rng: Ran
 	-- reads as projected rather than as a slab resting on the furniture.
 	local holo = block(
 		parent,
-		CFrame.new(base + Vector3.new(8, 9, 0)),
-		Vector3.new(16, 4, 10),
+		CFrame.new(base + Vector3.new(8, metres(0.9) + 2, 0)),
+		Vector3.new(10, 3.5, 6),
 		style.windowColor,
 		Enum.Material.Neon
 	)
@@ -4533,15 +4626,16 @@ local function buildMarket(parent: Instance, base: Vector3, style: Style, rng: R
 				"Awning"
 			block(
 				parent,
-				CFrame.new(centre + Vector3.new(0, 3.5, 0)),
-				Vector3.new(22, 7, 8),
+				CFrame.new(centre + Vector3.new(0, metres(1.0) * 0.5, 0)),
+				Vector3.new(22, metres(1.0), metres(0.8) * BULK),
 				style.buildingColors[1],
 				Enum.Material.WoodPlanks
 			).Name =
 				"Counter"
 
+			-- Crates a trader lifts, not the freight ones out on the street.
 			for _ = 1, 2 do
-				local size = rng:NextNumber(4, 7)
+				local size = rng:NextNumber(metres(0.6), metres(1.1))
 				block(
 					parent,
 					CFrame.new(

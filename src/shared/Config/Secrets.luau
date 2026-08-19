@@ -404,15 +404,22 @@ function Secrets.validate(
 					`{id}: rolls "{item}", which is not equippable, so nothing would read them`
 				)
 			end
-			local slot = if item and Weapons.exists(item) then "Weapon" else "Outfit"
+			--[[
+				A weapon's slot is its own class, so this catches a saber handed
+				out with blaster damage on it -- the same mistake a random drop
+				used to be able to make. Asked as "is it in the pool?" rather
+				than by comparing slot names, so the two cannot disagree.
+			]]
+			local slot = if item and Weapons.exists(item) then Weapons.get(item).class else "Outfit"
+			local legal: { [string]: boolean } = {}
+			for _, a in Affixes.forSlot(slot) do
+				legal[a.stat] = true
+			end
 			for stat in rolls do
 				if not Affixes.exists(stat) then
 					table.insert(problems, `{id}: rolls "{stat}", which is not an affix`)
-				else
-					local affix = Affixes.get(stat)
-					if affix.slot ~= "Any" and affix.slot ~= slot then
-						table.insert(problems, `{id}: rolls "{stat}" ({affix.slot}) onto a {slot}`)
-					end
+				elseif not legal[stat] then
+					table.insert(problems, `{id}: rolls "{stat}" ({Affixes.get(stat).slot}) onto a {slot}`)
 				end
 			end
 		end

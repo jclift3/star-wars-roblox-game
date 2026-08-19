@@ -23,6 +23,7 @@ local Factions = require(Shared.Config.Factions)
 local Origins = require(Shared.Config.Origins)
 local Planets = require(Shared.Config.Planets)
 local Progression = require(Shared.Config.Progression)
+local Weapons = require(Shared.Config.Weapons)
 local PlanetBuilder = require(script.Parent.Parent.World.PlanetBuilder)
 
 local WorldService = {
@@ -91,7 +92,7 @@ function WorldService.init()
 
 	-- The same rule, one system over: an affix whose stat nothing reads is a
 	-- drop that shows the player a number and then does nothing with it.
-	for _, problem in Affixes.validate(Progression.LIVE_STATS) do
+	for _, problem in Affixes.validate(Progression.LIVE_STATS, Weapons.classes()) do
 		warn(`[WorldService] affix config: {problem}`)
 	end
 

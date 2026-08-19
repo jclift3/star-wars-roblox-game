@@ -36,6 +36,9 @@
 
 	`strengthandhonor` is there for the opposite reason: reputation is not hard
 	to read, it is just too slow to reach by playing to test what hangs off it.
+	`whosyourdaddy` is the same argument about the top of the game: the last
+	tier of ships is gated on level 36 and six figures at once, so a code that
+	lifts one without the other reaches nothing.
 
 	HOW YOU ENTER ONE
 	Type it in the normal Roblox chat. `Player.Chatted` still fires server-side
@@ -55,10 +58,13 @@ local Inventory = require(Shared.Core.Inventory)
 local Affixes = require(Shared.Config.Affixes)
 local Loot = require(Shared.Config.Loot)
 local Origins = require(Shared.Config.Origins)
+local Outfits = require(Shared.Config.Outfits)
 local Factions = require(Shared.Config.Factions)
 local Planets = require(Shared.Config.Planets)
 local Progression = require(Shared.Config.Progression)
 local Radiant = require(Shared.Config.Radiant)
+local Ships = require(Shared.Config.Ships)
+local Weapons = require(Shared.Config.Weapons)
 local ServiceLoader = require(Shared.Core.ServiceLoader)
 
 type PlayerProfile = Types.PlayerProfile
@@ -141,6 +147,43 @@ codes.thereisnocow = function(player: Player)
 	progression().awardCredits(player, BOOST_CREDITS, true)
 	liftToLevel(player, BOOST_LEVEL)
 	tell(player, `The cow says nothing. +{BOOST_CREDITS} cr, level {BOOST_LEVEL}.`)
+end
+
+--- The dearest thing anyone sells, whatever it currently is.
+local function topPrice(): number
+	local top = 0
+	for _, id in Ships.ids() do
+		top = math.max(top, Ships.get(id).cost)
+	end
+	for _, id in Weapons.ids() do
+		top = math.max(top, Weapons.get(id).cost)
+	end
+	for _, id in Outfits.ids() do
+		top = math.max(top, Outfits.get(id).cost)
+	end
+	return top
+end
+
+--[[
+	The top of the game: max level, and the wallet to shop there with.
+
+	`thereisnocow` stops at 12 on purpose -- it is tuned to open most of the
+	map without skipping the levelling the game is about, and moving it would
+	cost the one code that gives a *playable* character. But the deep end is
+	gated twice over, and level alone does not reach it: reported from play,
+	2026-08-18, a Czerka Dagger wants level 36 and 180,950 credits, and the
+	only way to see whether a starship flies is to be able to buy one.
+
+	The purse is five times the dearest item rather than a round number, so a
+	pricier ship added tomorrow does not quietly make this code useless -- and
+	so you can buy the thing, buy the next thing, and still absorb whatever a
+	vendor's price multiplier takes.
+]]
+codes.whosyourdaddy = function(player: Player)
+	local credits = topPrice() * 5
+	progression().awardCredits(player, credits, true)
+	liftToLevel(player, Progression.MAX_LEVEL)
+	tell(player, `Level {Progression.MAX_LEVEL}, and {credits} credits. Buy something silly.`)
 end
 
 --[[

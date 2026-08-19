@@ -16,6 +16,23 @@
 	checked rather than believed. When the ship and Force systems land, move
 	their stats into that list and the affixes can follow.
 
+	...AND MUST MOVE IT ON THE ITEM IT ROLLED ON.
+	Reported from play, 2026-08-18: *"when I'm wielding a lightsaber, seems
+	weird to modify blaster power since that's not a thing."* Exactly right,
+	and the rule above had been passing it: `BlasterDamageMult` does have a
+	live reader, so a "Vicious Lightsaber" cleared validation -- but the reader
+	is `CombatService.resolveShot`, which returns early on anything that is not
+	`class == "Blaster"`. The number was real, printed, priced into the item's
+	rarity, and worth nothing.
+
+	It was not one affix. A saber could roll blaster damage AND fire rate
+	("Rapid Lightsaber", on a weapon whose swing cooldown takes no multiplier
+	at all), a blaster could roll saber damage, and a Gaderffii could roll
+	either. So `slot` is now the weapon's own class rather than the word
+	"Weapon", and the only affixes that may say "Weapon" are the ones every
+	class really reads. The bug was that the axis was too coarse, not that
+	anybody wrote the wrong line.
+
 	RARITY IS DERIVED, NOT STORED.
 	An item's rarity is just how many affixes it rolled, so `ItemStack` needs no
 	extra field and the two can never disagree. `Inventory.ItemStack.rolls` is
@@ -70,11 +87,25 @@ Affixes.MAX_AFFIXES = 4
 -- The affixes
 --------------------------------------------------------------------------------
 
+--[[
+	What an item IS, and therefore which pool it draws from. A weapon's is its
+	`WeaponDef.class`, passed straight through by `Loot` -- so the two cannot
+	drift, and a weapon class added to the catalogue arrives here by itself.
+]]
+Affixes.ITEM_SLOTS = { "Blaster", "Saber", "Melee", "Outfit" }
+
+local IS_WEAPON: { [string]: boolean } = { Blaster = true, Saber = true, Melee = true }
+
 export type AffixDef = {
 	stat: string,
 	-- Shown in the item's detail pane.
 	label: string,
-	-- "Weapon", "Outfit", or "Any". A blaster has no business rolling armour.
+	--[[
+		One of `ITEM_SLOTS` -- or "Weapon" for something every weapon class
+		reads, or "Any" for something the wearer reads no matter what it came
+		on. A blaster has no business rolling armour, and a lightsaber has
+		none rolling fire rate.
+	]]
 	slot: string,
 	--[[
 		Roll range at item level 1, widened by `perLevel` for each level above
@@ -102,12 +133,12 @@ local function def(a: AffixDef)
 	defs[a.stat] = a
 end
 
--- Weapons -------------------------------------------------------------------
+-- Blasters ------------------------------------------------------------------
 
 def({
 	stat = "BlasterDamageMult",
 	label = "Blaster damage",
-	slot = "Weapon",
+	slot = "Blaster",
 	min = 0.04,
 	max = 0.09,
 	perLevel = 0.0015,
@@ -116,11 +147,19 @@ def({
 	suffix = false,
 })
 
--- Negative on purpose: the stat is a cooldown multiplier, so less is faster.
+--[[
+	Negative on purpose: the stat is a cooldown multiplier, so less is faster.
+
+	Blasters only, and not because a fast lightsaber is a silly idea -- because
+	`CombatService.onSaberSwing` calls `Weapons.cooldown(weaponId)` with no
+	multiplier, so there is nothing on the swing side for this to move. If a
+	saber speed stat is ever wired up, it gets its own affix here; borrowing
+	this one would be the same mistake in the other direction.
+]]
 def({
 	stat = "BlasterCooldownMult",
 	label = "Fire rate",
-	slot = "Weapon",
+	slot = "Blaster",
 	min = -0.09,
 	max = -0.03,
 	perLevel = -0.0015,
@@ -129,10 +168,12 @@ def({
 	suffix = false,
 })
 
+-- Sabers --------------------------------------------------------------------
+
 def({
 	stat = "SaberDamageMult",
 	label = "Saber damage",
-	slot = "Weapon",
+	slot = "Saber",
 	min = 0.04,
 	max = 0.09,
 	perLevel = 0.0015,
@@ -141,6 +182,10 @@ def({
 	suffix = false,
 })
 
+-- Any weapon ----------------------------------------------------------------
+
+-- The one weapon stat every class really reads: `resolveShot` rolls crit on a
+-- bolt and `swingMelee` rolls it on a swing, off this same number.
 def({
 	stat = "CritChance",
 	label = "Critical chance",
@@ -246,11 +291,17 @@ local function tidy(value: number): number
 	return math.floor(value * 10000 + 0.5) / 10000
 end
 
---- The affixes that may appear on a given slot ("Weapon" or "Outfit"), sorted.
+--[[
+	The affixes that may appear on a given item slot, sorted. `slot` is one of
+	`ITEM_SLOTS` -- a weapon's own `WeaponDef.class`, or "Outfit". A weapon slot
+	also draws the "Weapon" pool (what every class reads) and everything draws
+	"Any".
+]]
 function Affixes.forSlot(slot: string): { AffixDef }
 	local out: { AffixDef } = {}
+	local weapon = IS_WEAPON[slot] == true
 	for _, a in defs do
-		if a.slot == slot or a.slot == "Any" then
+		if a.slot == slot or a.slot == "Any" or (weapon and a.slot == "Weapon") then
 			table.insert(out, a)
 		end
 	end
@@ -470,15 +521,24 @@ end
 	table, which is Progression's, and skills are checked against the same one
 	-- two copies of "which stats are real" would drift, and the whole point of
 	the table is that it does not.
+
+	`weaponClasses` is `Weapons.classes()` -- the classes that actually exist in
+	the catalogue, not a list written here. A `Thrown` weapon added tomorrow
+	should make this complain tomorrow, without anyone remembering to come back.
 ]]
-function Affixes.validate(liveStats: { [string]: string }): { string }
+function Affixes.validate(liveStats: { [string]: string }, weaponClasses: { string }): { string }
 	local problems: { string } = {}
+
+	local known: { [string]: boolean } = { Weapon = true, Any = true }
+	for _, slot in Affixes.ITEM_SLOTS do
+		known[slot] = true
+	end
 
 	for stat, a in defs do
 		if not liveStats[stat] then
 			table.insert(problems, `"{stat}" has no live reader, so rolling it would do nothing`)
 		end
-		if a.slot ~= "Weapon" and a.slot ~= "Outfit" and a.slot ~= "Any" then
+		if not known[a.slot] then
 			table.insert(problems, `"{stat}" has unknown slot "{a.slot}"`)
 		end
 		if a.min > a.max then
@@ -492,9 +552,20 @@ function Affixes.validate(liveStats: { [string]: string }): { string }
 		end
 	end
 
-	-- Both slots must be able to fill a Legendary, or the top rarity is
-	-- unreachable for one of them and the drop table quietly lies.
-	for _, slot in { "Weapon", "Outfit" } do
+	--[[
+		Every slot a drop can actually land in must be able to fill a Legendary,
+		or the top rarity is unreachable there and the drop table quietly lies.
+
+		Checked against the weapon classes in the catalogue rather than a list
+		here, because the failure this catches is a *new* class -- one nobody
+		wrote affixes for would draw only the "Weapon" and "Any" pools.
+	]]
+	local slots = table.clone(weaponClasses)
+	table.insert(slots, "Outfit")
+	for _, slot in slots do
+		if not known[slot] then
+			table.insert(problems, `weapons have class "{slot}" but no affix slot is named that`)
+		end
 		local pool = #Affixes.forSlot(slot)
 		if pool < Affixes.MAX_AFFIXES then
 			table.insert(problems, `only {pool} affixes can roll on {slot}, so it can never be Legendary`)

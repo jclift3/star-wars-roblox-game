@@ -69,6 +69,7 @@ published place under another account.
 | Code | Does |
 | --- | --- |
 | `thereisnocow` | 10,000 credits and level 12 |
+| `whosyourdaddy` | Level 50 and five times the price of the dearest thing anyone sells. The only way to reach the top tier of ships, which is gated on level 36 **and** six figures at once |
 | `greedisgood` | One drop of each rarity, Common through Legendary |
 | `iseedeadpeople` | Samples 5,000 drops and prints a histogram. Output window, not a toast |
 | `showmethemoney` | Prints every radiant mission on every planet and which are posted today. Output window |
