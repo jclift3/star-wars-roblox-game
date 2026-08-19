@@ -31,9 +31,10 @@ local UserInputService = game:GetService("UserInputService")
 local Shared = game:GetService("ReplicatedStorage"):WaitForChild("Shared")
 local Missions = require(Shared.Config.Missions)
 local Net = require(Shared.Core.Net)
-local Palette = require(Shared.Config.Palette)
 local Panels = require(Shared.Core.Panels)
 local ServiceLoader = require(Shared.Core.ServiceLoader)
+
+local Theme = require(script.Parent.Parent.UI.Theme)
 
 local MissionBoardController = {
 	name = "MissionBoardController",
@@ -42,14 +43,14 @@ local MissionBoardController = {
 
 local player = Players.LocalPlayer
 
-local PANEL = Color3.fromRGB(14, 16, 20)
-local ROW = Color3.fromRGB(26, 30, 37)
-local ROW_SELECTED = Color3.fromRGB(44, 52, 64)
-local ACCENT = Palette.RebelOrange
-local TEXT = Color3.fromRGB(232, 236, 242)
-local DIM = Color3.fromRGB(150, 158, 170)
-local GOOD = Color3.fromRGB(96, 190, 120)
-local BAD = Color3.fromRGB(198, 78, 78)
+local PANEL = Theme.PANEL
+local ROW = Theme.ROW
+local ROW_SELECTED = Theme.ROW_SELECTED
+local ACCENT = Theme.ACCENT
+local TEXT = Theme.TEXT
+local DIM = Theme.DIM
+local GOOD = Theme.GOOD
+local BAD = Theme.BAD
 
 local TOGGLE_KEY = Panels.toggleKey("MissionBoardController")
 
@@ -87,44 +88,9 @@ local function state()
 	return ServiceLoader.get("ClientState")
 end
 
---------------------------------------------------------------------------------
--- Construction helpers
---------------------------------------------------------------------------------
-
-local function corner(parent: Instance, radius: number)
-	local c = Instance.new("UICorner")
-	c.CornerRadius = UDim.new(0, radius)
-	c.Parent = parent
-end
-
-local function text(name: string, parent: Instance, size: number, colour: Color3?): TextLabel
-	local l = Instance.new("TextLabel")
-	l.Name = name
-	l.BackgroundTransparency = 1
-	l.Font = Enum.Font.Gotham
-	l.TextSize = size
-	l.TextColor3 = colour or TEXT
-	l.TextXAlignment = Enum.TextXAlignment.Left
-	l.TextYAlignment = Enum.TextYAlignment.Top
-	l.Text = ""
-	l.Parent = parent
-	return l
-end
-
-local function button(name: string, parent: Instance, label: string): TextButton
-	local b = Instance.new("TextButton")
-	b.Name = name
-	b.AutoButtonColor = true
-	b.BackgroundColor3 = ROW
-	b.BorderSizePixel = 0
-	b.Font = Enum.Font.GothamBold
-	b.TextSize = 13
-	b.TextColor3 = TEXT
-	b.Text = label
-	b.Parent = parent
-	corner(b, 4)
-	return b
-end
+local corner = Theme.corner
+local text = Theme.text
+local button = Theme.button
 
 --------------------------------------------------------------------------------
 -- Layout

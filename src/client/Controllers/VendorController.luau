@@ -31,9 +31,10 @@ local Workspace = game:GetService("Workspace")
 
 local Shared = game:GetService("ReplicatedStorage"):WaitForChild("Shared")
 local NPCArchetypes = require(Shared.Config.NPCArchetypes)
-local Palette = require(Shared.Config.Palette)
 local Panels = require(Shared.Core.Panels)
 local Shops = require(Shared.Config.Shops)
+
+local Theme = require(script.Parent.Parent.UI.Theme)
 
 local VendorController = {
 	name = "VendorController",
@@ -42,9 +43,9 @@ local VendorController = {
 
 local player = Players.LocalPlayer
 
-local ACCENT = Palette.RebelOrange
-local TEXT = Color3.fromRGB(232, 236, 242)
-local DIM = Color3.fromRGB(150, 154, 162)
+local ACCENT = Theme.ACCENT
+local TEXT = Theme.TEXT
+local DIM = Theme.DIM
 
 -- Far enough to pick a stall out across a market, close enough that a town on
 -- the horizon is not a wall of floating text.

@@ -34,6 +34,8 @@ local Panels = require(Shared.Core.Panels)
 local Planets = require(Shared.Config.Planets)
 local ServiceLoader = require(Shared.Core.ServiceLoader)
 
+local Theme = require(script.Parent.Parent.UI.Theme)
+
 local ZoneController = {
 	name = "ZoneController",
 	priority = 43,
@@ -41,8 +43,8 @@ local ZoneController = {
 
 local player = Players.LocalPlayer
 
-local TEXT = Color3.fromRGB(232, 236, 242)
-local DIM = Color3.fromRGB(150, 158, 170)
+local TEXT = Theme.TEXT
+local DIM = Theme.DIM
 local SAFE = Color3.fromRGB(120, 196, 130)
 local DANGER = Color3.fromRGB(228, 96, 84)
 

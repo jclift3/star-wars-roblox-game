@@ -2222,6 +2222,66 @@ shorter; this decides what is in front of you. `iamscrapper` and
    count that no longer matches the tier ceiling, a galaxy with no terminals, or
    a hardest lock nobody could ever reach all report there.
 
+### 9.7 Crystals, sockets and the new bag — **new, 2026-08-19**
+
+The test of ROADMAP 4.4. `whosyourdaddy` for credits and a level, then
+**`greedisgood`**, which hands you one drop of every rarity **fully socketed**
+plus **one of every crystal** — four colours × five grades. Playing for a
+Legendary is past a thousand kills, and comparing one colour across four slots is
+not something anybody is going to do by hand.
+
+1. **Open B and look at it.** Every row has a coloured bar down its left edge and
+   a row of **◆** pips in the same colour — grey through orange as the rarity
+   climbs — and the socketed rows have small round dots on the right, one per
+   hole. Pick a row: the right-hand pane shows **the actual item turning slowly**,
+   not an icon. A saber is a saber, a speeder is a speeder, an outfit is a
+   *person wearing it*.
+2. **The bars.** Damage, rate and range draw as bars against the best in the
+   game, so something in the catalogue fills each one completely — that is
+   correct, not a bug. Select an item you are **not** wearing and a green **▲**
+   or red **▼** appears beside each number, against what you have equipped. Equip
+   it and the arrows go.
+3. **Socket a Crimson into a lightsaber.** Tap an empty dot in the detail pane,
+   pick the stone from the list, and it goes in **for free, anywhere** — no
+   vendor needed. Then:
+   - the **blade, its glow and its trail turn red** in your hand, immediately,
+     without dying or re-equipping;
+   - the DAMAGE bar goes up and the number agrees with what enemies actually
+     take;
+   - the crystal is **gone from the bag**.
+4. **Put the same colour in a blaster.** The gun does not change colour — it has
+   no lit part — but **the bolts do**. Crimson is damage in a weapon; Azure is
+   fire rate on a blaster and **crit on a blade**, which is the whole idea: what
+   a stone does depends on what it is in. The picker prints the effect for the
+   item you are actually socketing, so check the line changes when you open it
+   from a coat instead.
+5. **Three stones, one item.** Fill all three holes. The blade takes the colour
+   of the **first** socket — lowest index wins, a rule you can see and control by
+   choosing which hole to fill. Three damage crystals should read as **roughly
+   the sum**, not a runaway product.
+6. **Removal is a vendor service.** Standing in open country, the dots are not
+   removable and the hint says so. Walk to a merchant (within 30 studs) and the
+   same dot quotes **a price in credits and warns the stone is destroyed**. It
+   takes **two presses**, like DISCARD. After it, the credits are gone, the hole
+   is empty, and **the crystal is not in your bag** — that is deliberate, not a
+   lost item.
+7. **The dearest trader is the worst place to change your mind.** Compare the
+   removal price at two vendors with different markups. Unlike selling, this one
+   *multiplies* by the vendor's spread, because you are buying a service.
+8. **Common finally drops something.** Farm ordinary kills. Some now give a plain
+   item with **no affixes but one or two holes** — that used to be no drop at
+   all. Loose crystals drop too; they stack, and they sit under the new
+   **CRYSTALS** tab.
+9. **The crystals tab.** A crystal selected there shows what it does in **each of
+   the four slots** and its action button reads *FIT FROM A WEAPON OR OUTFIT* and
+   does nothing — you socket from the item, never from the stone.
+10. **Two players.** One brother sockets a Crimson; **the other must see the red
+    blade**, and see the red bolts when he fires. The tint is server-set. A
+    client that disagreed would be the bug worth reporting.
+11. **The panel closes clean.** Press **B** or Escape with the crystal picker
+    open: it should back out of the picker first, then close. Nothing should be
+    left spinning.
+
 ---
 
 ## 10. Persistence — needs two sessions
@@ -2261,6 +2321,15 @@ The only checks that cannot be done in one sitting.
    Rejoin once more: the message must **not** appear a second time. It is not
    gated on a version flag — it simply finds nothing left to fix, which is what
    makes it safe to leave in place.
+10. **Sockets and their contents survive.** Socket a crystal, rejoin: the holes
+    are still there, the stone is still in the one you put it in, the stat is
+    still on you and the blade is still the colour you made it. A **save made
+    before 2026-08-19** has no sockets at all, which is already the right answer
+    — it must load with no holes and no error, not a warning and not a repair
+    pass.
+11. **A socketed item does not merge with a bare one.** Carry a plain DH-17 and a
+    socketed DH-17 and confirm they stay two rows across a rejoin. They are not
+    the same item, and one eating the other would eat the crystal with it.
 
 ---
 

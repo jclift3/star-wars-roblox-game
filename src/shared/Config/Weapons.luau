@@ -1110,6 +1110,42 @@ end
 	for it is a silent gap. Reading the catalogue means adding one weapon of a
 	new class makes `Affixes.validate` say so at boot.
 ]]
+export type Maxima = {
+	damage: number,
+	fireRate: number,
+	range: number,
+}
+
+local maxima: Maxima? = nil
+
+--[[
+	The largest damage, rate and range anywhere in the catalogue.
+
+	Exists so the inventory panel can draw a stat as a bar, which needs a full
+	length to divide by. Derived and memoised rather than authored for the same
+	reason `classes` is: an authored `MAX_DAMAGE = 60` is a number that is
+	correct on the day it is typed and silently wrong the first time somebody
+	adds a heavier rifle -- and the symptom, a bar that sits at 100% for two
+	different weapons, is exactly the sort of thing nobody reports.
+
+	It follows that some weapon always fills each bar completely. That is the
+	honest reading: the bar means "against the best in the game", not "against
+	an arbitrary ceiling".
+]]
+function Weapons.maxima(): Maxima
+	if maxima then
+		return maxima
+	end
+	local m: Maxima = { damage = 0, fireRate = 0, range = 0 }
+	for _, w in defs do
+		m.damage = math.max(m.damage, w.damage)
+		m.fireRate = math.max(m.fireRate, w.fireRate)
+		m.range = math.max(m.range, w.range)
+	end
+	maxima = m
+	return m
+end
+
 function Weapons.classes(): { string }
 	local seen: { [string]: boolean } = {}
 	local out = {}

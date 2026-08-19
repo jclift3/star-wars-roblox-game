@@ -1855,7 +1855,10 @@ configs without closing a require cycle.
   here?" for every district on all nine planets today
 - ~~Radiant missions composed from the tables that already exist~~ — **done**,
   see 4.0. The four planets that shipped with no missions at all now have some
-- Weapon mods / attachments layered onto `Config/Weapons.luau`
+- ~~Weapon mods / attachments layered onto `Config/Weapons.luau`~~ — **done
+  2026-08-19** as **crystals and sockets**, see 4.4. Not layered onto `Weapons`
+  in the end: a mod that only fits a blaster is half a system, and the same
+  stone belongs in a coat
 - Faction reputation consequences. Missions already award rep
   (`rep = { Republic = 120, Empire = -180 }`) and nothing reads it back.
   Phase 3b needs this, so it is no longer optional
@@ -2301,6 +2304,119 @@ worked without it. See [LIVING-NPCS.md](LIVING-NPCS.md) §2.
 - **The one refusal:** a rolled item into a full bag does not pay and does not
   raise the flag, so the secret can be earned again once there is room. A unique
   object that silently evaporates is a loss a player cannot diagnose.
+
+### 4.4 Crystals, sockets and the panel that shows them — **DONE 2026-08-19**
+Raised 2026-08-19: *"we need better visuals, infographics, designs in these
+menus"* and *"a more robust / elaborate gems / rarity setup with various gemstone
+colors that have different abilities and improvements. Very similar to what
+Diablo has."* Both halves were fair. The rarity system that shipped the week
+before is **rolled at drop time and never touched again** — the player finds a
+Legendary or does not, and has no decision to make about it afterwards. And the
+panel showing all of it was grey rows with no icons, no bars and no picture of
+the thing being looked at.
+
+Shipped as three commits: the stones, the world payoff, the panel.
+
+**Flavour is "crystals", not gems.** Focusing crystals are era-correct, they are
+already why a blade is the colour it is, and the word carries no franchise-
+specific trademark into a public repo.
+
+**What a crystal does depends on what it is socketed into.** This is the Diablo
+property worth stealing and the reason the whole thing is not just another affix:
+Crimson is damage in a weapon and armour on a coat, Azure is fire rate on a
+blaster and crit on a blade. It maps exactly onto the `Affixes.ITEM_SLOTS` split
+built the day before, so a stone's four meanings are four legal stats rather than
+four inventions.
+
+- **Nothing numeric is authored in `Crystals.luau`.** The obvious shape is twenty
+  rows with a stat and a number on each, and it is wrong twice: it is twenty rows
+  to retune every time an affix moves, and nothing stops row nineteen quietly
+  disagreeing with the affix that moves the same stat. A crystal's value is
+  instead the midpoint of the affix for its stat times its grade's scale, so
+  there is one balance curve per stat and a crystal cannot drift away from the
+  enchantment it competes with. Four colours × five grades
+  (`0.4 / 0.7 / 1.0 / 1.5 / 2.2`), ids derived — `CrimsonChipped`, `Crimson`,
+  `CrimsonPerfect` — composed at require time, the `Radiant.luau` pattern.
+- **Four colours, not five, and that is the ceiling.** The legal stats for a slot
+  come from `Affixes.forSlot` and there are only five or six. These ten
+  assignments are very nearly all of them and nothing repeats except `CritChance`
+  inside Azure. A fifth colour would have to duplicate a line or invent a stat,
+  and inventing a stat is the four-edit job from `MeleeDamageMult`.
+- **A crystal may only move a stat an affix on that slot could move**, and
+  `Crystals.validate` checks it at boot beside `Affixes.validate`. This is
+  yesterday's bug generalised — a saber rolling `BlasterDamageMult` passed
+  validate because the stat had *a* reader, just not a reader on *that item*.
+  `Affixes.statsForSlot` was extracted from the loop `Loot.repair` and
+  `Secrets.validate` had each built inline so the rule has one implementation. It
+  is also why Azure grants crit and not cooldown on a saber: `onSaberSwing` calls
+  `Weapons.cooldown(id)` with no multiplier at all.
+- **Sockets are what finally gives Common a job.** `Loot.rollDrop` treated a nil
+  affix roll as no drop at all, which is to say Common did not exist — it was the
+  word for the 65% of kills that gave you nothing. A drop now survives if it has
+  affixes *or* holes (`Crystals.MAX_SOCKETS = 3`, reached at item level 24), so a
+  plain socketed DH-17 is worth stooping for.
+- **Socketing is free and can be done anywhere; removal is a vendor service, it
+  costs credits, and it destroys the stone.** Diablo's own rule, and it earns its
+  keep twice here: vendors get a job they did not have, and the economy gets the
+  credit sink it lacked at the top end. `Shops.EXTRACT_FRACTION` *multiplies* by
+  the vendor's `priceMult` rather than dividing by it, unlike `SELL_FRACTION`,
+  because the player is buying a service — so the dearest trader is also the
+  worst place to change your mind, the mirror of the sell spread.
+- **`socketed` is a map keyed by the index as a string, never an array** — the
+  third time in this project, and the same reason both times before. No migration
+  was needed: an old save has no sockets and `nil` is already the right answer.
+
+**The world payoff, which is the point of choosing crystals over a stat stick.**
+A crimson stone makes the blade red, its glow red, its trail red; in a blaster it
+makes the bolts red. Colour was already pure data (`WeaponPart.color`,
+`WeaponPart.light.color`, `WeaponDef.boltColor`), so this is a tint applied at
+build time and never a mutation of the config table. `WeaponModel.build` takes an
+optional tint and recolours **any part carrying a `light`** plus its `PointLight`
+and `Trail` — "the emissive part is the blade" is derivable from data already
+there, so no new field. The tint rides on a server-set attribute rather than
+being computed per client, so the shooter and everyone watching read the same
+number and a hacked client can only recolour a bolt on its own screen. Which
+matters here specifically: two brothers, one room, one blade each.
+
+**The panel.** `src/client/UI/Theme.luau` is new and is the boring half — seven
+controllers had each redeclared the same eight colours and three widget helpers,
+and `VendorController`'s `DIM` had already drifted two points off everyone
+else's. Eleven controllers now share one module, plus `stroke`, `gradient`, `bar`
+and `pips`. `HudController` keeps its own `text` on purpose and says why: the
+shared one pins `TextYAlignment` to Top, which is right for a panel label in a
+tall box and wrong for every one-line label on the HUD.
+
+`InventoryController` was then rebuilt against it:
+
+- **A `ViewportFrame` showing the real thing.** A `WorldModel`, a `Camera` and a
+  `PointLight`, holding the actual `WeaponModel` / `ShipModel` / `RigBuilder`
+  output — in its real colours, *including the crystal tint* — turning on
+  `RenderStepped`. Viable only because every model in this game is built from
+  `Instance.new`; a project with mesh ids would need an asset here and this one
+  never will. The rig arrives with a `Humanoid` that tries to stand and a stock
+  `Animate` script, so `inert()` anchors every part and destroys both.
+- **Stat bars against a derived maximum.** `Weapons.maxima()` and
+  `Outfits.maxima()` walk the catalogue and memoise, in the spirit of
+  `Weapons.classes()`. An authored `MAX_DAMAGE = 60` is correct on the day it is
+  typed and silently wrong the first time somebody adds a heavier rifle, and the
+  symptom — two different weapons both filling the bar — is exactly the sort of
+  thing nobody reports. It follows that some weapon always fills each bar
+  completely, which is the honest reading: the bar means "against the best in the
+  game".
+- **`StatLine` carries `raw` and `max` beside `value`.** The alternative was
+  parsing `"1.4/s"` back into a number on the client, which is a bug waiting for
+  the first stat that prints a unit. Both absent means the line is text only, the
+  right answer for a ship's seat count and for a loose crystal.
+- **Rarity colour comes from `Affixes.rarityAt` in a loop**, exactly as
+  `HudController` does it, so the panel and the drop toast cannot disagree about
+  what Epic looks like.
+- **Everything below the header is one `ScrollingFrame`.** A Legendary outfit is
+  three bars, four affixes, a level line and three sockets; a Common blaster is
+  three bars. Pixel offsets that fit both would eventually push the *clickable*
+  socket row off the bottom edge.
+- **Two-press confirm on removal**, matching the existing DISCARD button, because
+  it spends credits and destroys a stone. The button is simply absent away from a
+  vendor rather than present and refusing.
 
 ---
 

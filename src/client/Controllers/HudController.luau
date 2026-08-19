@@ -36,6 +36,8 @@ local Furnishings = require(Shared.Config.Furnishings)
 local ServiceLoader = require(Shared.Core.ServiceLoader)
 local WorldClock = require(Shared.Core.WorldClock)
 
+local Theme = require(script.Parent.Parent.UI.Theme)
+
 local HudController = {
 	name = "HudController",
 	priority = 40,
@@ -43,10 +45,10 @@ local HudController = {
 
 local player = Players.LocalPlayer
 
-local PANEL = Color3.fromRGB(14, 16, 20)
-local ACCENT = Palette.RebelOrange
-local TEXT = Color3.fromRGB(232, 236, 242)
-local DIM = Color3.fromRGB(150, 158, 170)
+local PANEL = Theme.PANEL
+local ACCENT = Theme.ACCENT
+local TEXT = Theme.TEXT
+local DIM = Theme.DIM
 
 local BAR_TWEEN = TweenInfo.new(0.25, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
 local TOAST_LIFETIME = 4
@@ -74,11 +76,7 @@ end
 -- Construction helpers
 --------------------------------------------------------------------------------
 
-local function corner(parent: Instance, radius: number)
-	local c = Instance.new("UICorner")
-	c.CornerRadius = UDim.new(0, radius)
-	c.Parent = parent
-end
+local corner = Theme.corner
 
 local function panel(name: string, parent: Instance): Frame
 	local f = Instance.new("Frame")
@@ -91,11 +89,20 @@ local function panel(name: string, parent: Instance): Frame
 	return f
 end
 
+--[[
+	Deliberately not `Theme.text`.
+
+	The panels' version pins `TextYAlignment` to Top, because a panel label sits
+	at the top of a box that is taller than one line. Every label on the HUD is
+	exactly one line inside a box exactly its own height, and centred is the
+	right answer there -- so this is one line shorter than the shared helper on
+	purpose, and not a copy that drifted.
+]]
 local function text(name: string, parent: Instance, size: number, colour: Color3?): TextLabel
 	local l = Instance.new("TextLabel")
 	l.Name = name
 	l.BackgroundTransparency = 1
-	l.Font = Enum.Font.Gotham
+	l.Font = Theme.FONT
 	l.TextSize = size
 	l.TextColor3 = colour or TEXT
 	l.TextXAlignment = Enum.TextXAlignment.Left

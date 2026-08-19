@@ -304,6 +304,30 @@ function Outfits.statsFor(id: string?): { [string]: number }
 	return (d and d.stats) or {}
 end
 
+local maxima: { [string]: number }? = nil
+
+--[[
+	The largest each outfit stat gets anywhere in the wardrobe.
+
+	The counterpart of `Weapons.maxima`, and derived for the same reason: the
+	panel draws these as bars and a bar needs a full length. Absolute value,
+	because `PriceMult` is a discount and reads as -0.15 -- the bar is showing
+	how big the effect is, and the sign is already in the printed number.
+]]
+function Outfits.maxima(): { [string]: number }
+	if maxima then
+		return maxima
+	end
+	local m: { [string]: number } = {}
+	for _, d in defs do
+		for stat, value in d.stats or {} :: { [string]: number } do
+			m[stat] = math.max(m[stat] or 0, math.abs(value))
+		end
+	end
+	maxima = m
+	return m
+end
+
 --[[
 	Checks every outfit names a costume that actually exists.
 

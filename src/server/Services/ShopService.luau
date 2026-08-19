@@ -157,7 +157,7 @@ export type ItemEntry = {
 	rarity: number,
 	-- Already-formatted roll lines. Empty for anything Common.
 	affixes: { string },
-	stats: { { label: string, value: string } },
+	stats: { StatLine },
 	--[[
 		Really in the bag, as opposed to merely usable.
 
@@ -194,17 +194,57 @@ export type ItemEntry = {
 	extractCosts: { [string]: number },
 }
 
+--[[
+	One line of the detail pane.
+
+	`value` is the whole answer on its own, with its units and its sign, and
+	the client prints it verbatim. `raw` and `max` are the same fact again as
+	bare numbers, so the panel can draw a bar of length `raw / max` and an
+	arrow against whatever is equipped, without having to parse "1.4/s" back
+	into 1.4. Both are absent together, and a line with neither is text only --
+	which is the right answer for a ship's seat count and for a loose crystal,
+	where "out of the best in the game" is not a question anyone is asking.
+]]
+type StatLine = {
+	label: string,
+	value: string,
+	raw: number?,
+	max: number?,
+}
+
 --- Human-readable stat lines for an outfit, for the detail pane.
-local function outfitStatLines(id: string): { { label: string, value: string } }
-	local lines: { { label: string, value: string } } = {}
+local function outfitStatLines(id: string): { StatLine }
+	local lines: { StatLine } = {}
+	local maxima = Outfits.maxima()
 	for stat, value in Outfits.statsFor(id) do
 		if stat == "DamageReduction" then
-			table.insert(lines, { label = "Armour", value = `{math.floor(value * 100 + 0.5)}%` })
+			table.insert(
+				lines,
+				{
+					label = "Armour",
+					value = `{math.floor(value * 100 + 0.5)}%`,
+					raw = value,
+					max = maxima[stat],
+				}
+			)
 		elseif stat == "MoveSpeedMult" then
 			local pct = math.floor(value * 100 + 0.5)
-			table.insert(lines, { label = "Speed", value = `{if pct >= 0 then "+" else ""}{pct}%` })
+			table.insert(lines, {
+				label = "Speed",
+				value = `{if pct >= 0 then "+" else ""}{pct}%`,
+				raw = value,
+				max = maxima[stat],
+			})
 		elseif stat == "PriceMult" then
-			table.insert(lines, { label = "Prices", value = `{math.floor(value * 100 + 0.5)}%` })
+			table.insert(
+				lines,
+				{
+					label = "Prices",
+					value = `{math.floor(value * 100 + 0.5)}%`,
+					raw = value,
+					max = maxima[stat],
+				}
+			)
 		end
 	end
 	table.sort(lines, function(a, b)
@@ -213,11 +253,27 @@ local function outfitStatLines(id: string): { { label: string, value: string } }
 	return lines
 end
 
-local function weaponStatLines(def: Weapons.WeaponDef): { { label: string, value: string } }
+local function weaponStatLines(def: Weapons.WeaponDef): { StatLine }
+	local maxima = Weapons.maxima()
 	return {
-		{ label = "Damage", value = tostring(math.floor(def.damage + 0.5)) },
-		{ label = "Rate", value = `{string.format("%.1f", def.fireRate)}/s` },
-		{ label = "Range", value = tostring(math.floor(def.range + 0.5)) },
+		{
+			label = "Damage",
+			value = tostring(math.floor(def.damage + 0.5)),
+			raw = def.damage,
+			max = maxima.damage,
+		},
+		{
+			label = "Rate",
+			value = `{string.format("%.1f", def.fireRate)}/s`,
+			raw = def.fireRate,
+			max = maxima.fireRate,
+		},
+		{
+			label = "Range",
+			value = tostring(math.floor(def.range + 0.5)),
+			raw = def.range,
+			max = maxima.range,
+		},
 	}
 end
 
@@ -230,7 +286,7 @@ end
 ]]
 local RUNNING_SPEED = 32
 
-local function shipStatLines(def: Ships.ShipDef): { { label: string, value: string } }
+local function shipStatLines(def: Ships.ShipDef): { StatLine }
 	return {
 		{ label = "Speed", value = `{string.format("%.1f", def.speed / RUNNING_SPEED)}x on foot` },
 		{ label = "Handling", value = `{math.floor(def.turnSpeed + 0.5)} deg/s` },
@@ -549,7 +605,7 @@ local function buildCatalogue(player: Player, profile: PlayerProfile, vendor: Ve
 		local def = Crystals.get(id)
 		local stack = inv[uid]
 
-		local lines: { { label: string, value: string } } = {}
+		local lines: { StatLine } = {}
 		for _, itemSlot in Affixes.ITEM_SLOTS do
 			for _, line in Affixes.describe(Crystals.statsFor(id, itemSlot)) do
 				table.insert(lines, { label = itemSlot, value = line })

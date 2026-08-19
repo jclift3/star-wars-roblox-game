@@ -34,10 +34,11 @@ local Workspace = game:GetService("Workspace")
 
 local Shared = game:GetService("ReplicatedStorage"):WaitForChild("Shared")
 local Missions = require(Shared.Config.Missions)
-local Palette = require(Shared.Config.Palette)
 local Panels = require(Shared.Core.Panels)
 local Planets = require(Shared.Config.Planets)
 local ServiceLoader = require(Shared.Core.ServiceLoader)
+
+local Theme = require(script.Parent.Parent.UI.Theme)
 
 local WaypointController = {
 	name = "WaypointController",
@@ -46,8 +47,8 @@ local WaypointController = {
 
 local player = Players.LocalPlayer
 
-local ACCENT = Palette.RebelOrange
-local TEXT = Color3.fromRGB(232, 236, 242)
+local ACCENT = Theme.ACCENT
+local TEXT = Theme.TEXT
 
 -- How far in from the screen edge the off-screen arrow sits.
 local EDGE_MARGIN = 64

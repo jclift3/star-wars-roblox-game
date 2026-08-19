@@ -26,9 +26,10 @@ local UserInputService = game:GetService("UserInputService")
 
 local Shared = game:GetService("ReplicatedStorage"):WaitForChild("Shared")
 local Net = require(Shared.Core.Net)
-local Palette = require(Shared.Config.Palette)
 local Panels = require(Shared.Core.Panels)
 local ServiceLoader = require(Shared.Core.ServiceLoader)
+
+local Theme = require(script.Parent.Parent.UI.Theme)
 
 local DialogueController = {
 	name = "DialogueController",
@@ -37,11 +38,11 @@ local DialogueController = {
 
 local player = Players.LocalPlayer
 
-local PANEL = Color3.fromRGB(14, 16, 20)
-local ROW = Color3.fromRGB(26, 30, 37)
-local ACCENT = Palette.RebelOrange
-local TEXT = Color3.fromRGB(232, 236, 242)
-local DIM = Color3.fromRGB(150, 158, 170)
+local PANEL = Theme.PANEL
+local ROW = Theme.ROW
+local ACCENT = Theme.ACCENT
+local TEXT = Theme.TEXT
+local DIM = Theme.DIM
 
 local WIDTH = 760
 local HEIGHT = 250
@@ -101,11 +102,7 @@ local ASK_HEIGHT = 58
 -- Construction
 --------------------------------------------------------------------------------
 
-local function corner(parent: Instance, radius: number)
-	local c = Instance.new("UICorner")
-	c.CornerRadius = UDim.new(0, radius)
-	c.Parent = parent
-end
+local corner = Theme.corner
 
 local function build()
 	screen = Instance.new("ScreenGui")
