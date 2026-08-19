@@ -34,6 +34,7 @@ local Net = require(Shared.Core.Net)
 local Inventory = require(Shared.Core.Inventory)
 local Signal = require(Shared.Core.Signal)
 local Affixes = require(Shared.Config.Affixes)
+local Crystals = require(Shared.Config.Crystals)
 local Palette = require(Shared.Config.Palette)
 local Weapons = require(Shared.Config.Weapons)
 local Loot = require(Shared.Config.Loot)
@@ -76,6 +77,37 @@ end
 
 local function progression()
 	return ServiceLoader.get("ProgressionService")
+end
+
+--- The colour of the crystal in a carried stack's first filled socket.
+local function tintOf(profile: PlayerProfile, uid: string?): Color3?
+	if not uid then
+		return nil
+	end
+	return Crystals.tintOf(Inventory.socketedOf(profile.inventory, uid))
+end
+
+--[[
+	Rebuilds the held weapon so a crystal fitted just now is visible now.
+
+	The analogue of `PlayerService.refreshOutfit`, and it exists for the same
+	reason: socketing is a `ShopService` transaction, but the model in the
+	player's hand belongs to this service, and the whole promise of the feature
+	is that the blade changes colour the moment the stone goes in. Without
+	this the player sees the number move and the weapon stay blue until they
+	next die or travel, which reads as the feature not working.
+]]
+function CombatService.refreshWeapon(player: Player)
+	local character = player.Character
+	local profile = data().get(player)
+	if not character or not profile then
+		return
+	end
+	local uid = profile.equipped.weapon
+	local weaponId = Inventory.idOf(profile.inventory, uid)
+	if weaponId and Weapons.exists(weaponId) then
+		WeaponModel.equip(character, weaponId, tintOf(profile, uid))
+	end
 end
 
 --------------------------------------------------------------------------------
@@ -626,9 +658,19 @@ local function onFireWeapon(player: Player, origin: Vector3, direction: Vector3)
 		bonusPierce = stats.BonusPierce,
 	})
 
-	-- Everyone except the shooter needs the visual; the shooter already fired
-	-- it locally on input for responsiveness.
-	Net.fireAllExcept(Net.Event.WeaponEffect, player, weaponId, origin, aim)
+	--[[
+		Everyone except the shooter needs the visual; the shooter already fired
+		it locally on input for responsiveness.
+
+		The character now goes with a bolt as well as a swing. The old comment
+		here said bolts did not need it -- they were "fully described by where
+		they start and where they go" -- and that stopped being true the moment
+		a crystal could change their colour. The alternative was a `Color3` on
+		the message, which would be one more thing per shot, twenty-five times
+		a second, saying something the receiving client can already read off
+		the weapon in the shooter's hand.
+	]]
+	Net.fireAllExcept(Net.Event.WeaponEffect, player, weaponId, origin, aim, character)
 end
 
 local function onSaberSwing(player: Player)
@@ -790,7 +832,7 @@ function CombatService.npcFire(npc: Model, weaponId: string, targetPosition: Vec
 	end
 
 	CombatService.resolveShot(npc, weaponId, origin, aim, nil, nil)
-	Net.fireAllClients(Net.Event.WeaponEffect, weaponId, origin, aim)
+	Net.fireAllClients(Net.Event.WeaponEffect, weaponId, origin, aim, npc)
 end
 
 function CombatService.npcMelee(npc: Model, weaponId: string)
@@ -843,7 +885,7 @@ function CombatService.init()
 		progression().invalidate(player)
 
 		if player.Character then
-			WeaponModel.equip(player.Character, weaponId)
+			WeaponModel.equip(player.Character, weaponId, tintOf(profile, uid))
 		end
 	end, {
 		rateLimit = 4,
@@ -861,9 +903,10 @@ function CombatService.start()
 	-- held, so the weapon survives death and travel without the client asking.
 	ServiceLoader.get("PlayerService").characterReady
 		:connect(function(_player: Player, character: Model, profile)
-			local weaponId = Inventory.idOf(profile.inventory, profile.equipped.weapon)
+			local uid = profile.equipped.weapon
+			local weaponId = Inventory.idOf(profile.inventory, uid)
 			if weaponId and Weapons.exists(weaponId) then
-				WeaponModel.equip(character, weaponId)
+				WeaponModel.equip(character, weaponId, tintOf(profile, uid))
 			end
 		end)
 end

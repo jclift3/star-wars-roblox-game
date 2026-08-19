@@ -876,6 +876,11 @@ function ShopService.socket(player: Player, uid: string, index: number, crystalI
 		progression().invalidate(player)
 		if profile.equipped.outfit == uid then
 			ServiceLoader.get("PlayerService").refreshOutfit(player)
+		else
+			-- Rebuilt so the blade is the new colour before the player has
+			-- finished closing the panel. The stat change alone would be
+			-- invisible until they next died.
+			ServiceLoader.get("CombatService").refreshWeapon(player)
 		end
 	end
 
@@ -931,6 +936,11 @@ function ShopService.unsocket(player: Player, uid: string, index: number): (bool
 		progression().invalidate(player)
 		if profile.equipped.outfit == uid then
 			ServiceLoader.get("PlayerService").refreshOutfit(player)
+		else
+			-- Rebuilt so the blade is the new colour before the player has
+			-- finished closing the panel. The stat change alone would be
+			-- invisible until they next died.
+			ServiceLoader.get("CombatService").refreshWeapon(player)
 		end
 	end
 

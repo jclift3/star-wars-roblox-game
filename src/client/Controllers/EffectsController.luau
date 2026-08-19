@@ -114,10 +114,14 @@ end
 	The client raycasts only to decide where the bolt stops. That result never
 	leaves this machine, so a tampered raycast changes nothing but this
 	player's own view of a shot that has already been resolved.
+
+	`tint` overrides the weapon's own bolt colour and comes from the crystal in
+	the shooter's blaster. Read off the replicated weapon model rather than
+	sent per shot -- see the note where `WeaponModel.equip` writes it.
 ]]
-function EffectsController.spawnBolt(weaponId: string, origin: Vector3, direction: Vector3)
+function EffectsController.spawnBolt(weaponId: string, origin: Vector3, direction: Vector3, tint: Color3?)
 	local weapon = Weapons.get(weaponId)
-	local color = weapon.boltColor or Palette.BlasterRed
+	local color = tint or weapon.boltColor or Palette.BlasterRed
 	local range = weapon.range
 	local dir = direction.Unit
 
@@ -533,12 +537,14 @@ function EffectsController.init()
 				return
 			end
 			if Weapons.get(weaponId).class == "Blaster" then
-				EffectsController.spawnBolt(weaponId, origin, direction)
+				-- `source` is the shooter, and the only thing this needs it
+				-- for is the crystal colour on the weapon in its hand. A shot
+				-- from a character that has already been cleaned up still
+				-- draws -- in the weapon's own colour, which is correct.
+				EffectsController.spawnBolt(weaponId, origin, direction, WeaponModel.tintOf(source))
 			elseif source then
 				-- A melee swing is drawn on the body that swung, so the server
-				-- has to say whose it was. Bolts do not need it: they are
-				-- already fully described by where they start and where they
-				-- go.
+				-- has to say whose it was.
 				EffectsController.swing(source, weaponId)
 			end
 		end
@@ -566,7 +572,8 @@ function EffectsController.init()
 		end
 		local weapon = Weapons.get(weaponId)
 		if weapon.class ~= "Blaster" then
-			spawnImpact(position, Vector3.new(0, 1, 0), weapon.boltColor or Palette.SaberBlue)
+			local tint = WeaponModel.tintOf(player.Character)
+			spawnImpact(position, Vector3.new(0, 1, 0), tint or weapon.boltColor or Palette.SaberBlue)
 		end
 	end)
 end

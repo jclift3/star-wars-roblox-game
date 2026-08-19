@@ -137,8 +137,10 @@ local function tryAttack()
 
 	Net.fireServer(Net.Event.FireWeapon, origin, direction)
 	-- Drawn locally on input rather than waiting for the round trip. The server
-	-- sends this same effect to everyone else.
-	effects().spawnBolt(weaponId, origin, direction)
+	-- sends this same effect to everyone else. The tint is read off the held
+	-- model, not the profile, so this bolt is the same colour as the copy
+	-- every other machine draws from the same replicated attribute.
+	effects().spawnBolt(weaponId, origin, direction, WeaponModel.tintOf(character))
 end
 
 local function setSprinting(on: boolean)

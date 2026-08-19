@@ -40,7 +40,32 @@ local function resolveShape(shape: string?): (Enum.PartType, boolean)
 	return Enum.PartType.Block, false
 end
 
-local function buildPart(spec: Weapons.WeaponPart, origin: CFrame): BasePart
+--[[
+	WHAT A CRYSTAL RECOLOURS, AND WHY IT IS NOT A NEW FIELD
+
+	A focusing crystal turns the blade its own colour, which needs an answer to
+	"which part is the blade". `WeaponDef.blade` names one on a lightsaber, but
+	the electrostaff's glowing tips are ordinary entries in `parts` and there
+	are two of them -- so a rule that reads `def.blade` would leave the staff
+	half-tinted and the vibroblade untouched.
+
+	The derivable rule is better: **a part that carries a `light` is a part
+	that is emitting**, and a part that is emitting is what the crystal is
+	feeding. No `WeaponPart.tintable` flag to author, nothing to keep in sync,
+	and a weapon added next year is covered the day it is written.
+
+	Steel is left alone by design. A vibroblade has no lit part, so a crystal
+	in one shows up in its swing trail and its numbers and not in its edge --
+	which is the honest answer, because nothing is powering that edge.
+]]
+local function tinted(spec: Weapons.WeaponPart, tint: Color3?): Color3?
+	if tint and spec.light then
+		return tint
+	end
+	return spec.color
+end
+
+local function buildPart(spec: Weapons.WeaponPart, origin: CFrame, tint: Color3?): BasePart
 	local shapeType, isWedge = resolveShape(spec.shape)
 
 	local p: BasePart
@@ -54,7 +79,7 @@ local function buildPart(spec: Weapons.WeaponPart, origin: CFrame): BasePart
 
 	p.Name = spec.name
 	p.Size = spec.size
-	p.Color = spec.color or Color3.fromRGB(60, 60, 65)
+	p.Color = tinted(spec, tint) or Color3.fromRGB(60, 60, 65)
 	p.Material = spec.material or Enum.Material.Metal
 	p.Transparency = spec.transparency or 0
 	p.Reflectance = spec.reflectance or 0
@@ -70,7 +95,7 @@ local function buildPart(spec: Weapons.WeaponPart, origin: CFrame): BasePart
 
 	if spec.light then
 		local light = Instance.new("PointLight")
-		light.Color = spec.light.color
+		light.Color = tint or spec.light.color
 		light.Range = spec.light.range
 		light.Brightness = spec.light.brightness
 		light.Shadows = false
@@ -110,7 +135,7 @@ end
 	what the lightsaber-only version did -- would have put both attachments
 	inside a 0.06-stud edge and drawn a trail with no width at all.
 ]]
-local function buildTrail(part: BasePart, spec: Weapons.WeaponPart, lit: boolean)
+local function buildTrail(part: BasePart, spec: Weapons.WeaponPart, lit: boolean, tint: Color3?)
 	local size = spec.size
 	local half = math.max(size.X, size.Y, size.Z) * 0.5
 	local along = if size.X >= size.Y and size.X >= size.Z
@@ -132,7 +157,10 @@ local function buildTrail(part: BasePart, spec: Weapons.WeaponPart, lit: boolean
 	trail.Name = "SwingTrail"
 	trail.Attachment0 = tip
 	trail.Attachment1 = base
-	trail.Color = ColorSequence.new(spec.color or Color3.new(1, 1, 1))
+	-- Tinted whether or not the part is lit, unlike the part itself: the arc is
+	-- the swing, and a crystal that changed a lightsaber's streak but not a
+	-- vibroblade's would make the same fitting mean different things.
+	trail.Color = ColorSequence.new(tint or spec.color or Color3.new(1, 1, 1))
 	-- Solid at the leading edge, gone at the tail, so the arc reads as a
 	-- direction rather than a smear. An unlit edge starts fainter: steel
 	-- catches the light, it does not emit any.
@@ -179,8 +207,15 @@ end
 
 	The Handle is invisible and sits at the grip, so callers can weld to it
 	without caring which visible part happens to be biggest.
+
+	`tint` is the colour of the crystal in the weapon's first filled socket,
+	and is applied *here* rather than by mutating the `WeaponDef`. The config
+	tables are shared by every weapon of that id in the game -- recolouring
+	`def.blade.color` to serve one player would repaint every lightsaber on
+	the server, which is a bug two people in the same room would find in a
+	minute.
 ]]
-function WeaponModel.build(weaponId: string): Model
+function WeaponModel.build(weaponId: string, tint: Color3?): Model
 	local def = Weapons.get(weaponId)
 
 	local model = Instance.new("Model")
@@ -206,7 +241,7 @@ function WeaponModel.build(weaponId: string): Model
 	local wantsTrail = trailSpec(def)
 	local trailPart: BasePart? = nil
 	for _, spec in specs do
-		local p = buildPart(spec, handle.CFrame)
+		local p = buildPart(spec, handle.CFrame, tint)
 		p.Parent = model
 		if spec == wantsTrail then
 			trailPart = p
@@ -219,7 +254,7 @@ function WeaponModel.build(weaponId: string): Model
 	end
 
 	if trailPart and wantsTrail then
-		buildTrail(trailPart, wantsTrail, def.blade ~= nil)
+		buildTrail(trailPart, wantsTrail, def.blade ~= nil, tint)
 	end
 
 	-- Muzzle is an Attachment rather than a part so effects can be parented to
@@ -245,7 +280,7 @@ end
 	limbs) or when the weapon has no geometry at all, which is how "Fists"
 	works -- unarmed is a real weapon to the combat code and nothing to look at.
 ]]
-function WeaponModel.equip(character: Model, weaponId: string): Model?
+function WeaponModel.equip(character: Model, weaponId: string, tint: Color3?): Model?
 	WeaponModel.unequip(character)
 
 	local def = Weapons.get(weaponId)
@@ -258,11 +293,24 @@ function WeaponModel.equip(character: Model, weaponId: string): Model?
 		return nil
 	end
 
-	local model = WeaponModel.build(weaponId)
+	local model = WeaponModel.build(weaponId, tint)
 	local handle = model.PrimaryPart :: BasePart
 
 	model.Name = "EquippedWeapon"
 	model:SetAttribute("WeaponId", weaponId)
+	--[[
+		Recorded on the model so the bolts can find it.
+
+		A blaster bolt is drawn on every client from the weapon id alone, and
+		its colour now depends on a socket -- which is inventory, which is
+		server-only. Rather than widen the `WeaponEffect` message with a
+		colour, the tint is written here, on a model the server built and
+		Roblox already replicates to everyone who can see the character. The
+		shooter's own client and the four watching it read the same
+		server-authored value, so nobody's screen can disagree, and a hacked
+		client can only recolour a bolt on its own machine.
+	]]
+	model:SetAttribute("Tint", tint)
 	model:PivotTo(hand.CFrame * GRIP_C0)
 	model.Parent = character
 
@@ -295,6 +343,19 @@ function WeaponModel.trail(character: Model): Trail?
 	local model = WeaponModel.equipped(character)
 	local found = if model then model:FindFirstChild("SwingTrail", true) else nil
 	return if found and found:IsA("Trail") then found else nil
+end
+
+--[[
+	The crystal colour of the weapon `character` is holding, if it has one.
+
+	Nil means "no crystal" and every caller falls back to the weapon's own
+	`boltColor`, which is also the right answer for an NPC and for anything
+	built before crystals existed.
+]]
+function WeaponModel.tintOf(character: Model?): Color3?
+	local model = if character then WeaponModel.equipped(character) else nil
+	local tint = model and model:GetAttribute("Tint")
+	return if typeof(tint) == "Color3" then tint else nil
 end
 
 --- World position of the muzzle, for effects that need to start at the barrel.
