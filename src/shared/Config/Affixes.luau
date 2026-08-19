@@ -341,6 +341,23 @@ function Affixes.forSlot(slot: string): { AffixDef }
 end
 
 --[[
+	The same pool as a set of stat names -- "what this slot is allowed to move".
+
+	Three separate places had built this loop inline: `Loot.repair` deciding
+	which of a saved item's rolls are dead, `Secrets.validate` checking a
+	reward, and now `Crystals.validate`. It is the project's one definition of
+	whether a stat means anything on a given kind of item, so it should not
+	have three implementations that can disagree about it.
+]]
+function Affixes.statsForSlot(slot: string): { [string]: boolean }
+	local out: { [string]: boolean } = {}
+	for _, a in Affixes.forSlot(slot) do
+		out[a.stat] = true
+	end
+	return out
+end
+
+--[[
 	How many affixes a drop rolls.
 
 	Weights are fixed, then nudged by level: `luck` shifts the draw toward the

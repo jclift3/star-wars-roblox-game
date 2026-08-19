@@ -13,14 +13,20 @@
 	There is no `validate` here for the same reason -- nothing is authored, so
 	there is nothing that can be wrong.
 
-	EVERY DROP IS ROLLED
-	`Affixes.roll` returns nil for a Common result and this treats that as "no
-	drop". A plain blaster identical to the one on the vendor's shelf is not
-	loot, it is clutter -- and because plain stacks merge by catalogue id, a
+	EVERY DROP IS ROLLED, OR DRILLED
+	`Affixes.roll` returns nil for a Common result and this used to treat that
+	as "no drop": a plain blaster identical to the one on the vendor's shelf is
+	not loot, it is clutter, and because plain stacks merge by catalogue id a
 	second one would not even be a second item in the bag.
+
+	Sockets changed that, and are the reason a Common is worth picking up at
+	all now. An item survives if it rolled affixes *or* dropped with holes in
+	it, because a plain blaster with three sockets is a blank the player fills
+	in, and that is a different object from the one on the shelf.
 ]]
 
 local Affixes = require(script.Parent.Affixes)
+local Crystals = require(script.Parent.Crystals)
 local Inventory = require(script.Parent.Parent.Core.Inventory)
 local Outfits = require(script.Parent.Outfits)
 local Weapons = require(script.Parent.Weapons)
@@ -46,10 +52,21 @@ Loot.DROP_CHANCE = 0.35
 local LEVEL_BAND = 6
 
 export type Drop = {
-	kind: string, -- "Weapon" | "Outfit", the inventory kind
+	kind: string, -- "Weapon" | "Outfit" | "Crystal", the inventory kind
 	id: string,
-	rolls: Inventory.Rolls,
+	-- nil on a Common that survived on its sockets alone, and on a crystal.
+	rolls: Inventory.Rolls?,
+	sockets: number?,
 }
+
+--[[
+	How often a drop is a crystal rather than a piece of gear.
+
+	Well above the affix rates on purpose: a socket is worth nothing until
+	there is a stone to put in it, and an item arriving with three empty holes
+	the player cannot fill is a worse outcome than no drop at all.
+]]
+local CRYSTAL_SHARE = 0.4
 
 --[[
 	`slot` is what the item draws affixes from, and it is NOT `kind`. A weapon's
@@ -96,18 +113,26 @@ local function gather(itemLevel: number): { Candidate }
 	return out
 end
 
---- One item from the pool `level` opens up, carrying exactly `count` affixes.
-local function draw(rng: Random, level: number, count: number): Drop?
+--[[
+	One item from the pool `level` opens up, with exactly `count` affixes and
+	`sockets` holes.
+
+	Nil when it would be indistinguishable from vendor stock -- no affixes and
+	no sockets. That is the "every drop is rolled, or drilled" rule at the top,
+	and it is the only place it is enforced.
+]]
+local function draw(rng: Random, level: number, count: number, sockets: number): Drop?
 	local pool = gather(level)
 	if #pool == 0 then
 		return nil
 	end
 	local pick = pool[rng:NextInteger(1, #pool)]
 	local rolls = Affixes.rollExactly(rng, pick.slot, level, count)
-	if not rolls then
+	local holes = math.clamp(math.floor(sockets), 0, Crystals.MAX_SOCKETS)
+	if not rolls and holes <= 0 then
 		return nil
 	end
-	return { kind = pick.kind, id = pick.id, rolls = rolls }
+	return { kind = pick.kind, id = pick.id, rolls = rolls, sockets = holes }
 end
 
 --[[
@@ -122,7 +147,10 @@ function Loot.rollDrop(rng: Random, itemLevel: number): Drop?
 		return nil
 	end
 	local level = math.max(1, math.floor(itemLevel))
-	return draw(rng, level, Affixes.rollRarity(rng, level))
+	if rng:NextNumber() < CRYSTAL_SHARE then
+		return { kind = "Crystal", id = Crystals.rollDrop(rng, level), rolls = nil, sockets = nil }
+	end
+	return draw(rng, level, Affixes.rollRarity(rng, level), Crystals.rollSockets(rng, level))
 end
 
 --[[
@@ -131,8 +159,8 @@ end
 	Skips both the drop-chance gate and the rarity weights, which is the only
 	way to look at a Legendary without playing for a week.
 ]]
-function Loot.forceDrop(rng: Random, itemLevel: number, affixCount: number): Drop?
-	return draw(rng, math.max(1, math.floor(itemLevel)), affixCount)
+function Loot.forceDrop(rng: Random, itemLevel: number, affixCount: number, sockets: number?): Drop?
+	return draw(rng, math.max(1, math.floor(itemLevel)), affixCount, sockets or 0)
 end
 
 --[[
@@ -184,10 +212,7 @@ function Loot.repair(rng: Random, inv: Inventory.Inventory): number
 			continue
 		end
 
-		local legal: { [string]: boolean } = {}
-		for _, a in Affixes.forSlot(slot) do
-			legal[a.stat] = true
-		end
+		local legal = Affixes.statsForSlot(slot)
 
 		local kept: { [string]: number } = {}
 		local dead = 0
@@ -217,10 +242,31 @@ end
 
 --- The dropped item's decorated name, for the pickup message.
 function Loot.nameOf(drop: Drop): string
+	if drop.kind == "Crystal" then
+		return Crystals.get(drop.id).displayName
+	end
 	local base = if drop.kind == "Weapon"
 		then Weapons.get(drop.id).displayName
 		else Outfits.get(drop.id).displayName
-	return Affixes.nameFor(base, drop.rolls)
+	local name = Affixes.nameFor(base, drop.rolls)
+	local holes = drop.sockets or 0
+	return if holes > 0 then `{name} ({holes} socket{if holes == 1 then "" else "s"})` else name
+end
+
+--[[
+	How good the drop is, as an affix count -- so the pickup toast, the panel's
+	pips and the rarity colour all come from `Affixes.rarityAt` and cannot
+	disagree.
+
+	A crystal has no affixes; its grade *is* a rarity, which is why the grade
+	ladder and the rarity ladder were made the same five steps rather than two
+	parallel ideas the UI would then have to hold both of.
+]]
+function Loot.rarityOf(drop: Drop): number
+	if drop.kind == "Crystal" then
+		return Crystals.get(drop.id).rarity
+	end
+	return Affixes.rarityOf(drop.rolls).affixes
 end
 
 return Loot

@@ -56,6 +56,7 @@ local Types = require(Shared.Types)
 local Net = require(Shared.Core.Net)
 local Inventory = require(Shared.Core.Inventory)
 local Affixes = require(Shared.Config.Affixes)
+local Crystals = require(Shared.Config.Crystals)
 local Loot = require(Shared.Config.Loot)
 local Origins = require(Shared.Config.Origins)
 local Outfits = require(Shared.Config.Outfits)
@@ -187,13 +188,18 @@ codes.whosyourdaddy = function(player: Player)
 end
 
 --[[
-	One drop of every rarity, at the player's own level.
+	One drop of every rarity, fully socketed, plus one of every crystal.
 
 	Rarity is a long tail -- Legendary is weight 1 against Common's 100, and
 	only about one kill in seven drops anything at all, which puts a Legendary
 	somewhere past a thousand kills. The colours, the four-affix names and the
 	panel's layout at maximum rolls are all unreachable by playing. This makes
 	them one line of chat.
+
+	Every item comes with the maximum sockets and the whole crystal catalogue
+	comes with it, because the interesting half of a crystal is what it does in
+	a *different* item, and comparing four colours across four slots by playing
+	for them is not a thing anybody is going to do.
 ]]
 codes.greedisgood = function(player: Player)
 	local profile = data().get(player)
@@ -203,24 +209,33 @@ codes.greedisgood = function(player: Player)
 
 	local given = 0
 	for count = 1, Affixes.MAX_AFFIXES do
-		local drop = Loot.forceDrop(devRng, profile.level, count)
+		local drop = Loot.forceDrop(devRng, profile.level, count, Crystals.MAX_SOCKETS)
 		if drop then
 			local taken = false
 			data().update(player, function(p: PlayerProfile)
-				taken = Inventory.add(p.inventory, drop.id, 1, drop.rolls) ~= nil
+				taken = Inventory.add(p.inventory, drop.id, 1, drop.rolls, drop.sockets) ~= nil
 			end)
 			if not taken then
 				-- The cheat is subject to the cap like anything else. Lifting
 				-- it here would mean the one easy way to reach a full bag is
 				-- also the one way that cannot show what a full bag does.
-				tell(player, `Bag full at {Inventory.MAX_ROLLED}. Sell something.`, "Error")
+				tell(player, `Bag full at {Inventory.MAX_UNIQUE}. Sell something.`, "Error")
 				break
 			end
 			given += 1
 			tell(player, `{Affixes.rarityAt(count).name}: {Loot.nameOf(drop)}`, Affixes.rarityAt(count).name)
 		end
 	end
-	tell(player, `{given} items, one of each rarity. Open your bag.`)
+
+	-- Crystals are plain stacks, so these merge by id and cannot fill the bag.
+	local stones = Crystals.ids()
+	data().update(player, function(p: PlayerProfile)
+		for _, id in stones do
+			Inventory.add(p.inventory, id, 1)
+		end
+	end)
+
+	tell(player, `{given} socketed items and {#stones} crystals. Open your bag.`)
 end
 
 --[[
@@ -267,6 +282,9 @@ codes.iseedeadpeople = function(player: Player)
 	local level = profile and profile.level or 1
 
 	local drops = 0
+	local crystals = 0
+	local drilled = 0
+	local holes = 0
 	local byRarity: { [number]: number } = {}
 	local low: { [string]: number } = {}
 	local high: { [string]: number } = {}
@@ -277,17 +295,35 @@ codes.iseedeadpeople = function(player: Player)
 			continue
 		end
 		drops += 1
-		local n = Affixes.rarityOf(drop.rolls).affixes
+		if drop.kind == "Crystal" then
+			crystals += 1
+		end
+		local sockets = drop.sockets or 0
+		if sockets > 0 then
+			drilled += 1
+			holes += sockets
+		end
+		local n = Loot.rarityOf(drop)
 		byRarity[n] = (byRarity[n] or 0) + 1
-		for stat, value in drop.rolls do
-			low[stat] = math.min(low[stat] or value, value)
-			high[stat] = math.max(high[stat] or value, value)
+		if drop.rolls then
+			for stat, value in drop.rolls do
+				low[stat] = math.min(low[stat] or value, value)
+				high[stat] = math.max(high[stat] or value, value)
+			end
 		end
 	end
 
 	print(`\n=== loot sample: {SAMPLES} kills at level {level} ===`)
 	print(`drops: {drops}  ({string.format("%.1f", drops / SAMPLES * 100)}% of kills)`)
-	for count = 1, Affixes.MAX_AFFIXES do
+	print(`  crystals: {crystals}  gear: {drops - crystals}`)
+	-- Sockets are the reason a Common drop is worth picking up at all, so the
+	-- sample has to say how often one actually arrives drilled.
+	print(
+		`  socketed gear: {drilled}  ({holes} holes, {string.format("%.2f", holes / math.max(1, drilled))} each)`
+	)
+	-- From zero, unlike before: a Common drop used to mean no drop, and now it
+	-- means an unenchanted item with holes in it -- a row that must not vanish.
+	for count = 0, Affixes.MAX_AFFIXES do
 		local n = byRarity[count] or 0
 		local rarity = Affixes.rarityAt(count)
 		print(

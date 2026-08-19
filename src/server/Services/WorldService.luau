@@ -19,6 +19,7 @@
 
 local Shared = game:GetService("ReplicatedStorage"):WaitForChild("Shared")
 local Affixes = require(Shared.Config.Affixes)
+local Crystals = require(Shared.Config.Crystals)
 local Factions = require(Shared.Config.Factions)
 local Origins = require(Shared.Config.Origins)
 local Planets = require(Shared.Config.Planets)
@@ -94,6 +95,14 @@ function WorldService.init()
 	-- drop that shows the player a number and then does nothing with it.
 	for _, problem in Affixes.validate(Progression.LIVE_STATS, Weapons.classes()) do
 		warn(`[WorldService] affix config: {problem}`)
+	end
+
+	-- And the same rule once more, tightened. A crystal has to clear a bar an
+	-- affix does not: not merely "something reads this stat" but "something
+	-- reads it on the kind of item this crystal is sitting in". A cooldown
+	-- crystal in a lightsaber passes every check above and does nothing at all.
+	for _, problem in Crystals.validate(Progression.LIVE_STATS) do
+		warn(`[WorldService] crystal config: {problem}`)
 	end
 
 	WorldService.ensure(Planets.STARTING_PLANET)

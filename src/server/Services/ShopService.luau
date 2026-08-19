@@ -26,6 +26,7 @@ local Types = require(Shared.Types)
 local Net = require(Shared.Core.Net)
 local Inventory = require(Shared.Core.Inventory)
 local Affixes = require(Shared.Config.Affixes)
+local Crystals = require(Shared.Config.Crystals)
 local Outfits = require(Shared.Config.Outfits)
 local Costumes = require(Shared.Config.Costumes)
 local Furnishings = require(Shared.Config.Furnishings)
@@ -132,7 +133,7 @@ end
 --------------------------------------------------------------------------------
 
 export type ItemEntry = {
-	kind: string, -- "Outfit" | "Weapon" | "Vehicle" | "Furnishing"
+	kind: string, -- "Outfit" | "Weapon" | "Vehicle" | "Furnishing" | "Crystal"
 	--[[
 		The stack this row is, not the catalogue entry it came from.
 
@@ -168,6 +169,29 @@ export type ItemEntry = {
 	-- What the vendor in front of the player would pay. Zero away from a
 	-- vendor, and zero for anything they will not take.
 	sellValue: number,
+	--[[
+		Crystal holes and what is in them. Zero and empty for everything that
+		is not a weapon or an outfit.
+
+		`socketed` is sent as the map it is stored as -- index-as-string ->
+		crystal id -- rather than flattened into a list, because a list with a
+		gap in it does not survive replication and socket 2 can be full while
+		socket 1 is empty.
+	]]
+	sockets: number,
+	socketed: { [string]: string },
+	--[[
+		Which affix slot this row *is*: a weapon's class, or "Outfit".
+
+		Sent because a crystal's effect depends on it and the client cannot
+		work it out from `kind` -- Weapon covers three different pools. Empty
+		for rows that cannot be socketed.
+	]]
+	slot: string,
+	-- What emptying each filled socket would cost at this vendor, keyed the
+	-- same way `socketed` is. Empty away from a vendor, which is the flag the
+	-- client hides the button on.
+	extractCosts: { [string]: number },
 }
 
 --- Human-readable stat lines for an outfit, for the detail pane.
@@ -226,8 +250,28 @@ local function baseCost(id: string): number?
 		return Weapons.get(id).cost
 	elseif Outfits.exists(id) then
 		return Outfits.get(id).cost
+	elseif Crystals.exists(id) then
+		return Crystals.get(id).cost
 	end
 	return nil
+end
+
+--[[
+	Which affix pool an item draws from -- a weapon's own class, or "Outfit".
+
+	The one thing a crystal has to be asked alongside its id, because a crimson
+	crystal is damage in a blaster and armour in a robe. Empty for anything
+	that has no sockets to begin with.
+]]
+local function slotOf(id: string?): string
+	if not id then
+		return ""
+	elseif Weapons.exists(id) then
+		return Weapons.get(id).class
+	elseif Outfits.exists(id) then
+		return "Outfit"
+	end
+	return ""
 end
 
 --[[
@@ -243,8 +287,40 @@ local function displayNameOf(stack: Inventory.ItemStack): string
 		base = Weapons.get(stack.id).displayName
 	elseif Outfits.exists(stack.id) then
 		base = Outfits.get(stack.id).displayName
+	elseif Crystals.exists(stack.id) then
+		-- A crystal's grade is already in its display name and it has no
+		-- affixes, so it must not go through `nameFor`.
+		return Crystals.get(stack.id).displayName
 	end
 	return Affixes.nameFor(base, stack.rolls)
+end
+
+--[[
+	What this vendor charges to pull one crystal back out.
+
+	Multiplied by the vendor's markup rather than divided by it -- this is the
+	player buying a service, not selling goods, so the expensive trader is
+	expensive here too. Zero away from a vendor: socketing is free and can be
+	done anywhere, and changing your mind is the part that costs, which is the
+	whole reason the decision is worth making carefully.
+]]
+local function extractCost(crystalId: string, shop: Shops.ShopDef?): number
+	if not shop or not Crystals.exists(crystalId) then
+		return 0
+	end
+	return math.max(1, math.floor(Crystals.get(crystalId).cost * Shops.EXTRACT_FRACTION * shop.priceMult))
+end
+
+--- What each filled socket would cost to empty, keyed the same way it is stored.
+local function extractCosts(socketed: { [string]: string }?, shop: Shops.ShopDef?): { [string]: number }
+	local out: { [string]: number } = {}
+	if not socketed then
+		return out
+	end
+	for index, crystalId in socketed do
+		out[index] = extractCost(crystalId, shop)
+	end
+	return out
 end
 
 --[[
@@ -324,6 +400,10 @@ local function buildCatalogue(player: Player, profile: PlayerProfile, vendor: Ve
 			stats = outfitStatLines(id),
 			carried = stack ~= nil,
 			sellValue = if stack then sellValue(stack, shop) else 0,
+			sockets = if stack then (stack.sockets or 0) else 0,
+			socketed = (stack and stack.socketed) or {},
+			slot = "Outfit",
+			extractCosts = extractCosts(stack and stack.socketed, shop),
 		})
 	end
 
@@ -352,6 +432,10 @@ local function buildCatalogue(player: Player, profile: PlayerProfile, vendor: Ve
 			stats = weaponStatLines(def),
 			carried = stack ~= nil,
 			sellValue = if stack then sellValue(stack, shop) else 0,
+			sockets = if stack then (stack.sockets or 0) else 0,
+			socketed = (stack and stack.socketed) or {},
+			slot = def.class,
+			extractCosts = extractCosts(stack and stack.socketed, shop),
 		})
 	end
 
@@ -391,6 +475,10 @@ local function buildCatalogue(player: Player, profile: PlayerProfile, vendor: Ve
 			stats = shipStatLines(def),
 			carried = false,
 			sellValue = 0,
+			sockets = 0,
+			socketed = {},
+			slot = "",
+			extractCosts = {},
 		})
 	end
 
@@ -436,6 +524,60 @@ local function buildCatalogue(player: Player, profile: PlayerProfile, vendor: Ve
 			stats = { { label = "Fitting", value = def.slot } },
 			carried = false,
 			sellValue = 0,
+			sockets = 0,
+			socketed = {},
+			slot = "",
+			extractCosts = {},
+		})
+	end
+
+	--[[
+		A crystal row is a stack the player is carrying and nothing else: no
+		vendor stocks them, so the only way to have one is to have killed
+		something for it.
+
+		`stats` is what it would do in each kind of item, which is the only
+		question worth asking about a loose crystal -- it has no effect at all
+		until it is in something, and which of the four lines matters depends
+		on what the player socketed it into.
+	]]
+	local function addCrystal(uid: string, id: string)
+		if seen[uid] or not Crystals.exists(id) then
+			return
+		end
+		seen[uid] = true
+		local def = Crystals.get(id)
+		local stack = inv[uid]
+
+		local lines: { { label: string, value: string } } = {}
+		for _, itemSlot in Affixes.ITEM_SLOTS do
+			for _, line in Affixes.describe(Crystals.statsFor(id, itemSlot)) do
+				table.insert(lines, { label = itemSlot, value = line })
+			end
+		end
+
+		table.insert(entries, {
+			kind = "Crystal",
+			uid = uid,
+			id = id,
+			displayName = def.displayName,
+			description = def.description,
+			-- Grade stands in for tier, so the list runs Chipped to Perfect.
+			tier = def.rarity + 1,
+			requiredLevel = 1,
+			price = 0,
+			owned = stack ~= nil,
+			equipped = false,
+			forSale = false,
+			rarity = def.rarity,
+			affixes = {},
+			stats = lines,
+			carried = stack ~= nil,
+			sellValue = if stack then sellValue(stack, shop) else 0,
+			sockets = 0,
+			socketed = {},
+			slot = "",
+			extractCosts = {},
 		})
 	end
 
@@ -445,6 +587,7 @@ local function buildCatalogue(player: Player, profile: PlayerProfile, vendor: Ve
 	for _, stack in inv do
 		addOutfit(stack.uid, stack.id)
 		addWeapon(stack.uid, stack.id)
+		addCrystal(stack.uid, stack.id)
 	end
 	for _, id in profile.unlockedShips do
 		addShip(id)
@@ -665,6 +808,137 @@ function ShopService.equipOutfit(player: Player, uid: string): (boolean, string?
 	return true, nil
 end
 
+--------------------------------------------------------------------------------
+-- Crystals
+--------------------------------------------------------------------------------
+
+--[[
+	Puts one carried crystal into one hole. Free, and works anywhere.
+
+	Deliberately not a vendor action. Fitting a stone is the decision the whole
+	system exists to offer, and gating it behind walking back to town would
+	mean the interesting half of a drop cannot be enjoyed where the drop
+	happened. Taking one back out is what costs -- see `unsocket`.
+]]
+function ShopService.socket(player: Player, uid: string, index: number, crystalId: string): (boolean, string?)
+	local profile = data().get(player)
+	if not profile then
+		return false, "Profile not loaded"
+	end
+	if not Crystals.exists(crystalId) then
+		return false, "Unknown crystal"
+	end
+
+	local stack = profile.inventory[uid]
+	if not stack then
+		return false, "You are not carrying that"
+	end
+	local slot = slotOf(stack.id)
+	if slot == "" then
+		return false, "Nothing can be socketed into that"
+	end
+	index = math.floor(index)
+	if index < 1 or index > (stack.sockets or 0) then
+		return false, "No such socket"
+	end
+	if stack.socketed and stack.socketed[tostring(index)] then
+		return false, "That socket is already filled"
+	end
+	if not Inventory.has(profile.inventory, crystalId) then
+		return false, "You do not have that crystal"
+	end
+
+	--[[
+		Taken out of the bag first, and the socket only filled against what
+		actually came out. `Inventory.remove` returns how many it really got,
+		which is the one number worth trusting -- paying out against the
+		request instead is how a player fills three sockets from one stone.
+	]]
+	local placed = false
+	data().update(player, function(p: PlayerProfile)
+		if Inventory.remove(p.inventory, crystalId, 1) < 1 then
+			return
+		end
+		placed = Inventory.socket(p.inventory, uid, index, crystalId)
+		if not placed then
+			-- Put it back rather than eat it. This can only happen if the two
+			-- reads above raced, but the failure mode is a destroyed crystal.
+			Inventory.add(p.inventory, crystalId, 1)
+		end
+	end)
+	if not placed then
+		return false, "Could not fit that crystal"
+	end
+
+	-- Sockets on a worn item change the folded stat table, so the cache the
+	-- player is being hit with has to go. Weapons too: they carry stats now.
+	if profile.equipped.outfit == uid or profile.equipped.weapon == uid then
+		progression().invalidate(player)
+		if profile.equipped.outfit == uid then
+			ServiceLoader.get("PlayerService").refreshOutfit(player)
+		end
+	end
+
+	notify(player, `Fitted {Crystals.get(crystalId).displayName}`, "Success")
+	return true, nil
+end
+
+--[[
+	Pulls one crystal back out. Costs credits, at a vendor, and destroys it.
+
+	Diablo's own rule, and it is the right one twice over: it makes fitting a
+	stone a real decision rather than a thing you shuffle for free, and it is
+	the only sink in the economy at the top end -- past about level 30 there is
+	nothing left in the catalogue to want and credits simply pile up.
+
+	The hole stays. What is bought here is the removal, not the socket.
+]]
+function ShopService.unsocket(player: Player, uid: string, index: number): (boolean, string?)
+	local profile = data().get(player)
+	if not profile then
+		return false, "Profile not loaded"
+	end
+
+	local vendor = vendorNear(player)
+	if not vendor then
+		return false, "No vendor nearby"
+	end
+	local shop = Shops.get(vendor.shopId)
+
+	local stack = profile.inventory[uid]
+	if not stack then
+		return false, "You are not carrying that"
+	end
+	index = math.floor(index)
+	local crystalId = stack.socketed and stack.socketed[tostring(index)]
+	if not crystalId then
+		return false, "That socket is empty"
+	end
+
+	-- Recomputed from config at the moment of sale, never taken from the row
+	-- the client clicked -- the same rule `purchase` and `sell` follow.
+	local price = extractCost(crystalId, shop)
+	if not progression().spendCredits(player, price) then
+		return false, `Removing that costs {price} cr`
+	end
+
+	local removed: string? = nil
+	data().update(player, function(p: PlayerProfile)
+		removed = Inventory.unsocket(p.inventory, uid, index)
+	end)
+
+	if profile.equipped.outfit == uid or profile.equipped.weapon == uid then
+		progression().invalidate(player)
+		if profile.equipped.outfit == uid then
+			ServiceLoader.get("PlayerService").refreshOutfit(player)
+		end
+	end
+
+	local name = if removed then Crystals.get(removed).displayName else "the crystal"
+	notify(player, `Cut {name} out for {price} cr. It did not survive.`, "Info")
+	return true, nil
+end
+
 --[[
 	The stack a sell or discard would act on, or a reason it cannot.
 
@@ -734,7 +1008,7 @@ end
 --[[
 	Throws one stack away. No vendor, no payment, no undo.
 
-	The bag is capped (see `Inventory.MAX_ROLLED`) and vendors are in towns, so
+	The bag is capped (see `Inventory.MAX_UNIQUE`) and vendors are in towns, so
 	without this a full bag miles from anywhere means no more drops until you
 	walk home. The client asks twice before calling it.
 ]]
@@ -777,10 +1051,10 @@ function ShopService.init()
 			equippedWeapon = profile.equipped.weapon,
 			equippedShip = profile.equipped.ship,
 			vendor = vendor,
-			-- How full the bag is. Only rolled items count against it; see
-			-- Inventory.MAX_ROLLED for why the rest need no ceiling.
-			rolled = Inventory.rolled(profile.inventory),
-			maxRolled = Inventory.MAX_ROLLED,
+			-- How full the bag is. Only unmergeable items count against it; see
+			-- Inventory.MAX_UNIQUE for why the rest need no ceiling.
+			rolled = Inventory.unique(profile.inventory),
+			maxRolled = Inventory.MAX_UNIQUE,
 			items = buildCatalogue(player, profile, vendor),
 		}
 	end, {
@@ -839,6 +1113,43 @@ function ShopService.init()
 	end, {
 		rateLimit = 4,
 		validate = Net.args(Net.check.string(64)),
+	})
+
+	--[[
+		The socket index is bounded here as well as in the transaction.
+
+		`Crystals.MAX_SOCKETS` is the most holes anything can ever have, so a
+		message naming socket 900 is a client that has been edited and there is
+		no reason to let it reach the profile at all. The transaction still
+		checks the index against *this* item's hole count -- this bound is the
+		cheap one, not the real one.
+	]]
+	Net.onServerEvent(
+		Net.Event.SocketCrystal,
+		function(player: Player, uid: string, index: number, crystalId: string)
+			local ok, reason = ShopService.socket(player, uid, index, crystalId)
+			if not ok and reason then
+				notify(player, reason, "Error")
+			end
+		end,
+		{
+			rateLimit = 4,
+			validate = Net.args(
+				Net.check.string(64),
+				Net.check.integer(1, Crystals.MAX_SOCKETS),
+				Net.check.string(64)
+			),
+		}
+	)
+
+	Net.onServerEvent(Net.Event.UnsocketCrystal, function(player: Player, uid: string, index: number)
+		local ok, reason = ShopService.unsocket(player, uid, index)
+		if not ok and reason then
+			notify(player, reason, "Error")
+		end
+	end, {
+		rateLimit = 4,
+		validate = Net.args(Net.check.string(64), Net.check.integer(1, Crystals.MAX_SOCKETS)),
 	})
 end
 

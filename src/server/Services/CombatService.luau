@@ -447,7 +447,7 @@ function CombatService.onKilled(target: Model, info: DamageInfo)
 	if drop then
 		local taken = false
 		data().update(killer, function(p: PlayerProfile)
-			taken = Inventory.add(p.inventory, drop.id, 1, drop.rolls) ~= nil
+			taken = Inventory.add(p.inventory, drop.id, 1, drop.rolls, drop.sockets) ~= nil
 		end)
 		if not taken then
 			-- A full bag is told about, not silently swallowed. The drop is
@@ -461,7 +461,7 @@ function CombatService.onKilled(target: Model, info: DamageInfo)
 		-- The toast's kind IS the rarity, so the colour it is drawn in comes
 		-- from the same table the inventory panel reads and the two cannot
 		-- disagree about what orange means.
-		local rarity = Affixes.rarityOf(drop.rolls)
+		local rarity = Affixes.rarityAt(Loot.rarityOf(drop))
 		Net.fireClient(Net.Event.Notify, killer, `{rarity.name}: {Loot.nameOf(drop)}`, rarity.name)
 	end
 end

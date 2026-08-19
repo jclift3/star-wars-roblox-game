@@ -367,6 +367,8 @@ Net.Event = {
 	SellItem = "SellItem",
 	DiscardItem = "DiscardItem",
 	EquipOutfit = "EquipOutfit",
+	SocketCrystal = "SocketCrystal",
+	UnsocketCrystal = "UnsocketCrystal",
 	-- Vehicles
 	EquipShip = "EquipShip",
 	SummonVehicle = "SummonVehicle",

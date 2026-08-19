@@ -411,10 +411,7 @@ function Secrets.validate(
 				than by comparing slot names, so the two cannot disagree.
 			]]
 			local slot = if item and Weapons.exists(item) then Weapons.get(item).class else "Outfit"
-			local legal: { [string]: boolean } = {}
-			for _, a in Affixes.forSlot(slot) do
-				legal[a.stat] = true
-			end
+			local legal = Affixes.statsForSlot(slot)
 			for stat in rolls do
 				if not Affixes.exists(stat) then
 					table.insert(problems, `{id}: rolls "{stat}", which is not an affix`)

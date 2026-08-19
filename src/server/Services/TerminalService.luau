@@ -336,10 +336,10 @@ function TerminalService.slice(player: Player, entry: Live)
 	if drop then
 		local taken = false
 		data().update(player, function(p: PlayerProfile)
-			taken = Inventory.add(p.inventory, drop.id, 1, drop.rolls) ~= nil
+			taken = Inventory.add(p.inventory, drop.id, 1, drop.rolls, drop.sockets) ~= nil
 		end)
 		if taken then
-			local rarity = Affixes.rarityOf(drop.rolls)
+			local rarity = Affixes.rarityAt(Loot.rarityOf(drop))
 			Net.fireClient(Net.Event.Notify, player, `{rarity.name}: {Loot.nameOf(drop)}`, rarity.name)
 		else
 			Net.fireClient(Net.Event.Notify, player, `Bag full -- left {Loot.nameOf(drop)} behind`, "Error")

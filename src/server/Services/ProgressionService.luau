@@ -28,6 +28,8 @@ local Alignment = require(Shared.Config.Alignment)
 local Factions = require(Shared.Config.Factions)
 local Flags = require(Shared.Config.Flags)
 local Outfits = require(Shared.Config.Outfits)
+local Weapons = require(Shared.Config.Weapons)
+local Crystals = require(Shared.Config.Crystals)
 
 local ServiceLoader = require(Shared.Core.ServiceLoader)
 
@@ -58,7 +60,8 @@ end
 
 --[[
 	Everything the player's gear contributes: the outfit's authored stats, plus
-	whatever the equipped outfit and weapon rolled.
+	whatever the equipped outfit and weapon rolled, plus whatever is socketed
+	into either of them.
 
 	`equipped` holds inventory uids, not catalogue ids -- for a plain item the
 	two are the same string, which is why nothing needed changing when stacks
@@ -68,6 +71,11 @@ end
 	Cloned before anything is folded in, because `Outfits.statsFor` hands back
 	the config's own table: adding a roll to it in place would permanently
 	rewrite that outfit for every player on the server.
+
+	Everything here is *added*, then `computeStats` clamps. Three Perfect
+	crimson crystals are +43% and not 1.143 cubed, which is the same rule
+	skills and affixes already play by -- one stacking model in the game, so a
+	player can add the numbers on the sheet up in their head and be right.
 ]]
 local function gearStats(profile): { [string]: number }
 	local inv = profile.inventory
@@ -77,6 +85,23 @@ local function gearStats(profile): { [string]: number }
 		if rolls then
 			for stat, delta in rolls do
 				extra[stat] = (extra[stat] or 0) + delta
+			end
+		end
+
+		--[[
+			A crystal's stat depends on what it is sitting in, so the item's
+			own slot has to be resolved before it can be asked -- a crimson
+			crystal is damage in a weapon and armour in an outfit, and asking
+			for the wrong one returns nothing rather than the wrong thing.
+		]]
+		local socketed = Inventory.socketedOf(inv, uid)
+		if socketed then
+			local id = Inventory.idOf(inv, uid)
+			local slot = if id and Weapons.exists(id) then Weapons.get(id).class else "Outfit"
+			for _, crystalId in socketed do
+				for stat, delta in Crystals.statsFor(crystalId, slot) do
+					extra[stat] = (extra[stat] or 0) + delta
+				end
 			end
 		end
 	end

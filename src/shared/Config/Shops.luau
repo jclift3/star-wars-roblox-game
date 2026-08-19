@@ -42,6 +42,21 @@ Shops.VENDOR_RANGE = 30
 ]]
 Shops.SELL_FRACTION = 0.3
 
+--[[
+	What a vendor charges to cut a crystal back out of an item, as a fraction
+	of what the crystal cost.
+
+	The crystal is destroyed either way, so this is not a refund and not a
+	trade -- it is a fee for undoing a decision. High enough that fitting a
+	Perfect crystal is worth thinking about first, low enough that a mistake
+	made at level 12 is not permanent.
+
+	Multiplied by the vendor's `priceMult` rather than divided by it, unlike
+	`SELL_FRACTION`: the player is buying a service here, so the expensive
+	trader is expensive in the ordinary direction.
+]]
+Shops.EXTRACT_FRACTION = 0.5
+
 export type ShopDef = {
 	id: string,
 	displayName: string,
