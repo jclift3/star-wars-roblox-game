@@ -182,6 +182,35 @@ def({
 	suffix = false,
 })
 
+-- Melee ---------------------------------------------------------------------
+
+--[[
+	The same numbers as the saber affix, on purpose.
+
+	Added 2026-08-19, immediately after the slot split, because the split
+	revealed the gap rather than caused it: with blaster and saber affixes
+	correctly refusing to roll on a vibroblade, Melee's pool was exactly
+	`MAX_AFFIXES` -- so every Legendary melee weapon in the game rolled the
+	same four things, and there was no such thing as a melee weapon that hit
+	harder than another of its kind.
+
+	Matching `SaberDamageMult` rather than inventing a curve for it: a melee
+	weapon is worse than a saber in the catalogue already (`WeaponDef.damage`
+	and `range` say so), and paying that difference twice would be balancing
+	the class through its affixes, which is not what an affix is for.
+]]
+def({
+	stat = "MeleeDamageMult",
+	label = "Melee damage",
+	slot = "Melee",
+	min = 0.04,
+	max = 0.09,
+	perLevel = 0.0015,
+	percent = true,
+	word = "Brutal",
+	suffix = false,
+})
+
 -- Any weapon ----------------------------------------------------------------
 
 -- The one weapon stat every class really reads: `resolveShot` rolls crit on a

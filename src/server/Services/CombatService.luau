@@ -664,7 +664,12 @@ local function onSaberSwing(player: Player)
 	end
 	lastSwingAt[player] = now
 
-	local damageMult = if weapon.class == "Saber" then (stats.SaberDamageMult or 1) else 1
+	-- Only the two swung classes reach here (see the guard above), so this is
+	-- exhaustive: a saber reads the saber multiplier and a vibroblade reads
+	-- the melee one. Neither can be moved by the other's affix.
+	local damageMult = if weapon.class == "Saber"
+		then (stats.SaberDamageMult or 1)
+		else (stats.MeleeDamageMult or 1)
 	CombatService.swingMelee(character, weaponId, player, {
 		damageMult = damageMult,
 		critChance = stats.CritChance,

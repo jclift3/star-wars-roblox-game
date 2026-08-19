@@ -665,6 +665,7 @@ Progression.baseStats = {
 	-- What every ability's `cooldown` is multiplied by, Force or not.
 	AbilityCooldownMult = 1,
 	SaberDamageMult = 1,
+	MeleeDamageMult = 1,
 	DeflectChance = 0,
 	PushPower = 1,
 	ForceDamageMult = 1,
@@ -710,6 +711,9 @@ local LIVE_STATS: { [string]: string } = {
 	CritDamageBonus = "CombatService.resolveShot / swingMelee",
 	BonusPierce = "CombatService.resolveShot",
 	SaberDamageMult = "CombatService.onSaberSwing",
+	-- Same reader as above -- `onSaberSwing` handles both swung classes, and
+	-- picks which of the two multipliers applies off `WeaponDef.class`.
+	MeleeDamageMult = "CombatService.onSaberSwing",
 	DeflectChance = "CombatService.applyDamage",
 	MoveSpeedMult = "PlayerService (humanoid.WalkSpeed)",
 	CreditMult = "ProgressionService.awardCredits",
