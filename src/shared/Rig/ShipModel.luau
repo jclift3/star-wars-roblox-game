@@ -36,6 +36,15 @@ ShipModel.DRIVER_SEAT = "DriverSeat"
 ShipModel.CHASSIS = "Chassis"
 ShipModel.DRIVE = "Drive"
 ShipModel.ATTITUDE = "Attitude"
+ShipModel.PROMPT = "Board"
+
+--[[
+	Shared with VehicleService, which flips a passenger prompt between the two
+	as the pilot's seat fills and empties. Two files reading one word each is
+	how a label and the rule it describes drift apart.
+]]
+ShipModel.PILOT_TEXT = "Pilot"
+ShipModel.RIDE_TEXT = "Ride"
 
 local function resolveShape(shape: string?): (Enum.PartType, boolean)
 	if shape == "Ball" then
@@ -119,7 +128,48 @@ local function boundingSize(def: Ships.ShipDef): (Vector3, Vector3)
 	return max - min, (max + min) * 0.5
 end
 
-local function buildSeat(name: string, size: Vector3, offset: Vector3, vehicle: boolean): BasePart
+--[[
+	A seat, and the prompt that is the only way into it.
+
+	NOTHING IN THIS FILE CAN BE SAT ON BY WALKING INTO IT
+	Reported from play twice, 2026-08-19: *"I was able to sit in the ship but
+	it doesn't move"*, and then, after a fix aimed at which seat he had landed
+	in, *"I'm still not able to drive."*
+
+	The reason is above, in the header that is proud of it: the chassis is
+	sized to the whole bounding box and is the only part that collides. Every
+	seat offset in `Ships.luau` is comfortably inside that box, so the seats
+	are not furniture the player can reach -- they are sealed in a solid
+	invisible shell. On the Hover-Sled the driver's seat's top face is seven
+	tenths of a stud beneath the chassis roof, and a character standing on the
+	hull is standing on that roof. `Touched` cannot fire between two parts that
+	never overlap.
+
+	Which makes "sitting down" a question of whether the physics solver let the
+	character penetrate the collider for a frame on the way in. It did once. It
+	is not something to fix by tuning, because there is no seat position that is
+	both inside the hull, where a seat belongs, and outside the collider, which
+	is drawn around the hull by definition.
+
+	So `CanTouch` is off and boarding is a `ProximityPrompt`, the same verb this
+	game already uses for vendors, terminals and dropped loot. That buys three
+	things at once: it works regardless of geometry, it says out loud that the
+	ship can be boarded at all, and it makes the choice of seat something the
+	player makes rather than something the collision solver makes for them.
+
+	`RequiresLineOfSight` is off because the sight test would be cast at a seat
+	that is, again, inside a box. It happens to pass today -- every part a ship
+	is made of sets `CanQuery = false` so the hover ray can be fired from inside
+	it -- and that is a coincidence between two unrelated decisions, not
+	something to rely on.
+]]
+local function buildSeat(
+	name: string,
+	size: Vector3,
+	offset: Vector3,
+	vehicle: boolean,
+	reach: number
+): BasePart
 	local seat: BasePart = if vehicle then Instance.new("VehicleSeat") else Instance.new("Seat")
 	seat.Name = name
 	seat.Size = size
@@ -127,11 +177,22 @@ local function buildSeat(name: string, size: Vector3, offset: Vector3, vehicle: 
 	seat.Material = Enum.Material.Fabric
 	seat.CanCollide = false
 	seat.CanQuery = false
-	-- Seats are entered through Touched, so this one property is the whole
-	-- difference between furniture and a vehicle.
-	seat.CanTouch = true
+	seat.CanTouch = false
 	seat.Massless = true
 	seat.CFrame = CFrame.new(offset)
+
+	local prompt = Instance.new("ProximityPrompt")
+	prompt.Name = ShipModel.PROMPT
+	-- Both seats offer to fly, because both do while the ship is empty.
+	-- VehicleService rewrites the passengers' the moment somebody is at the
+	-- controls; see the rule it keeps.
+	prompt.ActionText = ShipModel.PILOT_TEXT
+	prompt.KeyboardKeyCode = Ships.BOARD_PROMPT_KEY
+	prompt.HoldDuration = 0
+	prompt.MaxActivationDistance = reach
+	prompt.RequiresLineOfSight = false
+	prompt.Parent = seat
+
 	return seat
 end
 
@@ -182,9 +243,22 @@ function ShipModel.build(shipId: string): Model
 		attach(p)
 	end
 
-	attach(buildSeat(ShipModel.DRIVER_SEAT, def.seatSize, def.seatOffset, true))
+	--[[
+		The prompt sits at the seat, and the seat is in the middle of the ship,
+		so the reach has to cover getting there from outside the hull. Derived
+		from the hull rather than a constant: twelve studs is generous beside a
+		swoop bike and is inside the cargo hold of a forty-stud freighter.
+	]]
+	local reach = math.max(12, size.Magnitude * 0.5)
+
+	local seats = { buildSeat(ShipModel.DRIVER_SEAT, def.seatSize, def.seatOffset, true, reach) }
 	for i, offset in def.passengerOffsets do
-		attach(buildSeat(`Passenger{i}`, def.seatSize, offset, false))
+		table.insert(seats, buildSeat(`Passenger{i}`, def.seatSize, offset, false, reach))
+	end
+	for _, seat in seats do
+		local prompt = seat:FindFirstChild(ShipModel.PROMPT) :: ProximityPrompt
+		prompt.ObjectText = def.displayName
+		attach(seat)
 	end
 
 	--[[

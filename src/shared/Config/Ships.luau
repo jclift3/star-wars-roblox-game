@@ -1436,6 +1436,19 @@ Ships.SUMMON_KEY = Enum.KeyCode.V
 -- has to be re-read every time it is wrong.
 Ships.SUMMON_HINT = "VEHICLE"
 
+--[[
+	The key that gets you into it once it is standing there.
+
+	Roblox already defaults a `ProximityPrompt` to E, and this game already
+	uses that prompt for vendors, terminals and dropped loot, so boarding is
+	deliberately not a new verb the player has to learn. It is named here
+	anyway, and written onto the prompt rather than left to the default,
+	because `VehicleService`'s toast tells the player which key to hold --
+	and a toast that reads the default rather than being the default is one
+	Roblox release away from lying.
+]]
+Ships.BOARD_PROMPT_KEY = Enum.KeyCode.E
+
 --- The two values of `ShipDef.class`, so no caller has to spell them.
 Ships.SPEEDER = "Speeder"
 Ships.STARSHIP = "Starship"

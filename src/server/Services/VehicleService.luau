@@ -220,6 +220,20 @@ end
 	cargo; the physics has to belong to exactly one machine and it belongs to
 	whoever is steering.
 ]]
+local function livingHumanoid(player: Player): Humanoid?
+	local character = player.Character
+	local humanoid = character and character:FindFirstChildOfClass("Humanoid")
+	if humanoid and humanoid.Health > 0 then
+		return humanoid
+	end
+	return nil
+end
+
+local function promptOn(seat: BasePart): ProximityPrompt?
+	local prompt = seat:FindFirstChild(ShipModel.PROMPT)
+	return if prompt and prompt:IsA("ProximityPrompt") then prompt else nil
+end
+
 local function watch(model: Model)
 	local chassis = model.PrimaryPart :: BasePart
 	local seat = ShipModel.driverSeat(model)
@@ -228,12 +242,70 @@ local function watch(model: Model)
 		return
 	end
 
+	--[[
+		ONE RULE, AND THE LABEL SAYS WHICH WAY IT IS POINTING
+
+		Reported twice, 2026-08-19: the ship could be sat in and would not
+		move. The first attempt promoted a passenger to the pilot's seat, on
+		the theory that the player had touched the wrong one of several
+		identical black seats. He had -- but only sometimes, because
+		`ShipModel` seals every seat inside the chassis collider and walking
+		into one was never going to work at all. That file now carries the
+		geometry; here is the rule the prompts it added are announcing.
+
+		An empty ship is flown by whoever gets in, from any seat. Once
+		somebody is at the controls the other seats go back to being seats,
+		which is the case they exist for and the case the two brothers
+		actually play. Rather than leave that as a hidden promotion nobody
+		could predict, the passengers' prompts read "Pilot" or "Ride"
+		depending on which half of it is currently true, so the ship answers
+		the question before it is asked.
+	]]
+	local passengers: { ProximityPrompt } = {}
+	for _, part in model:GetChildren() do
+		-- `VehicleSeat` does not inherit from `Seat`, so this is exactly the
+		-- passenger seats and never the driver's.
+		if not part:IsA("Seat") then
+			continue
+		end
+		local prompt = promptOn(part)
+		if not prompt then
+			continue
+		end
+		table.insert(passengers, prompt)
+		prompt.Triggered:Connect(function(player: Player)
+			local humanoid = livingHumanoid(player)
+			if not humanoid then
+				return
+			end
+			if not seat.Occupant then
+				seat:Sit(humanoid)
+			elseif not part.Occupant then
+				part:Sit(humanoid)
+			end
+		end)
+	end
+
+	local driverPrompt = promptOn(seat)
+	if driverPrompt then
+		driverPrompt.Triggered:Connect(function(player: Player)
+			local humanoid = livingHumanoid(player)
+			if humanoid and not seat.Occupant then
+				seat:Sit(humanoid)
+			end
+		end)
+	end
+
 	seat:GetPropertyChangedSignal("Occupant"):Connect(function()
 		if not chassis.Parent then
 			return
 		end
 
 		local occupant = seat.Occupant
+		for _, prompt in passengers do
+			prompt.ActionText = if occupant then ShipModel.RIDE_TEXT else ShipModel.PILOT_TEXT
+		end
+
 		local character = occupant and occupant.Parent
 		local driver = if character and character:IsA("Model")
 			then Players:GetPlayerFromCharacter(character)
@@ -252,58 +324,6 @@ local function watch(model: Model)
 			chassis.Anchored = true
 		end
 	end)
-
-	--[[
-		NOBODY IS A PASSENGER IN AN EMPTY SHIP
-
-		Reported from play, 2026-08-19: *"I was able to sit in the ship but it
-		doesn't move. I tried the arrows and I tried the normal w/a/s/d."*
-
-		Only `DriverSeat` is a `VehicleSeat`, and only a `VehicleSeat` turns
-		WASD into `Throttle` and `Steer` -- so the whole of driving hangs on
-		which of two to four identical black seats you happened to touch. And
-		you do not choose: seats are entered by `Touched`, there is no prompt
-		and no label, and on the freighter the pilot's seat is eight studs
-		back and three studs up in a cockpit while three passenger seats sit
-		at cabin floor level in the doorway you walk through. Landing in the
-		wrong one was not a mistake the player made; it was the only outcome
-		available to them.
-
-		The rule that fixes it needs no interface: sitting down in a ship that
-		nobody is flying means you meant to fly it. Co-op is untouched --
-		while one brother is in the pilot's seat the other stays put, which is
-		the case the passenger seats exist for.
-
-		Deferred rather than immediate because this runs from inside the
-		`Occupant` change that seated them, and `Sit` reseats the same
-		humanoid; letting the first sit finish keeps the two welds from
-		racing.
-	]]
-	for _, part in model:GetChildren() do
-		-- `VehicleSeat` does not inherit from `Seat`, so this is exactly the
-		-- passenger seats and never the one already being watched above.
-		if not part:IsA("Seat") then
-			continue
-		end
-		part:GetPropertyChangedSignal("Occupant"):Connect(function()
-			local occupant = part.Occupant
-			local character = occupant and occupant.Parent
-			if not (character and character:IsA("Model")) then
-				return
-			end
-			if not Players:GetPlayerFromCharacter(character) then
-				return
-			end
-			if seat.Occupant then
-				return
-			end
-			task.defer(function()
-				if seat.Parent and not seat.Occupant and part.Occupant == occupant then
-					seat:Sit(occupant :: Humanoid)
-				end
-			end)
-		end)
-	end
 end
 
 --[[
@@ -406,21 +426,24 @@ function VehicleService.toggle(player: Player): (boolean, string?)
 	--[[
 		The toast says how to ride it, because nothing else in the game does.
 
-		Seats are entered by touch, which is a Roblox convention and not a
-		fact about this game -- there is no prompt over the saddle, and a
-		player who does not already know to walk into it is looking at a
-		speeder they own, that they paid for, that they cannot get on. The
-		steering is the same omission: `VehicleSeat` turns WASD into
-		`Throttle` and `Steer` for free, and free is exactly why no screen
-		ever mentioned it.
+		It used to say "walk into the seat", which was true of the code and
+		false of the game: the seats are inside the chassis collider and
+		could not be walked into. Boarding is a prompt now, and the toast
+		names the same key the prompt shows rather than describing it, so the
+		two cannot disagree about which one it is.
+
+		The steering was the same kind of omission for a different reason:
+		`VehicleSeat` turns WASD into `Throttle` and `Steer` for free, and
+		free is exactly why no screen ever mentioned it.
 
 		The pitch keys are named only on a starship. A speeder has no use for
 		them, and a line that lists two controls that do nothing teaches the
 		player that the rest of the line might be wrong too.
 	]]
+	local board = `Hold {Ships.BOARD_PROMPT_KEY.Name} at the {ShipModel.PILOT_TEXT} prompt`
 	local how = if Ships.isStarship(shipId)
-		then `Walk into the seat. WASD to fly, {Ships.PITCH_UP_KEY.Name} up, {Ships.PITCH_DOWN_KEY.Name} down.`
-		else "Walk into the seat, then WASD."
+		then `{board}. WASD to fly, {Ships.PITCH_UP_KEY.Name} up, {Ships.PITCH_DOWN_KEY.Name} down.`
+		else `{board}, then WASD.`
 	notify(player, `{def.displayName} standing by. {how}`, "Info")
 	return true, nil
 end

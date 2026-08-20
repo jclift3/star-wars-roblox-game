@@ -2447,17 +2447,43 @@ longer disagree. The arm motion is still attempted and still better; it is now
 *polish on top of* the swing rather than the whole of it, and its absence warns
 once instead of failing silently.
 
-**The ship was a seat-choice problem wearing a controls bug.** Only `DriverSeat`
-is a `VehicleSeat`, and only a `VehicleSeat` turns WASD into `Throttle` and
-`Steer`. But seats are entered by `Touched` — no prompt, no label — and on the
-freighter the pilot's seat is eight studs back and three up in a cockpit while
-three identical black passenger seats sit at floor level in the doorway you walk
-through. Landing in the wrong one was not a mistake the player made; it was the
-only outcome available. **Sitting down in a ship nobody is flying now moves you
-to the pilot's seat** (deferred by one frame, so the reseat does not race the sit
-that triggered it). No new interface, and co-op is untouched: while one brother
-is flying, the other stays where he sat, which is what the passenger seats are
-for.
+**The ship looked like a seat-choice problem and was a reachability problem.**
+The first attempt reasoned that only `DriverSeat` is a `VehicleSeat`, that only a
+`VehicleSeat` turns WASD into `Throttle` and `Steer`, and that seats are entered
+by silent `Touched` — so the player had simply landed in one of several identical
+black seats. It promoted a passenger in an empty ship to the pilot's seat. The
+report came straight back: *"I'm still not able to drive. please figure this
+out."*
+
+**A repeat report means the first fix guessed at the cause — for the second time
+this week.** The guess was aimed at a seat he was never reliably getting into at
+all. `ShipModel` builds one invisible `Chassis` sized to the hull's *whole*
+bounding box, and it is the only part in the model with `CanCollide` on. Every
+`seatOffset` in `Ships.luau` is comfortably inside that box. On the Hover-Sled the
+chassis spans local Y −1.825…+0.700 while the driver's seat's top face is at 0.0:
+**the seat is seven tenths of a stud beneath a solid invisible roof, and standing
+on the hull means standing on that roof.** `Touched` cannot fire between two parts
+that never overlap, so sitting down at all was the solver letting the character
+clip through the collider for a frame. It worked once. The detail pass in the same
+commit made it 0.25 studs worse by raising the bounding box with running lights.
+
+There is no seat position that is both inside the hull, where a seat belongs, and
+outside a collider drawn around the hull by definition — so this was never
+tunable. Seats are now `CanTouch = false` and **boarding is a `ProximityPrompt`**,
+the verb this game already uses for vendors, terminals and dropped loot. That buys
+three things at once: it works regardless of geometry, it says out loud that the
+ship can be boarded, and the choice of seat belongs to the player instead of to
+the collision solver. `RequiresLineOfSight` is off, because the sight test would
+be cast at a seat inside a box — it happens to pass today only because every ship
+part sets `CanQuery = false` for the hover ray, and that is a coincidence between
+two unrelated decisions.
+
+The promotion rule survives, but as a **label instead of a surprise**: while
+nobody is flying, *every* seat's prompt reads `Pilot` and puts you at the
+controls; the moment somebody is, the passengers' read `Ride`. One rule, and the
+ship answers the question before it is asked. `MaxActivationDistance` is derived
+from the hull, since twelve studs is generous beside a swoop bike and is inside
+the cargo hold of a forty-stud freighter.
 
 **"Really sad / blocky" is answered with edges, not with boxes.** A large box is
 exactly as blocky at ten studs as at a hundred; what reads as a surface is a face
