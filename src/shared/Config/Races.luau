@@ -88,6 +88,31 @@ local PACE = 0.62
 Races.ABANDON_MULT = 3
 
 --[[
+	The fraction of its own hull's top speed a rival holds.
+
+	Lower than `PACE` on purpose, and the gap between the two is the entire
+	difficulty of the field. A rival drives the gate polyline exactly: the
+	shortest legal line round the circuit, taken without ever overshooting a
+	corner or lifting for one. A human cannot do that, so a rival held at the
+	same fraction a human is credited with would be unbeatable in the same
+	hull, and "unbeatable in the same hull" makes the whole grid scenery.
+
+	At 0.56 against par's 0.62 the shape comes out right on today's
+	catalogue: a player who hits par finishes second, behind the Swoop
+	Racer's ghost and ahead of everything else. That is the two things the
+	field has to say at once -- *drive better* and *buy a better speeder*.
+
+	THERE IS NO RUBBER-BANDING AND THERE WILL NOT BE
+	A rival's position is a pure function of elapsed time and its own hull's
+	speed. It does not know where the player is and cannot be told. Catch-up
+	logic is the thing that makes a win feel unearned, and the two players
+	this is being built for are fourteen years old and share a room: a field
+	that is being polite to them is a field they will have worked out inside
+	three races, and every race after that is worth nothing.
+]]
+local RIVAL_PACE = 0.56
+
+--[[
 	Bands, not a leaderboard.
 
 	A server-wide table would mean an `OrderedDataStore` -- a subsystem this
@@ -131,6 +156,68 @@ local SPEEDS = speederSpeeds()
 --- Median rather than mean: one outlier hull should move par by nothing.
 local MEDIAN_SPEED = if #SPEEDS > 0 then SPEEDS[math.ceil(#SPEEDS / 2)] else 1
 local TOP_SPEED = if #SPEEDS > 0 then SPEEDS[#SPEEDS] else 1
+
+--------------------------------------------------------------------------------
+-- The grid
+--------------------------------------------------------------------------------
+
+export type Rival = {
+	--- The hull it is a ghost of. Also its name on the nameplate.
+	ship: string,
+	--- Studs per second, held for the whole race. See `RIVAL_PACE`.
+	speed: number,
+}
+
+--[[
+	The field: one rival per speeder in the catalogue, slowest first.
+
+	Not a count, not a difficulty setting and not a roster anybody typed.
+	The grid *is* the catalogue, which buys three things at once.
+
+	It fills itself. Adding a sixth speeder to `Ships.luau` puts a sixth
+	speeder on the grid, which is the only way a derived system stays true --
+	the same argument `Weapons.maxima` and `Planets.bandFor` are built on.
+
+	It makes a finishing position mean something specific. Beating the
+	Aratech means you went round faster than an Aratech goes round, so
+	"third of six in a Hover-Sled" is a real sentence about a real thing,
+	which "third of six" against an invented field is not.
+
+	And it includes a ghost of the hull the player is driving, deliberately.
+	That one is the benchmark the whole feature exists for: this game has
+	fourteen tuned handling numbers per speeder and has never once asked
+	whether a player could get more out of them than the numbers alone give.
+	Beating your own ghost is that question, asked directly.
+]]
+function Races.rivals(): { Rival }
+	local out: { Rival } = {}
+	for _, id in Ships.ids() do
+		if not Ships.isStarship(id) then
+			table.insert(out, { ship = id, speed = Ships.get(id).speed * RIVAL_PACE })
+		end
+	end
+	table.sort(out, function(a: Rival, b: Rival): boolean
+		return a.speed < b.speed
+	end)
+	return out
+end
+
+--- What a rival finishes `laps` of a `length`-stud circuit in. Analytic,
+--- because a rival never slows down, so there is nothing to simulate.
+function Races.rivalTime(speed: number, length: number, laps: number): number
+	return (length * laps) / speed
+end
+
+--- Where a finish of `time` places in the field. 1 is a win.
+function Races.placeFor(time: number, length: number, laps: number, rivals: { Rival }): number
+	local ahead = 0
+	for _, rival in rivals do
+		if Races.rivalTime(rival.speed, length, laps) < time then
+			ahead += 1
+		end
+	end
+	return ahead + 1
+end
 
 --------------------------------------------------------------------------------
 -- Derived times
@@ -202,6 +289,21 @@ function Races.validate(): { string }
 	end
 	if PACE <= 0 or PACE > 1 then
 		table.insert(problems, `PACE is {PACE}, which is not a fraction of top speed`)
+	end
+	if RIVAL_PACE <= 0 or RIVAL_PACE > 1 then
+		table.insert(problems, `RIVAL_PACE is {RIVAL_PACE}, which is not a fraction of top speed`)
+	end
+	--[[
+		A rival driving the perfect line at the pace par credits a human with
+		is a rival nobody in the same hull can beat, and a grid nobody can
+		beat is scenery. This is the one number the field's difficulty is,
+		so it is the one number worth a boot check.
+	]]
+	if RIVAL_PACE >= PACE then
+		table.insert(problems, "rivals hold at least the pace par assumes, so no hull can beat its own ghost")
+	end
+	if #Races.rivals() == 0 then
+		table.insert(problems, "the grid is empty, so every race is won by default")
 	end
 
 	-- A floor at or above par means every clean lap is rejected as impossible.

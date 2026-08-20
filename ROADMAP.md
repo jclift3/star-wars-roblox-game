@@ -2528,7 +2528,7 @@ of collision box made of light.
 
 ---
 
-### 4.6 Races — **commit 1 of 3 DONE 2026-08-20**, the rest planned
+### 4.6 Races — **commits 1 and 2 of 3 DONE 2026-08-20**, the money still planned
 
 **Nothing in this game currently rewards flying well.** You buy a speeder to skip
 a walk, and once you have any speeder the walk is skipped. Meanwhile `Ships.luau`
@@ -2601,7 +2601,8 @@ that place is a reward: **a mission may pay out a race pass.**
   its owner moves by `PivotTo`, and it is already doing that twenty-six at a time
   for ambient traffic. An AI racer is one of those following the same checkpoint
   ring at a speed drawn from a difficulty band. No pathfinding, no physics, no
-  `NPCBrain`, no seat.
+  `NPCBrain`, no seat. *Built 2026-08-20; the "difficulty band" turned out to be
+  unnecessary — see commit 2 below, where the grid is simply the ship catalogue.*
 
 **No rubber-banding.** The AI runs a fixed profile for its band. Catch-up logic is
 the thing that makes a win feel unearned, and the two players this is for are
@@ -2665,8 +2666,11 @@ Three commits, each green on `./check.sh`:
 
 1. ~~**A circuit exists and you can run it alone against the clock.**~~ —
    **DONE 2026-08-20**, below.
-2. **The grid fills** — AI racers first, then humans, because the AI is what
-   makes a solo race feel like one.
+2. ~~**The grid fills** — AI racers first, then humans, because the AI is what
+   makes a solo race feel like one.~~ — **AI DONE 2026-08-20**, below. Humans on
+   one grid folded into commit 3, where the purse gives them something to race
+   *for*; until then two brothers already race the same field and the same
+   circuit, they just start their laps independently.
 3. **The money** — fee, pass, drops, purse, payout.
 
 #### Commit 1, as built — **DONE 2026-08-20**
@@ -2710,6 +2714,51 @@ remote, `Net.Event.RaceState`.
 
 Deliberately **not** in commit 1: any payout at all. A race that pays before the
 purse exists is a faucet that has to be un-tuned in commit 3.
+
+#### Commit 2, as built — **DONE 2026-08-20**
+
+`Races.rivals` / `rivalTime` / `placeFor` and one constant, `RIVAL_PACE`;
+`ShipModel.buildGhost` on a `staticHull` helper factored out of `buildTraffic`;
+`Circuit.rivals` and a `route` on the wire; the standings line on the HUD card.
+
+- **The grid is the catalogue.** One rival per speeder in `Ships.luau`, slowest
+  first, each holding `RIVAL_PACE` of *its own* hull's top speed. Not a count, not
+  a difficulty setting, not a roster anybody typed — so adding a sixth speeder puts
+  a sixth speeder on the grid, and **"third of six in a Hover-Sled" is a sentence
+  about a real thing**: you went round faster than an Aratech goes round.
+- **Your own hull is on the grid too, deliberately.** That ghost is the benchmark
+  the whole feature exists for. Fourteen tuned handling numbers per speeder, and
+  until now nothing ever asked whether a player could get more out of them than the
+  numbers alone give. Beating your own ghost asks it directly.
+- **`RIVAL_PACE` (0.56) is below `PACE` (0.62), and the gap is the difficulty.** A
+  rival drives the gate polyline exactly — the shortest legal line, never
+  overshooting a corner. Held at the fraction par credits a *human* with, it would
+  be unbeatable in the same hull, and unbeatable makes the grid scenery. At 0.56
+  against today's catalogue a player who hits par finishes second, behind the Swoop
+  Racer and ahead of everything else: *drive better* and *buy a better speeder*,
+  said at once. `Races.validate` refuses `RIVAL_PACE >= PACE`.
+- **No rubber-banding, and it is structurally impossible rather than merely
+  absent.** A rival's position is `elapsed × speed` along the route. It does not
+  know where the player is and has nowhere to put the information if it did.
+- **The rivals are ghosts, and the client draws them.** Server-built rivals would
+  be visible to *both* brothers, who start their laps whenever they cross the line
+  — so one of them would be looking at six hulls on the road belonging to two
+  different races. A client-drawn field is only ever in one race. It is the same
+  call `CrowdController` already makes for the ambient crowd.
+- **And they are intangible on purpose.** A solid rival can be parked across the
+  start line or shunted round the lap, and the standing note on these two players
+  is that anything exploitable is found. Nothing you can touch can be used against
+  you, or against your brother.
+- **The finishing position is computed on the server**, from the same arithmetic,
+  and never read back off the client. Nothing pays out yet, but a purse is going to
+  be settled on this number in commit 3, and a number the client reports is a
+  number the client chooses.
+- **The HUD gained one line: `P2/6  -142m`.** The sign is the message — minus is
+  the car ahead while you are chasing, plus is the car behind while you are
+  leading, which is always the position you could next lose or gain. Each ghost
+  carries a nameplate with its hull's display name, because *"the thing that just
+  went past me was an Aratech Saddle-Bike"* is the sentence that turns a shop list
+  into a decision.
 
 ---
 

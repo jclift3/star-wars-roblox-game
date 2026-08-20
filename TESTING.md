@@ -1301,9 +1301,11 @@ two helpers rather than authored per hull.
 
 The first content in this game that a *fast* speeder is better at. Every planet
 with walkable ground and at least four spread-out landmarks now has a two-lap
-circuit round the outside of it, with an orange start gantry and blue gates.
-Nothing here pays out yet — the fee, the purse and the AI field are the next two
-commits — so what is being tested is that the lap works and the clock is honest.
+circuit round the outside of it, with an orange start gantry and blue gates, and
+**a grid of translucent rival speeders — one per speeder in the game, including
+the one you are driving.** Nothing pays out yet (the fee and the purse are the
+last commit), so what is being tested is that the lap works, the clock is honest
+and the field is beatable but not polite.
 
 1. **Find the gantry.** Land somewhere, summon a speeder (**V**), and drive. The
    start gantry is the tall **orange** arch and it is at one of the planet's
@@ -1342,12 +1344,44 @@ commits — so what is being tested is that the lap works and the clock is hones
     something is wrong with the drive loop rather than with the race.
 12. **Both boys.** Two people can run the same circuit at the same time; each has
     their own clock, and neither sees the other's. The gates are one set of
-    world geometry, so you will be aiming at the same arch.
+    world geometry, so you will be aiming at the same arch. **You will not see
+    your brother's rivals and he will not see yours** — the ghosts are drawn by
+    the client racing them, so six hulls on the road always belong to one lap.
 13. **Quiet worlds have no circuit, and that is correct.** Korriban and Taris's
     dig are meant to have no gantry at all. Coruscant has no ground to race on
     and must have none either. This should produce **no boot warning**.
 14. **Rejoin.** Your best times survive. A profile saved before today loads with
     no best times and no error.
+
+##### The grid
+
+15. **Five see-through speeders launch with you**, each with its hull's real name
+    floating over it — Ubrikkian Hover-Sled, Aratech Saddle-Bike, Czerka Assault
+    Speeder, Mobquet Flare-S, Nubian Swoop Racer. They spread out into speed
+    order within the first few hundred studs.
+16. **`P3/6  -142m`** sits under the clock. The minus is the distance to the
+    rival in front; when you are leading it flips to a plus and shows the one
+    behind, and the whole line turns green. Watch it change as a ghost goes past.
+17. **You can drive straight through them, and they through you.** That is
+    deliberate: a rival you can ram is a rival that can be parked across the
+    start line. Nothing about the field is solid.
+18. **Beat your own hull's ghost.** Whatever you are driving, there is a rival in
+    exactly that speeder holding a clean line. Beating it means you drove better
+    than the numbers alone give — that is the target, and it should be hard but
+    plainly possible. **If you cannot beat your own ghost in any speeder, say
+    so**: `RIVAL_PACE` is one number and it is too high.
+19. **Nobody waits for you.** Stop dead for twenty seconds and the field must
+    keep going and stay gone. If a rival ever seems to slow down when you fall
+    behind or speed up when you lead, that is the most important bug on this
+    page — there is no catch-up logic and there is not supposed to be any.
+20. **A clean lap at par should finish second.** Par is set for a middling
+    speeder; the Swoop Racer's ghost is faster than par. Finishing first means
+    you either beat the Swoop or were driving one.
+21. **The finish toast names the position**: `P2/6 — Silver — 1:23.45`. It is
+    computed on the server, so it must agree with what the HUD was showing as
+    you crossed the line.
+22. **The ghosts disappear** when you finish or abandon, and there must be no
+    leftover speeders standing on the road afterwards.
 
 ---
 

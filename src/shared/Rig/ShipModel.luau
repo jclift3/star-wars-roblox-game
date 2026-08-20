@@ -309,27 +309,30 @@ function ShipModel.build(shipId: string): Model
 end
 
 --[[
-	Builds a traffic hull: the same parts, none of the machinery.
+	A hull with none of the machinery: parts, anchored, and nothing else.
 
-	No chassis, no seats, no constraints and no collision -- an ambient hull
-	is a picture of a ship, and every one of those costs something to a
-	thing that exists twenty-six at a time and is never within a hundred
-	studs of the player. It is anchored instead, and whoever built it moves
+	No chassis, no seats, no constraints and no collision -- this is a
+	picture of a ship, and every piece of machinery costs something to a
+	thing that exists twenty-six at a time in a skylane, or six at a time on
+	a racing circuit, and is never driven by anybody. Whoever built it moves
 	it by `PivotTo`.
 
 	The root is an empty part at the hull origin rather than the model's
 	bounding box, because the bounding box centre is not the nose-to-tail
-	middle of anything with a container on its back, and a lane's position
-	means "where the ship is", not "where the average of its parts is".
+	middle of anything with a container on its back, and a position means
+	"where the ship is", not "where the average of its parts is".
 
 	Nothing here gets a PointLight, which is why `buildPart` takes a flag.
 	The turbines are shared with the ships players fly, where the glow
-	throwing light on the road is the point; up in a lane it lights nothing
-	and is charged for anyway, once per engine per hull.
+	throwing light on the road is the point; on something the player is not
+	sitting in it lights nothing and is charged for anyway, once per engine.
+
+	`floor` is a transparency nothing may be more solid than. Zero leaves
+	the hull exactly as its config draws it; a ghost passes something higher.
 ]]
-function ShipModel.buildTraffic(hull: Ships.TrafficHull): Model
+local function staticHull(name: string, parts: { Ships.ShipPart }, floor: number): Model
 	local model = Instance.new("Model")
-	model.Name = hull.id
+	model.Name = name
 
 	local root = Instance.new("Part")
 	root.Name = "Root"
@@ -343,15 +346,40 @@ function ShipModel.buildTraffic(hull: Ships.TrafficHull): Model
 	root.Parent = model
 	model.PrimaryPart = root
 
-	for _, spec in hull.parts do
+	for _, spec in parts do
 		local p = buildPart(spec, false)
 		p.CFrame = specCFrame(spec)
+		p.Transparency = math.max(p.Transparency, floor)
 		p.Anchored = true
 		p.CastShadow = false
 		p.Parent = model
 	end
 
 	return model
+end
+
+--- An ambient sky-traffic hull, drawn exactly as its config draws it.
+function ShipModel.buildTraffic(hull: Ships.TrafficHull): Model
+	return staticHull(hull.id, hull.parts, 0)
+end
+
+--[[
+	A see-through, unpiloted copy of a real speeder.
+
+	A rival on a racing circuit, and it is a ghost rather than a vehicle for
+	a reason that is not laziness. A solid rival is a rival that can be
+	parked across the start line, rammed off a corner, or shunted round the
+	lap by whichever brother worked that out first -- and the two players
+	this is for share a room, so it would be worked out. Nothing you can
+	touch can be used against you, and nothing you can touch can be used
+	against your brother either.
+
+	It is also the honest shape for what these are: their positions are pure
+	functions of elapsed time, so a rival that could be knocked off its line
+	would be lying about where it is anyway.
+]]
+function ShipModel.buildGhost(shipId: string, transparency: number): Model
+	return staticHull(shipId, Ships.get(shipId).parts, transparency)
 end
 
 --- The driver's seat of a built speeder, or nil if this is not one.

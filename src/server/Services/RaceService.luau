@@ -43,6 +43,19 @@
 	feet. A start line is for somebody already moving, which is the only state
 	you can begin a race in anyway.
 
+	THE GRID IS THE CATALOGUE, AND IT DOES NOT KNOW YOU ARE THERE
+	Every speeder in `Ships.luau` fields a rival, including the one the
+	player is driving, and each holds a fixed fraction of its own hull's top
+	speed for the whole race. So a rival's position is a pure function of
+	elapsed time -- it cannot see the player, has nowhere to put the
+	information if it could, and is therefore incapable of the one thing
+	that would ruin it. See `Races.RIVAL_PACE` for why that matters more
+	here than it would in a game with strangers in it.
+
+	The rivals are also *ghosts*, drawn by the client that is racing them.
+	Both of those are deliberate and both are argued in `ShipModel.buildGhost`
+	and in `push` below.
+
 	THIS IS NOT ANTI-CHEAT
 	`VehicleService` says in writing that the driver simulates their own
 	vehicle, so a modified client can be quick, and no amount of server timing
@@ -81,7 +94,12 @@ local RaceService = {
 type Gate = {
 	index: number,
 	poi: string,
+	--- The landmark's marker, which is where the gate *counts*.
 	position: Vector3,
+	--- The same place dropped onto the road, which is where the gantry is
+	--- built and the line a rival drives. Resolved once, here, rather than
+	--- by a raycast per rival per frame.
+	ground: Vector3,
 }
 
 type Circuit = {
@@ -91,6 +109,10 @@ type Circuit = {
 	length: number,
 	par: number,
 	floor: number,
+	--- The grid, in the order `Races.rivals` returns it. One per speeder in
+	--- the catalogue, so it is the same field on every planet and only the
+	--- distance changes.
+	rivals: { Races.Rival },
 }
 
 type Session = {
@@ -156,8 +178,9 @@ local groundParams = RaycastParams.new()
 groundParams.FilterType = Enum.RaycastFilterType.Exclude
 
 --- Drops `position` onto whatever solid ground is under it.
-local function onGround(position: Vector3, ignore: Instance): Vector3
-	groundParams.FilterDescendantsInstances = { ignore }
+local function onGround(position: Vector3): Vector3
+	local drawn = Workspace:FindFirstChild("Races")
+	groundParams.FilterDescendantsInstances = if drawn then { drawn } else {}
 	local hit = Workspace:Raycast(position + Vector3.new(0, 80, 0), Vector3.new(0, -400, 0), groundParams)
 	return if hit then hit.Position else position
 end
@@ -249,6 +272,7 @@ local function compose(planetId: string): Circuit?
 			index = i,
 			poi = candidate.poi,
 			position = candidate.position,
+			ground = onGround(candidate.position),
 		})
 		local nextOne = kept[if i == #kept then 1 else i + 1]
 		length += (flat(nextOne.position - candidate.position)).Magnitude
@@ -260,6 +284,7 @@ local function compose(planetId: string): Circuit?
 		length = length,
 		par = Races.parFor(length, Races.LAPS),
 		floor = Races.floorFor(length, Races.LAPS),
+		rivals = Races.rivals(),
 	}
 end
 
@@ -298,7 +323,7 @@ local function drawGate(gate: Gate, across: Vector3, parent: Folder, circuit: Ci
 
 	local start = gate.index == 1
 	local colour = if start then START_COLOUR else GATE_COLOUR
-	local ground = onGround(gate.position, parent)
+	local ground = gate.ground
 	local reach = across * Races.GATE_RADIUS
 	local height = if start then 30 else 22
 
@@ -365,9 +390,10 @@ local function drawGate(gate: Gate, across: Vector3, parent: Folder, circuit: Ci
 	detail.TextSize = 13
 	detail.TextColor3 = Color3.fromRGB(220, 226, 234)
 	detail.TextStrokeTransparency = 0.4
-	detail.Text = `Drive through to start  --  {Races.LAPS} laps, {#circuit.gates} gates, par {Races.format(
-		circuit.par
-	)}`
+	detail.Text =
+		`Drive through to start  --  {Races.LAPS} laps, {#circuit.gates} gates, {#circuit.rivals} rivals, par {Races.format(
+			circuit.par
+		)}`
 	detail.Position = UDim2.fromScale(0, 0.55)
 	detail.Size = UDim2.new(1, 0, 0.45, 0)
 	detail.Parent = sign
@@ -425,6 +451,17 @@ local function circuitFor(planetId: string): Circuit?
 	return built
 end
 
+--- The line a rival drives: the gate ring at road level, closed implicitly
+--- by the client that walks it. Road level rather than marker level because
+--- a marker floats three studs up and a speeder does not.
+local function route(circuit: Circuit): { Vector3 }
+	local out: { Vector3 } = {}
+	for _, gate in circuit.gates do
+		table.insert(out, gate.ground)
+	end
+	return out
+end
+
 --- Where a player is right now, or nil if they have no body.
 local function positionOf(player: Player): Vector3?
 	local character = player.Character
@@ -472,6 +509,22 @@ local function push(player: Player, session: Session?)
 	local count = #circuit.gates
 	local target = circuit.gates[(session.hits + 1) % count + 1]
 	local profile = data().get(player)
+
+	--[[
+		THE ROUTE AND THE GRID GO OVER THE WIRE, THE RIVALS' POSITIONS DO NOT
+
+		A rival's position is `elapsed * speed` along this polyline, and the
+		client already has `startedAt`. Sending the route and the speeds once
+		per gate is a handful of numbers; sending six hulls' positions every
+		frame is a remote firing sixty times a second to deliver something
+		the receiver could have worked out from what it was already told.
+		Same argument as the clock, one field up.
+
+		It also means the *drawing* of the rivals is client work -- see
+		`RaceController`. Two brothers racing the same circuit at different
+		moments each see their own grid, instead of two overlapping fields of
+		ghosts belonging to somebody else's lap.
+	]]
 	Net.fireClient(Net.Event.RaceState, player, {
 		planet = circuit.planet,
 		startedAt = session.startedAt,
@@ -482,6 +535,8 @@ local function push(player: Player, session: Session?)
 		gateIndex = target.index,
 		gatePosition = target.position,
 		best = profile and profile.raceBests[circuit.planet],
+		route = route(circuit),
+		rivals = circuit.rivals,
 	})
 end
 
@@ -505,7 +560,7 @@ local function begin(player: Player, circuit: Circuit)
 	Net.fireClient(
 		Net.Event.Notify,
 		player,
-		`{Planets.get(circuit.planet).displayName} Circuit  --  {Races.LAPS} laps, par {Races.format(
+		`{Planets.get(circuit.planet).displayName} Circuit  --  {Races.LAPS} laps against {#circuit.rivals}, par {Races.format(
 			circuit.par
 		)}`,
 		"Reward"
@@ -547,9 +602,21 @@ local function finish(player: Player, session: Session)
 		end
 	end)
 
+	--[[
+		The finishing position is worked out here, from the same arithmetic
+		the client drew the ghosts with, and never read back off the client.
+
+		Nothing pays out yet -- that is commit 3 -- but a purse is going to
+		be settled on this number, and a number the client reports is a
+		number the client chooses. It costs one loop over five rivals to
+		never have to revisit that.
+	]]
+	local place = Races.placeFor(time, circuit.length, Races.LAPS, circuit.rivals)
+	local field = #circuit.rivals + 1
+
 	local headline = if medal
-		then `{medal.id}  --  {Races.format(time)}`
-		else `Finished  --  {Races.format(time)}`
+		then `P{place}/{field}  --  {medal.id}  --  {Races.format(time)}`
+		else `P{place}/{field}  --  {Races.format(time)}`
 	if improved then
 		headline ..= "  --  personal best"
 	end
