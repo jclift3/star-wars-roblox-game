@@ -30,6 +30,8 @@ local Crystals = require(Shared.Config.Crystals)
 local Outfits = require(Shared.Config.Outfits)
 local Costumes = require(Shared.Config.Costumes)
 local Furnishings = require(Shared.Config.Furnishings)
+local Items = require(Shared.Config.Items)
+local Races = require(Shared.Config.Races)
 local Shops = require(Shared.Config.Shops)
 local Ships = require(Shared.Config.Ships)
 local Weapons = require(Shared.Config.Weapons)
@@ -631,6 +633,52 @@ local function buildCatalogue(player: Player, profile: PlayerProfile, vendor: Ve
 		})
 	end
 
+	--[[
+		A pass row exists so that having passes is a thing the player can
+		find out without being at a start line and broke.
+
+		Nothing else in the panel is spent somewhere other than the panel,
+		which is why it needs its own row rather than sharing one: the whole
+		description of a pass is where to go and what it saves you, and there
+		is nowhere else to say it. No vendor stocks them, so `forSale` is
+		false always and this row can only ever come from the bag.
+	]]
+	local function addPass(uid: string, id: string)
+		if seen[uid] or id ~= Races.PASS_ITEM then
+			return
+		end
+		seen[uid] = true
+		local stack = inv[uid]
+		table.insert(entries, {
+			kind = "Pass",
+			uid = uid,
+			id = id,
+			displayName = Items.nameOf(id),
+			description = `Entry to one race, in place of the {Races.ENTRY_FEE} credit fee. Spent automatically when you drive through a start gantry.`,
+			tier = 1,
+			requiredLevel = 1,
+			price = 0,
+			owned = stack ~= nil,
+			equipped = false,
+			forSale = false,
+			rarity = 1,
+			affixes = {},
+			stats = {
+				{ label = "Held", value = tostring(if stack then stack.count else 0) },
+				{ label = "Worth", value = `{Races.ENTRY_FEE} cr` },
+			},
+			carried = stack ~= nil,
+			-- Not sellable. A pass you can turn into credits is credits, and
+			-- the point of it is being the thing you still have when you have
+			-- no credits at all.
+			sellValue = 0,
+			sockets = 0,
+			socketed = {},
+			slot = "",
+			extractCosts = {},
+		})
+	end
+
 	-- Owned first, so the list is stable as you walk in and out of range of a
 	-- vendor: the same things stay in the same order, with stock appended.
 	addOutfit(Outfits.DEFAULT, Outfits.DEFAULT)
@@ -638,6 +686,7 @@ local function buildCatalogue(player: Player, profile: PlayerProfile, vendor: Ve
 		addOutfit(stack.uid, stack.id)
 		addWeapon(stack.uid, stack.id)
 		addCrystal(stack.uid, stack.id)
+		addPass(stack.uid, stack.id)
 	end
 	for _, id in profile.unlockedShips do
 		addShip(id)

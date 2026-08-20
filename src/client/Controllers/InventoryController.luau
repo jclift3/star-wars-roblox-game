@@ -133,13 +133,15 @@ type Snapshot = {
 }
 
 --- The tabs, left to right. Order is the order the player thinks in: what you
---- wear, what you shoot with, what goes in them, what you fly, where you live.
+--- wear, what you shoot with, what goes in them, what you fly, where you live,
+--- and last the one thing here that is spent somewhere else entirely.
 local TABS = {
 	{ id = "Outfit", label = "OUTFITS" },
 	{ id = "Weapon", label = "WEAPONS" },
 	{ id = "Crystal", label = "CRYSTALS" },
 	{ id = "Vehicle", label = "SHIPS" },
 	{ id = "Furnishing", label = "CABIN" },
+	{ id = "Pass", label = "PASSES" },
 }
 
 local screen: ScreenGui
@@ -916,6 +918,14 @@ local function renderDetail()
 		actionButton.BackgroundColor3 = ROW
 		actionButton.TextColor3 = DIM
 		actionButton.Active = false
+	elseif item.kind == "Pass" then
+		-- Same shape as a crystal and for the same reason: it is owned, so
+		-- without this it would fall through to EQUIP and offer to put a
+		-- ticket in the player's hand. It is spent by driving, nowhere else.
+		actionButton.Text = "SPENT AT A START GANTRY"
+		actionButton.BackgroundColor3 = ROW
+		actionButton.TextColor3 = DIM
+		actionButton.Active = false
 	elseif item.equipped and item.kind == "Furnishing" then
 		-- The one "already in use" state that is still a button. Emptying a
 		-- slot is the only way to have a bare wall, and without this the
@@ -1097,7 +1107,10 @@ local function renderRow(item: ItemEntry, order: number)
 			elseif item.kind == "Furnishing" then "FITTED"
 			else "EQUIPPED"
 		price.TextColor3 = ACCENT
-	elseif item.kind == "Crystal" then
+	elseif item.kind == "Crystal" or item.kind == "Pass" then
+		-- Neither is equipped or sold, so "OWNED" would be the only word the
+		-- row ever showed. How many you hold is in the detail pane, which is
+		-- the only place a number has room to be read.
 		price.Text = "CARRIED"
 		price.TextColor3 = DIM
 	elseif item.owned then

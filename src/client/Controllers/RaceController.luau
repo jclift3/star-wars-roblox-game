@@ -74,6 +74,11 @@ type State = {
 	gateIndex: number,
 	gatePosition: Vector3,
 	best: number?,
+	--- The pot every entry on this planet has paid into, this run's included.
+	purse: number,
+	--- The time to beat to take the purse: a ghost of the hull the player is
+	--- actually driving. Nil only if that hull stopped being a speeder.
+	target: number?,
 	--- The gate ring at road level, in order and closed implicitly.
 	route: { Vector3 },
 	rivals: { Races.Rival },
@@ -88,6 +93,8 @@ local lapLabel: TextLabel
 local gateLabel: TextLabel
 local parLabel: TextLabel
 local bestLabel: TextLabel
+local purseLabel: TextLabel
+local beatLabel: TextLabel
 
 --- Adorns whichever gate is next. Reparented rather than rebuilt, so there is
 --- exactly one of these however many gates a circuit turns out to have.
@@ -190,7 +197,7 @@ local function build()
 	card.BackgroundTransparency = 0.15
 	card.BorderSizePixel = 0
 	card.Position = UDim2.new(0.5, 0, 0, 14)
-	card.Size = UDim2.fromOffset(240, 126)
+	card.Size = UDim2.fromOffset(240, 144)
 	card.Parent = screen
 	Theme.corner(card, 6)
 	Theme.stroke(card, Theme.ACCENT, 0.55)
@@ -234,9 +241,30 @@ local function build()
 	bestLabel.Position = UDim2.new(0.5, 0, 0, 88)
 	bestLabel.Size = UDim2.new(0.5, 0, 0, 16)
 
+	--[[
+		Par and the purse target are two different questions and both are on
+		the card, one line apart.
+
+		PAR is the medal, and it is the *median* speeder's pace, so in a
+		Hover Sled it is a number you will never see. BEAT is a ghost of the
+		hull under you, so it is winnable in anything -- and it is the one
+		that decides who takes the pot. A card showing only par would tell
+		half this field that there was nothing here for them.
+	]]
+	purseLabel = Theme.text("Purse", card, 12, Theme.GOOD)
+	purseLabel.Font = Theme.FONT_BOLD
+	purseLabel.TextXAlignment = Enum.TextXAlignment.Center
+	purseLabel.Position = UDim2.fromOffset(0, 106)
+	purseLabel.Size = UDim2.new(0.5, 0, 0, 16)
+
+	beatLabel = Theme.text("Beat", card, 12, Theme.FAINT)
+	beatLabel.TextXAlignment = Enum.TextXAlignment.Center
+	beatLabel.Position = UDim2.new(0.5, 0, 0, 106)
+	beatLabel.Size = UDim2.new(0.5, 0, 0, 16)
+
 	local hint = Theme.text("Hint", card, 11, Theme.DIM)
 	hint.TextXAlignment = Enum.TextXAlignment.Center
-	hint.Position = UDim2.fromOffset(0, 106)
+	hint.Position = UDim2.fromOffset(0, 124)
 	hint.Size = UDim2.new(1, 0, 0, 14)
 	hint.Text = "Leave the seat to give up"
 
@@ -392,6 +420,10 @@ local function apply(state: State?)
 	local best = state.best
 	bestLabel.Text = if best then `BEST {Races.format(best)}` else "BEST --"
 
+	purseLabel.Text = `PURSE {state.purse} cr`
+	local target = state.target
+	beatLabel.Text = if target then `BEAT {Races.format(target)}` else "BEAT --"
+
 	local model = gateModel(state)
 	highlight.Adornee = model
 	highlight.Enabled = model ~= nil
@@ -408,6 +440,16 @@ local function update()
 	-- Past par the clock goes red, which is the only feedback in the run that
 	-- says the medal has gone without waiting for the finish line to say it.
 	timeLabel.TextColor3 = if elapsed > state.par then Theme.BAD else Theme.TEXT
+
+	-- The purse goes out the moment the ghost time does, and it goes out
+	-- mid-lap, so it says so mid-lap. Finding out at the flag that the money
+	-- was lost on the second corner is the run you would have restarted.
+	local target = state.target
+	if target then
+		local live = elapsed <= target
+		beatLabel.TextColor3 = if live then Theme.GOOD else Theme.FAINT
+		purseLabel.TextColor3 = if live then Theme.GOOD else Theme.FAINT
+	end
 
 	--[[
 		The distance sits next to the gate number rather than replacing it.

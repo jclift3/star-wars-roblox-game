@@ -1303,14 +1303,16 @@ The first content in this game that a *fast* speeder is better at. Every planet
 with walkable ground and at least four spread-out landmarks now has a two-lap
 circuit round the outside of it, with an orange start gantry and blue gates, and
 **a grid of translucent rival speeders — one per speeder in the game, including
-the one you are driving.** Nothing pays out yet (the fee and the purse are the
-last commit), so what is being tested is that the lap works, the clock is honest
-and the field is beatable but not polite.
+the one you are driving.** Entry costs credits or a Race Pass, every entry goes
+into that planet's purse, and **the first person to beat a ghost of the hull he
+is driving takes the lot.** What is being tested is that the lap works, the clock
+is honest, the field is beatable but not polite, and the money adds up.
 
 1. **Find the gantry.** Land somewhere, summon a speeder (**V**), and drive. The
    start gantry is the tall **orange** arch and it is at one of the planet's
    landmarks; the rest of the circuit is **blue**. The sign on the gantry reads
-   `<Planet> Circuit — START` and gives the lap count, the gate count and par.
+   `<Planet> Circuit — START` and gives the lap count, the size of the field,
+   par, and the entry fee and purse.
 2. **Drive through it.** The clock appears at the top of the screen the moment
    you cross, along with a toast naming the circuit and par. **You must be in
    the driver's seat** — walking through the gantry on foot does nothing, and
@@ -1382,6 +1384,43 @@ and the field is beatable but not polite.
     you crossed the line.
 22. **The ghosts disappear** when you finish or abandon, and there must be no
     leftover speeders standing on the road afterwards.
+
+##### The money
+
+23. **Entry costs credits.** The gantry sign has a third line in gold reading
+    `ENTRY 90 cr — PURSE 0 cr`, and driving through it charges you and toasts
+    `<Planet> Circuit — 90 cr staked, purse 90 cr`. The sign's purse figure goes
+    up as you watch. The fee is a tenth of the cheapest speeder, so if somebody
+    reprices the Hover-Sled the fee moves with it and this number changes.
+24. **Broke means told once.** Spend down to nothing (`showmethemoney` in
+    reverse is not a thing — just buy something) and drive through the gantry.
+    You get **one** toast naming both ways to pay. Sitting under the gantry
+    broke must not spam the screen; if it does, that is the bug.
+25. **A pass pays instead, and stakes the same.** Farm kills until a **Race
+    Pass** drops — it is an Uncommon-coloured pickup toast, and it appears in
+    the panel's new **PASSES** tab reading `CARRIED`. Enter a race holding one:
+    the toast says `a Race Pass staked` and **no credits leave your balance**,
+    but the purse still goes up by the full fee. A pass is spent before credits
+    are, every time.
+26. **Beat your own hull's ghost and the purse is yours.** The card's `BEAT`
+    line is that ghost's time, next to `PURSE`. Both are green while you are
+    still under it and go grey the instant you are not — mid-lap, not at the
+    flag. Finish under it and the toast ends `— purse 270 cr` (your 90 back,
+    plus 180 for a Silver); the credits arrive and the sign resets to
+    `PURSE 0 cr`.
+27. **Finish over it and nothing is paid.** The toast ends
+    `— no purse, Nubian Swoop Racer ghost by 4.20`, and the pot stays on the
+    sign for the next attempt. A medal alone does not pay: the medal only
+    changes the *size* of the prize on top of a purse you won.
+28. **Both boys, one pot.** Have one brother enter and lose, then the other
+    enter and win. The winner takes **both** stakes. This is the only place in
+    the game where credits move from one player to another, so it is worth
+    checking the arithmetic out loud.
+29. **A starship is refused at the line.** Summon one, fly through the gantry:
+    `A starship cannot enter — take a speeder`, once, and no fee is charged.
+    On foot, nothing happens at all.
+30. **You cannot swap hulls mid-race.** Enter in a Swoop Racer, and `BEAT` must
+    stay the Swoop's time for the whole run whatever you do.
 
 ---
 

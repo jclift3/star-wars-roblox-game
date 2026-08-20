@@ -28,7 +28,9 @@
 local Affixes = require(script.Parent.Affixes)
 local Crystals = require(script.Parent.Crystals)
 local Inventory = require(script.Parent.Parent.Core.Inventory)
+local Items = require(script.Parent.Items)
 local Outfits = require(script.Parent.Outfits)
+local Races = require(script.Parent.Races)
 local Weapons = require(script.Parent.Weapons)
 
 local Loot = {}
@@ -52,9 +54,10 @@ Loot.DROP_CHANCE = 0.35
 local LEVEL_BAND = 6
 
 export type Drop = {
-	kind: string, -- "Weapon" | "Outfit" | "Crystal", the inventory kind
+	kind: string, -- "Weapon" | "Outfit" | "Crystal" | "Pass", the inventory kind
 	id: string,
-	-- nil on a Common that survived on its sockets alone, and on a crystal.
+	-- nil on a Common that survived on its sockets alone, and on anything
+	-- that is not gear.
 	rolls: Inventory.Rolls?,
 	sockets: number?,
 }
@@ -67,6 +70,20 @@ export type Drop = {
 	the player cannot fill is a worse outcome than no drop at all.
 ]]
 local CRYSTAL_SHARE = 0.4
+
+--[[
+	How often a drop is a race pass instead.
+
+	Taken off the top, before the crystal roll, and small: a pass is worth
+	one entry, so a rate that made them common would make the entry fee
+	decorative and the purse something nobody had actually paid for.
+
+	It is here at all because being broke must not be the same as being
+	locked out. A kid who has just spent everything on a lightsaber can still
+	get to a start line, and the way he gets there is the way this game
+	answers every other shortage -- go and kill something.
+]]
+local PASS_SHARE = 0.1
 
 --[[
 	`slot` is what the item draws affixes from, and it is NOT `kind`. A weapon's
@@ -147,6 +164,9 @@ function Loot.rollDrop(rng: Random, itemLevel: number): Drop?
 		return nil
 	end
 	local level = math.max(1, math.floor(itemLevel))
+	if rng:NextNumber() < PASS_SHARE then
+		return { kind = "Pass", id = Races.PASS_ITEM, rolls = nil, sockets = nil }
+	end
 	if rng:NextNumber() < CRYSTAL_SHARE then
 		return { kind = "Crystal", id = Crystals.rollDrop(rng, level), rolls = nil, sockets = nil }
 	end
@@ -245,6 +265,9 @@ function Loot.nameOf(drop: Drop): string
 	if drop.kind == "Crystal" then
 		return Crystals.get(drop.id).displayName
 	end
+	if drop.kind == "Pass" then
+		return Items.nameOf(drop.id)
+	end
 	local base = if drop.kind == "Weapon"
 		then Weapons.get(drop.id).displayName
 		else Outfits.get(drop.id).displayName
@@ -265,6 +288,15 @@ end
 function Loot.rarityOf(drop: Drop): number
 	if drop.kind == "Crystal" then
 		return Crystals.get(drop.id).rarity
+	end
+	--[[
+		A pass has no grade and no affixes, so it is given the first step up
+		from Common: not because it is rare, but because the toast is the
+		only thing that will ever tell a player passes exist, and a grey line
+		in a stream of grey lines is not telling anybody anything.
+	]]
+	if drop.kind == "Pass" then
+		return 1
 	end
 	return Affixes.rarityOf(drop.rolls).affixes
 end

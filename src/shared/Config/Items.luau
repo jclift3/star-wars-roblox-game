@@ -89,6 +89,30 @@ def({
 	shape = "Ore",
 })
 
+--[[
+	One entry to one race, and the only item here that is *spent* by
+	something other than a mission.
+
+	It exists so that being broke is not the same as being locked out. A
+	circuit charges credits at the line, and a fourteen-year-old who has just
+	put everything he owns into a lightsaber would otherwise be told he
+	cannot race until he has farmed for an hour -- which is the opposite of
+	what a race is for. A pass falls off a corpse like anything else, so the
+	answer to "I have no money" is the answer the rest of the game already
+	gives: go and kill something.
+
+	No vendor stocks it, deliberately. A pass you can buy is credits with
+	extra steps, and it would undo the one thing the pass is for.
+]]
+def({
+	id = "RacePass",
+	displayName = "Race Pass",
+	verb = "Take",
+	colour = Palette.RebelOrange,
+	size = Vector3.new(1.4, 0.9, 0.12),
+	shape = "Slab",
+})
+
 --------------------------------------------------------------------------------
 -- Signature chain components
 --------------------------------------------------------------------------------

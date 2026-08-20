@@ -2528,7 +2528,7 @@ of collision box made of light.
 
 ---
 
-### 4.6 Races — **commits 1 and 2 of 3 DONE 2026-08-20**, the money still planned
+### 4.6 Races — **DONE 2026-08-20**, all three commits
 
 **Nothing in this game currently rewards flying well.** You buy a speeder to skip
 a walk, and once you have any speeder the walk is skipped. Meanwhile `Ships.luau`
@@ -2671,7 +2671,8 @@ Three commits, each green on `./check.sh`:
    one grid folded into commit 3, where the purse gives them something to race
    *for*; until then two brothers already race the same field and the same
    circuit, they just start their laps independently.
-3. **The money** — fee, pass, drops, purse, payout.
+3. ~~**The money** — fee, pass, drops, purse, payout.~~ — **DONE 2026-08-20**,
+   below.
 
 #### Commit 1, as built — **DONE 2026-08-20**
 
@@ -2759,6 +2760,56 @@ purse exists is a faucet that has to be un-tuned in commit 3.
   carries a nameplate with its hull's display name, because *"the thing that just
   went past me was an Aratech Saddle-Bike"* is the sentence that turns a shop list
   into a decision.
+
+#### Commit 3, as built — **DONE 2026-08-20**
+
+`Races.ENTRY_FEE` / `PASS_ITEM` / `ghostTime` / `prizeFor` and a `prize` on every
+medal; an `Items` def for `RacePass` and a `PASS_SHARE` branch in `Loot.rollDrop`;
+a per-planet purse, an entry charge and a payout in `RaceService`; a `Pass` row in
+`ShopService` with a sixth tab in `InventoryController`; `PURSE` / `BEAT` on the
+HUD card.
+
+- **The entry fee is derived, like everything else here.** A tenth of the cheapest
+  speeder in the catalogue, so the price of a race is quoted in the only currency
+  this feature has — hulls. A flat fee across all nine planets on purpose: banding
+  it by district would make one circuit the correct place to race, **and a game
+  with nine planets where one of them is the right answer is a game with one
+  planet.**
+- **The payout gate is a ghost of the hull you are driving, not the podium.** P1
+  would mean the purse belongs to whoever owns the 14,000-credit Swoop Racer, which
+  is the opposite of a skill sink. A medal cannot be it either — par is the
+  *median* hull's pace, so a Hover Sled can never earn one. Your own hull's ghost
+  is the one benchmark that is **equally hard in every speeder**, and it is exactly
+  the question commit 2's grid was built to ask.
+- **The purse is the only place two players have to meet.** The ROADMAP folded
+  "humans on one grid" into this commit, and it arrived as a number rather than a
+  lobby: both brothers stake into one per-planet pot, and whoever first beats his
+  own ghost takes all of it. A synchronised start line would have been a new state
+  machine, new remotes and a new way for one of them to be left waiting on the
+  other. *The money moves between players* is now literally true, with no
+  synchronisation code at all.
+- **A pass stakes the same credits a payer does.** If it did not, the correct play
+  would be to farm passes and never spend a credit — a free shot at money other
+  people put in. Two brothers in one room find that in an afternoon.
+- **`Session.ship` is captured at the line.** Otherwise you would enter in a Swoop
+  Racer and switch to a Hover Sled on the last straight to be paid for beating a
+  Hover Sled's ghost.
+- **The only new credits a race mints are the medal prize.** Everything else in the
+  purse came out of somebody's pocket, and the prize goes through
+  `awardCredits(..., raw = true)` so a Scavenger's `CreditMult` cannot compound on
+  a fixed reward.
+- **The purse is not persisted, and that is not a hole.** A restart moves nobody's
+  balance: the credits were spent at the moment they were staked. Persisting a
+  shared pot would need a global DataStore key and a write path nothing else in
+  this game has.
+- **The refusal clears `armed`.** The start check runs every Heartbeat, so a broke
+  player driving through the gantry would otherwise be told he is broke sixty times
+  a second. He is told once, and told the price.
+- **A pass nobody can see is the 2026-08-17 failure again**, so it got five places
+  to be found: a `ShopService` row, a sixth `PASSES` tab in the panel, a pickup
+  toast at rarity 1 (Uncommon **not because it is rare** — a grey line in a stream
+  of grey lines tells nobody that passes exist), a line on the gantry sign, and a
+  refusal toast that names both ways to pay.
 
 ---
 

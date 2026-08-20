@@ -56,6 +56,22 @@
 	Both of those are deliberate and both are argued in `ShipModel.buildGhost`
 	and in `push` below.
 
+	THE PURSE IS THE ONLY PLACE TWO PLAYERS HAVE TO MEET
+	Entry costs a fee, in credits or in a `RacePass` off a corpse, and every
+	fee goes into a pot held per planet. A run that beats a ghost of the hull
+	it was driven in takes the whole pot; a run that does not leaves its
+	stake in it. So the pot is a record of everybody's failed attempts, and
+	the next person to drive well takes them all.
+
+	That is what "the boys race each other" is built out of, and it is
+	deliberately *not* built out of a countdown, a lobby or a shared start
+	line. Two brothers do not have to be on the grid at the same moment to be
+	competing: they are paying into one pot on one planet, and whichever of
+	them is first to beat his own hull is the one who walks off with the
+	other's money. A lobby would have been a new state machine, a new set of
+	remotes and a new way for one of them to be left waiting; the pot is a
+	number.
+
 	THIS IS NOT ANTI-CHEAT
 	`VehicleService` says in writing that the driver simulates their own
 	vehicle, so a modified client can be quick, and no amount of server timing
@@ -72,6 +88,8 @@ local Shared = game:GetService("ReplicatedStorage"):WaitForChild("Shared")
 local Palette = require(Shared.Config.Palette)
 local Planets = require(Shared.Config.Planets)
 local Races = require(Shared.Config.Races)
+local Ships = require(Shared.Config.Ships)
+local Inventory = require(Shared.Core.Inventory)
 local Net = require(Shared.Core.Net)
 local ServiceLoader = require(Shared.Core.ServiceLoader)
 local Types = require(Shared.Types)
@@ -113,6 +131,9 @@ type Circuit = {
 	--- the catalogue, so it is the same field on every planet and only the
 	--- distance changes.
 	rivals: { Races.Rival },
+	--- The gantry's second line, kept so the purse on it can be rewritten
+	--- when it changes. Nil until the circuit has been drawn.
+	sign: TextLabel?,
 }
 
 type Session = {
@@ -123,6 +144,15 @@ type Session = {
 	startedAt: number,
 	--- Gates crossed since the start line. `laps * #gates` of them is a finish.
 	hits: number,
+	--[[
+		The hull this run was started in, captured at the line.
+
+		Read here rather than at the flag because it is what the payout is
+		measured against, and `profile.equipped.ship` can be changed mid-run.
+		A player who could swap to a Hover Sled on the last straight would be
+		paid for beating a Hover Sled's ghost in a Swoop Racer.
+	]]
+	ship: string,
 }
 
 --- Circuits already composed, keyed by planet.
@@ -148,6 +178,19 @@ local sessions: { [Player]: Session } = {}
 ]]
 local armed: { [Player]: boolean } = {}
 
+--[[
+	What is staked on each planet's circuit, by planet id.
+
+	Server memory, not a DataStore. A shared pot is the one piece of state in
+	this game that belongs to nobody, and persisting it would mean a global
+	key and a write path that no other system here has -- for a number whose
+	only job is to make the next race worth more than the last one. A restart
+	empties it, and nobody's balance moves when it does: those credits were
+	spent at the moment they were staked. The most a restart can cost anybody
+	is a bigger prize they had not won yet.
+]]
+local purses: { [string]: number } = {}
+
 --- How often the world is checked for planets that need a gantry drawing.
 --- The answer changes when somebody travels, not between frames.
 local SWEEP_INTERVAL = 4
@@ -157,6 +200,10 @@ local GATE_COLOUR = Palette.SaberBlue
 
 local function data()
 	return ServiceLoader.get("DataService")
+end
+
+local function progression()
+	return ServiceLoader.get("ProgressionService")
 end
 
 --------------------------------------------------------------------------------
@@ -368,7 +415,7 @@ local function drawGate(gate: Gate, across: Vector3, parent: Folder, circuit: Ci
 	local sign = Instance.new("BillboardGui")
 	sign.Name = "Sign"
 	sign.AlwaysOnTop = true
-	sign.Size = UDim2.fromOffset(300, 46)
+	sign.Size = UDim2.fromOffset(300, 64)
 	sign.StudsOffset = Vector3.new(0, 5, 0)
 	sign.MaxDistance = 600
 	sign.Adornee = left
@@ -381,22 +428,56 @@ local function drawGate(gate: Gate, across: Vector3, parent: Folder, circuit: Ci
 	title.TextColor3 = START_COLOUR
 	title.TextStrokeTransparency = 0.3
 	title.Text = `{Planets.get(circuit.planet).displayName} Circuit  --  START`
-	title.Size = UDim2.new(1, 0, 0.55, 0)
+	title.Size = UDim2.new(1, 0, 0, 26)
 	title.Parent = sign
 
-	local detail = Instance.new("TextLabel")
-	detail.BackgroundTransparency = 1
-	detail.Font = Enum.Font.Gotham
-	detail.TextSize = 13
-	detail.TextColor3 = Color3.fromRGB(220, 226, 234)
-	detail.TextStrokeTransparency = 0.4
-	detail.Text =
-		`Drive through to start  --  {Races.LAPS} laps, {#circuit.gates} gates, {#circuit.rivals} rivals, par {Races.format(
-			circuit.par
-		)}`
-	detail.Position = UDim2.fromScale(0, 0.55)
-	detail.Size = UDim2.new(1, 0, 0.45, 0)
-	detail.Parent = sign
+	--[[
+		Two lines, not one, and the split is by what changes.
+
+		The shape of the race -- laps, field, par -- is fixed for the life of
+		the world and written once. The price and the pot move while you are
+		standing there, and that is the line worth re-reading. Sixty-odd
+		characters on one row at 13px would also have run off a 300px sign.
+	]]
+	local shape = Instance.new("TextLabel")
+	shape.BackgroundTransparency = 1
+	shape.Font = Enum.Font.Gotham
+	shape.TextSize = 13
+	shape.TextColor3 = Color3.fromRGB(220, 226, 234)
+	shape.TextStrokeTransparency = 0.4
+	shape.Position = UDim2.fromOffset(0, 26)
+	shape.Size = UDim2.new(1, 0, 0, 18)
+	shape.Text = `{Races.LAPS} laps  --  {#circuit.rivals} rivals  --  par {Races.format(circuit.par)}`
+	shape.Parent = sign
+
+	local money = Instance.new("TextLabel")
+	money.BackgroundTransparency = 1
+	money.Font = Enum.Font.GothamBold
+	money.TextSize = 13
+	money.TextColor3 = Palette.SaberYellow
+	money.TextStrokeTransparency = 0.4
+	money.Position = UDim2.fromOffset(0, 44)
+	money.Size = UDim2.new(1, 0, 0, 18)
+	money.Parent = sign
+	circuit.sign = money
+end
+
+--[[
+	Rewrites the gantry's second line.
+
+	The purse is on the arch rather than only in the HUD because it is the
+	one number that has to be readable *before* you commit to paying. A pot
+	you can only see once you are racing for it is a pot nobody chose to race
+	for, and the 2026-08-17 lesson was that a thing the player is never told
+	about does not exist.
+]]
+local function refreshSign(circuit: Circuit)
+	local label = circuit.sign
+	if not label then
+		return
+	end
+	local purse = purses[circuit.planet] or 0
+	label.Text = `ENTRY {Races.ENTRY_FEE} cr  --  PURSE {purse} cr`
 end
 
 --- Draws every gate of a circuit, once. Idempotent, like `PickupService.ensure`.
@@ -420,6 +501,7 @@ local function drawCircuit(circuit: Circuit)
 		local direction = along.Unit
 		drawGate(gate, Vector3.new(-direction.Z, 0, direction.X), parent, circuit)
 	end
+	refreshSign(circuit)
 end
 
 --------------------------------------------------------------------------------
@@ -537,6 +619,18 @@ local function push(player: Player, session: Session?)
 		best = profile and profile.raceBests[circuit.planet],
 		route = route(circuit),
 		rivals = circuit.rivals,
+		--[[
+			The two numbers the money is made of, sent because the player is
+			currently spending an evening on them.
+
+			`target` is what a ghost of the hull under them does, which is
+			the time that has to be beaten to be paid -- see
+			`Races.ghostTime` for why it is that and not the finishing
+			position. The HUD shows both, because "am I winning" and "am I
+			getting paid" are genuinely different questions here.
+		]]
+		purse = purses[circuit.planet] or 0,
+		target = Races.ghostTime(session.ship, circuit.length, Races.LAPS),
 	})
 end
 
@@ -549,20 +643,61 @@ local function abandon(player: Player, reason: string)
 	Net.fireClient(Net.Event.Notify, player, `Run abandoned -- {reason}`, "MissionFailed")
 end
 
-local function begin(player: Player, circuit: Circuit)
+--[[
+	Takes the entry fee. Returns what it was paid in, or nil if it could not
+	be paid at all.
+
+	A pass first, always. It is worth exactly one entry and nothing else, so
+	spending credits while holding one would be spending the more useful of
+	the two -- and the player would have to notice that themselves, every
+	time, at a start line they are already driving through.
+]]
+local function chargeEntry(player: Player): string?
+	local paid = false
+	data().update(player, function(profile: PlayerProfile)
+		-- Against what `remove` actually took, never against what was asked
+		-- for. The standing rule for this API, and the one place it could
+		-- silently hand out a free race.
+		paid = Inventory.remove(profile.inventory, Races.PASS_ITEM, 1) == 1
+	end)
+	if paid then
+		return "pass"
+	end
+	if progression().spendCredits(player, Races.ENTRY_FEE) then
+		return "credits"
+	end
+	return nil
+end
+
+local function begin(player: Player, circuit: Circuit, ship: string, paidWith: string)
 	sessions[player] = {
 		circuit = circuit,
 		startedAt = Workspace:GetServerTimeNow(),
 		hits = 0,
+		ship = ship,
 	}
 	armed[player] = false
+
+	--[[
+		A pass stakes the same as credits do, and that is the one place a
+		race mints anything into the pot that nobody paid for.
+
+		The alternative -- a pass entering for free -- is worse in the way
+		that matters here: it would make the pass a free shot at money other
+		people put in, so the correct play would be to farm passes and never
+		spend a credit. Two brothers in one room find that in an afternoon.
+		"Credits or a pass" has to mean the two are worth the same thing, and
+		the drop rate is what bounds the faucet.
+	]]
+	purses[circuit.planet] = (purses[circuit.planet] or 0) + Races.ENTRY_FEE
+	refreshSign(circuit)
+
 	push(player, sessions[player])
+	local cost = if paidWith == "pass" then "1 Race Pass" else `{Races.ENTRY_FEE} cr`
 	Net.fireClient(
 		Net.Event.Notify,
 		player,
-		`{Planets.get(circuit.planet).displayName} Circuit  --  {Races.LAPS} laps against {#circuit.rivals}, par {Races.format(
-			circuit.par
-		)}`,
+		`{Planets.get(circuit.planet).displayName} Circuit  --  {cost} staked, purse {purses[circuit.planet]} cr`,
 		"Reward"
 	)
 end
@@ -605,20 +740,52 @@ local function finish(player: Player, session: Session)
 	--[[
 		The finishing position is worked out here, from the same arithmetic
 		the client drew the ghosts with, and never read back off the client.
-
-		Nothing pays out yet -- that is commit 3 -- but a purse is going to
-		be settled on this number, and a number the client reports is a
-		number the client chooses. It costs one loop over five rivals to
-		never have to revisit that.
+		A number the client reports is a number the client chooses, and this
+		one now has money on it.
 	]]
 	local place = Races.placeFor(time, circuit.length, Races.LAPS, circuit.rivals)
 	local field = #circuit.rivals + 1
+
+	--[[
+		Beating a ghost of your own hull is what pays, and `Races.ghostTime`
+		argues at length why it is that rather than the position or the
+		medal. Both of those are won by owning a faster speeder; this one is
+		the same difficulty in all five.
+	]]
+	local target = Races.ghostTime(session.ship, circuit.length, Races.LAPS)
+	local won = target ~= nil and time <= target
+	local payout = 0
+	if won then
+		--[[
+			`raw`, so the Scavenger multiplier does not touch it. Most of
+			this is other players' entry fees, and a stat that mints a
+			percentage on top of somebody else's money would make the pot
+			bigger coming out than it was going in.
+		]]
+		payout = (purses[circuit.planet] or 0) + Races.prizeFor(medal)
+		purses[circuit.planet] = 0
+		refreshSign(circuit)
+		progression().awardCredits(player, payout, true)
+	end
 
 	local headline = if medal
 		then `P{place}/{field}  --  {medal.id}  --  {Races.format(time)}`
 		else `P{place}/{field}  --  {Races.format(time)}`
 	if improved then
 		headline ..= "  --  personal best"
+	end
+	--[[
+		A losing run says what it lost to, by name and by how much.
+
+		"You did not win" is a `warn()` aimed at a fourteen-year-old, and the
+		2026-08-19 note on that is explicit. The hull's own ghost is a thing
+		he can picture, and the gap to it is the thing he will try to close.
+	]]
+	if won then
+		headline ..= `  --  purse {payout} cr`
+	elseif target then
+		local name = if Ships.exists(session.ship) then Ships.get(session.ship).displayName else session.ship
+		headline ..= `  --  no purse, {name} ghost by {Races.format(time - target)}`
 	end
 	Net.fireClient(Net.Event.Notify, player, headline, if medal then medal.id else "Reward")
 end
@@ -677,7 +844,41 @@ local function step()
 		if toStart > Races.GATE_RADIUS then
 			armed[player] = true
 		elseif armed[player] and driving(player) then
-			begin(player, circuit)
+			--[[
+				A refusal disarms as well as explaining itself.
+
+				This runs every Heartbeat, so a player sitting under the
+				gantry with no money would otherwise be told sixty times a
+				second that he has no money. Clearing `armed` means the
+				message arrives once and does not come back until he has
+				driven a gate's width away and had another go, which is also
+				the only action that could have changed the answer.
+			]]
+			local ship = profile.equipped.ship
+			if not (ship and Ships.exists(ship)) then
+				armed[player] = false
+				Net.fireClient(Net.Event.Notify, player, "You need a speeder to race", "Error")
+			elseif Ships.isStarship(ship) then
+				-- A hull that has stopped looking for the ground can fly the
+				-- straight line between two gates, so there is no field to
+				-- put it in and no ghost of it to beat. Refused at the line
+				-- rather than at the flag, where it would already have paid.
+				armed[player] = false
+				Net.fireClient(Net.Event.Notify, player, "A starship cannot enter -- take a speeder", "Error")
+			else
+				local paidWith = chargeEntry(player)
+				if paidWith then
+					begin(player, circuit, ship, paidWith)
+				else
+					armed[player] = false
+					Net.fireClient(
+						Net.Event.Notify,
+						player,
+						`Entry is {Races.ENTRY_FEE} cr or a Race Pass -- you have neither`,
+						"Error"
+					)
+				end
+			end
 		end
 	end
 end

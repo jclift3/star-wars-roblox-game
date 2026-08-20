@@ -30,6 +30,7 @@
 	when the catalogue moves.
 ]]
 
+local Items = require(script.Parent.Items)
 local Ships = require(script.Parent.Ships)
 
 local Races = {}
@@ -39,6 +40,10 @@ export type Medal = {
 	--- Multiple of par at or under which this medal is awarded.
 	scale: number,
 	colour: Color3,
+	--- Multiple of the entry fee this medal pays back on a winning run. See
+	--- `Races.prizeFor`; it lives on the medal so there is one table rather
+	--- than a second one keyed by medal id that could drift out of step.
+	prize: number,
 }
 
 --------------------------------------------------------------------------------
@@ -121,9 +126,9 @@ local RIVAL_PACE = 0.56
 	second player having to exist.
 ]]
 local MEDALS: { Medal } = {
-	{ id = "Gold", scale = 0.9, colour = Color3.fromRGB(214, 176, 72) },
-	{ id = "Silver", scale = 1.0, colour = Color3.fromRGB(196, 202, 212) },
-	{ id = "Bronze", scale = 1.18, colour = Color3.fromRGB(186, 124, 74) },
+	{ id = "Gold", scale = 0.9, colour = Color3.fromRGB(214, 176, 72), prize = 3 },
+	{ id = "Silver", scale = 1.0, colour = Color3.fromRGB(196, 202, 212), prize = 2 },
+	{ id = "Bronze", scale = 1.18, colour = Color3.fromRGB(186, 124, 74), prize = 1.5 },
 }
 Races.MEDALS = MEDALS
 
@@ -267,6 +272,95 @@ function Races.format(seconds: number): string
 end
 
 --------------------------------------------------------------------------------
+-- The money
+--------------------------------------------------------------------------------
+
+--[[
+	What entry costs, if you are paying in credits.
+
+	Derived from the cheapest speeder in the catalogue, because owning a
+	speeder is the actual prerequisite for racing and so the cheapest one is
+	the only honest unit to price entry in. A tenth of it means "you can
+	enter ten times for the price of the sled you are driving", which is a
+	sentence a fourteen-year-old can hold in his head, and it moves on its
+	own if the sled is ever repriced.
+]]
+local ENTRY_FRACTION = 0.1
+
+local function cheapestSpeeder(): number
+	local best = math.huge
+	for _, id in Ships.ids() do
+		local def = Ships.get(id)
+		if not Ships.isStarship(id) and def.cost > 0 then
+			best = math.min(best, def.cost)
+		end
+	end
+	return if best < math.huge then best else 0
+end
+
+--[[
+	Flat across every planet, and that is a decision rather than an oversight.
+
+	Charging by the length of the circuit would make the shortest circuit the
+	efficient one to farm, and a game with nine planets where one of them is
+	the correct answer is a game with one planet. A long circuit already
+	costs more -- it costs more of the evening, and there are more corners on
+	which to lose your own hull's ghost.
+]]
+Races.ENTRY_FEE = math.max(1, math.floor(cheapestSpeeder() * ENTRY_FRACTION))
+
+--- The inventory id of a ticket. A plain merging stack, so a bag holds any
+--- number of them in one row and none of them is unique.
+Races.PASS_ITEM = "RacePass"
+
+--[[
+	The time to beat: what a ghost of the hull you are actually driving does.
+
+	THIS, AND NOT THE FINISHING POSITION, IS WHAT PAYS.
+
+	Position cannot be the test. The grid is the whole catalogue, so first
+	place means beating the Swoop Racer's ghost, which in practice means
+	owning a Swoop Racer -- and a purse only a fourteen-thousand-credit hull
+	can win is a purse the boy who has not got one pays into and never takes
+	out. Medals cannot be the test either, for the same reason one step down:
+	par is the *median* hull's pace, so a Hover Sled cannot earn one however
+	well it is driven.
+
+	Your own hull's ghost is the one benchmark that is equally hard in every
+	speeder, because it is scaled by the thing being tested. It is also
+	exactly the question commit 2 built the grid to ask: are you worth more
+	than your hull's numbers alone? Being paid for the answer is the point.
+
+	Nil for anything that cannot race -- a starship, or an id no catalogue
+	knows -- so the caller has to decide what a run in one of those is worth
+	rather than being handed a number that pretends it is comparable.
+]]
+function Races.ghostTime(shipId: string, length: number, laps: number): number?
+	if not Ships.exists(shipId) or Ships.isStarship(shipId) then
+		return nil
+	end
+	return Races.rivalTime(Ships.get(shipId).speed * RIVAL_PACE, length, laps)
+end
+
+--[[
+	The prize paid on top of the purse, as a multiple of the entry fee.
+
+	A win with no medal returns the stake exactly, so beating your own ghost
+	in a slow hull always gets your money back and never more. Everything
+	above that is the medal, which is where the expensive hull is allowed to
+	be worth its price.
+
+	The consequence is worth stating plainly, because it is the whole shape
+	of the economy this adds: **the only new credits a race mints are the
+	medal, and everything else in the purse came out of somebody's pocket.**
+	You make money off your own excellence or off somebody else's failed
+	entry, and never off having shown up.
+]]
+function Races.prizeFor(medal: Medal?): number
+	return math.floor(Races.ENTRY_FEE * (if medal then medal.prize else 1))
+end
+
+--------------------------------------------------------------------------------
 -- Boot check
 --------------------------------------------------------------------------------
 
@@ -313,11 +407,36 @@ function Races.validate(): { string }
 	end
 
 	local previous = 0
+	local previousPrize = math.huge
 	for _, medal in Races.MEDALS do
 		if medal.scale <= previous then
 			table.insert(problems, `medal "{medal.id}" is not looser than the one before it`)
 		end
+		--[[
+			The table runs best to worst, so the prizes have to run down it.
+			A Silver worth more than a Gold would pay a player for driving
+			slower, which is not a bug anybody would notice from the outside
+			and is exactly the kind of thing two brothers would find.
+		]]
+		if medal.prize >= previousPrize then
+			table.insert(problems, `medal "{medal.id}" pays at least as much as a better one`)
+		end
+		if medal.prize < 1 then
+			table.insert(problems, `medal "{medal.id}" pays back less than the entry fee`)
+		end
 		previous = medal.scale
+		previousPrize = medal.prize
+	end
+
+	if Races.ENTRY_FEE <= 0 then
+		table.insert(problems, "entry is free, so the purse can never contain anything")
+	end
+	-- The fee is derived from the catalogue and the pass is a catalogue id,
+	-- so both are exactly the kind of thing that goes quietly wrong when
+	-- somebody renames an item -- the failure `Flags` and `Missions` were
+	-- both given a declared registry to stop.
+	if not Items.exists(Races.PASS_ITEM) then
+		table.insert(problems, `the entry ticket "{Races.PASS_ITEM}" is not an item`)
 	end
 
 	if Races.MIN_CHECKPOINTS < 3 then
