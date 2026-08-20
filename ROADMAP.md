@@ -2470,20 +2470,39 @@ commit made it 0.25 studs worse by raising the bounding box with running lights.
 There is no seat position that is both inside the hull, where a seat belongs, and
 outside a collider drawn around the hull by definition — so this was never
 tunable. Seats are now `CanTouch = false` and **boarding is a `ProximityPrompt`**,
-the verb this game already uses for vendors, terminals and dropped loot. That buys
-three things at once: it works regardless of geometry, it says out loud that the
-ship can be boarded, and the choice of seat belongs to the player instead of to
-the collision solver. `RequiresLineOfSight` is off, because the sight test would
-be cast at a seat inside a box — it happens to pass today only because every ship
-part sets `CanQuery = false` for the hover ray, and that is a coincidence between
-two unrelated decisions.
+the verb this game already uses for vendors, terminals and dropped loot. It works
+regardless of geometry and it says out loud that the ship can be boarded at all.
 
-The promotion rule survives, but as a **label instead of a surprise**: while
-nobody is flying, *every* seat's prompt reads `Pilot` and puts you at the
-controls; the moment somebody is, the passengers' read `Ride`. One rule, and the
-ship answers the question before it is asked. `MaxActivationDistance` is derived
-from the hull, since twelve studs is generous beside a swoop bike and is inside
-the cargo hold of a forty-stud freighter.
+**And then it was reported a third time** — *"holding E does nothing. I've stood
+on all sides without ever seeing a prompt."* The prompt had been put on the seat,
+which meant it was put in the middle of an opaque ship. **A `ProximityPrompt`
+draws its billboard at its parent**, so the label was live, in range and painted
+over by the hull every frame. The measurement that fixed the second bug — the
+seats are buried inside the collider — was the same fact that broke the third fix,
+and I read it as a physics problem and not as a rendering one.
+
+So the prompt does not live on a seat. It hangs from an `Attachment` on the
+chassis, **three studs above the top of the bounding box**, in clear air from
+every angle a player can stand at. `RequiresLineOfSight` stays off for the one
+angle that is still blocked — looking up at it from underneath — and
+`MaxActivationDistance` is derived from the hull, since sixteen studs is generous
+beside a swoop bike and does not reach the ramp of a forty-stud freighter.
+
+**One prompt, not one per seat.** The seat you get is not a choice worth a menu,
+and offering four identical labels on one hull was answering a question nobody
+asked. The promotion rule survives as a **label instead of a surprise**: while
+nobody is flying it reads `Pilot` and puts you at the controls; the moment
+somebody is, it reads `Ride` and puts you in the back; when the ship is full it
+switches itself off rather than offering a seat it has not got.
+
+That prompt then has to *stay* live while somebody is flying — it is how the
+second brother gets in the back — which put a `Ride` label in the driver's
+windscreen for the whole journey. So `VehicleController` turns
+`ProximityPromptService` off on the client of whoever is aboard. That is a
+client-only write to a property the server never touches, so it cannot race the
+`Enabled` flag the server is keeping honest, and it is the right answer as well
+as the cheap one: every prompt in this game is something you would have to get
+off the speeder to use anyway.
 
 **"Really sad / blocky" is answered with edges, not with boxes.** A large box is
 exactly as blocky at ten studs as at a hundred; what reads as a surface is a face
@@ -2506,6 +2525,112 @@ ground clearance `Ships.validate` checks. The thruster plume is kept under a stu
 for the same reason: **`ShipModel.boundingSize` walks every part in the def** to
 size the invisible collider, so a three-stud tail of light would be three studs
 of collision box made of light.
+
+---
+
+### 4.6 Races — **[planned 2026-08-19]**
+
+**Nothing in this game currently rewards flying well.** You buy a speeder to skip
+a walk, and once you have any speeder the walk is skipped. Meanwhile `Ships.luau`
+carries `speed`, `acceleration`, `turnSpeed` and `bank` for eight hulls, the
+Piloting tree multiplies two of them through `ShipSpeedMult` / `ShipTurnMult`, and
+**not one of those fourteen numbers is ever tested by anything**. A race is the
+first content that makes the difference between a Swoop-Racer and a cargo sled
+mean something, and it is the only credit sink in the game whose answer is skill
+rather than another hour of grinding.
+
+The user's call, 2026-08-19: **an entry fee and/or a ticket you can come by other
+ways, and a grid that works solo, with both boys, with more humans, and with AI.**
+
+#### A circuit is composed, not authored
+
+`Config/Races.luau`, on exactly the `Radiant` pattern: a circuit per district,
+built at require time from the markers that district already has. A circuit is a
+planet, a zone, an **ordered ring of checkpoints derived from that zone's existing
+POI markers**, a lap count, and a par time.
+
+**The par time is derived and must stay derived** — route length ÷ a reference
+hull's `speed`, plus a fixed allowance per corner. An authored par time is a
+number that silently becomes a lie the first time somebody retunes a hull, and
+this file has already been burned by exactly that shape twice (`Weapons.maxima`,
+`Planets.bandFor`).
+
+Checkpoints are `Reach`-shaped, but **a race is not a mission and must not become
+an `Objective` kind.** A mission is one-at-a-time, persisted, turned in at an NPC
+and cannot be failed; a race is a session with a clock, a field and a loss.
+Forcing it into `MissionService`'s switch would mean teaching every mission path
+about a state none of the others have. The two touch in exactly one place, and
+that place is a reward: **a mission may pay out a race pass.**
+
+#### The grid is always full, and that is the cheap part
+
+- **Solo** is a time trial against the par and against your own best. Always
+  available, never waiting for anybody.
+- **Humans** are whoever is on the start line when the countdown ends.
+- **AI racers fill the rest**, and this costs almost nothing because the machinery
+  exists: `ShipModel.buildTraffic` already builds an anchored, seatless hull that
+  its owner moves by `PivotTo`, and it is already doing that twenty-six at a time
+  for ambient traffic. An AI racer is one of those following the same checkpoint
+  ring at a speed drawn from a difficulty band. No pathfinding, no physics, no
+  `NPCBrain`, no seat.
+
+**No rubber-banding.** The AI runs a fixed profile for its band. Catch-up logic is
+the thing that makes a win feel unearned, and the two players this is for are
+fourteen and will notice within three races that the field is being polite.
+
+#### The money moves between players rather than being minted
+
+Entry is **credits or a `RacePass`**, and the passes are the interesting half:
+a plain inventory stack (merging, like a crystal), dropped by `Loot` and paid out
+by missions. That means a kid who has spent everything on a saber can still race,
+and it gives `Loot` its second non-gear drop.
+
+**Every entry goes into a purse and the winner takes it.** That is a sink and a
+faucet in one object: with two brothers on one server the credits move between
+them instead of being conjured, which is the thing this economy has never had.
+Prize money on top scales with the band, and **must go through the existing credit
+path** so `AnalyticsService` sees it like everything else.
+
+#### Records stay personal
+
+Best lap per circuit in the profile, as a **map keyed by circuit id, never an
+array** — same reason as `inventory` and `flags`. A server-wide table would mean
+an `OrderedDataStore`, a subsystem this project has never used, in order to
+display a list of two names.
+
+#### The parts of this that will bite
+
+- **`ShipModel.boundingSize` walks every part in a def**, so checkpoint rings and
+  the start gantry are world geometry drawn by `PlanetBuilder` and belong to no
+  ship. A ring welded to a hull would be a collider made of ring.
+- **The driver simulates their own vehicle.** `VehicleService` concedes this in
+  writing and argues it buys nothing, because there is no race — this is the
+  change that makes that argument false. The honest mitigation is not anti-cheat:
+  checkpoints must be crossed **in order**, and a lap under a floor time derived
+  from the fastest hull in the game is rejected. Worth naming out loud, because
+  the standing note on these two players is that anything exploitable is found.
+- **Both boys, one room.** The countdown, the field and the results have to read
+  identically on both screens, so the clock is server-authoritative — the same
+  discipline `WorldClock` already keeps by being a pure function of
+  `GetServerTimeNow()`.
+- **No new assets.** The gantry, the rings and the pass icon are procedural parts
+  and `Theme` widgets, as everything in this project has been.
+
+#### Files and sequencing
+
+**New:** `Shared/Config/Races.luau`, `server/Services/RaceService.luau`,
+`client/Controllers/RaceController.luau` (lap, split, next checkpoint, position —
+HUD, **not** a `Panels` entry: it is live information during play, not a screen
+you open). **Changed:** `Core/Net.luau`, `Config/Loot.luau`, `ShopService`
+(`kind = "RacePass"`), `PlanetBuilder` + `Style`, `DataService`'s profile shape,
+`WaypointController` (arrow to the *next* checkpoint only), `TESTING.md`.
+
+Three commits, each green on `./check.sh`:
+
+1. **A circuit exists and you can run it alone against the clock.**
+2. **The grid fills** — AI racers first, then humans, because the AI is what
+   makes a solo race feel like one.
+3. **The money** — fee, pass, drops, purse, payout.
 
 ---
 

@@ -1034,10 +1034,11 @@ level: `greedisgood` for XP.
 5. The button on it now reads **SELECTED — PRESS V**. Buying the first one
    selects it for you; buying a second does not steal the selection.
 6. **V**. It appears a few studs ahead of you, hovering, facing the way you are,
-   **and the toast says how to ride it**: `... standing by. Hold E at the Pilot
-   prompt, then WASD.` *(Added 2026-08-18 from "how do i ride in the vehicles?";
-   corrected 2026-08-19, when the thing it was telling you to do turned out to
-   be impossible — see 9a.)* Do that. **V** again while parked puts it away.
+   **and the toast says how to ride it**: `... standing by. Press E at the Pilot
+   prompt above it, then WASD.` *(Added 2026-08-18 from "how do i ride in the
+   vehicles?"; corrected twice on 2026-08-19, when the thing it was telling you
+   to do turned out to be impossible and then invisible — see 9a.)* Do that.
+   **V** again while parked puts it away.
 7. Drive. W/S throttle, A/D steer, and it **leans into the turn**. It follows
    the ground up and down a dune without either sinking into it or climbing
    stairs off it. Take it off a ledge: it falls, and catches itself at hover
@@ -1046,30 +1047,41 @@ level: `greedisgood` for XP.
    should not launch you.
 9. Stand up. The speeder **stops where it is and hovers** rather than drifting
    off or dropping. Get back on: it does not snap round to face you.
-9a. **You board with a prompt, and the prompt says which seat you are taking —
-    rewritten 2026-08-19, second attempt.** Reported twice: *"I was able to sit
-    in the ship but it doesn't move"*, then *"I'm still not able to drive."* The
-    first fix promoted a passenger to the pilot's seat and was aimed at the
-    wrong thing. The real fault was that **no seat could be walked into at all**:
-    the chassis collider is sized to the whole hull and is the only part that
-    collides, so every seat is sealed inside it — on the Hover-Sled the driver's
-    seat's top face is 0.7 studs *under* the invisible roof you are standing on.
-    Sitting down at all was the physics solver letting you clip through for a
-    frame. Seats are now `CanTouch = false` and boarding is a `ProximityPrompt`.
-    - **Walking into a seat now does nothing at all.** That is correct and is
+9a. **You board with one prompt that floats above the ship — rewritten
+    2026-08-19, third attempt.** Reported three times. *"I was able to sit in the
+    ship but it doesn't move"*; the first fix promoted a passenger to the pilot's
+    seat and was aimed at the wrong thing. *"I'm still not able to drive"*; the
+    real fault was that **no seat could be walked into at all** — the chassis
+    collider is sized to the whole hull and is the only part that collides, so
+    every seat is sealed inside it, and on the Hover-Sled the driver's seat's top
+    face is 0.7 studs *under* the invisible roof you are standing on. Sitting
+    down at all was the physics solver letting you clip through for a frame. So
+    seats went `CanTouch = false` and boarding became a `ProximityPrompt` — put
+    on the seat. *"Holding E does nothing. I've stood on all sides without ever
+    seeing a prompt."* A prompt draws its label at its parent; its parent was
+    buried in an opaque hull. **The prompt now hangs three studs above the top of
+    the hull**, in open air, where the label is the point.
+    - **Walking into a seat still does nothing at all.** That is correct and is
       the point — there is no longer a way to end up seated by accident.
-    - Stand anywhere beside an empty Hover-Sled. A prompt reading **`Pilot`**
-      over the ship's name. Hold **E**: you are at the wheel and **W drives**.
-    - Do the same on the **Longhaul**, whose four seats are furthest apart and
-      whose cockpit is eight studs back and three up. The prompt reaches from
-      outside the hull — it scales with the ship, so check the biggest one.
-    - The prompt is readable **through** the hull. It is drawn at the seat,
-      which is inside the ship, so if it is hidden nothing can be boarded.
-    - **Both boys, one ship.** While the sled is empty, *every* seat's prompt
-      says `Pilot` and any of them puts you at the controls. The moment one
-      brother is flying, the others **change to `Ride`** and put you in that
-      seat, where you stay. Watch the word change on screen when he sits down.
-    - Get out and confirm they all say `Pilot` again.
+    - Stand anywhere beside an empty Hover-Sled and **look up slightly**. A
+      prompt reading **`Pilot`** over the ship's name, hanging clear of the
+      hull with sky behind it. Press **E**: you are at the wheel, **W drives**.
+    - Walk a full circle round it. The label is visible from all four sides and
+      from above; it is only occluded looking up at it from directly beneath.
+    - Do the same on the **Longhaul**, the biggest hull, where the prompt is
+      furthest from where you are standing — its reach scales with the ship.
+    - **Both boys, one ship.** While the sled is empty the prompt says `Pilot`
+      and puts you at the controls. The moment one brother is flying it
+      **changes to `Ride`** and puts the next one in the back. Watch the word
+      change on screen when he sits down.
+    - Fill every seat: the prompt **disappears** rather than offering a seat the
+      ship has not got. Get out and confirm it says `Pilot` again.
+    - **Once you are aboard, no prompt is on your screen at all** — not this
+      one, not a vendor's, not a dropped item's. Reported 2026-08-19: *"the
+      text never goes away when I'm riding around."* It has to stay live for
+      the brother still standing outside, so it is switched off on the client
+      of whoever is in the seat. Ride past a vendor and a loot drop to confirm,
+      then stand up: everything comes back.
 10. **The important one, and the reason to do this with both boys in the room:**
     one of you buys a two-seater (Hover-Sled or Flare-S), drives, and the other
     sits in the passenger position. The passenger should ride along smoothly and

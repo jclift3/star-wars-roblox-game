@@ -30,6 +30,7 @@
 ]]
 
 local Players = game:GetService("Players")
+local ProximityPromptService = game:GetService("ProximityPromptService")
 local RunService = game:GetService("RunService")
 local UserInputService = game:GetService("UserInputService")
 local Workspace = game:GetService("Workspace")
@@ -328,14 +329,36 @@ function VehicleController.start()
 		walking into it, being thrown off it, the server dismissing it out
 		from under them, or dying.
 	]]
+	--[[
+		A PROMPT IS FOR SOMEBODY WHO IS NOT ON BOARD YET
+
+		The boarding prompt hangs above the hull and is the only way into a
+		ship, so it has to stay live while anyone is flying -- that is how the
+		second brother gets in the back. But it also follows the driver around
+		the planet, which is what he reported: a `Ride` label parked in the
+		middle of his windscreen for the whole journey.
+
+		Turning the whole service off for the duration is a client-only write
+		to a property the server never touches, so it cannot race the
+		`Enabled` flag VehicleService is keeping honest on the prompt itself.
+		It is also the right answer rather than merely the cheap one: every
+		prompt in this game -- vendors, terminals, dropped loot, this -- is
+		something you would have to get off the speeder to use anyway.
+
+		Deliberately keyed on being in *a ship*, not on driving one. A
+		passenger is riding too, and a chair in the player's cabin is not a
+		ship at all.
+	]]
 	local function bind(character: Model)
 		release()
+		ProximityPromptService.Enabled = true
 		local humanoid = character:WaitForChild("Humanoid", 10)
 		if not (humanoid and humanoid:IsA("Humanoid")) then
 			return
 		end
 		humanoid:GetPropertyChangedSignal("SeatPart"):Connect(function()
 			local seat = humanoid.SeatPart
+			ProximityPromptService.Enabled = seat == nil or ShipModel.of(seat) == nil
 			if seat and seat:IsA("VehicleSeat") then
 				take(seat)
 			else

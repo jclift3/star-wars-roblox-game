@@ -229,11 +229,6 @@ local function livingHumanoid(player: Player): Humanoid?
 	return nil
 end
 
-local function promptOn(seat: BasePart): ProximityPrompt?
-	local prompt = seat:FindFirstChild(ShipModel.PROMPT)
-	return if prompt and prompt:IsA("ProximityPrompt") then prompt else nil
-end
-
 local function watch(model: Model)
 	local chassis = model.PrimaryPart :: BasePart
 	local seat = ShipModel.driverSeat(model)
@@ -243,36 +238,57 @@ local function watch(model: Model)
 	end
 
 	--[[
-		ONE RULE, AND THE LABEL SAYS WHICH WAY IT IS POINTING
+		ONE PROMPT, AND THE LABEL SAYS WHICH SEAT IT IS OFFERING
 
-		Reported twice, 2026-08-19: the ship could be sat in and would not
-		move. The first attempt promoted a passenger to the pilot's seat, on
-		the theory that the player had touched the wrong one of several
-		identical black seats. He had -- but only sometimes, because
-		`ShipModel` seals every seat inside the chassis collider and walking
-		into one was never going to work at all. That file now carries the
-		geometry; here is the rule the prompts it added are announcing.
+		Reported three times over 2026-08-19: the ship could not be driven.
+		Walking into a seat was never going to work -- `ShipModel` seals every
+		seat inside the chassis collider, and that file carries the geometry --
+		and the prompt that replaced it was drawn at a seat, which is to say
+		inside an opaque hull, so it was never seen either. It hangs above the
+		ship now. This is the rule it announces.
 
-		An empty ship is flown by whoever gets in, from any seat. Once
-		somebody is at the controls the other seats go back to being seats,
-		which is the case they exist for and the case the two brothers
-		actually play. Rather than leave that as a hidden promotion nobody
-		could predict, the passengers' prompts read "Pilot" or "Ride"
-		depending on which half of it is currently true, so the ship answers
-		the question before it is asked.
+		An empty ship is flown by whoever gets in. Once somebody is at the
+		controls, boarding puts you in the back instead, which is the case the
+		other seats exist for and the case the two brothers actually play.
+		Rather than leave that as a hidden promotion nobody could predict, the
+		label reads "Pilot" or "Ride" depending on which half of it is
+		currently true, and a ship with nowhere left to sit turns its prompt
+		off rather than offering a seat it has not got.
 	]]
-	local passengers: { ProximityPrompt } = {}
+	-- `VehicleSeat` does not inherit from `Seat`, so this is exactly the
+	-- passenger seats and never the driver's.
+	local riders: { Seat } = {}
 	for _, part in model:GetChildren() do
-		-- `VehicleSeat` does not inherit from `Seat`, so this is exactly the
-		-- passenger seats and never the driver's.
-		if not part:IsA("Seat") then
-			continue
+		if part:IsA("Seat") then
+			table.insert(riders, part)
 		end
-		local prompt = promptOn(part)
+	end
+
+	local prompt = ShipModel.boardPrompt(model)
+
+	local function freeRider(): Seat?
+		for _, rider in riders do
+			if not rider.Occupant then
+				return rider
+			end
+		end
+		return nil
+	end
+
+	local function relabel()
 		if not prompt then
-			continue
+			return
 		end
-		table.insert(passengers, prompt)
+		if not seat.Occupant then
+			prompt.Enabled = true
+			prompt.ActionText = ShipModel.PILOT_TEXT
+			return
+		end
+		prompt.Enabled = freeRider() ~= nil
+		prompt.ActionText = ShipModel.RIDE_TEXT
+	end
+
+	if prompt then
 		prompt.Triggered:Connect(function(player: Player)
 			local humanoid = livingHumanoid(player)
 			if not humanoid then
@@ -280,20 +296,16 @@ local function watch(model: Model)
 			end
 			if not seat.Occupant then
 				seat:Sit(humanoid)
-			elseif not part.Occupant then
-				part:Sit(humanoid)
+				return
+			end
+			local rider = freeRider()
+			if rider then
+				rider:Sit(humanoid)
 			end
 		end)
 	end
-
-	local driverPrompt = promptOn(seat)
-	if driverPrompt then
-		driverPrompt.Triggered:Connect(function(player: Player)
-			local humanoid = livingHumanoid(player)
-			if humanoid and not seat.Occupant then
-				seat:Sit(humanoid)
-			end
-		end)
+	for _, rider in riders do
+		rider:GetPropertyChangedSignal("Occupant"):Connect(relabel)
 	end
 
 	seat:GetPropertyChangedSignal("Occupant"):Connect(function()
@@ -301,11 +313,9 @@ local function watch(model: Model)
 			return
 		end
 
-		local occupant = seat.Occupant
-		for _, prompt in passengers do
-			prompt.ActionText = if occupant then ShipModel.RIDE_TEXT else ShipModel.PILOT_TEXT
-		end
+		relabel()
 
+		local occupant = seat.Occupant
 		local character = occupant and occupant.Parent
 		local driver = if character and character:IsA("Model")
 			then Players:GetPlayerFromCharacter(character)
@@ -429,8 +439,12 @@ function VehicleService.toggle(player: Player): (boolean, string?)
 		It used to say "walk into the seat", which was true of the code and
 		false of the game: the seats are inside the chassis collider and
 		could not be walked into. Boarding is a prompt now, and the toast
-		names the same key the prompt shows rather than describing it, so the
-		two cannot disagree about which one it is.
+		names the same key and the same word the prompt shows rather than
+		describing them, so the two cannot disagree.
+
+		It also says where to look. The prompt floats above the hull, which
+		is deliberate and is still the one thing about it a player would not
+		guess.
 
 		The steering was the same kind of omission for a different reason:
 		`VehicleSeat` turns WASD into `Throttle` and `Steer` for free, and
@@ -440,7 +454,7 @@ function VehicleService.toggle(player: Player): (boolean, string?)
 		them, and a line that lists two controls that do nothing teaches the
 		player that the rest of the line might be wrong too.
 	]]
-	local board = `Hold {Ships.BOARD_PROMPT_KEY.Name} at the {ShipModel.PILOT_TEXT} prompt`
+	local board = `Press {Ships.BOARD_PROMPT_KEY.Name} at the {ShipModel.PILOT_TEXT} prompt above it`
 	local how = if Ships.isStarship(shipId)
 		then `{board}. WASD to fly, {Ships.PITCH_UP_KEY.Name} up, {Ships.PITCH_DOWN_KEY.Name} down.`
 		else `{board}, then WASD.`
