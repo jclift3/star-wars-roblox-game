@@ -385,6 +385,11 @@ Net.Event = {
 	DialogueChoice = "DialogueChoice",
 	DialogueSay = "DialogueSay",
 	EndDialogue = "EndDialogue",
+	-- Racing. One event both ways: the server pushes the whole run state on
+	-- every change, and a nil payload means "you are not in a race", which is
+	-- also how a run ends. A second `RaceEnded` remote would be a second
+	-- thing that has to agree with the first.
+	RaceState = "RaceState",
 	-- Sprint (server-authoritative, unlike the old client-only version)
 	SetSprinting = "SetSprinting",
 } :: { [string]: string }

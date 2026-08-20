@@ -101,6 +101,18 @@ export type PlayerProfile = {
 		completed: { [string]: number }, -- missionId -> completion count
 		lastCompleted: { [string]: number }, -- missionId -> os.time of last turn-in
 	},
+	--[[
+		Best time on each planet's circuit, in seconds, keyed by planet id.
+
+		A map, for the third time and the same reason as `flags` and
+		`inventory`. But there is a second thing worth writing down: this is
+		deliberately *not* a leaderboard. A server-wide ranking would mean an
+		OrderedDataStore -- a subsystem this project has never used -- in
+		order to sort two brothers sitting next to each other. A personal best
+		plus `Races.MEDALS` gives what a leaderboard gives, a reason to run it
+		again, without a second player having to exist.
+	]]
+	raceBests: { [string]: number },
 	stats: {
 		playtime: number,
 		kills: number,

@@ -2528,7 +2528,7 @@ of collision box made of light.
 
 ---
 
-### 4.6 Races — **[planned 2026-08-19]**
+### 4.6 Races — **commit 1 of 3 DONE 2026-08-20**, the rest planned
 
 **Nothing in this game currently rewards flying well.** You buy a speeder to skip
 a walk, and once you have any speeder the walk is skipped. Meanwhile `Ships.luau`
@@ -2544,16 +2544,45 @@ ways, and a grid that works solo, with both boys, with more humans, and with AI.
 
 #### A circuit is composed, not authored
 
-`Config/Races.luau`, on exactly the `Radiant` pattern: a circuit per district,
-built at require time from the markers that district already has. A circuit is a
-planet, a zone, an **ordered ring of checkpoints derived from that zone's existing
-POI markers**, a lap count, and a par time.
+A circuit is a planet, an **ordered ring of gates derived from that planet's
+existing POI markers**, a lap count, and a par time. Nine hand-written routes
+would be nine lists of coordinates, correct on the day they are typed and
+silently wrong the first time somebody moves a landmark.
 
 **The par time is derived and must stay derived** — route length ÷ a reference
-hull's `speed`, plus a fixed allowance per corner. An authored par time is a
+hull's `speed`, at a fixed fraction of that speed. An authored par time is a
 number that silently becomes a lie the first time somebody retunes a hull, and
-this file has already been burned by exactly that shape twice (`Weapons.maxima`,
-`Planets.bandFor`).
+this project has already been burned by exactly that shape twice
+(`Weapons.maxima`, `Planets.bandFor`).
+
+##### Correction, 2026-08-20: the composition cannot happen at require time
+
+The paragraph above originally said `Config/Races.luau` would compose circuits at
+require time, the way `Radiant.luau` composes its missions. **It cannot, and the
+reason is worth keeping.** A checkpoint is a *place*, and a place on one of these
+planets does not exist until `PlanetBuilder` has run: POI markers are emitted into
+`Workspace/POI/<Planet>` at positions that fall out of the generator's seed, the
+district fan and the authored street grid. A config module has no access to any of
+that, and re-deriving the coordinates would be a second copy of the generator's
+arithmetic — right until the day the two disagree.
+
+So the split shipped as: **the world owns the distances, `Config/Races.luau` owns
+every number that turns a distance into a race.** `RaceService` composes and caches
+one circuit per planet the first time somebody stands on it, sorting the landmarks
+by bearing around `Planets.originFor` (a ring, never a shortest path — a route that
+crosses itself puts the gate you want and the gate you want next both in front of
+you), thinning anything inside `MIN_GATE_SPACING`, and returning nothing at all if
+fewer than `MIN_CHECKPOINTS` survive. **A planet with no circuit is not a bug and
+does not warn**: Korriban and the Taris dig are deliberately quiet worlds, and
+quiet worlds not having a racetrack is the right answer.
+
+##### You start by driving through the start line, not by pressing a key
+
+Not a stylistic choice. As of 2026-08-19 `VehicleController` switches
+`ProximityPromptService.Enabled` off for anybody sitting in a ship — that is the
+fix for the boarding prompt following the driver around (§4.5). **A prompt is for
+somebody standing on their own feet.** A start line is for somebody already
+moving, which is the only state you can begin a race in anyway.
 
 Checkpoints are `Reach`-shaped, but **a race is not a mission and must not become
 an `Objective` kind.** A mission is one-at-a-time, persisted, turned in at an NPC
@@ -2622,15 +2651,65 @@ display a list of two names.
 `client/Controllers/RaceController.luau` (lap, split, next checkpoint, position —
 HUD, **not** a `Panels` entry: it is live information during play, not a screen
 you open). **Changed:** `Core/Net.luau`, `Config/Loot.luau`, `ShopService`
-(`kind = "RacePass"`), `PlanetBuilder` + `Style`, `DataService`'s profile shape,
-`WaypointController` (arrow to the *next* checkpoint only), `TESTING.md`.
+(`kind = "RacePass"`), `Types.luau` + `DataService`'s profile shape, `TESTING.md`.
+
+Two files named here in the plan turned out not to need touching. **`PlanetBuilder`
+does not draw the gantry**: gate positions are only knowable *after* it has run, so
+`RaceService` draws them itself the first time it composes a circuit. And
+**`WaypointController` is untouched** — it resolves waypoints only from
+`profile.missions.active`, and teaching it about an arbitrary world position would
+have been a public setter on a controller that has deliberately never had one, in
+service of a cue a `Highlight` gives for free.
 
 Three commits, each green on `./check.sh`:
 
-1. **A circuit exists and you can run it alone against the clock.**
+1. ~~**A circuit exists and you can run it alone against the clock.**~~ —
+   **DONE 2026-08-20**, below.
 2. **The grid fills** — AI racers first, then humans, because the AI is what
    makes a solo race feel like one.
 3. **The money** — fee, pass, drops, purse, payout.
+
+#### Commit 1, as built — **DONE 2026-08-20**
+
+`Shared/Config/Races.luau` (laps, gate radius, gate spacing, pace, medals, and
+`parFor` / `floorFor` / `medalFor` / `format`, all derived from `Ships` and none of
+them a time), `server/Services/RaceService.luau` (59) and
+`client/Controllers/RaceController.luau` (42), plus `profile.raceBests` and one
+remote, `Net.Event.RaceState`.
+
+- **`Races.luau` contains no times and no coordinates.** Par is route length ÷ the
+  *median* speeder's speed × `PACE` — median rather than mean so one outlier hull
+  moves par by nothing, and speeders only because **a starship can fly the straight
+  line between two gates at altitude, which is not the game being played.** The
+  floor below which a finish is discarded is the same length ÷ the *fastest*
+  speeder, so adding a quicker hull moves the floor rather than breaking it.
+- **The clock runs on the client and is still server-authoritative.** The server
+  sends `startedAt` once, as a reading of `GetServerTimeNow()`; `RaceController`
+  counts up from it every frame. A per-frame time remote would be sixty packets a
+  second to save one subtraction, and this way **both brothers' clocks agree to the
+  millisecond without either being sent the other's**.
+- **Gate checks run every Heartbeat, not on the four-second sweep** every other
+  world-dressing service uses. The Swoop Racer does 205 studs a second; a sample a
+  tenth of a second apart would let a 26-stud gate pass between two frames. Only
+  the *composition* is swept.
+- **`armed` is why finishing does not immediately start another race.** You are, by
+  definition, sitting on the start line at the moment you cross it. A player may
+  cross it only after having been more than a gate's width from it.
+- **The next gate is a `Highlight` with `DepthMode = AlwaysOnTop`**, reparented
+  rather than rebuilt. The gate after a corner is routinely behind a landmark or
+  past the fog — both entries on the "landmark looks missing" checklist — and an
+  outline that ignores depth is the one cue that survives both at no geometry cost.
+- **A gate is `CanCollide = false`, and so is the gantry.** A wall at the apex of a
+  corner is a way to lose a race to the scenery.
+- **The gantry says what it is, and it says par**, because the 2026-08-17 report's
+  lesson was that a finished system nobody is told about does not exist. A start
+  line with no sign on it is a strange orange arch somebody drove past.
+- Medal colours are registered into `HudController.KIND_COLOURS` by walking
+  `Races.MEDALS`, exactly as the rarity colours already are — so the finish toast
+  and the gantry cannot disagree about what Gold looks like.
+
+Deliberately **not** in commit 1: any payout at all. A race that pays before the
+purse exists is a faucet that has to be un-tuned in commit 3.
 
 ---
 

@@ -150,6 +150,7 @@ local function defaultProfile(): PlayerProfile
 			completed = {},
 			lastCompleted = {},
 		},
+		raceBests = {},
 		stats = {
 			playtime = 0,
 			kills = 0,
@@ -319,6 +320,22 @@ local function migrate(saved: any): PlayerProfile
 		base.missions.completed = saved.missions.completed or {}
 		base.missions.lastCompleted = saved.missions.lastCompleted or {}
 	end
+	--[[
+		A best time is only meaningful against a circuit that still exists,
+		and a circuit is composed from the world rather than authored -- so
+		the strongest check available here is that the planet is still in the
+		game. A time on a world whose landmarks have since moved is stale
+		rather than wrong, and being beaten by your own ghost is a better
+		failure than the number silently vanishing.
+	]]
+	if type(saved.raceBests) == "table" then
+		for planetId, seconds in saved.raceBests do
+			if type(planetId) == "string" and type(seconds) == "number" and Planets.exists(planetId) then
+				base.raceBests[planetId] = seconds
+			end
+		end
+	end
+
 	if type(saved.stats) == "table" then
 		for key, value in saved.stats do
 			if type(value) == "number" then
@@ -534,6 +551,7 @@ local function clientView(profile: PlayerProfile)
 		unlockedFurnishings = profile.unlockedFurnishings,
 		cabin = profile.cabin,
 		missions = profile.missions,
+		raceBests = profile.raceBests,
 		stats = profile.stats,
 	}
 end

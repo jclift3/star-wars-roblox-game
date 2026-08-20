@@ -1297,6 +1297,60 @@ two helpers rather than authored per hull.
 
 ---
 
+### 6.7 The circuit — **new, 2026-08-20**
+
+The first content in this game that a *fast* speeder is better at. Every planet
+with walkable ground and at least four spread-out landmarks now has a two-lap
+circuit round the outside of it, with an orange start gantry and blue gates.
+Nothing here pays out yet — the fee, the purse and the AI field are the next two
+commits — so what is being tested is that the lap works and the clock is honest.
+
+1. **Find the gantry.** Land somewhere, summon a speeder (**V**), and drive. The
+   start gantry is the tall **orange** arch and it is at one of the planet's
+   landmarks; the rest of the circuit is **blue**. The sign on the gantry reads
+   `<Planet> Circuit — START` and gives the lap count, the gate count and par.
+2. **Drive through it.** The clock appears at the top of the screen the moment
+   you cross, along with a toast naming the circuit and par. **You must be in
+   the driver's seat** — walking through the gantry on foot does nothing, and
+   riding as your brother's passenger does nothing.
+3. **The next gate is outlined in orange**, through walls, through hills and
+   through fog. That outline is the only navigation aid; there is no waypoint
+   arrow. If a gate is ever *not* outlined once you are within sight of it, say
+   so — it means the world had not replicated when the leg started.
+4. **`GATE n 420m` counts down** as you approach, and the panel says `LAP 1/2`.
+   A gate counts when you get within about 26 studs of it: you do not have to
+   thread the posts, and the posts are not solid.
+5. **Gates must be taken in order.** Deliberately skip one and drive to the one
+   after it: nothing happens, and the outline stays on the gate you skipped.
+   Go back for it and the lap continues.
+6. **The clock turns red past par.** Take a slow lap on the Hover Sled and watch
+   it happen; par is set for a middling speeder driven cleanly.
+7. **Finish both laps.** The clock disappears and a toast names the medal —
+   **Gold**, **Silver** or **Bronze**, in that medal's own colour — or just
+   `Finished` outside the bands, and adds `personal best` the first time.
+8. **Run it again and beat it.** The panel's `BEST` line should show the time
+   you just set, and beating it should say `personal best` again.
+9. **Give up.** Leave the seat mid-lap: `Run abandoned — you are on foot`, and
+   the clock goes away. Sitting still under the gantry for three times par gives
+   `Run abandoned — out of time`.
+10. **Rolling to a stop under the gantry must not start a new race.** After
+    finishing or abandoning, you have to leave the start line and come back
+    before it will trigger again. If a second race starts the instant the first
+    one ends, that is the bug this check exists for.
+11. **A different speeder should give a different time.** Run the same circuit on
+    the Hover Sled (74) and the Swoop Racer (205). If the two times are close,
+    something is wrong with the drive loop rather than with the race.
+12. **Both boys.** Two people can run the same circuit at the same time; each has
+    their own clock, and neither sees the other's. The gates are one set of
+    world geometry, so you will be aiming at the same arch.
+13. **Quiet worlds have no circuit, and that is correct.** Korriban and Taris's
+    dig are meant to have no gantry at all. Coruscant has no ground to race on
+    and must have none either. This should produce **no boot warning**.
+14. **Rejoin.** Your best times survive. A profile saved before today loads with
+    no best times and no error.
+
+---
+
 ## 7. Missions
 
 1. **M** opens the board. Missions are listed per planet with their rewards.

@@ -31,6 +31,7 @@ local Weapons = require(Shared.Config.Weapons)
 local Missions = require(Shared.Config.Missions)
 local Planets = require(Shared.Config.Planets)
 local Progression = require(Shared.Config.Progression)
+local Races = require(Shared.Config.Races)
 local Ships = require(Shared.Config.Ships)
 local Furnishings = require(Shared.Config.Furnishings)
 local ServiceLoader = require(Shared.Core.ServiceLoader)
@@ -528,6 +529,12 @@ local KIND_COLOURS: { [string]: Color3 } = {
 for count = 1, Affixes.MAX_AFFIXES do
 	local rarity = Affixes.rarityAt(count)
 	KIND_COLOURS[rarity.name] = rarity.color
+end
+
+-- And a finish toast names its medal, read from the same table `RaceService`
+-- awards it from, for exactly the same reason.
+for _, medal in Races.MEDALS do
+	KIND_COLOURS[medal.id] = medal.colour
 end
 
 --[[
