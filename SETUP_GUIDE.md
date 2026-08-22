@@ -73,7 +73,7 @@ in the Output window saying so.
 Press **Play** (F5). On boot you should see, in Output:
 
 ```
-[ServiceLoader] 7 services started.
+[ServiceLoader] 21 services started.
 ```
 
 If instead you get a banner reading `N SERVICE(S) FAILED`, the lines under it
@@ -85,11 +85,23 @@ around.
 
 ### Controls
 
+The same list is on screen in the game, top left — the HUD legend is built by
+walking `Panels.ALL`, so this table and the game cannot disagree for long, but
+the game is the authority.
+
 | Input | Action |
 | --- | --- |
-| Left mouse | Fire / swing |
+| Left mouse | Attack |
 | Shift | Sprint |
-| E | Interact with an NPC |
+| 1 – 6 | Powers (the bar is hidden until the skill tree unlocks one) |
+| E | Talk to an NPC |
+| V | Summon / dismiss your vehicle |
+| H | Board your starship's cabin |
+| B | Gear |
+| M | Missions |
+| J | Journal |
+| K | Skills |
+| G | Star map |
 
 ---
 
