@@ -271,6 +271,38 @@ function Races.format(seconds: number): string
 	return string.format("%d:%02d.%02d", whole // 60, whole % 60, math.floor((seconds - whole) * 100))
 end
 
+--[[
+	The name of a planet's galaxy-wide fastest-lap board.
+
+	Here rather than in `GlobalService` because a board id is a *permanent*
+	key: rename it and every record ever set becomes unreachable, silently,
+	with a new empty board standing in its place. That makes it the same sort
+	of thing as a `Flags` id -- a name the world has already been written into
+	-- and it belongs in the config where it is one line to find, not spliced
+	together at the call site where a tidy-up can quietly rewrite it.
+]]
+function Races.boardFor(planetId: string): string
+	return `Race_{planetId}`
+end
+
+--[[
+	A lap time as the integer its board stores: hundredths of a second.
+
+	The unit is fixed here for the same reason `format` is. An
+	OrderedDataStore stores integers only, so somebody has to choose a scale,
+	and if the writer and the reader choose separately they will eventually
+	choose differently -- and the symptom of that is a sign claiming a record
+	lap of two hours.
+]]
+function Races.toBoardValue(seconds: number): number
+	return math.floor(seconds * 100 + 0.5)
+end
+
+--- The inverse, for the sign. See `toBoardValue`.
+function Races.fromBoardValue(value: number): number
+	return value / 100
+end
+
 --------------------------------------------------------------------------------
 -- The money
 --------------------------------------------------------------------------------

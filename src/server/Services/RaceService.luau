@@ -134,6 +134,9 @@ type Circuit = {
 	--- The gantry's second line, kept so the purse on it can be rewritten
 	--- when it changes. Nil until the circuit has been drawn.
 	sign: TextLabel?,
+	--- The gantry's last line: the fastest lap anyone anywhere has driven
+	--- here. Nil until the circuit has been drawn, hidden until there is one.
+	record: TextLabel?,
 }
 
 type Session = {
@@ -200,6 +203,10 @@ local GATE_COLOUR = Palette.SaberBlue
 
 local function data()
 	return ServiceLoader.get("DataService")
+end
+
+local function global()
+	return ServiceLoader.get("GlobalService")
 end
 
 local function progression()
@@ -415,7 +422,7 @@ local function drawGate(gate: Gate, across: Vector3, parent: Folder, circuit: Ci
 	local sign = Instance.new("BillboardGui")
 	sign.Name = "Sign"
 	sign.AlwaysOnTop = true
-	sign.Size = UDim2.fromOffset(300, 64)
+	sign.Size = UDim2.fromOffset(300, 82)
 	sign.StudsOffset = Vector3.new(0, 5, 0)
 	sign.MaxDistance = 600
 	sign.Adornee = left
@@ -460,6 +467,32 @@ local function drawGate(gate: Gate, across: Vector3, parent: Folder, circuit: Ci
 	money.Size = UDim2.new(1, 0, 0, 18)
 	money.Parent = sign
 	circuit.sign = money
+
+	--[[
+		The fourth row, and the only thing on this arch that is not about you.
+
+		A lap time was, until now, a number one player could see in one HUD.
+		This is the same number claimed out loud, across every server the game
+		will ever run, and it is on the arch rather than in a panel for the
+		reason the purse is: it has to be readable in the seconds before you
+		decide to go, because it is the thing you are deciding to go after.
+
+		Hidden rather than blanked when there is no record. "RECORD --" reads
+		as a board that is broken; a row that is not there reads as a record
+		that has not been set, which is a thing a player can do something
+		about.
+	]]
+	local record = Instance.new("TextLabel")
+	record.BackgroundTransparency = 1
+	record.Font = Enum.Font.Gotham
+	record.TextSize = 13
+	record.TextColor3 = GATE_COLOUR
+	record.TextStrokeTransparency = 0.4
+	record.Position = UDim2.fromOffset(0, 62)
+	record.Size = UDim2.new(1, 0, 0, 18)
+	record.Visible = false
+	record.Parent = sign
+	circuit.record = record
 end
 
 --[[
@@ -478,6 +511,24 @@ local function refreshSign(circuit: Circuit)
 	end
 	local purse = purses[circuit.planet] or 0
 	label.Text = `ENTRY {Races.ENTRY_FEE} cr  --  PURSE {purse} cr`
+
+	--[[
+		`best` never yields and never blocks -- it answers from cache and goes
+		and fetches in the background when that is stale. Which is why this is
+		called from the four-second sweep as well as from the two moments the
+		purse moves: the first read after a server boots is always nil, and a
+		record that only appeared once somebody paid to race would be a record
+		nobody could see before deciding whether to.
+	]]
+	local row = circuit.record
+	if not row then
+		return
+	end
+	local top = global().best(Races.boardFor(circuit.planet))
+	row.Visible = top ~= nil
+	if top then
+		row.Text = `RECORD  {Races.format(Races.fromBoardValue(top.value))}  --  {top.name}`
+	end
 end
 
 --- Draws every gate of a circuit, once. Idempotent, like `PickupService.ensure`.
@@ -788,6 +839,21 @@ local function finish(player: Player, session: Session)
 		headline ..= `  --  no purse, {name} ghost by {Races.format(time - target)}`
 	end
 	Net.fireClient(Net.Event.Notify, player, headline, if medal then medal.id else "Reward")
+
+	--[[
+		And last, the galaxy board. In a `task.spawn` because posting yields on
+		a DataStore, and everything above it is the part the player is waiting
+		for: a flag that hung for a second on a throttled web call would make
+		the network's bad afternoon look like the race's.
+
+		Posted after the floor check, never before it -- the one number this
+		game keeps forever must not be one it has already decided did not
+		happen.
+	]]
+	task.spawn(function()
+		global().post(Races.boardFor(circuit.planet), player, Races.toBoardValue(time), true)
+		refreshSign(circuit)
+	end)
 end
 
 --[[
@@ -920,6 +986,13 @@ function RaceService.start()
 					warn(`[RaceService] failed to compose "{profile.currentPlanet}": {err}`)
 				end
 			end
+		end
+
+		-- And redraw the arches, which is how the galaxy record gets onto a
+		-- sign that was built before the first board read came back. Cheap:
+		-- `best` is a table lookup and there are at most nine circuits.
+		for _, circuit in circuits do
+			refreshSign(circuit)
 		end
 	end)
 end

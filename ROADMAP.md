@@ -3085,11 +3085,91 @@ Three things that must not be forgotten:
   `public.conversations` for reading, and a kill switch in a DataStore that
   every server honours within a minute.
 
-### 5.2 Cross-server state — **[todo]**
-Same backend as 4.1. Makes "one of a kind" mean something: the first player on
-any server to crack a secret gets the unique version and the secret rotates.
-Also where a galaxy-wide war state, leaderboards or a shared economy would live.
+### 5.2 Cross-server state — **DONE 2026-08-22**
+Makes "one of a kind" mean something: the first player on any server to be told
+a secret is recorded as such, permanently, and everyone after is told who beat
+them. Plus a galaxy-wide fastest lap per circuit, on the gantry.
 [LIVING-NPCS.md](LIVING-NPCS.md) §7.
+
+#### It did not need the backend, and that is the finding
+
+This section was written assuming it shared 4.1's Supabase project, on the
+reasoning that a claim about the whole player base needs a database. The
+reasoning is right and the conclusion was wrong: **Roblox already ships that
+database, and it is the one the game has been saving into since day one.**
+
+A DataStore belongs to the *universe*, not the server — which is exactly the
+fact that made §3 of the setup guide impossible before the first publish. So
+`UpdateAsync` on a shared key is an atomic read-modify-write across every
+running server at once, and `OrderedDataStore` is a sorted index over one.
+Those are precisely the two primitives this section asked for. Routing them
+through HTTP to Postgres would have added a second Supabase project at $10 a
+month, an ingest key that can leak, a network hop that can fail and a second
+source of truth that can disagree with the profile — to arrive back at
+read-modify-write on a shared key.
+
+The backend still earns its place at 4.1 and for exactly the reason
+`backend.md` gives: analytics wants to *query* history in ways no DataStore
+can. Nothing in 5.2 wants to query anything. It wants one row.
+
+#### As built
+
+`server/Services/GlobalService.luau` (priority 3, infrastructure alongside
+`DataService` and `AnalyticsService`) owns two calls and nothing else:
+
+- **`claim(id, player)`** — atomic first-claim. `UpdateAsync` serialises
+  against every other server in the universe and a transform returning nil
+  cancels the write, so of every player who ever calls it with the same id
+  **exactly one** runs the winning branch. There is no window and no version
+  where both brothers are told they were first because they clicked in the
+  same second — which is the failure a Get-then-Set would have had, and the
+  one two players in one room find on the first try.
+- **`post` / `best`** — an `OrderedDataStore` per board, written "only if
+  better" through `UpdateAsync`, read ascending so the first row of a lap-time
+  board is the fastest rather than the store keeping a negated lie.
+
+**`best` never yields.** It answers from a cache and refreshes in the
+background, because every caller is a sign being redrawn while somebody stands
+in front of it, and `GetSortedAsync` is among the most throttled calls in the
+API. The consequence, stated plainly: the first read after a server boots
+returns nothing and the sign gains its record row a moment later. A sign that
+grows a line is fine; a sign that hangs the frame is not.
+
+**Everything degrades to nothing.** In Studio without API services, and in a
+place that has never been published, every call fails and is supposed to:
+`claim` says nobody has it, `best` says there is no record, and the game plays
+exactly as it did before the file existed.
+
+Where it surfaces, both on things that already exist:
+
+- **A fourth row on the race gantry** — `RECORD 1:42.31 — <name>`, hidden
+  until there is one, because "RECORD —" reads as a broken board while a
+  missing row reads as a record nobody has set, which is a thing a player can
+  do something about. It is on the arch and not in a panel for the same reason
+  the purse is: it has to be readable in the seconds before you decide to go,
+  because it is the thing you are deciding to go after.
+- **A line on top of a secret's receipt** — FIRST IN THE GALAXY and **double
+  the credits**, or else the name of whoever was told first. Doubled rather
+  than authored, so a secret worth 3,000 is worth 6,000 to whoever got there
+  and no second table has to be kept in step. It cannot inflate anything: it
+  is `raw`, and it can happen once per secret for the lifetime of the game.
+
+**The loser being told who won is the feature, not a courtesy.** Silence is
+indistinguishable from this not existing, and "Corr told your brother first" is
+the whole of what turns six secrets into a race rather than six errands. It
+costs the loser nothing — the ordinary reward is already paid by the time the
+claim runs.
+
+**Not done: rotation.** §7 asks that the secret rotate to a new one after the
+first solve. With six authored secrets that means showing the same six again in
+a different order, which is not rotation, it is a shuffle. The honest version
+of "the secret rotates" is *more secrets*, which is a content task and not a
+backend one, and the plumbing to support it is now sitting here waiting.
+
+**Board and claim ids are named in the config** (`Races.boardFor`,
+`Secrets.firstKey`), not spliced together at the call site. They are permanent
+keys in the same sense a `Flags` id is: rename one and every record ever set
+becomes unreachable, silently, with a fresh empty board standing in its place.
 
 ---
 

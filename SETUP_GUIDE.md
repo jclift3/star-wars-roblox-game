@@ -92,7 +92,7 @@ sessions.
 Press **Play** (F5). On boot you should see, in Output:
 
 ```
-[ServiceLoader] 21 services started.
+[ServiceLoader] 22 services started.
 ```
 
 If instead you get a banner reading `N SERVICE(S) FAILED`, the lines under it
@@ -242,7 +242,7 @@ by whoever owns the game.
    you is the current code and not a stale copy — and confirm it is the empty
    Baseplate from §2, not a template world with its own scenery.
 2. Press Play once and read the Output. Publish from a boot that printed
-   `[ServiceLoader] 21 services started.` and nothing else in red. A published
+   `[ServiceLoader] 22 services started.` and nothing else in red. A published
    place is what other people load; a failed service is a broken game for them,
    not a warning they can ignore. Nothing will persist yet — §3's switch is not
    available until this section is done — so test the boot, not the saving.

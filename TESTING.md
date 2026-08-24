@@ -1439,6 +1439,42 @@ is honest, the field is beatable but not polite, and the money adds up.
 30. **You cannot swap hulls mid-race.** Enter in a Swoop Racer, and `BEAT` must
     stay the Swoop's time for the whole run whatever you do.
 
+##### The galaxy record — **new, 2026-08-22**
+
+**None of this works in Studio, and that is correct.** `GlobalService` needs
+API services, which need a published place, so in Studio the record row simply
+never appears and everything else behaves exactly as above. Test it in the
+published game.
+
+31. **A fresh circuit has no record row.** Three lines on the gantry, not four.
+    A row reading `RECORD --` is the bug — it must be absent, not blank.
+32. **Finish a legal lap.** Within a few seconds the sign grows a fourth line in
+    the gate's blue: `RECORD 1:42.31 — <your name>`. *(A run rejected by the
+    floor must **not** post. The one number this game keeps forever must not be
+    one it has already decided did not happen.)*
+33. **Beat it and it moves; miss it and it does not.** Post a slower lap and the
+    row is unchanged — the board keeps the better of the two, not the latest.
+34. **The other brother sees your record on his own arch**, and the record
+    survives both of you leaving and the server shutting down. This is the
+    whole point: it is universe state, not server state.
+35. **The record row is up to two minutes stale, on purpose.** `GetSortedAsync`
+    is heavily throttled, so the sign is read from a cache. A row that lags a
+    minute behind a lap somebody just set is not a bug; a sign that *freezes
+    the frame* while it reads would be.
+36. **A secret pays a first-solve line.** Reach one of the six (they are gated
+    at levels 24–30 — `whosyourdaddy` and the flags). The receipt toast lands
+    first, then a green **FIRST IN THE GALAXY — 3000 credits over**, and the
+    credits are exactly double the secret's authored figure.
+37. **The second player to reach the same secret is told who beat them** —
+    `<name> was told this first` — and still gets the ordinary reward in full.
+    Check the ordinary reward is untouched; the first-solve is a decoration on
+    top of it, never a replacement for it.
+38. **Two players, one second.** If both boys can be made to solve the same
+    secret at nearly the same moment, **exactly one** may be told he was first.
+    `UpdateAsync` makes that structural rather than likely, but it is the one
+    failure that would matter and the two of them in one room are the only
+    people who will ever test it.
+
 ---
 
 ## 7. Missions

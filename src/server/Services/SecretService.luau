@@ -54,6 +54,58 @@ local function analytics()
 	return ServiceLoader.get("AnalyticsService")
 end
 
+local function global()
+	return ServiceLoader.get("GlobalService")
+end
+
+--[[
+	Claims being the first player in the whole game told this, and says so.
+
+	WHY THIS IS THE PAYOUT AND NOT A RARER ITEM
+	LIVING-NPCS 7 asks for "the unique version" of the reward, which sounds
+	like a second reward table and is not. What actually makes a first-solve
+	worth having is that it is *first* -- a fact about everyone else, which no
+	amount of item quality can imitate, and which this game has never been able
+	to state before because a DataStore key was the only place it could live.
+	So the prize is the sentence, and the credits are doubled to make it a
+	sentence with something behind it.
+
+	Doubled rather than given a number, so that a secret worth 3,000 credits is
+	worth 6,000 to whoever got there first and no table anywhere has to be kept
+	in step with the reward it is decorating. It cannot inflate anything: it is
+	`raw`, so Bargaining does not touch it, and it can happen exactly once per
+	secret for the lifetime of the game.
+
+	WHY THE LOSER IS TOLD WHO WON
+	Because the alternative is silence, and silence is indistinguishable from
+	the feature not existing. Two brothers in one room is the entire audience
+	here, and "Corr told <name> first" is the whole of what makes the six
+	secrets a race rather than six errands. It costs the loser nothing -- the
+	ordinary reward has already been paid by the time this runs.
+
+	Yields on a DataStore, so it is spawned. Nothing above it waits.
+]]
+local function claimFirst(player: Player, secret: Secrets.SecretDef)
+	task.spawn(function()
+		local won, holder = global().claim(Secrets.firstKey(secret.id), player)
+		if won then
+			local bonus = secret.reward.credits
+			if bonus then
+				progression().awardCredits(player, bonus, true)
+			end
+			local line = if bonus
+				then `FIRST IN THE GALAXY  --  {bonus} credits over`
+				else "FIRST IN THE GALAXY"
+			Net.fireClient(Net.Event.Notify, player, line, "Promotion")
+		elseif holder then
+			-- Only when somebody is actually named. A failed DataStore call
+			-- returns no holder, and "you were beaten by nobody" is a worse
+			-- thing to say than nothing at all.
+			Net.fireClient(Net.Event.Notify, player, `{holder} was told this first`, "Info")
+		end
+	end)
+end
+
 --------------------------------------------------------------------------------
 -- Paying out
 --------------------------------------------------------------------------------
@@ -155,6 +207,10 @@ function SecretService.raise(player: Player, speaker: string, topic: string, ctx
 	if line then
 		Net.fireClient(Net.Event.Notify, player, line, "Reward")
 	end
+
+	-- After the receipt, so the ordinary reward is read first and the galaxy
+	-- line lands on top of it as the extra it is.
+	claimFirst(player, secret)
 
 	-- Only the first telling, because that is the one `pay` ran for. A repeat
 	-- ask returns above and is a `talk`, which is what it is.

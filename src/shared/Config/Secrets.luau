@@ -311,6 +311,18 @@ function Secrets.find(speaker: string, topic: string): SecretDef?
 	return nil
 end
 
+--[[
+	The universe-wide key under which "who was told this first" is kept.
+
+	Here rather than at the call site because it is a permanent name: the
+	first person ever told a thing is a fact with no second chance to record
+	it, and a key spliced together in a service is a key a tidy-up can rename
+	without anything failing. Same argument as `Races.boardFor`.
+]]
+function Secrets.firstKey(id: string): string
+	return `Secret_{id}`
+end
+
 --- What the reward should be called on screen, decorated by its rolls.
 function Secrets.rewardName(reward: Reward): string?
 	local id = reward.item
