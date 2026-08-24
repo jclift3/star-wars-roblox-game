@@ -123,16 +123,33 @@ has never played this reads it and knows what to do.
    **SHIFT SPRINT** · **1-6 POWERS**, then V, H, and the five panel letters.
    - **"SHIFT" fits inside its box**, not clipped or overflowing. The box has
      three widths and this is the only row that needs the widest.
-4. Press **K**. The subtitle reads **"Level 1 · 1 skill point"** in the accent
+4. **Look at the top-right corner before pressing anything.** The mission
+   tracker is up and reads **NO CONTRACT** / *"Press M for the mission board"*.
+   - It used to be blank until a mission was accepted, which meant the only
+     pointer at the board was one 11pt row of the legend in the opposite
+     corner. This is the fix for that, and it is the whole of it: the tracker
+     is now always on screen and says what it has, including nothing.
+   - **The letter is read from `Panels.toggleKey`**, so it must agree with the
+     legend and the creation card. Three places, one source.
+   - Accept a mission and the line is replaced by the mission. Abandon it and
+     the line comes back — this is an empty state, not a first-run message, so
+     it is equally correct at level 40.
+5. Press **K**. The subtitle reads **"Level 1 · 1 skill point"** in the accent
    colour, and at least one rank is affordable. Spend it; the subtitle goes to
    "0 skill points" and dims.
    *(Before this change nothing in the game ever mentioned that point. The
    level-up toast only fires on a level gained, and this one arrives at
    creation.)*
-5. Hold **shift** and run. You visibly speed up. (Also smoke test §1.3 — it is
+6. Hold **shift** and run. You visibly speed up. (Also smoke test §1.3 — it is
    here as well because now something on screen claims it.)
-6. Click the left mouse button with an enemy in front of you. You attack.
-7. Reach level 2. The toast still announces the point *that* level granted; the
+7. Click the left mouse button with an enemy in front of you. You attack.
+8. Walk out of Anchorhead towards the **Boneyard**. Before you reach the
+   Smugglers a red banner reads **BONEYARD** / **LEVEL 3 - 8** / **YOU ARE
+   LEVEL 1 — TURN BACK**. *(`ZoneController`, already built; listed here
+   because a spawn-to-first-mission audit assumed it was missing and it is the
+   one thing standing between a level-1 character and the first fight they
+   cannot win.)*
+9. Reach level 2. The toast still announces the point *that* level granted; the
    creation card's sentence has not doubled it up or replaced it.
 
 **The point of this section is that nothing here is new machinery.** Both fixes

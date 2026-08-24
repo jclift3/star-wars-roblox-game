@@ -456,7 +456,43 @@ local function refreshTracker()
 		end
 	end
 
-	trackerList.Visible = order > 0
+	--[[
+		The empty state, which is the first thing a new character ever sees
+		here and used to be nothing at all.
+
+		`Visible = order > 0` meant that a player who had just dismissed the
+		creation card had an entirely blank top-right corner, and the only
+		thing on screen pointing at the mission board was one row of an 11pt
+		legend in the opposite corner. That is the 2026-08-17 finding --
+		finished but unreachable -- reproduced for the single most important
+		click in the game: the one that gives you something to do.
+
+		So the tracker is now always up, and when it has nothing to track it
+		says where work comes from. This is deliberately not a tutorial, a
+		popup or a first-run flag: it is the honest contents of a box that
+		lists your contracts when you have none, so it is equally correct on
+		minute one and after you hand in your last mission at level 40.
+	]]
+	if order == 0 then
+		local title = text("Title", trackerList, 14, DIM)
+		title.Font = Enum.Font.GothamBold
+		title.Size = UDim2.new(1, 0, 0, 18)
+		title.LayoutOrder = 1
+		title.Text = "NO CONTRACT"
+
+		local key = Panels.toggleKey("MissionBoardController")
+		local line = text("Objective", trackerList, 13, TEXT)
+		line.Size = UDim2.new(1, 0, 0, 16)
+		line.LayoutOrder = 2
+		line.TextWrapped = true
+		line.AutomaticSize = Enum.AutomaticSize.Y
+		-- Read out of `Panels` rather than written as "M", for the same reason
+		-- the legend does: the key lives in one place and rebinding it must
+		-- not leave a line of the HUD lying.
+		line.Text = if key then `  Press {key.Name} for the mission board` else "  See the mission board"
+	end
+
+	trackerList.Visible = true
 end
 
 --[[
