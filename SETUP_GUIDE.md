@@ -44,8 +44,9 @@ Leave that running. In Roblox Studio:
 
 1. Install the Rojo plugin. Easiest is `rojo plugin install` in another
    terminal; otherwise find "Rojo" in the Studio toolbox.
-2. **File → New** to get an empty baseplate.
-3. Open the **Rojo** tab in the Studio ribbon and click **Connect**.
+2. **File → New**, and take the plain **Baseplate**. Not a template world.
+3. Open the **Rojo** tab in the Studio ribbon and click **Connect**. The
+   connection belongs to the open place, so a new place needs a new Connect.
 4. You should now see `Server`, `Shared` and `Client` appear in the Explorer
    under ServerScriptService, ReplicatedStorage and StarterPlayerScripts.
 
@@ -53,18 +54,36 @@ Saving a file on disk now updates Studio live. The reverse is not true — Rojo
 syncs one way, so anything you create by hand in the Explorer will be lost.
 That is intentional.
 
+### The place must be empty, and that is not a style preference
+
+**Rojo never touches Workspace.** It syncs code into ServerScriptService,
+ReplicatedStorage and StarterPlayerScripts, and nothing else. So whatever
+scenery the place already had is still there at runtime: `PlanetBuilder` clears
+only the three folders it owns (`Zones`, `POI`, `Spawns`) and generates a planet
+around them. Start from one of Studio's terrain templates and you will publish
+its hills, its trees and its houses with Tatooine built on top.
+
+The Baseplate's own grey slab and `SpawnLocation` are harmless — `PlayerService`
+prefers the generated `Spawns/<Planet>` folder and only falls back to a stray
+`SpawnLocation` — but there is no reason to keep either.
+
 ---
 
-## 3. Turn on API services
+## 3. Turn on API services — *after* the first publish
 
 Player profiles save to a DataStore, and DataStores are unavailable in Studio
 until you allow them:
 
 **Home → Game Settings → Security → Enable Studio Access to API Services.**
 
-Without this the game still runs — `DataService` falls back to an in-memory
-profile — but nothing persists between test sessions, and you will see a warning
-in the Output window saying so.
+**This switch is greyed out until the place has been published**, and it is not
+a bug: a DataStore belongs to a *universe*, and an unpublished place is not in
+one yet, so there is nothing to grant access to. Do §7 first and then come back
+here. Everything before that point runs against `DataService`'s in-memory
+fallback, which warns about itself in Output.
+
+Without it the game still runs — it just forgets everything between test
+sessions.
 
 ---
 
@@ -220,12 +239,16 @@ by whoever owns the game.
 ### First publish
 
 1. Have `rojo serve` running and Studio **Connected**, so the place in front of
-   you is the current code and not a stale copy.
+   you is the current code and not a stale copy — and confirm it is the empty
+   Baseplate from §2, not a template world with its own scenery.
 2. Press Play once and read the Output. Publish from a boot that printed
-   `[ServiceLoader] 7 services started.` and nothing else in red. A published
+   `[ServiceLoader] 21 services started.` and nothing else in red. A published
    place is what other people load; a failed service is a broken game for them,
-   not a warning they can ignore.
-3. Stop the playtest. **File → Publish to Roblox As…**
+   not a warning they can ignore. Nothing will persist yet — §3's switch is not
+   available until this section is done — so test the boot, not the saving.
+3. Stop the playtest. **File → Publish to Roblox As…** — the **File** menu in
+   the menu bar, not anything in the blue ribbon. On macOS that is the menu bar
+   at the very top of the screen.
 4. Choose **Create new game**. Name it **The Hollowing**. Put the era in the
    description — "a free-roam RPG set in the Old Republic, some three and a half
    thousand years before an Empire" — and *not* in the name. That distinction is
@@ -261,9 +284,11 @@ This means the first published session is the first one whose progress is real.
 Anything the boys did in a Studio playtest is gone, and that is expected rather
 than a bug.
 
-Note that step 3's **Enable Studio Access to API Services** is a *separate*
-switch and still matters: it is what lets your Studio playtests read and write
-the same live DataStore the published game uses.
+**Now go back and do §3.** Its **Enable Studio Access to API Services** switch
+was greyed out before this point and is live from here on; it is a *separate*
+setting from anything above, and it is what lets your Studio playtests read and
+write the same live DataStore the published game uses. Publish once more
+afterwards.
 
 ### Publishing again
 
