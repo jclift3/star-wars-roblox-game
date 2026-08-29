@@ -20,6 +20,7 @@
 
 local GuiService = game:GetService("GuiService")
 local Players = game:GetService("Players")
+local TextChatService = game:GetService("TextChatService")
 local TweenService = game:GetService("TweenService")
 
 local Shared = game:GetService("ReplicatedStorage"):WaitForChild("Shared")
@@ -180,6 +181,99 @@ local function buildStatusPanel()
 end
 
 --[[
+	The altimeter, bottom right. Only while flying something that can climb.
+
+	There was no altitude readout anywhere, and no speed one either -- which
+	was survivable while the sky was empty and stopped being so the moment
+	there was a height worth reaching. Flying blind towards an invisible
+	threshold is the "finished but unreachable" failure this project has now
+	shipped twice under other names, and the cost of avoiding it here is one
+	bar and a number.
+
+	The scale runs a quarter past the ceiling rather than up to it, so the
+	ceiling can be drawn as a *line on the gauge* with sky above it. A bar
+	that simply fills up tells you that you are climbing; a marked line tells
+	you how much further, which is the only question the player has.
+
+	Never shown on a speeder. A permanent zero is worse than nothing: it
+	invites the player to try to move it.
+]]
+local altimeter: Frame
+local altimeterFill: Frame
+local altimeterLabel: TextLabel
+
+--- How far past the ceiling the gauge reads, as a multiple of it.
+local ALTIMETER_HEADROOM = 1.25
+
+local function buildAltimeter()
+	local root = panel("Altimeter", screen)
+	root.Position = UDim2.new(1, -16, 1, -16)
+	root.Size = UDim2.fromOffset(58, 186)
+	root.AnchorPoint = Vector2.new(1, 1)
+	root.Visible = false
+	altimeter = root
+
+	local caption = text("Caption", root, 10, DIM)
+	caption.Position = UDim2.fromOffset(0, 8)
+	caption.Size = UDim2.new(1, 0, 0, 12)
+	caption.TextXAlignment = Enum.TextXAlignment.Center
+	caption.Text = "ALTITUDE"
+
+	local track, fill = bar("Track", root, ACCENT)
+	track.Position = UDim2.fromOffset(20, 26)
+	track.Size = UDim2.fromOffset(18, 132)
+	altimeterFill = fill
+	-- Grown from the bottom edge: this is the one bar on the HUD that is not
+	-- a fraction spent but a height reached.
+	fill.AnchorPoint = Vector2.new(0, 1)
+	fill.Position = UDim2.fromScale(0, 1)
+	fill.Size = UDim2.fromScale(1, 0)
+
+	local ceiling = Instance.new("Frame")
+	ceiling.Name = "CeilingMark"
+	ceiling.BackgroundColor3 = TEXT
+	ceiling.BorderSizePixel = 0
+	ceiling.AnchorPoint = Vector2.new(0.5, 0.5)
+	ceiling.Position = UDim2.fromScale(0.5, 1 - 1 / ALTIMETER_HEADROOM)
+	ceiling.Size = UDim2.new(1, 8, 0, 1)
+	ceiling.ZIndex = 3
+	ceiling.Parent = track
+
+	altimeterLabel = text("Readout", root, 11, TEXT)
+	altimeterLabel.Position = UDim2.new(0, 0, 1, -20)
+	altimeterLabel.Size = UDim2.new(1, 0, 0, 14)
+	altimeterLabel.TextXAlignment = Enum.TextXAlignment.Center
+end
+
+--[[
+	Puts a height on the gauge, or nil to put the gauge away.
+
+	Public for the same reason `toast` is: the only thing that knows how high
+	a ship is, is the flight loop that is holding it up, and the alternative
+	was the HUD raycasting the world every frame to find out something
+	another controller already had.
+]]
+function HudController.setAltitude(altitude: number?, ceiling: number?, inSpace: boolean?)
+	if not altimeter then
+		return
+	end
+	if not (altitude and ceiling) then
+		altimeter.Visible = false
+		return
+	end
+
+	altimeter.Visible = true
+	-- Scaled to the ceiling it is given rather than to `Ships.CEILING`, so
+	-- the marked line is where space actually is on *this* world.
+	local top = ceiling * ALTIMETER_HEADROOM
+	altimeterFill.Size = UDim2.fromScale(1, math.clamp(altitude / top, 0, 1))
+	altimeterFill.BackgroundColor3 = if inSpace then Theme.GOOD else ACCENT
+	-- The word, not the number, once the number has stopped being the point.
+	altimeterLabel.Text = if inSpace then "ORBIT" else `{math.floor(altitude)}`
+	altimeterLabel.TextColor3 = if inSpace then Theme.GOOD else TEXT
+end
+
+--[[
 	Keeps a top-anchored frame clear of Roblox's own topbar.
 
 	This `ScreenGui` sets `IgnoreGuiInset`, so y = 0 is the very top of the
@@ -192,23 +286,67 @@ end
 	expands the unibar. So it is read *and then watched*, rather than baked in
 	as the 36 that happens to be true on a desktop today.
 ]]
-local belowTopbar: (frame: GuiObject, x: UDim) -> ()
+--[[
+	Hangs something from the top edge, under whatever Roblox has put there.
+
+	`clearChat` additionally drops it below the chat window, and is the whole
+	of the 2026-08-29 fix. See `buildLegend`: only the legend asks for it,
+	because only the legend is wide enough and far enough left to be under
+	the chat at all. The tracker is top *right* and the toasts are top
+	centre, and pushing those down would move two things that were never
+	covered to solve a problem neither of them has.
+
+	MEASURED, NOT GUESSED
+	`ChatWindowConfiguration` publishes its own `AbsolutePosition` and
+	`AbsoluteSize`, so the clearance is read off the thing being cleared
+	rather than written as a number that is right on one screen. The
+	alternative -- a hardcoded offset -- is the mistake this codebase has
+	already made twice with billboards and prompts, where the geometry was
+	assumed instead of computed and the result was live, in range and
+	invisible.
+]]
+local belowTopbar: (frame: GuiObject, x: UDim, clearChat: boolean?) -> ()
 do
-	local anchored: { { frame: GuiObject, x: UDim } } = {}
+	local anchored: { { frame: GuiObject, x: UDim, clearChat: boolean? } } = {}
+	local chat = TextChatService:FindFirstChildOfClass("ChatWindowConfiguration")
+
+	--- The y a thing must start at to be clear of the chat window, or nil.
+	local function chatBottom(): number?
+		if not chat or not chat.Enabled then
+			return nil
+		end
+		local size = chat.AbsoluteSize
+		if size.Y <= 0 then
+			return nil
+		end
+		return chat.AbsolutePosition.Y + size.Y
+	end
 
 	local function place()
 		local top = GuiService.TopbarInset.Max.Y + 10
+		local under = chatBottom()
 		for _, held in anchored do
-			held.frame.Position = UDim2.new(held.x.Scale, held.x.Offset, 0, top)
+			local y = top
+			if held.clearChat and under then
+				y = math.max(y, under + 10)
+			end
+			held.frame.Position = UDim2.new(held.x.Scale, held.x.Offset, 0, y)
 		end
 	end
 
-	function belowTopbar(frame: GuiObject, x: UDim)
-		table.insert(anchored, { frame = frame, x = x })
+	function belowTopbar(frame: GuiObject, x: UDim, clearChat: boolean?)
+		table.insert(anchored, { frame = frame, x = x, clearChat = clearChat })
 		place()
 	end
 
 	GuiService:GetPropertyChangedSignal("TopbarInset"):Connect(place)
+	if chat then
+		-- The window is resizable and can be turned off entirely, and both
+		-- leave the legend in the wrong place until something re-places it.
+		chat:GetPropertyChangedSignal("AbsoluteSize"):Connect(place)
+		chat:GetPropertyChangedSignal("AbsolutePosition"):Connect(place)
+		chat:GetPropertyChangedSignal("Enabled"):Connect(place)
+	end
 end
 
 local function buildTracker()
@@ -279,6 +417,21 @@ end
 	It sits under `belowTopbar` for the reason documented there: the unibar
 	was covering the first two entries, which is the whole legend for a
 	player who reads left to right and stops.
+
+	AND IT CLEARS THE CHAT, WHICH IS THE SAME BUG ONE OBSTACLE FURTHER DOWN
+	Seen in play 2026-08-29: Roblox's own "automatically translates supported
+	languages in chat" notice fires on join, for everybody, and lands square
+	on top of the first three entries -- LMB, SHIFT and 1-6. Those are the
+	three written by hand below precisely because nothing in the game had
+	ever said them out loud, they are first because they are the only rows
+	true of a character who has unlocked nothing, and being first is exactly
+	what put them under the chat. So the one minute they exist for was the
+	one minute they could not be read.
+
+	Top left is no longer "the corner with nothing in it"; Roblox moved in.
+	Dropping below the chat keeps the row and its priority order intact,
+	which the alternatives (splitting it in two, or relocating a control
+	players already know the position of) do not.
 ]]
 local function buildLegend()
 	local root = Instance.new("Frame")
@@ -287,7 +440,7 @@ local function buildLegend()
 	root.Size = UDim2.fromOffset(0, 20)
 	root.AutomaticSize = Enum.AutomaticSize.X
 	root.Parent = screen
-	belowTopbar(root, UDim.new(0, 16))
+	belowTopbar(root, UDim.new(0, 16), true)
 
 	local layout = Instance.new("UIListLayout")
 	layout.FillDirection = Enum.FillDirection.Horizontal
@@ -370,6 +523,14 @@ local function buildLegend()
 		one, which leaves them doing the walk they are complaining about.
 	]]
 	entry(Ships.SUMMON_KEY.Name, Ships.SUMMON_HINT)
+
+	-- Climb and dive, which are the only two controls in the game that have
+	-- never been stated anywhere -- not here, not in the shop that sells the
+	-- ship, not on the pad it launches from. A starship that flies dead level
+	-- forever is a starship that cannot reach orbit, and the player would
+	-- have no way of knowing that was their doing rather than the game's.
+	entry(Ships.PITCH_UP_CAP, Ships.PITCH_UP_HINT)
+	entry(Ships.PITCH_DOWN_CAP, Ships.PITCH_DOWN_HINT)
 
 	-- And the third, for exactly the same reason as the second: a room is
 	-- not a panel, and a starship whose inside nobody knows about is a
@@ -643,6 +804,7 @@ function HudController.init()
 	screen.Parent = player:WaitForChild("PlayerGui")
 
 	buildStatusPanel()
+	buildAltimeter()
 	buildTracker()
 	buildToasts()
 	buildLegend()

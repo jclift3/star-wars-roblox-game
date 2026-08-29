@@ -21,6 +21,7 @@ local Shared = game:GetService("ReplicatedStorage"):WaitForChild("Shared")
 local Affixes = require(Shared.Config.Affixes)
 local Crystals = require(Shared.Config.Crystals)
 local Factions = require(Shared.Config.Factions)
+local Orbit = require(Shared.Config.Orbit)
 local Origins = require(Shared.Config.Origins)
 local Planets = require(Shared.Config.Planets)
 local Progression = require(Shared.Config.Progression)
@@ -69,6 +70,14 @@ function WorldService.init()
 		)
 	do
 		warn(`[WorldService] planet config: {problem}`)
+	end
+
+	-- What is above the planets, checked in the same breath as the planets.
+	-- A cloud deck tuned above the flight ceiling means the sky turns black
+	-- while the ship is still inside the weather, which is invisible from the
+	-- ground, invisible in Studio, and the whole point of the climb.
+	for _, problem in Orbit.validate() do
+		warn(`[WorldService] orbit config: {problem}`)
 	end
 
 	-- Checked here rather than in a faction service because this is where the

@@ -1477,12 +1477,18 @@ Ships.PAD_TAG = "LandingPad"
 Ships.PAD_RANGE = 60
 
 --[[
-	Height above the ground at which a starship is out of the world.
+	Height above the ground at which a starship leaves the atmosphere.
 
-	Crossing it opens the star map, which is the only thing that happens: the
-	fare, the ownership check and the jump all still belong to the server.
 	High enough that you cannot brush it flying over a Coruscant spire, low
-	enough to reach in a few seconds of climbing.
+	enough to reach in a few seconds of climbing -- and the cloud deck
+	`Config/Orbit` hangs under it is deliberately the last thing you pass
+	through on the way, so arriving is something you see rather than a number
+	being crossed.
+
+	It used to open the star map, and that was the worst thing about reaching
+	it: a panel over the view at the moment there was finally a view. What is
+	above it is now a place. `VehicleController` documents the other half --
+	being high is not the same question as being over the world at all.
 ]]
 Ships.CEILING = 900
 
@@ -1510,6 +1516,23 @@ Ships.MAX_PITCH = 60
 ]]
 Ships.PITCH_UP_KEY = Enum.KeyCode.Space
 Ships.PITCH_DOWN_KEY = Enum.KeyCode.LeftControl
+
+--[[
+	How the legend spells the two of them.
+
+	Written out rather than taken from `KeyCode.Name` because that yields
+	"LeftControl", which is eleven characters in a box cut for four and is
+	not what is printed on the key anyway. The hint is here beside the
+	binding for the reason `SUMMON_HINT` is: rebinding one and forgetting the
+	other is how a legend starts lying.
+
+	And they are in the legend at all because pitch has never been written
+	down anywhere -- see the note above about shipping the same bug twice.
+]]
+Ships.PITCH_UP_CAP = "SPACE"
+Ships.PITCH_UP_HINT = "CLIMB"
+Ships.PITCH_DOWN_CAP = "CTRL"
+Ships.PITCH_DOWN_HINT = "DIVE"
 
 function Ships.get(id: string): ShipDef
 	local d = defs[id]

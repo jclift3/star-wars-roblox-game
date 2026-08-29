@@ -20,6 +20,12 @@
 	are going home under and the same sky the other player is standing in.
 	This file used to keep its own accumulator and reset it to 09:00 on
 	arrival, which meant two people on one planet were in different afternoons.
+
+	Since orbit there is a second axis: a planet has a sky *and* a vacuum
+	above it, and `setInSpace` cross-fades between them over the same two
+	seconds. That belongs here rather than in the flight loop because
+	everything that decides what Lighting is doing is already in this file,
+	and a second writer would spend its life losing to the Heartbeat below.
 ]]
 
 local Lighting = game:GetService("Lighting")
@@ -28,6 +34,7 @@ local TweenService = game:GetService("TweenService")
 local Workspace = game:GetService("Workspace")
 
 local Shared = game:GetService("ReplicatedStorage"):WaitForChild("Shared")
+local Orbit = require(Shared.Config.Orbit)
 local Planets = require(Shared.Config.Planets)
 local ServiceLoader = require(Shared.Core.ServiceLoader)
 local WorldClock = require(Shared.Core.WorldClock)
@@ -43,11 +50,25 @@ local TRANSITION = TweenInfo.new(2, Enum.EasingStyle.Quad, Enum.EasingDirection.
 -- that stay the same everywhere; only colour and density change per planet.
 local SHADOW_SOFTNESS = 0.35
 local BRIGHTNESS = 2.2
+--- Named because `apply` has to be able to put it back on the way down.
+local GROUND_EXPOSURE = 0.1
 
 local atmosphere: Atmosphere
 local tint: ColorCorrectionEffect
 
 local currentPlanet: string? = nil
+
+--[[
+	Whether the camera is above the atmosphere.
+
+	Set by `VehicleController` when a starship crosses the ceiling, and it is
+	one boolean because the sky is one thing. Everything that decides what
+	Lighting is doing already lives in this file -- the planet's air, the
+	hour, the ambient ease -- so space is a second set of targets for the
+	machinery that is here, not a second writer racing it.
+]]
+local inSpace = false
+local spaceSky: Sky? = nil
 
 -- Moonlight. Night is dimmed towards this rather than towards black, because a
 -- planet you cannot see is not atmospheric, it is just broken -- and with a
@@ -195,6 +216,58 @@ local function ensureEffect<T>(className: string, name: string): T
 	return instance :: any
 end
 
+--[[
+	The starfield, put up on the way out and taken down on the way back.
+
+	A `Sky` with no texture ids renders black with stars on it, which is
+	precisely what is wanted and costs nothing -- this project has no image
+	assets by design, and here that constraint pays. Roblox honours exactly
+	one Sky, so this is created and destroyed rather than toggled: leaving it
+	up would black out the daylight sky the moment a ship landed.
+
+	Below the ceiling there is no Sky at all, and the blue-white gradient
+	Roblox falls back to is the sky nine planets have always had, coloured by
+	their own Atmosphere and grade.
+
+	A place template can ship a Sky of its own, the way the Baseplate ships a
+	DepthOfField -- so it is lifted out of the way rather than fought with,
+	and put back on the way down. Which of two Skies Lighting picks is not a
+	question worth finding the answer to at 900 studs.
+]]
+local templateSky: Sky? = nil
+
+local function raiseStars(spec: Orbit.Sky)
+	local existing = spaceSky
+	if existing and existing.Parent == Lighting then
+		existing.StarCount = spec.starCount
+		return
+	end
+
+	local theirs = Lighting:FindFirstChildOfClass("Sky")
+	if theirs then
+		templateSky = theirs
+		theirs.Parent = nil
+	end
+
+	local sky = Instance.new("Sky")
+	sky.Name = "SpaceSky"
+	sky.StarCount = spec.starCount
+	sky.CelestialBodiesShown = true
+	sky.Parent = Lighting
+	spaceSky = sky
+end
+
+local function lowerStars()
+	if spaceSky then
+		spaceSky:Destroy()
+		spaceSky = nil
+	end
+	if templateSky then
+		templateSky.Parent = Lighting
+		templateSky = nil
+	end
+end
+
 --- 0 in full daylight, 1 in full night, ramping through dawn and dusk.
 local function nightFactor(clock: number): number
 	-- A crude sun altitude: positive between 6am and 6pm, peaking at noon. The
@@ -231,29 +304,49 @@ local function apply(planetId: string, instant: boolean)
 	-- declarations above.
 	companionSpec = planet.companionSun
 
-	dayAmbient = planet.ambientLight
-	dayOutdoor = planet.outdoorAmbient
-	if instant then
-		liveAmbient = dayAmbient
-		liveOutdoor = dayOutdoor
-	end
-
 	-- An Atmosphere object replaces Lighting's legacy fog outright, so setting
 	-- FogStart/FogEnd here would do nothing. The planet's fog distance is
 	-- expressed as density instead: the sooner a world wants to fade out, the
 	-- thicker its air.
 	local reach = math.clamp((planet.fogEnd - 400) / 2600, 0, 1)
 
-	local atmosphereGoal = {
-		Density = math.min(MAX_DENSITY, air.density + (1 - reach) * 0.25),
-		Haze = air.haze,
-		Glare = air.glare,
-		Color = planet.fogColor,
-		Decay = planet.skyTint,
-	}
-	-- The sky tint is applied as a colour grade rather than a skybox, because
-	-- there are no texture assets in this project by design.
-	local tintGoal = { TintColor = planet.skyTint }
+	local atmosphereGoal, tintGoal, exposure
+
+	local space = if inSpace then Orbit.skyFor(planetId) else nil
+	if space then
+		dayAmbient = space.ambient
+		dayOutdoor = space.outdoor
+		atmosphereGoal = {
+			Density = space.density,
+			Haze = space.haze,
+			Glare = space.glare,
+			Color = space.fog,
+			Decay = space.decay,
+		}
+		tintGoal = { TintColor = space.tint }
+		exposure = space.exposure
+		raiseStars(space)
+	else
+		dayAmbient = planet.ambientLight
+		dayOutdoor = planet.outdoorAmbient
+		atmosphereGoal = {
+			Density = math.min(MAX_DENSITY, air.density + (1 - reach) * 0.25),
+			Haze = air.haze,
+			Glare = air.glare,
+			Color = planet.fogColor,
+			Decay = planet.skyTint,
+		}
+		-- The sky tint is applied as a colour grade rather than a skybox,
+		-- because there are no texture assets in this project by design.
+		tintGoal = { TintColor = planet.skyTint }
+		exposure = GROUND_EXPOSURE
+		lowerStars()
+	end
+
+	if instant then
+		liveAmbient = dayAmbient
+		liveOutdoor = dayOutdoor
+	end
 
 	-- A zero-length tween is still a tween: it sets the properties on the next
 	-- frame, which is exactly what the first application wants without needing
@@ -262,6 +355,30 @@ local function apply(planetId: string, instant: boolean)
 
 	TweenService:Create(atmosphere, info, atmosphereGoal):Play()
 	TweenService:Create(tint, info, tintGoal):Play()
+	TweenService:Create(Lighting, info, { ExposureCompensation = exposure }):Play()
+end
+
+--[[
+	Crossing the atmosphere, in either direction.
+
+	The same two-second cross-fade that arriving on a new world gets, and for
+	the same reason: a hard cut reads as a glitch, and this one has a physical
+	cause the player can see -- they are flying through the cloud deck while
+	it happens.
+
+	Guarded on the value rather than trusted, because the caller is a flight
+	loop running at 60Hz and the cheapest possible mistake there is to send
+	this every frame.
+]]
+function AtmosphereController.setInSpace(value: boolean)
+	if value == inSpace then
+		return
+	end
+	inSpace = value
+	local planetId = currentPlanet
+	if planetId then
+		apply(planetId, false)
+	end
 end
 
 function AtmosphereController.init()
@@ -282,7 +399,7 @@ function AtmosphereController.init()
 	Lighting.ShadowSoftness = SHADOW_SOFTNESS
 	Lighting.EnvironmentDiffuseScale = 0.6
 	Lighting.EnvironmentSpecularScale = 0.6
-	Lighting.ExposureCompensation = 0.1
+	Lighting.ExposureCompensation = GROUND_EXPOSURE
 
 	tint.Saturation = 0.08
 	tint.Contrast = 0.12
@@ -321,7 +438,11 @@ function AtmosphereController.start()
 		local hour = if currentPlanet then WorldClock.hourOn(currentPlanet) else 12
 		Lighting.ClockTime = hour
 
-		local night = nightFactor(hour)
+		-- There is no night in orbit -- the sun is either up or the planet is
+		-- in the way, and neither is a dusk. Without this the loop would drag
+		-- the vacuum ambient back towards moonlight every frame and win,
+		-- because it runs after the tween that set it.
+		local night = if inSpace then 0 else nightFactor(hour)
 		local targetAmbient = dayAmbient:Lerp(afterDark(dayAmbient), night)
 		local targetOutdoor = dayOutdoor:Lerp(afterDark(dayOutdoor), night)
 

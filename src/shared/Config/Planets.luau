@@ -93,6 +93,26 @@ Planets.WORLD_SPACING = 12000
 Planets.TOWER_GRID = 240
 Planets.SKYLANE_STEP = 220
 
+--[[
+	How far out a world's ground reaches, in studs. Client-visible for the
+	same reason `TOWER_GRID` is.
+
+	`SETTLEMENT_RADIUS` is the radius of one district; `PlanetBuilder` puts a
+	district centre at `ZoneDef.distance * SETTLEMENT_RADIUS`, fills level
+	terrain out to `Planets.groundRadius`, and rings the relief through the
+	`RELIEF_MARGIN` band beyond that. `Planets.worldRadius` is where the land
+	stops entirely.
+
+	The client needs `worldRadius` to answer a question the ground never had
+	to ask: **am I high above the world, or have I flown off the side of it?**
+	A downward ray answers neither on its own -- past the rim it finds nothing
+	at fifty studs exactly as it finds nothing at nine hundred. Horizontal
+	distance from `Planets.originFor` separates the two, and it only works if
+	both sides measure the plate the same way.
+]]
+Planets.SETTLEMENT_RADIUS = 520
+Planets.RELIEF_MARGIN = 450
+
 export type SpawnRule = {
 	archetype: string,
 	count: number,
@@ -3138,6 +3158,40 @@ function Planets.originFor(planetId: string): Vector3
 	local column = (index - 1) % 4
 	local row = (index - 1) // 4
 	return Vector3.new(column * Planets.WORLD_SPACING, 0, row * Planets.WORLD_SPACING)
+end
+
+--[[
+	How far the level ground reaches on a world, in studs.
+
+	Derived rather than a constant because the play area is not the same size
+	on every world: district centres sit at `ZoneDef.distance *
+	SETTLEMENT_RADIUS`, and those run from Tatooine's Dune Sea at 1.6 to
+	Korriban's Wastes at 2.6. A fixed radius would leave four worlds with
+	their outer districts standing in the hills -- and a landmark on a swell
+	is a building with its ground floor inside the terrain.
+
+	The margin covers the landmark's own footprint and the ring of people laid
+	out around it, both of which stand outside the centre they were given.
+]]
+function Planets.groundRadius(planetId: string): number
+	local planet = defs[planetId]
+	if not planet then
+		return 900
+	end
+	if not planet.hasWalkableGround then
+		-- A vertical city has no plate at all; its extent is its tower grid.
+		return Planets.TOWER_GRID * 5.5
+	end
+	local furthest = 0
+	for _, zone in planet.zones do
+		furthest = math.max(furthest, zone.distance)
+	end
+	return math.max(900, furthest * Planets.SETTLEMENT_RADIUS + 220)
+end
+
+--- How far *any* of a world reaches: level ground plus the ring of relief.
+function Planets.worldRadius(planetId: string): number
+	return Planets.groundRadius(planetId) + Planets.RELIEF_MARGIN
 end
 
 return Planets

@@ -70,7 +70,20 @@ PlanetBuilder.OFF_ROUTE = "OffRoute"
 ]]
 PlanetBuilder.AT_POI = "Poi"
 
-local SETTLEMENT_RADIUS = 520
+--[[
+	The plate's two measurements: the radius of one district, and how far past
+	the outermost district the plate runs -- which is also the band the relief
+	occupies. The hills are `FillBall`s and bring their own volume, so the
+	plate does not have to reach the far side of them, only far enough that
+	the seam where it ends is behind a hill rather than in open view.
+
+	They live in `Planets` because the client needs them too: it is the only
+	way a pilot's altitude can be told apart from having flown off the side of
+	the world. Aliased here because they are read on nearly every line of the
+	terrain and marker passes.
+]]
+local SETTLEMENT_RADIUS = Planets.SETTLEMENT_RADIUS
+local RELIEF_MARGIN = Planets.RELIEF_MARGIN
 local BLOCK_SIZE = 130
 local STREET_WIDTH = 26
 
@@ -104,15 +117,6 @@ local Terrain = Workspace.Terrain
 	goes underground, and depth is a straight multiplier on voxel count.
 ]]
 local TERRAIN_DEPTH = 16
---[[
-	How far past the outermost district the plate runs, and the band the
-	relief occupies inside that.
-
-	The hills are `FillBall`s, which bring their own volume, so the plate does
-	not have to reach the far side of them -- only far enough that the seam
-	where it ends is behind a hill rather than in open view.
-]]
-local RELIEF_MARGIN = 450
 
 -- Paving sits just proud of the ground, flush with the plaza slab, so a road
 -- and the square it leaves from are one continuous surface to walk on.
@@ -2303,13 +2307,12 @@ end
 
 	The margin covers the landmark's own footprint and the ring of people laid
 	out around it, both of which stand outside the centre it was given.
+
+	The arithmetic itself is `Planets.groundRadius`, because a pilot at nine
+	hundred studs has to ask the same question from the client.
 ]]
 local function flatRadiusFor(planet: Planets.PlanetDef): number
-	local furthest = 0
-	for _, zone in planet.zones do
-		furthest = math.max(furthest, zone.distance)
-	end
-	return math.max(900, furthest * SETTLEMENT_RADIUS + 220)
+	return Planets.groundRadius(planet.id)
 end
 
 --[[

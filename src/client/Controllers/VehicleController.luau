@@ -40,6 +40,8 @@ local Net = require(Shared.Core.Net)
 local Panels = require(Shared.Core.Panels)
 local Ships = require(Shared.Config.Ships)
 local Furnishings = require(Shared.Config.Furnishings)
+local Orbit = require(Shared.Config.Orbit)
+local Planets = require(Shared.Config.Planets)
 local Progression = require(Shared.Config.Progression)
 local ServiceLoader = require(Shared.Core.ServiceLoader)
 local ShipModel = require(Shared.Rig.ShipModel)
@@ -89,15 +91,68 @@ local seated: {
 	]]
 	speedMult: number,
 	turnMult: number,
-	--- True while above `Ships.CEILING`, so the star map opens on the way up
-	--- and not again every frame the player spends up there.
+	--[[
+		Where this world is and how far it reaches, resolved once on sitting
+		down for the same reason the stat multipliers are. Both come from
+		`Planets`, so the pilot measures the plate with the ruler that built
+		it -- see the flight loop for what the pair is used to tell apart.
+	]]
+	origin: Vector3,
+	worldRadius: number,
+	--- Where this world's atmosphere ends. Not `Ships.CEILING` everywhere:
+	--- two worlds stand buildings up past it. See `Orbit.ceilingFor`.
+	ceiling: number,
+	--- True while in orbit, so the transition fires on the way up and not
+	--- again every frame the player spends up there.
 	aloft: boolean,
+	--- The same latch for having flown off the side of the world, which is a
+	--- different place with a different answer.
+	strayed: boolean,
 }? =
 	nil
 
 local hoverParams = RaycastParams.new()
 hoverParams.FilterType = Enum.RaycastFilterType.Exclude
 hoverParams.IgnoreWater = true
+
+--[[
+	The two things this file says to the rest of the client.
+
+	Both go through `ServiceLoader.find` rather than a require, for the reason
+	`Panels` gives and `raiseStarMap` repeats: a controller that failed to
+	load should cost you the view, not the ability to fly.
+]]
+local function toast(message: string, kind: string?)
+	local hud = ServiceLoader.find("HudController")
+	if hud then
+		hud.toast(message, kind)
+	end
+end
+
+--- Height on the gauge, or nil to put it away. Starships only: on a speeder
+--- it would be a permanent zero, which invites the player to try to move it.
+local function showAltitude(altitude: number?, ceiling: number?, inSpace: boolean?)
+	local hud = ServiceLoader.find("HudController")
+	if hud then
+		hud.setAltitude(altitude, ceiling, inSpace)
+	end
+end
+
+--[[
+	Tells the sky which side of the atmosphere the camera is on.
+
+	This is the whole of "reaching space" on the client, and it is one
+	boolean on purpose. Everything that makes orbit *look* like orbit --
+	the stars, the black, the vacuum ambient -- is AtmosphereController's
+	job, and it already owns every other thing that decides what the sky
+	is doing. A second place that writes `Lighting` is a fight over it.
+]]
+local function enterSpace(inSpace: boolean)
+	local sky = ServiceLoader.find("AtmosphereController")
+	if sky then
+		sky.setInSpace(inSpace)
+	end
+end
 
 local function findConstraints(chassis: BasePart): (LinearVelocity?, AlignOrientation?)
 	local drive = chassis:FindFirstChild(ShipModel.DRIVE)
@@ -111,6 +166,14 @@ local function release()
 	seated = nil
 	if not current then
 		return
+	end
+	-- Getting out is the one exit from orbit that is not a descent, and the
+	-- sky has no other way to learn about it.
+	if current.aloft then
+		enterSpace(false)
+	end
+	if current.starship then
+		showAltitude(nil)
 	end
 	-- Left enabled, a speeder nobody is driving keeps whatever velocity was
 	-- last written into it. The server anchors it a moment later; this is what
@@ -148,6 +211,7 @@ local function take(seat: VehicleSeat)
 	local profile = ServiceLoader.get("ClientState").get()
 	local skills: { [string]: number } = if profile then profile.skills else {}
 	local stats = Progression.computeStats(skills)
+	local planetId: string = if profile then profile.currentPlanet else Planets.ids()[1]
 
 	seated = {
 		model = model,
@@ -164,24 +228,27 @@ local function take(seat: VehicleSeat)
 		speed = 0,
 		speedMult = stats.ShipSpeedMult or 1,
 		turnMult = stats.ShipTurnMult or 1,
+		origin = Planets.originFor(planetId),
+		worldRadius = Planets.worldRadius(planetId),
+		ceiling = Orbit.ceilingFor(planetId),
 		aloft = false,
+		strayed = false,
 	}
 end
 
 --[[
-	Raises the star map, once, on the way out of the atmosphere.
+	Raises the star map, once, for a pilot who has run out of world.
 
-	This is the whole of "leaving the planet" on the client, and it is
-	deliberately only a panel: which world you go to, what it costs and
-	whether you may is decided by TravelService, which does not take the
-	client's word for any of it. Nothing is gained by reaching this height
-	that pressing G on the ground would not also give you -- except the one
-	thing that matters, which is that it happens at the moment it means
-	something.
+	It used to open on reaching orbit, and that was the single worst thing
+	about reaching orbit: you climbed for it and were handed a panel over the
+	view at the exact moment there was finally something to look at. Space is
+	now a place you arrive in, and G still opens the map anywhere.
 
-	Resolved through the loader rather than required, for the reason
-	`Panels` gives: a controller that failed to load should cost you the map,
-	not the ability to fly.
+	What is left is the case the map is genuinely the answer to -- being off
+	the side of the plate, where there is no planet under you to go back down
+	to. Which world you go to, what it costs and whether you may is still
+	TravelService's to decide; it does not take the client's word for any of
+	it, so opening the panel concedes nothing.
 ]]
 local function raiseStarMap()
 	local map = ServiceLoader.find("GalaxyMapController")
@@ -250,20 +317,6 @@ local function onStep(dt: number)
 	local velocity = heading.LookVector * s.speed
 
 	if s.starship then
-		--[[
-			One ray does both jobs, and its length is the only reason it can.
-
-			Cast the full ceiling, and the two answers that come back are the
-			two the flight loop needs: a hit closer than the hull's own ride
-			height is a floor to be pushed off, and no hit at all means there
-			is nothing within `Ships.CEILING` underneath -- which is what
-			leaving a planet looks like from inside the cockpit.
-
-			Flying off the *edge* of a world's terrain plate reads as nil too,
-			at any altitude. That is not a false positive worth guarding: past
-			the edge of the ground there is no more planet, and offering the
-			star map is the right answer to being there.
-		]]
 		local below = groundDistance(s.chassis, Ships.CEILING)
 		if below and below < def.hoverHeight then
 			-- Never a downward push, only a floor. A starship that is climbing
@@ -275,11 +328,46 @@ local function onStep(dt: number)
 			)
 		end
 
-		local aloft = below == nil
-		if aloft and not s.aloft then
+		--[[
+			Reaching orbit used to be "the downward ray found nothing", and
+			that was two bugs in one line.
+
+			An empty ray means one of two opposite things and cannot tell you
+			which. Past the rim of the plate it finds no ground however low
+			you are -- so a starship could reach space by driving sideways off
+			a cliff at fifty studs. And on Coruscant, which has no ground at
+			all, it finds nothing anywhere, so the whole city was in orbit.
+
+			Two questions, asked separately. *How high* is the hull's own Y,
+			since every world is built with its ground at zero. *Over what* is
+			horizontal distance from the world's origin against the radius
+			`PlanetBuilder` filled the terrain to. Being high over the world
+			is orbit; being anywhere over nothing is having left it; and the
+			ray goes back to the one job it is good at, which is finding the
+			floor to push off.
+		]]
+		local altitude = s.chassis.Position.Y
+		local flat = s.chassis.Position - s.origin
+		local overWorld = Vector3.new(flat.X, 0, flat.Z).Magnitude <= s.worldRadius
+		-- Asymmetric on purpose: you leave the atmosphere at the ceiling and
+		-- re-enter it a little below. `Orbit.REENTRY_DROP` says why.
+		local threshold = if s.aloft then s.ceiling - Orbit.REENTRY_DROP else s.ceiling
+		local aloft = overWorld and altitude >= threshold
+		local strayed = below == nil and not overWorld
+
+		if aloft ~= s.aloft then
+			enterSpace(aloft)
+		end
+		-- Being nowhere is the one case the star map is still the honest
+		-- answer to: there is no planet under you to go back down to.
+		if strayed and not s.strayed then
+			toast("Beyond the world's edge -- set a course", "Error")
 			raiseStarMap()
 		end
 		s.aloft = aloft
+		s.strayed = strayed
+
+		showAltitude(altitude, s.ceiling, aloft)
 	else
 		local vertical: number
 		local distance = groundDistance(s.chassis, def.hoverHeight * 3)
