@@ -37,6 +37,7 @@ local Workspace = game:GetService("Workspace")
 local Shared = game:GetService("ReplicatedStorage"):WaitForChild("Shared")
 local Types = require(Shared.Types)
 local Net = require(Shared.Core.Net)
+local Panels = require(Shared.Core.Panels)
 local Ships = require(Shared.Config.Ships)
 local ShipModel = require(Shared.Rig.ShipModel)
 local ServiceLoader = require(Shared.Core.ServiceLoader)
@@ -147,6 +148,49 @@ local function nearestPad(position: Vector3): BasePart?
 		end
 	end
 	return best
+end
+
+--[[
+	The one thing the player has to do next to get a starship on the ground.
+
+	Every refusal in this chain used to name the state: "Call down a starship
+	first", "You have no vehicle selected". Both are true, neither says what
+	to press, and between them sits a purchase at a vendor in a district you
+	may never have walked to. That is *finished but unreachable* -- the
+	failure this project has now shipped four times -- and it costs a player
+	the single most expensive thing they own.
+
+	There are four rungs and the player can be standing on any of them, so
+	the message says which. Keys come from the bindings rather than being
+	typed, because a hint that is separately authored is a hint that starts
+	lying the day somebody rebinds the key.
+]]
+function VehicleService.starshipHint(player: Player): string
+	local summon = Ships.SUMMON_KEY.Name
+	local profile = data().get(player)
+	if not profile then
+		return `Press {summon} at a landing pad to call down a starship`
+	end
+
+	local owned: string? = nil
+	for _, id in profile.unlockedShips do
+		if Ships.exists(id) and Ships.isStarship(id) then
+			owned = id
+			break
+		end
+	end
+	if not owned then
+		return "You own no starship. The Ship Broker at a spaceport sells them."
+	end
+
+	local chosen = profile.equipped.ship
+	if not (chosen and Ships.exists(chosen) and Ships.isStarship(chosen)) then
+		local gear = Panels.toggleKey("InventoryController")
+		local key = if gear then gear.Name else "B"
+		return `Choose your {Ships.get(owned).displayName} in GEAR ({key}), then press {summon} at a landing pad`
+	end
+
+	return `Press {summon} at a landing pad to call down your {Ships.get(chosen).displayName}`
 end
 
 --[[
@@ -356,7 +400,12 @@ function VehicleService.toggle(player: Player): (boolean, string?)
 
 	local shipId = profile.equipped.ship
 	if not shipId or not Ships.exists(shipId) then
-		return false, "You have no vehicle selected"
+		local gear = Panels.toggleKey("InventoryController")
+		local key = if gear then gear.Name else "B"
+		return false,
+			if #profile.unlockedShips > 0
+				then `Choose a vehicle in GEAR ({key}) first`
+				else `You own no vehicle. Buy one from a trader, then choose it in GEAR ({key}).`
 	end
 	if not VehicleService.owns(profile, shipId) then
 		return false, "You do not own that"

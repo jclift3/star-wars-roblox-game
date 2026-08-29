@@ -200,10 +200,15 @@ function InteriorService.board(player: Player): (boolean, string?)
 		return false, "Not while you are down"
 	end
 
-	local hull = ServiceLoader.get("VehicleService").spawnedFor(player)
+	local vehicles = ServiceLoader.get("VehicleService")
+	local hull = vehicles.spawnedFor(player)
 	local shipId = hull and hull:GetAttribute("ShipId")
 	if type(shipId) ~= "string" or not Ships.isStarship(shipId) then
-		return false, "Call down a starship first"
+		-- Not "call down a starship first". That is the state, and the player
+		-- pressing this key has already worked the state out -- what they do
+		-- not have is the next key, which is anywhere from one press away to
+		-- a vendor in a district they have never walked to.
+		return false, vehicles.starshipHint(player)
 	end
 	if (root.Position - hull:GetPivot().Position).Magnitude > Furnishings.BOARD_RANGE then
 		return false, `Stand by your {Ships.get(shipId).displayName} to board it`

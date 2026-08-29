@@ -1212,8 +1212,12 @@ map is the way off it.
 
 **Getting in**
 
-1. Standing in Anchorhead with **no** ship out, press **H**. One toast:
-   **"Call down a starship first."** Nothing else happens.
+1. Standing in Anchorhead with **no** ship out, press **H**. One toast, and it
+   must name the **next key**, not the state — which one depends on where you
+   are in the chain: **"You own no starship. The Ship Broker at a spaceport
+   sells them."** before you buy, **"Choose your Corellian Skipjack in GEAR
+   (B)…"** after you buy and before you select, **"Press V at a landing pad…"**
+   once it is selected. A toast that only says you have no ship is the bug.
 2. Select a *speeder* and **V** it out, then **H**. Same refusal — a speeder has
    no inside, and the check is on the class, not on having a vehicle.
 3. Go to the spaceport, **V** out the Skipjack, then walk 60 studs away and press
