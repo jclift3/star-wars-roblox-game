@@ -1926,57 +1926,21 @@ destination on the galaxy map (**G**).
     drop straight into a fight. Likewise the 5-second shift pass must not pull a
     suspicious NPC back to its post mid-follow.
 
-### 8.7 The crowd you never meet — **new, never played**
+### 8.7 The crowd you never meet — **REMOVED 2026-08-29**
 
-Landed 2026-08-18 (ROADMAP 5.0c). `CrowdController` draws a second crowd on the
-client only, behind the real NPCs: two extra bodies per real everyday one, no
-Humanoid, no brain, no prompt, no collision. **They live under
-`Workspace.CurrentCamera`, which is what makes the whole thing safe** — nothing
-that walks Workspace can see them. Almost every check below is a check that
-they stayed scenery.
+`CrowdController` (ROADMAP 5.0c) drew ambient background figures on the client.
+The playtest called them "weird ghost people in the distance" and it was cut.
+The one check that remains is that **taking it out took nothing else with it**:
 
-1. **The difference is visible.** Stand in Coruscant's **Senate Plaza** (65 real
-   NPCs) and then in Ord Mantell's **Market** (4). The Plaza should read as a
-   city and the Market as a back street. The density is derived from the real
-   spawn rules, so a district that looks the same as it did is a district where
-   the controller did not run at all — check the console for `[CrowdController]`.
-2. **You can never reach one.** Pick a distant figure and walk at it. It must
-   **fade out over the last fifty studs and be gone before you arrive** — you
-   should never be able to stand next to one, bump one, or walk through one.
-   Anything you *can* reach is a real NPC and should have a name and a prompt.
-3. **They are not targets.** Shoot into the crowd. No damage numbers, no health
-   bar, no reaction, no corpse — and **no XP**, which is the exploit worth
-   checking with two people in the room.
-4. **Both of you see the same street.** Two clients side by side on one planet:
-   the ambient figures should be **in the same places walking the same way**.
-   Position is a function of `GetServerTimeNow()` and a seed of planet + zone,
-   with nothing replicated; if the two screens disagree the seed is wrong.
-5. **The street thins after dark and never empties.** Watch a square cross
-   `20:00` with the HUD clock. Some of the ambient crowd should fade out over
-   the evening, bottoming around 01:00 at roughly a third — **not to zero**. An
-   empty street reads as a bug; a quiet one reads as night.
-6. **The real crowd is untouched by any of it.** In the same square at 02:00,
-   walk up to a **civilian**, a **moisture farmer** and a **protocol droid**:
-   prompts present, dialogue works, missions still offered. This is the whole
-   reason the ambient crowd exists instead of the real one being thinned —
-   several missions have those three as givers or as `TalkTo` targets.
-7. **Vendors are unaffected.** Trade with a **Merchant** and a **Jawa** in a
-   busy district. `ShopService` sweeps Workspace within 30 studs and cannot see
-   a camera-parented model, so a crowded market must open a shop exactly as an
-   empty one does.
-8. **Nobody is buried or floating.** Look along the pavement. Feet on the
-   ground, no figure shin-deep in it and none standing on air. Each route point
-   is resolved by a downward raycast at build time; a wrong one shows as a
-   single figure permanently on a pedestal.
-9. **They look like the locals.** A Tatooine crowd should be dusty civilians and
-   Jawas, a Coruscant one taller and mixed. **No ambient stormtroopers, no
-   ambient Sith** — armed and Aggressive archetypes are excluded on purpose,
-   because a distant trooper is something the boys will go and shoot at.
-10. **Death and travel do not lose them.** Die and respawn: the crowd must come
-    back, because respawning replaces the camera the folder hangs from. Then
-    travel to another planet and confirm the old planet's crowd is gone and the
-    new one appears within a few seconds — the build retries while the server's
-    zones are still replicating.
+1. **The real districts still fill.** Coruscant's **Senate Plaza** and Ord
+   Mantell's **Market** should look exactly as they did before 2026-08-18 —
+   busy and quiet respectively, with every figure a real NPC you can walk up
+   to, name and talk to. There should be **no figure anywhere that fades as you
+   approach**; if you find one, a stale place file is still carrying the old
+   folder under the camera.
+2. **The sky traffic and companion suns are untouched.** `SkyTrafficController`
+   uses the same camera-parented trick and stays. Airspeeders should still
+   cross Coruscant and Nar Shaddaa overhead.
 
 ### 8.8 Nobody standing in a wall — **new, 2026-08-18**
 
