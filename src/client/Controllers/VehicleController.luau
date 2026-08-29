@@ -250,7 +250,14 @@ local JUMP_ACTION = "HollowingFlightClimb"
 --- than a race with it.
 local JUMP_PRIORITY = Enum.ContextActionPriority.High.Value
 
+--- Whether the sink is currently in force, so `onStep` can see a leak.
+local jumpSunk = false
+
 local function holdJump(hold: boolean)
+	if hold == jumpSunk then
+		return
+	end
+	jumpSunk = hold
 	if hold then
 		ContextActionService:BindActionAtPriority(JUMP_ACTION, function()
 			return Enum.ContextActionResult.Sink
@@ -471,6 +478,25 @@ end
 
 local function onStep(dt: number)
 	local s = seated
+	--[[
+		The sink is re-checked against the truth every frame rather than only
+		being undone on the way out.
+
+		`release` already unbinds it unconditionally, and every exit path is
+		*supposed* to go through `release`. But the cost of that reasoning
+		being wrong once -- a seat vacated by something that does not touch
+		`SeatPart`, a `release` that raised halfway -- is a player who can
+		walk and never jump again for the rest of the session, with no way to
+		tell what happened or to undo it. That is the worst class of bug this
+		project can ship, and it is the one 2026-08-29's play test reported.
+
+		So: the binding follows "is this player at a starship's controls right
+		now", asked from scratch sixty times a second, and can be wrong for at
+		most one frame.
+	]]
+	if jumpSunk and not (s and s.starship) then
+		holdJump(false)
+	end
 	if not s then
 		return
 	end
@@ -796,6 +822,27 @@ function VehicleController.start()
 	]]
 	Net.onClientEvent(Net.Event.CourseSet, function(planetId: string)
 		course = planetId
+	end)
+
+	--[[
+		Getting out, which stopped being possible in a starship the moment the
+		climb fix sank the jump. `Ships.EXIT_KEY` says why it is this key.
+
+		It writes `Humanoid.Sit = false` rather than touching the seat,
+		because that is exactly what the stock jump did and so it arrives at
+		the server through the same door: `VehicleService` refuses a dismount
+		in orbit and re-seats you, and an exit that went around that would be
+		a way to step out into vacuum.
+	]]
+	UserInputService.InputBegan:Connect(function(input: InputObject, processed: boolean)
+		if processed or input.KeyCode ~= Ships.EXIT_KEY then
+			return
+		end
+		local s = seated
+		local occupant = s and s.seat.Occupant
+		if occupant then
+			occupant.Sit = false
+		end
 	end)
 
 	player.CharacterAdded:Connect(function(character: Model)

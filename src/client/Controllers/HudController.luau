@@ -716,6 +716,7 @@ local function buildLegend()
 	-- rather than pressed. The legend cannot say so in one column, so the
 	-- refusal does: pressing it with no course names the star map instead.
 	entryIn(legendFlight, Ships.ENGAGE_CAP, Ships.ENGAGE_HINT)
+	entryIn(legendFlight, Ships.EXIT_CAP, Ships.EXIT_HINT)
 
 	-- And the cabin door, for exactly the same reason as the summon key: a
 	-- room is not a panel, and a starship whose inside nobody knows about is

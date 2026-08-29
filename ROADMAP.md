@@ -1492,6 +1492,42 @@ and sound effects — the game has never played a single one. Audio is the one p
 the no-asset-id rule is relaxed, geometry stays procedural, and the ids will live
 in one `Config/Sounds.luau`.
 
+### 2g. The hole the climb fix left — 2026-08-29
+
+*"we can't figure out how to exit a ship."* Reported the same evening, and 2f's
+fault. Sinking `CharacterJump` stopped Space throwing a pilot out at altitude and
+in the same stroke removed **the only way out of a starship at all** — getting out
+of a Roblox seat has always *been* the jump. The fix took a stock behaviour away
+and put nothing in its place, and because that behaviour was stock it was written
+down nowhere, so nothing pointed at the gap until somebody was sitting in a landed
+freighter unable to leave it. This project's own recurring failure, inverted:
+usually a finished thing has no way in; this time a working thing lost its way out.
+
+`Ships.EXIT_KEY = E`, registered in `Bindings.luau` so it can never quietly collide
+with another key, and shown in the legend's flight group. **E** because it is what
+every game means by *get out*, and because it is already the key the boarding
+prompt uses to get *in* — prompts are suppressed while seated, so there is no
+clash. Bound in speeders too, even though Space still works there: one key that
+always means the same thing beats two keys that mean it in different vehicles.
+
+It writes `Humanoid.Sit = false` rather than touching the seat, because that is
+exactly what the stock jump did, so it arrives at the server through the same door
+— `VehicleService` still refuses a dismount in orbit and re-seats you, and an exit
+that went around that would be a way to step out into vacuum.
+
+**And the sink is now un-leakable.** It was released on every exit path anyone
+could think of, which is the reasoning that produces this class of bug. It now
+follows *"is this player at a starship's controls right now"*, asked from scratch
+every frame in `onStep`, so it can be wrong for one frame and no longer.
+
+**`whosyourdaddy` was also reported as doing nothing, and was not fixed**, because
+three quite different faults look identical from the chat box: the message never
+reaching the server (Roblox moderation can drop one outright, and *"daddy"* is
+exactly the kind of word that gets dropped), `mayCheat` refusing it, or the code
+running with no visible effect. The last fix for something like this guessed.
+`DevService` now prints which of the three happened, and the next Studio run
+decides it.
+
 ---
 
 ## Phase 3 — Make the places real

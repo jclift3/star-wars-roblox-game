@@ -419,18 +419,43 @@ local function normalise(message: string): string
 	return (string.gsub(string.lower(message), "[^%a]", ""))
 end
 
+--[[
+	Every chat line that reaches this server, one row each.
+
+	Reported from play 2026-08-29: *"whosyourdaddy didnt work."* There are
+	three quite different reasons a code can do nothing -- the message never
+	reached the server at all (Roblox's moderation can drop one outright, and
+	"daddy" is exactly the kind of word that gets dropped), the message arrived
+	but `mayCheat` refused it, or the code ran and its effect was invisible
+	because the character was already at the ceiling it lifts you to. From the
+	cockpit all three look identical, which is why the last fix for this was a
+	guess.
+
+	So the server prints what it saw. This goes to the Output window, which no
+	player can read, so it gives away nothing that `tell` does not already say
+	out loud to the one person allowed to use it.
+]]
+local function trace(message: string)
+	print(`[DevService] {message}`)
+end
+
 function DevService.start()
 	local function listen(player: Player)
 		player.Chatted:Connect(function(message: string)
-			local code = codes[normalise(message)]
+			local typed = normalise(message)
+			local code = codes[typed]
 			if not code then
+				trace(`{player.Name} said something that is not a code: "{typed}"`)
 				return
 			end
 			if not mayCheat(player) then
-				-- Deliberately silent. Telling a stranger they typed a real
-				-- code and were refused is an invitation to keep guessing.
+				-- Deliberately silent *to the player*. Telling a stranger they
+				-- typed a real code and were refused is an invitation to keep
+				-- guessing; the console is not a place a stranger can look.
+				trace(`{player.Name} typed "{typed}" and was refused -- not the owner, not Studio`)
 				return
 			end
+			trace(`{player.Name} ran "{typed}"`)
 			code(player)
 		end)
 	end

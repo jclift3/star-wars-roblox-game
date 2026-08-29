@@ -1555,6 +1555,36 @@ Ships.ENGAGE_HOLD = 0.6
 Ships.ENGAGE_CAP = "F"
 Ships.ENGAGE_HINT = "JUMP"
 
+--[[
+	How you get out.
+
+	THIS IS A HOLE THE CLIMB FIX PUT THERE
+	Getting out of a Roblox seat has always been Space, because a seated
+	`Humanoid` that sees a jump asks to leave. On 2026-08-29 the climb fix
+	sank that input for as long as anybody is at a starship's controls --
+	which stopped Space throwing a pilot out of his own ship, and in the same
+	stroke removed the only way out of one. Reported the same evening: *"we
+	can't figure out how to exit a ship."*
+
+	That is the project's own recurring failure in its purest form. The fix
+	took a stock behaviour away and did not put anything in its place, and
+	the thing it took away was not written down anywhere, so nothing pointed
+	at the gap until somebody was sitting in a landed freighter unable to
+	leave it.
+
+	E because it is what every game means by "get out", because it is the key
+	the boarding prompt already used to get *in* -- prompts are suppressed
+	while seated, so there is no clash -- and because a control you can guess
+	is worth more here than a control that is free.
+
+	Bound for speeders too, even though Space still works on those. One key
+	that always means the same thing beats two keys that mean it in different
+	vehicles.
+]]
+Ships.EXIT_KEY = Enum.KeyCode.E
+Ships.EXIT_CAP = "E"
+Ships.EXIT_HINT = "EXIT"
+
 function Ships.get(id: string): ShipDef
 	local d = defs[id]
 	assert(d, `Ships.get: unknown ship "{id}"`)

@@ -54,6 +54,7 @@ get wrong announces itself there rather than on screen:
 | **W/S**, **A/D** (seated) | Throttle, steer |
 | **Space** / **LeftCtrl** (seated) | Climb, dive — starships only; releases both levels you off |
 | **F** (hold, seated) | Engage the hyperdrive; press again to abort |
+| **E** (seated) | Get out. Space also works in a speeder, but not in a starship |
 
 **The game now says all of this itself**, in a legend across the top-left corner
 that is built from `Panels.ALL` rather than typed out. This table is for the
@@ -1692,8 +1693,8 @@ short, and each was a thing a player hit in the first two minutes.
 11. On foot the legend reads **LMB / RMB / SHIFT / 1-6 / V / TAB** and nothing
     else. **RMB AIM is the new one** — hold the right mouse button and confirm the
     shoulder camera and reticle it has always had.
-12. Sit at a starship's controls: **four more rows appear** — climb, dive, jump,
-    cabin. Stand up: they go. In a **speeder** they must not appear at all.
+12. Sit at a starship's controls: **five more rows appear** — climb, dive, jump,
+    exit, cabin. Stand up: they go. In a **speeder** they must not appear at all.
 
 **One menu instead of five letters**
 
@@ -1720,6 +1721,34 @@ short, and each was a thing a player hit in the first two minutes.
     cannot dismiss would be a menu you cannot reach.
 21. Type in the chat box and press **Tab**. The menu must not open — text input
     takes the key first.
+
+### 6.11 Getting out of the ship — **new, 2026-08-29**
+
+Reported the same evening as 6.10, and caused by it: *"we can't figure out how to
+exit a ship."* Sinking the jump input stopped Space ejecting a pilot at altitude
+and, in the same stroke, removed the only way out of a landed one. Roblox's seat
+exit **is** the jump, and nothing else was ever bound to it.
+
+1. Land a starship. Press **E**. You stand up beside it.
+2. Look at the legend while seated: **E EXIT** is one of the flight rows, so this
+   is a control the player is told about rather than one he has to guess.
+3. Press **E** in a **speeder**. It also works — one key that always means the same
+   thing. **Space** still works there too; speeders never sank the jump.
+4. Press **E** while in **orbit**. You are **refused and re-seated**, with a toast
+   saying why. The exit writes `Humanoid.Sit = false`, which is exactly what the
+   stock jump did, so it reaches the server through the same door as before and
+   cannot be used to step out into vacuum.
+5. Walk up to a parked ship on foot. The boarding prompt still says **E**, and
+   there is no clash — prompts are suppressed while you are seated.
+
+**And the jump can no longer be left stuck off.** The sink is now re-derived from
+"is this player at a starship's controls right now", sixty times a second, rather
+than being undone on the way out.
+
+6. Get into a starship, then break the exit some other way — die at the controls,
+   or press **V** to put the hull away underneath you. Then jump on the ground.
+   **You jump.** The worst version of this bug is a player who can walk and never
+   jump again for the rest of the session, with nothing on screen to explain it.
 
 ---
 

@@ -45,6 +45,7 @@ local function collect(): { Binding }
 		{ key = Ships.PITCH_UP_KEY, hint = Ships.PITCH_UP_HINT, source = "Ships.PITCH_UP_KEY" },
 		{ key = Ships.PITCH_DOWN_KEY, hint = Ships.PITCH_DOWN_HINT, source = "Ships.PITCH_DOWN_KEY" },
 		{ key = Ships.ENGAGE_KEY, hint = Ships.ENGAGE_HINT, source = "Ships.ENGAGE_KEY" },
+		{ key = Ships.EXIT_KEY, hint = Ships.EXIT_HINT, source = "Ships.EXIT_KEY" },
 		{ key = Furnishings.BOARD_KEY, hint = Furnishings.BOARD_HINT, source = "Furnishings.BOARD_KEY" },
 		{ key = Panels.MENU_KEY, hint = Panels.MENU_HINT, source = "Panels.MENU_KEY" },
 	}
