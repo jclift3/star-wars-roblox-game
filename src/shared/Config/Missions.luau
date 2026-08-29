@@ -684,7 +684,7 @@ def({
 def({
 	id = "CorPaperTrail",
 	displayName = "Paper Trail",
-	summary = "Slice a Senate District terminal without tripping the alarm.",
+	summary = "Lift a manifest out of the Senate District without tripping the alarm.",
 	briefing = "There is a manifest on a terminal in the Senate District. I want a copy, and I want the Empire to keep believing nobody has one.",
 	debriefing = "Clean work. The manifest names three worlds we did not know they were stripping.",
 	kind = "Story",
@@ -699,7 +699,31 @@ def({
 			planet = "Coruscant",
 			description = "Reach the Senate District",
 		},
-		{ kind = Objective.Slice, target = "SenateTerminal", description = "Slice the archive terminal" },
+		--[[
+			Lifted by hand, and it has to be: THERE IS NO LEGAL SLICE ON THIS
+			WORLD AND THERE NEVER WILL BE.
+
+			This step used to slice "SenateTerminal", which was never
+			anywhere. Retargeting cannot save it either, because
+			`Terminals.at` refuses Coruscant outright -- the planet sets
+			`hasWalkableGround = false`, and a console in a traffic lane is a
+			console nobody can walk up to. The Senate District is a `Market`
+			besides, which `SECURED` leaves out on purpose: a market stall
+			with a security console in it is a slot machine, not a place.
+
+			Both of those calls are right, so the mission gives way instead.
+			"Paper Trail" survives it intact -- the briefing asks for a copy
+			of a manifest and says nothing about how, and a manifest you walk
+			out with is the same story as one you crack. Slicer simply plays
+			no part on the Empire's capital, which is the honest answer.
+		]]
+		{
+			kind = Objective.Collect,
+			target = "ResearchData",
+			at = "SenateDistrict",
+			count = 1,
+			description = "Copy the manifest out of the archive",
+		},
 		{
 			kind = Objective.Survive,
 			target = "SenateDistrict",
@@ -932,12 +956,32 @@ def({
 			target = "PowerCoupling",
 			at = "NorthRavine",
 			count = 2,
-			description = "Salvage power couplings",
+			-- Carries the repair now, because the step that used to finish
+			-- this mission had to become optional and the array still has to
+			-- come back on for the debriefing to be true.
+			description = "Salvage two power couplings and fit them to the tower",
 		},
+		--[[
+			The extra, not the spine.
+
+			This named "SensorArray", which was never a place -- the mission
+			predates `Terminals.luau` and invented a terminal id rather than
+			naming a POI. The ravine is an `Outpost`, so it already carries a
+			Supply Locker under the derivation.
+
+			It could not simply be marked optional where it stood, because it
+			was the *last* step and the one that brought the array online: the
+			mission would have completed with the tower still dark. So the
+			couplings above do the repair and this reads the fault log, which
+			is what a slice should always be here -- a door the Scrapper opens
+			and the rest of the party walks past.
+		]]
 		{
 			kind = Objective.Slice,
-			target = "SensorArray",
-			description = "Bring the sensor array back online",
+			target = "NorthRavine",
+			planet = "Hoth",
+			optional = true,
+			description = "Slice the ravine supply locker for the tower's fault log",
 		},
 	},
 	rewards = {
@@ -1077,7 +1121,29 @@ def({
 			planet = "Taris",
 			description = "Reach Czerka Lot 9",
 		},
-		{ kind = Objective.Slice, target = "LabTerminal", description = "Slice the warehouse records" },
+		--[[
+			The shortcut, and the only step here that is not the long way round.
+
+			It used to name "LabTerminal", which was never anywhere: the
+			mission predates `Terminals.luau` and invented a terminal id, the
+			exact second namespace that file was written to abolish. Lot 9 is
+			a `Base`, so it already carries a Security Console under the
+			derivation, and pointing at the POI means this can never drift
+			again -- there is nothing left to keep in step.
+
+			Optional because every Slice must be. Slicer is one node of one of
+			four trees and there is no respec, so a required slice is a
+			mission a Sith Acolyte can accept and never leave. The required
+			spine below -- fight the droids, take the manifests -- already
+			stood on its own, which is why this one needed no rewriting.
+		]]
+		{
+			kind = Objective.Slice,
+			target = "CzerkaLot9",
+			planet = "Taris",
+			optional = true,
+			description = "Slice the lot's security console for the storage records",
+		},
 		{
 			kind = Objective.Kill,
 			target = "WarDroid",
