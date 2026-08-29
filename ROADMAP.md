@@ -1341,8 +1341,156 @@ reason. Deferred by a quarter second, because leaving a `VehicleSeat` is a jump
 and a character re-seated in the same frame leaps straight back out on the input
 still being held.
 
-**Still to come:** the hyperdrive (Part 2), the player's own species and
-proportions (Part 3), and an interior that is not a box (Part 4).
+### 2e. The hyperdrive — part 2 DONE 2026-08-29
+
+Part 1 made a crossing possible and left it at fifty seconds of holding W.
+`CAMPAIGN.md:45` already committed to the shape — *"Hyperspace is slow and mapped
+— travel between planets is a journey with a cost"* — and the whole front end for
+it was already built.
+
+**Setting a course reuses the entire galaxy panel.** `GalaxyMapController` (**G**)
+has always listed every world with its fare, its level gate and its lock reason,
+and `TravelService.galaxyFor` has always priced a pilot's trip as *fuel* rather
+than passage. The only thing that changed is the button: the payload gained
+`canFly`, and with a hull under you it reads **SET COURSE** and fires
+`Net.Event.SetCourse` instead of `TravelTo`.
+
+**`TravelService.setCourse` takes the fare and builds the world.** Same gates as
+`travelTo` — exists, not current, level with `LEVEL_GRACE` — plus being at the
+controls of a starship, whose refusal is `starshipHint`'s existing ladder rather
+than a fifth way of saying no. Then it calls **`WorldService.ensure` immediately**.
+`PlanetBuilder.build` is fully synchronous — not one `task.wait` in 6,000 lines —
+so a world costs one visible hitch, and this puts that hitch under the button
+press instead of on arrival at fifteen hundred studs a second.
+
+**No server-side course state.** The server takes the fuel, builds the world and
+fires `CourseSet`; the client holds the course. That concedes nothing, because
+arrival is still settled by Part 1's server-side position sweep, which has never
+taken the client's word for anything.
+
+**One number reconciles two distance systems.** `Planets.fuelCost` prices off the
+**authored** `PlanetDef.coords` — the geometry the player is looking at on the
+map. The ship flies the **physical** grid. They disagree, so each does the job it
+is good at: the *path* is real and physical (`Orbit.gridDistance`), and the *fare*
+and the *duration* both come from the same map (`Orbit.jumpDurationFor`, clamped
+8–20s). A world the map says is far costs more **and** takes longer, which is the
+only consistency a player can actually perceive. `MAX_JUMP_SPEED = 3000` caps the
+worst case, and `validate` asserts a jump cannot outrun its own `ARRIVAL_RADIUS`
+in a single frame.
+
+**The jump is a real crossing, not a teleport.** Client-side in
+`VehicleController`, which already owns the hull's physics. Hold **F** in orbit
+with a course set; the heading **locks** onto `Orbit.arrivalPointFor` — you cannot
+steer, which is what makes a lane a lane and what makes arrival deterministic —
+and the speed ramps through the same `LinearVelocity` drive. It drops out inside
+`ARRIVAL_RADIUS` (2,400), still flying, nose down. Because `SYSTEM_RADIUS` is
+3,600, **the world has already become yours a beat before the streaks stop**: its
+sky, its weather, its crowd and its mission board are in place by the time there
+is anything to look at. A fresh press aborts at any moment, which is only safe
+because Part 1 made deep space legal.
+
+**Held, not tapped**, because engaging costs fuel and takes the controls away for
+twenty seconds — the two things a mis-keyed press must never do. Aborting is a
+press, because a panic button you have to hold is not one.
+
+**`StarlineController` is the reference frame.** The jump is honest — the hull
+really covers twelve thousand studs of the same Workspace — and honest looks like
+*nothing*, because there is nothing out there to move past. Speed you cannot see
+is a twenty-second pause with the controls taken away. 220 neon lines in a
+90-stud box stapled to `Workspace.CurrentCamera`, wrapping rather than spawning,
+so a long crossing cannot cost more than a short one. Client-only geometry, which
+this project trusts **for shapes and not for people** (the 2026-08-29 ghost
+crowd) — a streak at distance genuinely is a lit line.
+
+**And it is reachable**, which is the failure this project has shipped four times.
+The HUD's bearing line is one priority ladder — HYPERSPACE, then COURSE, then
+DEEP SPACE — so the destination and the distance left are on screen from the
+moment the fare is paid. **F** is in the legend. Pressing it with no course names
+**G** rather than reporting "no course set", which is a fact the player already
+had.
+
+**It was **H** for about an hour**, chosen by reading the legend for a free
+letter — and the legend is built from `Panels.ALL` plus five hand-written rows,
+so the one binding not yet in it was invisible to exactly the check that would
+have caught it. **H** had been the cabin door since the ship got an inside. That
+is `Shared/Core/Bindings.luau`: every declared key in one list, counted at boot
+by `WorldService`, naming both *files* rather than both letters. It does not own
+the keys and is not a binding system — `Ships`, `Furnishings` and `Panels` still
+declare their own next to the behaviour they belong to.
+
+**Still to come:** the player's own species and proportions (Part 3), and an
+interior that is not a box (Part 4).
+
+### 2f. What the first flight actually found — 2026-08-29
+
+Five things, from one session with Logan in a cockpit. None of them was the
+hyperdrive.
+
+**Space bar ejected the pilot.** The climb key and the eject key were the same
+key, and had been since the ship could fly: a seated `Humanoid` that receives a
+jump input sets `Humanoid.Jump`, which a `VehicleSeat` reads as *leave the seat*.
+So the one control that gets a starship to orbit instead threw you out of it, at
+altitude. Fixed by sinking `Enum.PlayerActions.CharacterJump` through
+`ContextActionService:BindActionAtPriority` while at a starship's controls —
+deliberately keeping Space rather than rebinding, because it is the key every
+player already reaches for. It is released unconditionally and *before* the early
+return in `release()`: a jump left sunk is a player who can walk and never jump
+again, which is a far worse bug than the one it fixes.
+
+**Bodies fell through the map on death.** Reported as *"you broke the ragdoll"*,
+and there is no ragdoll code in the repo — so, asked rather than guessed. The
+real fault was `PlayerService.applyGravity`'s `VectorForce`, which holds a
+character up against a heavier world and **survived death**. Roblox breaks
+character joints on death, so `HumanoidRootPart.AssemblyMass` collapses from
+whole-body to fragment while the force stays sized for the whole body; on the
+worlds where gravity is *above* Earth normal (Korriban 210, Coruscant 202, Hoth
+198) that force points **down**, and for up to a second it was shoving a loose
+torso through the floor. The force is now dropped on `Humanoid.Died` and scaled
+off live mass.
+
+**Space was too dark.** Ambient `(7,8,12)` → `(26,29,40)`, planetshine 0.14 →
+0.3, exposure -0.15 → 0. The starfield was already there; what was missing was
+anything to see the ship *by*.
+
+**The legend had drifted to mid-screen.** `belowTopbar(clearChat = true)`
+measured Roblox's chat window and followed it down without limit, so a tall chat
+put the reference card in the middle of the play area. Clamped at
+`MAX_CHAT_DROP = 96`.
+
+**And eleven hot keys.** *"we should be able to minimize mostly and then maximize
+it. also if it makes sense to have less hot keys that's ok."* Three cuts, in
+`HudController` and the new `MenuController`:
+
+- **A chevron** collapses the legend to a single chip. Remembered for the session,
+  never saved — a player who hides it on Tuesday and has forgotten the keys by
+  Friday is worse off than one who hides it twice.
+- **The flight rows are contextual.** Climb, dive, jump and the cabin door are
+  false of every player on foot, and false in a way that reads as broken: a boy in
+  Anchorhead pressing SPACE because the legend says CLIMB gets a jump and
+  concludes the legend lies. They appear only at a starship's controls.
+- **`TAB` opens all five panels.** B, M, J, K and G each earned their place in the
+  legend in 2026-08-17, when the complaint was that finished panels had no
+  advertised way in. They fixed that and created the next problem: five *unrelated*
+  letters to memorise before the interface is usable, with no rule connecting J to
+  the journal that also connects K to the skill tree. `MenuController` is a sixth
+  `ScreenGui` at `DisplayOrder = 11` — a strip of tabs where a tab bar goes, one
+  per keyed panel, calling the same `setOpen` the letters call. **The panels do not
+  know it exists**; it reads their state on a heartbeat rather than being told, so
+  it cannot fall out of sync with a panel opened by a letter, by a vendor, or by
+  the star map raising itself. The letters still work and are printed *on the
+  tabs*, which is how a player now learns them: next to the word they open, at the
+  moment they are looking at it.
+
+Eleven entries down to six on foot, five of which are true of a character who has
+unlocked nothing. **`RMB` / `AIM` is the sixth** — `AimController` has bound the
+right button to a shoulder camera and a spread reticle since 2026-08-17, in answer
+to a complaint about shooting, and then never said so. Sixth instance of *finished
+but unreachable is not finished*.
+
+**Still open from the same report:** blasters on ships, AI starships to shoot at,
+and sound effects — the game has never played a single one. Audio is the one place
+the no-asset-id rule is relaxed, geometry stays procedural, and the ids will live
+in one `Config/Sounds.luau`.
 
 ---
 

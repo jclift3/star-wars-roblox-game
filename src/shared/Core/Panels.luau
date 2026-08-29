@@ -97,6 +97,23 @@ local ALL: { PanelDef } = {
 
 Panels.ALL = ALL
 
+--[[
+	The one key that opens the menu, declared here rather than in
+	`MenuController`.
+
+	Two things need it that cannot see a client controller: `Bindings.luau`,
+	which checks at boot that no key is bound twice and lives in
+	`Shared/Core`, and the HUD's legend. `ReplicatedStorage.Shared` cannot
+	require out of `StarterPlayerScripts`, so a constant inside the
+	controller would have to be retyped in both -- which is precisely the
+	duplication the `toggle` field above exists to prevent, one level up.
+]]
+Panels.MENU_KEY = Enum.KeyCode.Tab
+Panels.MENU_HINT = "MENU"
+--- What the legend prints on the keycap. `KeyCode.Tab.Name` is "Tab", and a
+--- legend in shouted capitals with one word in title case looks like a bug.
+Panels.MENU_CAP = "TAB"
+
 --------------------------------------------------------------------------------
 -- Queries
 --------------------------------------------------------------------------------

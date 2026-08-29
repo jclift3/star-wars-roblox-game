@@ -26,6 +26,7 @@ local Origins = require(Shared.Config.Origins)
 local Planets = require(Shared.Config.Planets)
 local Progression = require(Shared.Config.Progression)
 local Weapons = require(Shared.Config.Weapons)
+local Bindings = require(Shared.Core.Bindings)
 local PlanetBuilder = require(script.Parent.Parent.World.PlanetBuilder)
 
 local WorldService = {
@@ -78,6 +79,13 @@ function WorldService.init()
 	-- ground, invisible in Studio, and the whole point of the climb.
 	for _, problem in Orbit.validate() do
 		warn(`[WorldService] orbit config: {problem}`)
+	end
+
+	-- Two things on one key is not an error Roblox reports: it is both
+	-- handlers firing, or one quietly losing, and from the player's side it
+	-- looks like the game ignoring them.
+	for _, problem in Bindings.validate() do
+		warn(`[WorldService] key bindings: {problem}`)
 	end
 
 	-- Checked here rather than in a faction service because this is where the

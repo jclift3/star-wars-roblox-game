@@ -193,6 +193,80 @@ function Orbit.arrivalPointFor(planetId: string): Vector3
 end
 
 --------------------------------------------------------------------------------
+-- The hyperdrive
+--------------------------------------------------------------------------------
+
+--[[
+	TWO DISTANCE SYSTEMS, AND WHICH ONE DOES WHICH JOB
+
+	The galaxy has always had two sets of distances and they do not agree.
+
+	`PlanetDef.coords` is the authored map -- the geometry the star map is
+	drawn from and `Planets.fuelCost` prices off. `Planets.originFor` is the
+	physical grid, four worlds to a row, 12,000 studs apart, and it is what a
+	ship actually flies through. Tatooine may be the far side of the map from
+	Hoth and next door on the grid.
+
+	Reconciling them by making one match the other is the obvious answer and
+	the wrong one: relaying the grid to match `coords` would move every world
+	that has ever been built on, and re-authoring `coords` to match the grid
+	would throw away the only shape of the galaxy anyone has designed.
+
+	So each does the job it is good at. **The path is physical** -- a real
+	crossing of real studs, because the ship is a real object and there is
+	nothing to fake. **The fare and the duration are both authored** -- they
+	come from the same map the player is looking at when they choose. A world
+	the map says is far costs more and takes longer, which is the only
+	consistency a player is in a position to perceive.
+]]
+
+--- Authored map units crossed per second. Tunes the whole travel economy.
+Orbit.MAP_UNITS_PER_SECOND = 100
+
+--[[
+	The floor and ceiling on how long a crossing takes.
+
+	Eight seconds is long enough to be a journey rather than a cut, and
+	twenty is the point past which the nearest world stops being an
+	alternative to waiting. Both bracket a scale of authored distances that
+	runs from a few hundred units to about two and a half thousand.
+]]
+Orbit.MIN_JUMP = 8
+Orbit.MAX_JUMP = 20
+
+--[[
+	The fastest a hull is allowed to be pushed, whatever the arithmetic says.
+
+	The two distance systems disagree, and the disagreement has a worst case:
+	a pair that is close on the authored map and most of the grid apart. Left
+	alone that would ask for a speed at which a frame is longer than the
+	radius the ship is trying to arrive inside, and the crossing would sail
+	straight through its own destination.
+
+	When this bites, the journey takes longer than the map implied. That is
+	the right thing to give up -- a duration nobody is timing, against a
+	crossing that lands.
+]]
+Orbit.MAX_JUMP_SPEED = 3000
+
+--- Studs between two worlds as they are actually laid out in the Workspace.
+function Orbit.gridDistance(from: string, to: string): number
+	return (Planets.originFor(to) - Planets.originFor(from)).Magnitude
+end
+
+--- How long a crossing should feel like, from the map the player chose on.
+function Orbit.jumpDurationFor(from: string, to: string): number
+	local units = Planets.distance(from, to)
+	return math.clamp(units / Orbit.MAP_UNITS_PER_SECOND, Orbit.MIN_JUMP, Orbit.MAX_JUMP)
+end
+
+--- Studs per second that crosses the real gap in about that long.
+function Orbit.jumpSpeedFor(from: string, to: string): number
+	local duration = Orbit.jumpDurationFor(from, to)
+	return math.min(Orbit.gridDistance(from, to) / duration, Orbit.MAX_JUMP_SPEED)
+end
+
+--------------------------------------------------------------------------------
 -- The cloud deck
 --------------------------------------------------------------------------------
 
@@ -280,9 +354,22 @@ export type Sky = {
 	own colour bounced up off the planet below, so Hoth's orbit is faintly
 	blue and Tatooine's faintly warm. It is nearly invisible and it is the
 	difference between nine skies and one.
+
+	RAISED 2026-08-29: *"space is too dark as well."*
+	The first numbers were RGB(7, 8, 12) at 0.14 planetshine, which is what
+	vacuum honestly looks like and is not what a game needs. The unlit side
+	of your own hull was solid black, so a ship in orbit read as a silhouette
+	with no shape in it, and a second player's ship was invisible until it
+	crossed the sun.
+
+	These are still dark enough that the lit face reads as harsh -- the
+	contrast is the effect and it survives -- but there is now enough bounce
+	to see a hull by. Planetshine is up more than ambient, because the light
+	that would actually reach you out there comes off the enormous lit ball
+	underneath, and it is also the half of this that differs per world.
 ]]
-local SPACE_AMBIENT = Color3.fromRGB(7, 8, 12)
-local PLANETSHINE = 0.14
+local SPACE_AMBIENT = Color3.fromRGB(26, 29, 40)
+local PLANETSHINE = 0.3
 
 --- Sunlight with no air in the way is a hard point source with a wide flare.
 local SPACE_GLARE = 0.9
@@ -295,8 +382,17 @@ local SPACE_GLARE = 0.9
 ]]
 local STAR_COUNT = 3000
 
---- Slightly under-exposed, so the stars are not washed out by the sun's flare.
-local SPACE_EXPOSURE = -0.15
+--[[
+	Exposure.
+
+	Was -0.15, to keep the sun's flare from washing the stars out. That was
+	the right instinct and the wrong place to spend it: under-exposing the
+	whole frame darkened the hull and the stars together, so it bought
+	contrast in the sky by taking it out of the thing the player is flying.
+	Neutral now -- the stars hold up on their own against an ambient this
+	low, and `SPACE_GLARE` is what makes the sun read as a sun.
+]]
+local SPACE_EXPOSURE = 0
 
 local skies: { [string]: Sky } = {}
 
@@ -394,6 +490,18 @@ function Orbit.validate(): { string }
 	end
 	if Orbit.ARRIVAL_RADIUS >= Orbit.SYSTEM_RADIUS then
 		table.insert(problems, "arrival radius reaches outside the system it arrives in")
+	end
+
+	--[[
+		A crossing has to be able to notice its own arrival.
+
+		Dropping out is a per-frame distance test, so a hull that covers more
+		ground in one bad frame than the arrival radius is wide can pass
+		clean through the check and keep going. Twenty frames a second is
+		about as bad as a frame gets before nobody is playing anyway.
+	]]
+	if Orbit.MAX_JUMP_SPEED / 20 >= Orbit.ARRIVAL_RADIUS then
+		table.insert(problems, `a jump at {Orbit.MAX_JUMP_SPEED} studs/sec can overshoot its own arrival`)
 	end
 
 	for _, id in Planets.ids() do

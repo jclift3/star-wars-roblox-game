@@ -352,6 +352,79 @@ function TravelService.travelTo(player: Player, planetId: string): (boolean, str
 	return true, nil
 end
 
+--[[
+	Buys the fuel for a crossing the player is going to fly themselves.
+
+	The same trip as `travelTo` and the same gate, minus the arrival: this
+	takes the money and names the lane, and the ship covers the twelve
+	thousand studs under its own power. Nothing here moves anybody.
+
+	No `lastTravelAt` stamp, for the reason `travelTo` gives -- the cooldown
+	is the wait for somebody else's berth, and a pilot has his own.
+
+	The world is built **now**, at the button, not on arrival.
+	`PlanetBuilder.build` is fully synchronous -- there is not a single yield
+	in six thousand lines -- so raising a world costs one visible hitch
+	wherever it is put. Putting it here spends it under the flash of a jump
+	the player has just chosen, instead of in the middle of a descent.
+]]
+function TravelService.setCourse(player: Player, planetId: string): (boolean, string?)
+	if not Planets.exists(planetId) then
+		return false, "Unknown destination"
+	end
+	local profile = data().get(player)
+	if not profile then
+		return false, "Profile not loaded"
+	end
+	if profile.currentPlanet == planetId then
+		return false, "You are already here"
+	end
+
+	local planet = Planets.get(planetId)
+	if profile.level + LEVEL_GRACE < planet.minLevel then
+		return false, `{planet.displayName} is beyond you. Requires level {planet.minLevel - LEVEL_GRACE}`
+	end
+
+	-- Asked here rather than trusted from the quote, exactly as `travelTo`
+	-- does: this is the side that takes the money.
+	local hull = ownHull(player)
+	if not hull then
+		local vehicles = ServiceLoader.find("VehicleService")
+		return false, if vehicles then vehicles.starshipHint(player) else "Not at the controls of a starship"
+	end
+
+	local stats = progression().getStats(player)
+	local passage = fuelFor(hull, profile.currentPlanet, planetId, stats.FuelCostMult or 1)
+	if passage.credits > 0 and not progression().spendCredits(player, passage.credits) then
+		return false, `Fuel for that jump costs {passage.credits} cr`
+	end
+
+	ServiceLoader.get("WorldService").ensure(planetId)
+
+	--[[
+		The client owns the course from here, and holds no authority by
+		holding it. Where the ship ends up is decided by VehicleService's
+		position sweep, which reads the hull's actual coordinates once a
+		second and has never taken the client's word for anything. A course
+		is a heading and a line of text; the fuel for it is already spent.
+	]]
+	Net.fireClient(Net.Event.CourseSet, player, planetId)
+	Net.fireClient(
+		Net.Event.Notify,
+		player,
+		`Course laid in for {planet.displayName}. Reach orbit, then hold {Ships.ENGAGE_CAP}.`,
+		"Success"
+	)
+
+	local telemetry = analytics()
+	telemetry.log(player, telemetry.Kind.Travel, {
+		from = profile.currentPlanet,
+		credits = passage.credits,
+		flown = true,
+	})
+	return true, nil
+end
+
 --------------------------------------------------------------------------------
 -- Lifecycle
 --------------------------------------------------------------------------------
@@ -376,6 +449,12 @@ function TravelService.init()
 				then "You are at the controls. Jumps cost fuel and nothing else."
 				else origin.travelBlurb,
 			cooldownLeft = if hull then 0 else cooldownLeft(profile, os.time()),
+			-- Whether the button on each row says SET COURSE or TRAVEL. The
+			-- star map's instant jump stays for everyone without a hull:
+			-- three of the four origins do not start with one, and gating the
+			-- galaxy behind 30,000 credits would strand them. Owning a
+			-- starship changes *how* you travel, not whether you can.
+			canFly = hull ~= nil,
 			destinations = galaxyFor(player, profile),
 		}
 	end, {
@@ -391,6 +470,17 @@ function TravelService.init()
 	end, {
 		-- Deliberately slower than the shop's 4/s: this respawns a character
 		-- and can build a world.
+		rateLimit = 1,
+		validate = Net.args(Net.check.string(64)),
+	})
+
+	Net.onServerEvent(Net.Event.SetCourse, function(player: Player, planetId: string)
+		local ok, reason = TravelService.setCourse(player, planetId)
+		if not ok and reason then
+			Net.fireClient(Net.Event.Notify, player, reason, "Error")
+		end
+	end, {
+		-- Same rate as a jump, for the same reason: it can build a world.
 		rateLimit = 1,
 		validate = Net.args(Net.check.string(64)),
 	})

@@ -29,6 +29,7 @@
 	stopped looking for the ground.
 ]]
 
+local ContextActionService = game:GetService("ContextActionService")
 local Players = game:GetService("Players")
 local ProximityPromptService = game:GetService("ProximityPromptService")
 local RunService = game:GetService("RunService")
@@ -68,6 +69,28 @@ local FREEFALL = 90 -- studs/sec over a gap, where there is nothing to hover abo
 
 --- Reverse is a manoeuvre, not a direction of travel.
 local REVERSE_FRACTION = 0.35
+
+--[[
+	How hard the hyperdrive pulls the hull up to lane speed, in studs/sec².
+
+	Nothing to do with `ShipDef.acceleration`, which is a repulsorlift
+	shoving air about at a few hundred studs a second. A lane is doing
+	fifteen hundred, and reaching that at a Skipjack's 340/s² would eat a
+	quarter of the crossing. Four seconds of spool, near enough, at every
+	distance -- long enough to read as a drive winding up and short enough
+	that the shortest jump is still mostly travel.
+]]
+local JUMP_ACCELERATION = 400
+
+--[[
+	Where the player has said they are going, or nil.
+
+	Module-level rather than per-seat, because a course outlives a seat:
+	the fuel is already spent, and a pilot who set one, got out to pick up a
+	crate and got back in has not changed their mind. Cleared on arrival, on
+	abort, and when the character is replaced.
+]]
+local course: string? = nil
 
 local seated: {
 	model: Model,
@@ -116,6 +139,14 @@ local seated: {
 	--- The same latch for having flown off the side of the world, which is a
 	--- different place with a different answer.
 	strayed: boolean,
+	--- Where the hyperdrive is taking this hull, while it is engaged.
+	jumpTo: string?,
+	--- Studs per second the lane is pulling toward. `Orbit.jumpSpeedFor`.
+	jumpSpeed: number,
+	--- Seconds the engage key has been held, and whether it was down last
+	--- frame. The pair is what makes engaging a hold and aborting a press.
+	engageHeld: number,
+	engageDown: boolean,
 }? =
 	nil
 
@@ -154,6 +185,25 @@ local function showBearing(caption: string?, value: string?)
 	end
 end
 
+--- Shows or hides the legend's flight rows. Only this controller knows
+--- whether anybody is at a starship's controls, and CLIMB in the legend of a
+--- player standing in a desert reads as the legend lying.
+local function showFlightKeys(visible: boolean)
+	local hud = ServiceLoader.find("HudController")
+	if hud then
+		hud.setFlightKeys(visible)
+	end
+end
+
+--- Turns the hyperspace streaks on or off. `fraction` is how far the drive
+--- has spooled up, 0..1, which is the only cue that anything is spooling.
+local function showStreaks(on: boolean, fraction: number?)
+	local lines = ServiceLoader.find("StarlineController")
+	if lines then
+		lines.setStreaking(on, fraction)
+	end
+end
+
 --[[
 	Tells the sky which side of the atmosphere the camera is on.
 
@@ -170,6 +220,46 @@ local function enterSpace(inSpace: boolean)
 	end
 end
 
+--[[
+	THE CLIMB KEY AND THE EJECT KEY WERE THE SAME KEY
+
+	`Ships.PITCH_UP_KEY` is Space, which is the right key for climbing and is
+	also the one Roblox has already spent on getting out of a seat: a seated
+	`Humanoid` that sees a jump sets `Humanoid.Jump`, and a `VehicleSeat`
+	reads that as the rider asking to leave. So a player trying to reach
+	orbit -- the only way to reach orbit -- was thrown out of his own ship,
+	which is exactly what it looked like from the cockpit.
+
+	Rebinding the climb would have been the cheap fix and the wrong one.
+	Space is what every player already reaches for to go up, and it is the
+	key Logan reached for unprompted; moving it would trade a bug nobody can
+	work around for a control nobody can guess.
+
+	So the input is sunk instead, at a priority above the default jump
+	control, for exactly as long as somebody is at a starship's controls.
+	This is the same shape as the `ProximityPromptService.Enabled` write
+	below -- a client-only suppression of a stock behaviour that has no
+	business firing while flying -- and it is undone in `release`, which
+	every way of leaving a seat already goes through.
+
+	Deliberately starships only. A speeder cannot climb, so on one of those
+	Space still means what it has always meant: get off.
+]]
+local JUMP_ACTION = "HollowingFlightClimb"
+--- Above the default jump control, which is what makes this a sink rather
+--- than a race with it.
+local JUMP_PRIORITY = Enum.ContextActionPriority.High.Value
+
+local function holdJump(hold: boolean)
+	if hold then
+		ContextActionService:BindActionAtPriority(JUMP_ACTION, function()
+			return Enum.ContextActionResult.Sink
+		end, false, JUMP_PRIORITY, Enum.PlayerActions.CharacterJump)
+	else
+		ContextActionService:UnbindAction(JUMP_ACTION)
+	end
+end
+
 local function findConstraints(chassis: BasePart): (LinearVelocity?, AlignOrientation?)
 	local drive = chassis:FindFirstChild(ShipModel.DRIVE)
 	local attitude = chassis:FindFirstChild(ShipModel.ATTITUDE)
@@ -180,6 +270,11 @@ end
 local function release()
 	local current = seated
 	seated = nil
+	-- Unconditionally, and before the early return. A jump left sunk is a
+	-- player who can walk but never jump again, which is a far worse bug than
+	-- the one it is here to fix.
+	holdJump(false)
+	showFlightKeys(false)
 	if not current then
 		return
 	end
@@ -191,6 +286,11 @@ local function release()
 	if current.starship then
 		showAltitude(nil)
 		showBearing(nil)
+		-- A crossing is a thing the *hull* is doing, so it ends when the pilot
+		-- stops being at the controls. `seated` is already nil, so this is the
+		-- one exit `endJump` cannot clean up after.
+		current.jumpTo = nil
+		showStreaks(false)
 	end
 	-- Left enabled, a speeder nobody is driving keeps whatever velocity was
 	-- last written into it. The server anchors it a moment later; this is what
@@ -253,7 +353,16 @@ local function take(seat: VehicleSeat)
 		ceiling = Ships.CEILING,
 		aloft = false,
 		strayed = false,
+		jumpTo = nil,
+		jumpSpeed = 0,
+		engageHeld = 0,
+		engageDown = false,
 	}
+
+	if Ships.isStarship(shipId) then
+		holdJump(true)
+		showFlightKeys(true)
+	end
 end
 
 --[[
@@ -292,6 +401,74 @@ local function groundDistance(chassis: BasePart, reach: number): number?
 	return if hit then (chassis.Position - hit.Position).Magnitude else nil
 end
 
+--[[
+	Drops the hull out of the lane and hands the controls back.
+
+	Used by all three ways a crossing ends -- arriving, aborting, and getting
+	out of the seat -- because all three want exactly the same thing done and
+	a second copy of it is a second place to forget the starlines.
+
+	The speed is pulled back to what the ship can actually do. Left at lane
+	speed a pilot would drop out over a world doing fifteen hundred studs a
+	second with the controls live, which is not an arrival, it is a
+	projectile.
+]]
+local function endJump()
+	local s = seated
+	showStreaks(false)
+	if not s then
+		return
+	end
+	s.jumpTo = nil
+	s.speed = math.min(s.speed, s.def.speed * s.speedMult)
+end
+
+--[[
+	Lights the hyperdrive, or says which key is missing.
+
+	Three refusals and every one of them names the next thing to do rather
+	than the state, which is this project's most expensive recurring bug
+	(2026-08-17, and three times since). "No course set" is a fact the player
+	already has; the star map's key is what they do not.
+]]
+local function engage()
+	local s = seated
+	if not (s and s.starship) then
+		return
+	end
+
+	local destination = course
+	if not destination then
+		local key = Panels.toggleKey("GalaxyMapController")
+		toast(`No course set. Open the star map ({if key then key.Name else "G"}) and choose one.`, "Error")
+		return
+	end
+	if not s.aloft then
+		toast("Reach orbit before the hyperdrive will light", "Error")
+		return
+	end
+	if destination == s.system then
+		course = nil
+		toast(`You are already at {Planets.get(destination).displayName}`, "Error")
+		return
+	end
+
+	--[[
+		Priced off where the ship is, not off `profile.currentPlanet`.
+
+		A pilot who set a course, flew out into the void and then engaged has
+		already covered part of the distance, and charging them the duration
+		of a crossing they have started is the sort of arithmetic that makes
+		a player stop trusting the instrument. Out in deep space the nearest
+		world is the honest answer to "from where".
+	]]
+	local from = s.system or (Orbit.nearestSystem(s.chassis.Position))
+	s.jumpTo = destination
+	s.jumpSpeed = Orbit.jumpSpeedFor(from, destination)
+	showStreaks(true, 0)
+	toast(`Hyperdrive engaged -- {Planets.get(destination).displayName}`, "Success")
+end
+
 local function onStep(dt: number)
 	local s = seated
 	if not s then
@@ -310,6 +487,49 @@ local function onStep(dt: number)
 	s.yaw -= s.seat.Steer * turnRate * dt
 
 	if s.starship then
+		--[[
+			The engage key is *held*, not tapped, because engaging costs fuel
+			and locks the controls away for twenty seconds -- the two things a
+			mis-keyed press must never do. Aborting is a fresh press and takes
+			effect instantly, because that is a panic button and a panic
+			button you have to hold is not one.
+
+			`engageDown` is what makes the release matter: without it the same
+			held key that lit the drive would abort the jump on the very next
+			frame.
+		]]
+		local held = UserInputService:IsKeyDown(Ships.ENGAGE_KEY)
+		if s.jumpTo then
+			if held and not s.engageDown then
+				endJump()
+				toast("Hyperdrive disengaged", "Info")
+			end
+		elseif held then
+			s.engageHeld += dt
+			if s.engageHeld >= Ships.ENGAGE_HOLD then
+				s.engageHeld = 0
+				engage()
+			end
+		else
+			s.engageHeld = 0
+		end
+		s.engageDown = held
+	end
+
+	local lane = s.jumpTo
+	if lane then
+		--[[
+			In the lane the heading is written, not steered. Taking the
+			controls away is what makes a crossing a crossing rather than
+			twenty seconds of holding W, and it is the only thing that makes
+			arrival deterministic -- the drop-out test below is a distance to
+			a fixed point, and a pilot who could steer could miss it forever.
+		]]
+		local toward = Orbit.arrivalPointFor(lane) - s.chassis.Position
+		local direction = if toward.Magnitude > 1 then toward.Unit else -s.chassis.CFrame.LookVector
+		s.yaw = math.atan2(-direction.X, -direction.Z)
+		s.pitch = math.asin(math.clamp(direction.Y, -1, 1))
+	elseif s.starship then
 		--[[
 			Pitch is integrated the same way and then *decays* to level when
 			neither key is held. A held angle would mean a player who nosed up
@@ -331,6 +551,13 @@ local function onStep(dt: number)
 	local throttle = s.seat.Throttle
 	local target = def.speed * s.speedMult * throttle * (if throttle < 0 then REVERSE_FRACTION else 1)
 	local step = def.acceleration * dt
+	if lane then
+		-- The throttle is ignored too. A lane runs at one speed, and its own
+		-- acceleration is used because a hull's is tuned for a dogfight and
+		-- would spend half the crossing spooling up.
+		target = s.jumpSpeed
+		step = JUMP_ACCELERATION * dt
+	end
 	s.speed += math.clamp(target - s.speed, -step, step)
 
 	local heading = CFrame.Angles(0, s.yaw, 0) * CFrame.Angles(s.pitch, 0, 0)
@@ -402,11 +629,9 @@ local function onStep(dt: number)
 			s.strayed = false
 
 			-- The altimeter has nothing to measure against out here -- no
-			-- ground, no ceiling, and a Y that means nothing on its own. What
-			-- the player wants instead is which way is home.
-			local nearest, away = Orbit.nearestSystem(position)
+			-- ground, no ceiling, and a Y that means nothing on its own. The
+			-- bearing line below is what replaces it.
 			showAltitude(nil)
-			showBearing("DEEP SPACE", `{Planets.get(nearest).displayName}  {math.floor(away)}`)
 		else
 			local altitude = position.Y
 			local flat = position - s.origin
@@ -438,8 +663,41 @@ local function onStep(dt: number)
 			s.aloft = aloft
 			s.strayed = strayed
 
-			showBearing(nil)
 			showAltitude(altitude, s.ceiling, aloft)
+		end
+
+		if lane then
+			--[[
+				Dropping out is a distance, not a timer.
+
+				`Orbit.ARRIVAL_RADIUS` is 2,400 and `SYSTEM_RADIUS` is 3,600,
+				so the destination has already become the player's world a
+				beat *before* the streaks stop -- its sky, its weather, its
+				crowd and its mission board are all in place by the time
+				there is anything to look at.
+			]]
+			local away = (Orbit.arrivalPointFor(lane) - position).Magnitude
+			showStreaks(true, if s.jumpSpeed > 0 then math.clamp(s.speed / s.jumpSpeed, 0, 1) else 1)
+			showBearing("HYPERSPACE", `{Planets.get(lane).displayName}  {math.floor(away)}`)
+			if away <= Orbit.ARRIVAL_RADIUS then
+				endJump()
+				course = nil
+				toast(`Dropping out over {Planets.get(lane).displayName}`, "Success")
+			end
+		elseif course then
+			-- A course bought and not yet flown. The distance counts down as
+			-- you close on it under your own power, so a pilot who never
+			-- engages still arrives, slowly, which is the point of Part 1.
+			local held = course :: string
+			local away = (Orbit.arrivalPointFor(held) - position).Magnitude
+			showBearing("COURSE", `{Planets.get(held).displayName}  {math.floor(away)}`)
+		elseif not system then
+			-- Nowhere in particular and nowhere to be. Which way is home is
+			-- the only thing left worth saying.
+			local nearest, away = Orbit.nearestSystem(position)
+			showBearing("DEEP SPACE", `{Planets.get(nearest).displayName}  {math.floor(away)}`)
+		else
+			showBearing(nil)
 		end
 	else
 		local vertical: number
@@ -528,7 +786,26 @@ function VehicleController.start()
 		end)
 	end
 
-	player.CharacterAdded:Connect(bind)
+	--[[
+		The course is only ever set by the server saying so.
+
+		The client could perfectly well remember which world was clicked, and
+		it would be wrong every time the fare bounced -- not enough credits,
+		too low a level, no hull at the controls. A course the player has not
+		paid for is a HUD line counting down to a jump that will never light.
+	]]
+	Net.onClientEvent(Net.Event.CourseSet, function(planetId: string)
+		course = planetId
+	end)
+
+	player.CharacterAdded:Connect(function(character: Model)
+		-- Dying is not an abort, but it does end the crossing, and a course
+		-- that outlived the pilot would light the drive again on the next
+		-- press without charging for it.
+		course = nil
+		showStreaks(false)
+		bind(character)
+	end)
 	local existing = player.Character
 	if existing then
 		bind(existing)

@@ -369,13 +369,29 @@ do
 		return chat.AbsolutePosition.Y + size.Y
 	end
 
+	--[[
+		How far the chat is allowed to push something down. Reported
+		2026-08-29 with a screenshot: *"why is the menu in the middle of the
+		screen?"* -- the legend had been shoved to the vertical centre.
+
+		Dodging the chat was right; chasing it was not. The thing being
+		dodged is Roblox's translation notice, which is two lines and
+		temporary. A chat *window* the player has left expanded is several
+		hundred pixels tall, and following it turns a top-left reference card
+		into a banner across the middle of the view.
+
+		So the dodge is capped. Past the cap the legend stops moving and the
+		player can close or shrink a window they chose to open.
+	]]
+	local MAX_CHAT_DROP = 96
+
 	local function place()
 		local top = GuiService.TopbarInset.Max.Y + 10
 		local under = chatBottom()
 		for _, held in anchored do
 			local y = top
 			if held.clearChat and under then
-				y = math.max(y, under + 10)
+				y = math.clamp(under + 10, y, top + MAX_CHAT_DROP)
 			end
 			held.frame.Position = UDim2.new(held.x.Scale, held.x.Offset, 0, y)
 		end
@@ -457,8 +473,9 @@ end
 	ability bar is bottom centre -- and because a reference card should not
 	sit where the eye goes during a fight.
 
-	It never hides. An always-visible legend is a small permanent cost against
-	a player who does not know the game has a skill tree, and the two brothers
+	It is visible by default -- see the collapse note below, which came
+	later. An always-visible legend is a small permanent cost against a
+	player who does not know the game has a skill tree, and the two brothers
 	play in one room: whichever of them reads it first tells the other.
 
 	It sits under `belowTopbar` for the reason documented there: the unibar
@@ -479,7 +496,37 @@ end
 	Dropping below the chat keeps the row and its priority order intact,
 	which the alternatives (splitting it in two, or relocating a control
 	players already know the position of) do not.
+
+	IT HIDES NOW, AND IT ONLY SHOWS WHAT IS TRUE RIGHT NOW
+	Reported 2026-08-29: *"we should be able to minimize mostly and then
+	maximize it. also if it makes sense to have less hot keys that's ok."*
+	Both halves were fair. The row had grown to eleven entries and was
+	telling a player standing in a desert about the hyperdrive.
+
+	So, three cuts. A chevron collapses the whole thing to a single chip.
+	The flight rows move into a second group that only appears while
+	somebody is at a starship's controls. And the five panel letters become
+	one `TAB` row, because `MenuController` now opens all five and prints
+	their letters on the tabs.
+
+	That is eleven entries down to six, five of which are true of a
+	character who has unlocked nothing. Collapsing is remembered for the
+	session but never saved -- a player who hides the legend on Tuesday and
+	forgets the keys by Friday is worse off than one who hides it twice.
 ]]
+local legendRows: Frame
+local legendFlight: Frame
+local legendOpen = true
+
+--- Shows or hides the flight rows. Called by `VehicleController` when a
+--- pilot takes or leaves a starship's controls, because it is the only
+--- thing that knows.
+function HudController.setFlightKeys(visible: boolean)
+	if legendFlight then
+		legendFlight.Visible = visible
+	end
+end
+
 local function buildLegend()
 	local root = Instance.new("Frame")
 	root.Name = "Legend"
@@ -496,8 +543,51 @@ local function buildLegend()
 	layout.Padding = UDim.new(0, 10)
 	layout.Parent = root
 
+	--[[
+		The collapse control.
+
+		A chevron rather than a word, and it stays put when the rows go, so
+		the thing you press to get the legend back is in the same place as
+		the thing you pressed to send it away. It is deliberately the only
+		part of the HUD that is clickable: everything else here is a
+		readout, and a player hunting for a button should find exactly one.
+	]]
+	local chip = panel("Toggle", root)
+	chip.Size = UDim2.fromOffset(18, 18)
+	chip.LayoutOrder = 0
+
+	local chevron = text("Chevron", chip, 11, ACCENT)
+	chevron.Font = Enum.Font.GothamBold
+	chevron.Size = UDim2.fromScale(1, 1)
+	chevron.TextXAlignment = Enum.TextXAlignment.Center
+	chevron.Text = "<"
+
+	local hit = Instance.new("TextButton")
+	hit.Name = "Hit"
+	hit.BackgroundTransparency = 1
+	hit.Text = ""
+	hit.Size = UDim2.fromScale(1, 1)
+	hit.Parent = chip
+
+	legendRows = Instance.new("Frame")
+	legendRows.Name = "Rows"
+	legendRows.BackgroundTransparency = 1
+	legendRows.Size = UDim2.fromOffset(0, 20)
+	legendRows.AutomaticSize = Enum.AutomaticSize.X
+	legendRows.LayoutOrder = 1
+	legendRows.Parent = root
+
+	local rowLayout = layout:Clone()
+	rowLayout.Parent = legendRows
+
+	hit.Activated:Connect(function()
+		legendOpen = not legendOpen
+		legendRows.Visible = legendOpen
+		chevron.Text = if legendOpen then "<" else ">"
+	end)
+
 	local order = 0
-	local function entry(cap: string, hint: string)
+	local function entryIn(parent: Frame, cap: string, hint: string)
 		order += 1
 
 		local holder = Instance.new("Frame")
@@ -506,7 +596,7 @@ local function buildLegend()
 		holder.Size = UDim2.fromOffset(0, 20)
 		holder.AutomaticSize = Enum.AutomaticSize.X
 		holder.LayoutOrder = order
-		holder.Parent = root
+		holder.Parent = parent
 
 		local inner = Instance.new("UIListLayout")
 		inner.FillDirection = Enum.FillDirection.Horizontal
@@ -550,8 +640,13 @@ local function buildLegend()
 		They go first because they are the only two rows that are true of a
 		character who has unlocked nothing.
 	]]
-	entry("LMB", "ATTACK")
-	entry("SHIFT", "SPRINT")
+	entryIn(legendRows, "LMB", "ATTACK")
+	-- Aim is the third. `AimController` has bound the right button to a
+	-- shoulder camera and a spread reticle since 2026-08-17, in answer to a
+	-- complaint about shooting, and then never said so -- which is the same
+	-- failure as the two rows above it, one system over.
+	entryIn(legendRows, "RMB", "AIM")
+	entryIn(legendRows, "SHIFT", "SPRINT")
 
 	--[[
 		The number keys are not a panel, so they are written by hand too. They
@@ -560,7 +655,7 @@ local function buildLegend()
 		unlocked something, so before that this row is the only thing on
 		screen that says abilities exist at all.
 	]]
-	entry("1-6", "POWERS")
+	entryIn(legendRows, "1-6", "POWERS")
 
 	--[[
 		The summon key is the other hand-written line, for the same reason: a
@@ -569,27 +664,63 @@ local function buildLegend()
 		never learns the game has vehicles never walks into the shop to buy
 		one, which leaves them doing the walk they are complaining about.
 	]]
-	entry(Ships.SUMMON_KEY.Name, Ships.SUMMON_HINT)
+	entryIn(legendRows, Ships.SUMMON_KEY.Name, Ships.SUMMON_HINT)
+
+	--[[
+		One row where there used to be five.
+
+		B, M, J, K and G each earned their place here in 2026-08-17, when the
+		complaint was that finished panels had no advertised way in. They
+		fixed that and created the next problem: five unrelated letters to
+		memorise before the interface is usable, which is what
+		`MenuController` now answers. The letters still work and are printed
+		on the tabs themselves, so this row is the only thing a player has to
+		read to reach all five.
+	]]
+	entryIn(legendRows, Panels.MENU_CAP, Panels.MENU_HINT)
+
+	--[[
+		The flight group, which is off until somebody is flying.
+
+		Climb, dive, jump and the cabin door are four rows that are false of
+		every player on foot, and there is one of those for every minute of
+		play spent in a cockpit. Worse, they were false in a way that reads
+		as broken: a boy standing in Anchorhead pressing SPACE because the
+		legend says CLIMB gets a jump, and concludes the legend lies.
+
+		It is a group rather than four hidden rows so that its own layout
+		order is independent -- the flight keys appear together, at the end,
+		in the order you need them, whatever the panel registry grows to.
+	]]
+	legendFlight = Instance.new("Frame")
+	legendFlight.Name = "Flight"
+	legendFlight.BackgroundTransparency = 1
+	legendFlight.Size = UDim2.fromOffset(0, 20)
+	legendFlight.AutomaticSize = Enum.AutomaticSize.X
+	legendFlight.LayoutOrder = 99
+	legendFlight.Visible = false
+	legendFlight.Parent = legendRows
+
+	local flightLayout = layout:Clone()
+	flightLayout.Parent = legendFlight
 
 	-- Climb and dive, which are the only two controls in the game that have
 	-- never been stated anywhere -- not here, not in the shop that sells the
 	-- ship, not on the pad it launches from. A starship that flies dead level
 	-- forever is a starship that cannot reach orbit, and the player would
 	-- have no way of knowing that was their doing rather than the game's.
-	entry(Ships.PITCH_UP_CAP, Ships.PITCH_UP_HINT)
-	entry(Ships.PITCH_DOWN_CAP, Ships.PITCH_DOWN_HINT)
+	entryIn(legendFlight, Ships.PITCH_UP_CAP, Ships.PITCH_UP_HINT)
+	entryIn(legendFlight, Ships.PITCH_DOWN_CAP, Ships.PITCH_DOWN_HINT)
 
-	-- And the third, for exactly the same reason as the second: a room is
-	-- not a panel, and a starship whose inside nobody knows about is a
-	-- starship with no inside.
-	entry(Furnishings.BOARD_KEY.Name, Furnishings.BOARD_HINT)
+	-- And the hyperdrive, which is the only key in the game that is *held*
+	-- rather than pressed. The legend cannot say so in one column, so the
+	-- refusal does: pressing it with no course names the star map instead.
+	entryIn(legendFlight, Ships.ENGAGE_CAP, Ships.ENGAGE_HINT)
 
-	for _, def in Panels.ALL do
-		local toggle = def.toggle
-		if toggle then
-			entry(toggle.key.Name, toggle.hint)
-		end
-	end
+	-- And the cabin door, for exactly the same reason as the summon key: a
+	-- room is not a panel, and a starship whose inside nobody knows about is
+	-- a starship with no inside.
+	entryIn(legendFlight, Furnishings.BOARD_KEY.Name, Furnishings.BOARD_HINT)
 end
 
 --------------------------------------------------------------------------------

@@ -85,6 +85,9 @@ type Galaxy = {
 	originName: string,
 	originNote: string,
 	cooldownLeft: number,
+	--- True when the player is at the controls of their own starship, which
+	--- turns the button from a ticket into a heading.
+	canFly: boolean,
 	destinations: { Destination },
 }
 
@@ -295,7 +298,17 @@ local function renderDetail()
 		actionButton.TextColor3 = BAD
 		actionButton.Active = false
 	else
-		actionButton.Text = "DEPART"
+		--[[
+			The one word that says which of the two travel systems you are
+			about to use.
+
+			DEPART is a ticket: you arrive. SET COURSE is a heading: the
+			fuel comes off, the lane is laid in, and you still have to fly
+			it. A player at the controls of their own ship is never given
+			the ticket, because the ship is the reason they are up there.
+		]]
+		local flying = galaxy ~= nil and (galaxy :: Galaxy).canFly
+		actionButton.Text = if flying then "SET COURSE" else "DEPART"
 		actionButton.BackgroundColor3 = ACCENT
 		actionButton.TextColor3 = Color3.new(0, 0, 0)
 		actionButton.Active = true
@@ -435,7 +448,16 @@ end
 function GalaxyMapController.start()
 	actionButton.Activated:Connect(function()
 		local dest = find(selected)
-		if dest and not dest.current and not dest.locked then
+		if not (dest and not dest.current and not dest.locked) then
+			return
+		end
+		if galaxy and (galaxy :: Galaxy).canFly then
+			Net.fireServer(Net.Event.SetCourse, dest.id)
+			-- Closed here rather than on a reply, because the next thing the
+			-- player needs is the view: the course they have just bought is
+			-- flown by hand and the panel is over the windscreen.
+			GalaxyMapController.setOpen(false)
+		else
 			Net.fireServer(Net.Event.TravelTo, dest.id)
 		end
 	end)

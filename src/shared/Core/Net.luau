@@ -380,6 +380,11 @@ Net.Event = {
 	-- Travel
 	TravelTo = "TravelTo",
 	Travelled = "Travelled",
+	-- Flying there yourself. `SetCourse` buys the fuel and picks the lane;
+	-- `CourseSet` is the server saying so, which is what keeps the client
+	-- from drawing a course it has not paid for.
+	SetCourse = "SetCourse",
+	CourseSet = "CourseSet",
 	-- Dialogue
 	StartDialogue = "StartDialogue",
 	DialogueChoice = "DialogueChoice",

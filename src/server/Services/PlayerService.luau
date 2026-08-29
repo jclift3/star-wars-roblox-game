@@ -143,8 +143,47 @@ local function applyGravity(character: Model, planetGravity: number)
 	force.Force = Vector3.zero
 	force.Parent = root
 
+	--[[
+		THE FORCE HAS TO DIE WITH THE CHARACTER
+
+		Reported 2026-08-29: *"the physics when someone dies was ragdolling
+		really well previously and now it seems like they more often fall
+		through the map."*
+
+		Death breaks the character's joints, and the root part stops being a
+		whole welded body and becomes one loose fragment. The force does not
+		notice: it was last sized off the *assembled* mass and is only
+		refreshed once a second, so for up to a second a fragment carries a
+		push meant for something five times heavier.
+
+		On a heavy world -- Korriban is 210, Coruscant 202, Hoth 198 -- that
+		push points **down**, and a small part shoved down that hard covers
+		more than its own thickness in a frame, which is exactly how a
+		collider gets missed. Hence a corpse through the floor, intermittently
+		(it depends where in the refresh you died) and worse on some worlds
+		than others (it depends on the sign).
+
+		Killing it on `Died` rather than letting the loop notice is the point.
+		The loop's own check is a backstop for a character removed without
+		ever dying; the connection is what makes the teardown happen in the
+		same instant as the joint break rather than up to a second after it.
+	]]
+	local function drop()
+		force:Destroy()
+		attachment:Destroy()
+	end
+
+	local humanoid = character:FindFirstChildOfClass("Humanoid")
+	if humanoid then
+		humanoid.Died:Connect(drop)
+	end
+
 	task.spawn(function()
 		while force.Parent and character.Parent do
+			if humanoid and humanoid.Health <= 0 then
+				drop()
+				return
+			end
 			-- AssemblyMass covers the whole welded character, so cosmetics and
 			-- held weapons are already included.
 			force.Force = Vector3.new(0, root.AssemblyMass * (Workspace.Gravity - planetGravity), 0)

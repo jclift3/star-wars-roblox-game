@@ -36,11 +36,12 @@ get wrong announces itself there rather than on screen:
 
 | Input | Does |
 | --- | --- |
-| **B** | Inventory / shop |
-| **M** | Mission board |
-| **J** | Journal (what you have already done) |
-| **K** | Skill tree |
-| **G** | Galaxy map (travel) |
+| **Tab** | Open the menu, and the tab strip that reaches all five panels below |
+| **B** | Inventory / shop — shortcut, also a tab |
+| **M** | Mission board — shortcut, also a tab |
+| **J** | Journal (what you have already done) — shortcut, also a tab |
+| **K** | Skill tree — shortcut, also a tab |
+| **G** | Galaxy map (travel) — shortcut, also a tab |
 | **Esc** | Close the open panel |
 | **Shift** | Sprint (server-authoritative — see 9, step 4) |
 | **Mouse 1** | Fire / swing. Hold for automatics, click per shot for semi-autos |
@@ -52,6 +53,7 @@ get wrong announces itself there rather than on screen:
 | **H** | Board / leave your ship's cabin — starships only, and only near your own hull |
 | **W/S**, **A/D** (seated) | Throttle, steer |
 | **Space** / **LeftCtrl** (seated) | Climb, dive — starships only; releases both levels you off |
+| **F** (hold, seated) | Engage the hyperdrive; press again to abort |
 
 **The game now says all of this itself**, in a legend across the top-left corner
 that is built from `Panels.ALL` rather than typed out. This table is for the
@@ -59,6 +61,18 @@ person running the tests; the legend is for the player who has never read it.
 Reported from play, 2026-08-17 — someone who had finished a mission still did
 not know the skill tree existed. If a key here and the legend ever disagree, the
 bug is in this file: `Panels.luau` is the one place either of them comes from.
+
+**The legend is shorter than this table on purpose** (2026-08-29). It shows six
+rows on foot — LMB, RMB, SHIFT, 1-6, V and TAB — because five unrelated panel
+letters are five things to memorise before the interface is usable, and TAB
+reaches all of them. The letters are printed on the tabs. The flight rows appear
+only while somebody is at a starship's controls, and a chevron collapses the lot.
+
+**Every key in that table is checked at boot.** `Shared/Core/Bindings.luau`
+collects them from wherever they are declared and `WorldService` warns if two
+share a letter — added after **H** was given to the hyperdrive while it was
+already the cabin door, and shipped, and was found by a fourteen-year-old
+pressing H in a ship.
 
 ### Cheat codes
 
@@ -1230,7 +1244,7 @@ Needs `showmethemoney` (30,000 cr minimum) and `greedisgood` to level 16.
    it should not be lit by the desert sun either.
 7. Look at the **forward** wall. There is a window, and **stars** beyond it. Walk
    side to side: they stay outside the glass.
-8. Press **H** again. You are back **exactly where you were standing**, next to
+8. Press **F** again. You are back **exactly where you were standing**, next to
    your ship, still on Tatooine. Not at the spawn point, not falling.
 9. Board, then press **H** and immediately board again a few times. No second
    room accumulates, and you never end up inside two cabins at once.
@@ -1506,8 +1520,10 @@ grid. Nothing crossed the gap. Now something can.
 **Arriving**
 
 5. From Tatooine, hold a heading toward a neighbour for about a minute — 12,000
-   studs at the Skipjack's 240. This is deliberately slow; the hyperdrive is
-   the next commit and this step is what it replaces.
+   studs at the Skipjack's 240. This is deliberately slow; §6.9 is the fast way,
+   and this step is what it replaces. **Do it the slow way once anyway**, because
+   it is the only way to prove the crossing is real and not a dressed-up
+   teleport.
 6. Somewhere before you can see anything, the DEEP SPACE line is replaced by the
    altimeter again, and a toast reads **"Entering <World> space"**. From that
    moment on it is that world's sky, that world's weather, that world's
@@ -1555,6 +1571,155 @@ grid. Nothing crossed the gap. Now something can.
     not vanish at a boundary.
 17. **A speeder still cannot do any of this.** No altimeter, no DEEP SPACE line,
     no climb. Ride one off a cliff and it falls.
+
+---
+
+### 6.9 The hyperdrive — **new, 2026-08-29**
+
+§6.8 is the prerequisite, and so is doing at least one crossing the slow way. The
+fifty seconds you spent there is the thing this section exists to delete.
+
+**Setting a course**
+
+1. Seated at the controls of a starship, press **G**. The action button reads
+   **SET COURSE**, not DEPART. *(On foot, or in a speeder, it still reads DEPART
+   and still jumps you instantly — three of the four origins do not start with a
+   hull and must not be stranded.)*
+2. Choose a world and press it. Credits come off **the same number the panel
+   quoted**, the panel closes, and a toast names the jump key. Check the fare
+   against your credits before and after; a pilot's fare is fuel, so it is tens
+   of credits, not thousands.
+3. The bottom-right line now reads **COURSE** over the destination and a
+   distance. It stays there while you fly, and the distance counts down if you
+   are pointed at it — you can reach the destination on that alone, slowly, which
+   is §6.8.
+4. **Expect one hitch** at the moment you press the button if you have never been
+   to that world. That is the whole world being built, deliberately scheduled
+   *there* rather than on arrival at fifteen hundred studs a second.
+
+**Crossing**
+
+5. Climb to **ORBIT**, then **hold F**. Not tap — hold it for about half a
+   second. The drive lights, a toast names the destination, and the line changes
+   to **HYPERSPACE**.
+6. **Starlines.** The view fills with pale streaks running past you, and they get
+   *longer* as the drive spools up rather than appearing at full stretch. That
+   ramp is the only instrument that says the drive is doing anything.
+7. **The controls are gone.** Try to steer and pitch: nothing. The ship holds a
+   dead-straight line at the destination. This is deliberate — it is what makes
+   arrival deterministic.
+8. The crossing takes **between 8 and 20 seconds** depending on how far apart the
+   two worlds are **on the star map**. Neighbours are short, opposite corners are
+   the full twenty.
+9. **The sky changes before the streaks stop.** Watch for it: the destination's
+   weather and lighting arrive a beat *early*, and then you drop out with
+   something already there to look at. If you drop out into a black empty sky
+   that only fills in afterwards, that is the bug.
+10. You drop out **still flying**, at your ship's own speed, nose down over the
+    world, with a toast naming it. You should not be doing fifteen hundred studs
+    a second when the controls come back.
+11. Descend and land normally. The course is gone; the line is back to the
+    altimeter. **M**, **J** and the NPCs are all the new world's.
+
+**Aborting, and the refusals**
+
+12. Set a course, engage, and **press F again** halfway across. The streaks stop
+    instantly, you keep flying at sublight, and you are in **DEEP SPACE** with a
+    **COURSE** still set. Not stranded — turn around, or engage again.
+13. Engage again after aborting: it relights, and **you are not charged twice.**
+14. Press **F** with **no course set**. The refusal names **G** — the thing to do
+    next — not "no course set", which you already knew.
+15. Press **F** on the ground or below the ceiling. It refuses and tells you to
+    reach orbit.
+16. Try to set a course for the world you are **already on**: refused.
+17. Set a course, then **die**. The course is gone. Pressing F afterwards names
+    **G** again, and you have to pay for a new one.
+18. **A speeder cannot set a course at all** — the button still reads DEPART, and
+    **F** does nothing.
+
+**Both boys at once**
+
+19. One sets a course and jumps while the other watches from the ground. The
+    watcher sees a ship accelerate away and shrink — **he must not see
+    starlines**, which are drawn under his own camera and belong to the pilot
+    only.
+20. Both jump to the same world from different places. Both arrive; both see the
+    same world, the same crowd and the same weather.
+
+### 6.10 What the first flight found — **new, 2026-08-29**
+
+Five fixes from one session in a cockpit, none of them the hyperdrive. Each is
+short, and each was a thing a player hit in the first two minutes.
+
+**Space no longer throws you out of the ship**
+
+1. Seated at a starship's controls, hold **Space**. The nose comes up and the
+   altimeter climbs. *You must not stand up.* This was the bug: a seated
+   `Humanoid` reads a jump input as "leave the seat", so the one key that gets you
+   to orbit was the one key that ejected you at altitude.
+2. Leave the seat normally and press **Space** on the ground. **You jump.** This
+   is the half that matters more — a jump left suppressed is a player who can
+   never jump again, which is worse than the bug it fixes.
+3. Die while flying, or press **V** to put the ship away mid-air, and then jump on
+   the ground. Still works. Every exit releases it.
+4. Get into a **speeder** and press **Space**. You leave the seat, as before —
+   speeders cannot climb and are not affected.
+
+**Dying does not put you through the floor**
+
+5. On **Korriban**, **Coruscant** or **Hoth** — the three worlds with gravity
+   above Earth normal, which is where this showed — get killed. The body falls,
+   settles on the ground, and stays there. It must not sink through the terrain or
+   the pad.
+6. Do it again on **Tatooine** (low gravity) and confirm the body still falls at
+   the world's own weight rather than floating.
+7. Respawn and jump. Your character still weighs what the world says it does — the
+   force that holds you up is rebuilt per character, not per life.
+
+**Space is bright enough to see the ship by**
+
+8. Climb past the ceiling. The sky is black with stars, as before, **but the hull
+   in front of you is visibly lit** and you can tell its shape from its background.
+   If the ship is a silhouette, the fix did not take.
+
+**The legend stays in the corner**
+
+9. Join and watch the top-left through the first ten seconds, including Roblox's
+   own translation notice landing in the chat. The legend drops **below** the chat
+   and no further — it must never end up in the middle of the play area.
+10. Press the **chevron** at its left end. Everything collapses to that one chip.
+    Press it again: everything comes back. Rejoin: it is open again, deliberately.
+11. On foot the legend reads **LMB / RMB / SHIFT / 1-6 / V / TAB** and nothing
+    else. **RMB AIM is the new one** — hold the right mouse button and confirm the
+    shoulder camera and reticle it has always had.
+12. Sit at a starship's controls: **four more rows appear** — climb, dive, jump,
+    cabin. Stand up: they go. In a **speeder** they must not appear at all.
+
+**One menu instead of five letters**
+
+13. Press **Tab**. A panel opens with a **strip of tabs above it**, one per panel,
+    the open one highlighted in orange, each with its letter shown small beside
+    the word.
+14. Click each tab in turn. The panel behind swaps; the strip stays put; exactly
+    one tab is ever highlighted.
+15. Press **Tab** again. Everything closes, strip included.
+16. Press **Tab** twice more — it reopens **the tab you were last in**, not the
+    first one. This is per session and is not saved; rejoin and it is the first
+    tab again.
+17. **The letters still work.** With the menu closed press **B**: the inventory
+    opens *and the strip appears with GEAR highlighted*. From there press **G**:
+    the strip follows to STAR MAP. It reads the panels rather than being told, so
+    it cannot get out of step.
+18. Make the star map open **by itself** — fly a speeder off the edge of the world
+    at low altitude. The strip appears with STAR MAP highlighted, the same as if
+    you had pressed the key.
+19. Talk to an NPC. Dialogue is not a tab and gets no strip — it is opened by
+    walking up to somebody, not navigated to.
+20. **On a fresh character, before an origin is chosen**, press **Tab**. Nothing
+    happens. The creation card is modal and a row of buttons under a card you
+    cannot dismiss would be a menu you cannot reach.
+21. Type in the chat box and press **Tab**. The menu must not open — text input
+    takes the key first.
 
 ---
 

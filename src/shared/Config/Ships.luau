@@ -1534,6 +1534,27 @@ Ships.PITCH_UP_HINT = "CLIMB"
 Ships.PITCH_DOWN_CAP = "CTRL"
 Ships.PITCH_DOWN_HINT = "DIVE"
 
+--[[
+	Engage the hyperdrive, once a course is set and you have reached orbit.
+
+	H was the obvious mnemonic and was already taken -- `Furnishings.BOARD_KEY`
+	has been the cabin door since the ship got an inside. It was picked by
+	reading the legend for a free letter and missing one, which is precisely
+	the failure `Bindings.validate` now catches at boot rather than in a
+	screenshot from a fourteen-year-old.
+
+	F instead: unbound, under the left hand while it is already on W, and
+	next to nothing it could be confused with.
+
+	Held rather than tapped. A jump is the single most consequential thing a
+	pilot can do -- it charges fuel and hands the controls to the lane for
+	twenty seconds -- and every accidental one costs credits.
+]]
+Ships.ENGAGE_KEY = Enum.KeyCode.F
+Ships.ENGAGE_HOLD = 0.6
+Ships.ENGAGE_CAP = "F"
+Ships.ENGAGE_HINT = "JUMP"
+
 function Ships.get(id: string): ShipDef
 	local d = defs[id]
 	assert(d, `Ships.get: unknown ship "{id}"`)
