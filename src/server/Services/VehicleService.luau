@@ -38,6 +38,8 @@ local Shared = game:GetService("ReplicatedStorage"):WaitForChild("Shared")
 local Types = require(Shared.Types)
 local Net = require(Shared.Core.Net)
 local Panels = require(Shared.Core.Panels)
+local Orbit = require(Shared.Config.Orbit)
+local Planets = require(Shared.Config.Planets)
 local Ships = require(Shared.Config.Ships)
 local ShipModel = require(Shared.Rig.ShipModel)
 local ServiceLoader = require(Shared.Core.ServiceLoader)
@@ -50,6 +52,26 @@ local VehicleService = {
 }
 
 local spawned: { [Player]: Model } = {}
+
+--[[
+	How long to wait before putting a pilot back in a seat they cannot leave.
+
+	Leaving a `VehicleSeat` is a jump: Roblox reads the same key that got you
+	out, so a character re-seated inside the same frame leaps straight back
+	out again on the input still being held. A quarter second is past the
+	jump and still well short of anybody noticing they were ever loose.
+]]
+local RESEAT_DELAY = 0.25
+
+--[[
+	Seconds between "which world is this hull over?" sweeps.
+
+	Nine distance checks per piloted starship, and the answer only matters at
+	the moment a ship crosses a system boundary at a few hundred studs a
+	second -- so a second of lag on the sky changing is under a wingspan of
+	travel, and the cost is nothing.
+]]
+local SYSTEM_POLL = 1
 
 local function data()
 	return ServiceLoader.get("DataService")
@@ -148,6 +170,40 @@ local function nearestPad(position: Vector3): BasePart?
 		end
 	end
 	return best
+end
+
+--[[
+	Whether there is a pad here at all, whoever is parked on it.
+
+	Deliberately a different question from `nearestPad`. That one refuses a
+	pad another player's hull is sitting on, because it is choosing somewhere
+	to *put* a ship. This one asks whether a person could stand here, and the
+	ship on the disc is the one they are about to climb out of.
+]]
+local function padNear(position: Vector3): boolean
+	for _, pad in CollectionService:GetTagged(Ships.PAD_TAG) do
+		if pad:IsA("BasePart") and (pad.Position - position).Magnitude < Ships.PAD_RANGE then
+			return true
+		end
+	end
+	return false
+end
+
+--[[
+	Whether stepping out of this hull would be stepping into vacuum.
+
+	Two ways to be nowhere survivable: above the world's ceiling, or outside
+	any world's system at all. The first is orbit and the second is the dark
+	between worlds, and a character released into either falls forever --
+	`Workspace.FallenPartsDestroyHeight` is not even reachable from up there,
+	so it is not even a quick death.
+]]
+local function inVacuum(chassis: BasePart): boolean
+	local system = Orbit.systemAt(chassis.Position)
+	if not system then
+		return true
+	end
+	return chassis.Position.Y >= Orbit.ceilingFor(system)
 end
 
 --[[
@@ -352,6 +408,16 @@ local function watch(model: Model)
 		rider:GetPropertyChangedSignal("Occupant"):Connect(relabel)
 	end
 
+	--[[
+		Who was at the controls a moment ago.
+
+		`Occupant` tells you who is in the seat now, and the case that needs
+		guarding is the one where the answer is nobody. Without this the
+		service cannot tell a pilot stepping out from a seat that was already
+		empty, and they are the same event to Roblox.
+	]]
+	local lastDriver: Player? = nil
+
 	seat:GetPropertyChangedSignal("Occupant"):Connect(function()
 		if not chassis.Parent then
 			return
@@ -364,6 +430,49 @@ local function watch(model: Model)
 		local driver = if character and character:IsA("Model")
 			then Players:GetPlayerFromCharacter(character)
 			else nil
+
+		local left = lastDriver
+		lastDriver = driver
+
+		--[[
+			YOU CANNOT STEP OUT INTO VACUUM
+
+			The pad rule read in the other direction. A starship launches from
+			a pad because a hull appearing out of nothing is not a thing a
+			freighter does; by the same token a pilot may only *leave* one
+			where there is ground or a pad under it. Anywhere else, pressing
+			the jump key in orbit would end the session -- and the player who
+			pressed it was pressing it to look out of the window.
+
+			Deferred rather than immediate: leaving a `VehicleSeat` is a jump,
+			and a character re-seated inside the same frame is a character
+			that leaps straight back out again on the input still being held.
+			Every condition is re-tested on the other side of that wait,
+			because a quarter of a second is long enough for the ship to have
+			been dismissed or the pilot to have died.
+
+			`spawned[left] == model` is what keeps this out of the way of
+			`dismiss`, which empties every seat on purpose and clears the
+			table before it does.
+		]]
+		if
+			not driver
+			and left
+			and spawned[left] == model
+			and inVacuum(chassis)
+			and not padNear(chassis.Position)
+		then
+			notify(left, "Not out here. Land first, or set down on a pad.", "Error")
+			task.delay(RESEAT_DELAY, function()
+				if spawned[left] ~= model or seat.Occupant then
+					return
+				end
+				local humanoid = livingHumanoid(left)
+				if humanoid and inVacuum(chassis) then
+					seat:Sit(humanoid)
+				end
+			end)
+		end
 
 		if driver then
 			chassis.Anchored = false
@@ -530,6 +639,45 @@ function VehicleService.init()
 end
 
 --[[
+	THE SERVER DECIDES WHICH WORLD YOU ARE OVER
+
+	All nine planets sit in one Workspace on a 12,000-stud grid, so a pilot
+	who holds a heading long enough genuinely arrives somewhere else. Nothing
+	told the game that until now: `profile.currentPlanet` could only change
+	by respawning, so you could fly the whole way and land under the wrong
+	sky, among the wrong people, on the wrong mission board.
+
+	Here rather than on the client, because the client owns the hull's
+	physics and must not be trusted to say which world it has reached. It
+	costs no remote either way -- position replicates back to the server
+	regardless of who has network ownership.
+
+	Deep space *keeps* your last world rather than clearing it. Fourteen
+	readers take `currentPlanet` as a valid planet id, and there is nothing
+	sensible for a sky, a mission board or a spawn point to be when the
+	answer is "nowhere".
+]]
+local function reviewSystems()
+	for player, model in spawned do
+		local chassis = model.PrimaryPart
+		if not chassis or not VehicleService.pilotedStarship(player) then
+			continue
+		end
+
+		local system = Orbit.systemAt(chassis.Position)
+		local profile = data().get(player)
+		if not (system and profile) or profile.currentPlanet == system then
+			continue
+		end
+
+		local ok = ServiceLoader.get("PlayerService").setPlanet(player, system)
+		if ok then
+			notify(player, `Entering {Planets.get(system).displayName} space`, "Info")
+		end
+	end
+end
+
+--[[
 	A speeder belongs to one character, not to the session.
 
 	`CharacterRemoving` fires on death and on travel alike, and both want the
@@ -558,6 +706,13 @@ function VehicleService.start()
 		follow(player)
 	end
 	Players.PlayerRemoving:Connect(VehicleService.dismiss)
+
+	task.spawn(function()
+		while true do
+			task.wait(SYSTEM_POLL)
+			reviewSystems()
+		end
+	end)
 end
 
 return VehicleService

@@ -1164,9 +1164,8 @@ Needs `showmethemoney` (30,000 cr minimum) and `greedisgood` to level 16.
    horizon is how you get lost.)*
 7. Fly low over a dune. The ship refuses to go through the ground — there is a
    floor at its own gear height — but a deliberate climb is never fought.
-8. Climb straight up. Somewhere around 900 studs the **star map opens by
-   itself**, once. Come back down and go up again: it opens again. Stay up
-   there: it does **not** re-open every frame.
+8. Climb straight up. Somewhere around 900 studs you reach **orbit** — see
+   §6.8, which is now the whole of what is up there. Nothing opens by itself.
 9. The Longhaul is a four-seater with an **open-topped hold** — put a passenger
    in it and you should be able to see them from outside.
 
@@ -1199,9 +1198,7 @@ Needs `showmethemoney` (30,000 cr minimum) and `greedisgood` to level 16.
     fare off the planet.
 
 **Expected and not a bug:** nothing shoots at a ship and nothing damages one, so
-`Shield Harmonics` and `Field Repair` still say so on the skill panel. There is
-no space *scene* — above the ceiling you are still over the planet, and the star
-map is the way off it.
+`Shield Harmonics` and `Field Repair` still say so on the skill panel.
 
 ---
 
@@ -1478,6 +1475,86 @@ published game.
     `UpdateAsync` makes that structural rather than likely, but it is the one
     failure that would matter and the two of them in one room are the only
     people who will ever test it.
+
+---
+
+### 6.8 Space, and flying to another world — **new, 2026-08-29**
+
+§6.4 is the prerequisite. Needs `whosyourdaddy` and a **Corellian Skipjack**.
+This is the one section where the point is a thing that takes a minute of
+holding a key, so read it before you start rather than in the middle.
+
+**What is actually up there**
+
+All nine worlds have always sat in one `Workspace`, 12,000 studs apart on a
+grid. Nothing crossed the gap. Now something can.
+
+1. Launch from the **Anchorhead spaceport** and climb past 900 studs. The cloud
+   deck passes as weather, the sky goes black and starred, the altimeter reads
+   **ORBIT** in green. **No panel opens.**
+2. Level off and hold one direction. Watch the bottom-right of the screen. Some
+   way past the rim of the plate the altimeter is replaced by a line reading
+   **DEEP SPACE** over a world's name and a distance in studs. **No warning
+   toast, and the star map does not raise itself** — being between worlds is
+   where you are for most of a crossing.
+3. That distance counts **down** if you are pointed at the named world and **up**
+   if you are not. It is the only navigation instrument out here, so check it
+   changes in the right direction before you commit to a minute of flying.
+4. **G** still opens the star map out here, and it still works. Nobody can be
+   stranded in the dark.
+
+**Arriving**
+
+5. From Tatooine, hold a heading toward a neighbour for about a minute — 12,000
+   studs at the Skipjack's 240. This is deliberately slow; the hyperdrive is
+   the next commit and this step is what it replaces.
+6. Somewhere before you can see anything, the DEEP SPACE line is replaced by the
+   altimeter again, and a toast reads **"Entering <World> space"**. From that
+   moment on it is that world's sky, that world's weather, that world's
+   airspeeder traffic overhead.
+7. Descend and land. **You did not respawn** — you are still in your seat, in
+   your ship, and the ship is still yours. *(This is the whole change. Travel
+   used to be `LoadCharacterAsync`, which also dismisses your ship: the reward
+   for flying twelve thousand studs would have been losing the thing you flew.)*
+8. Now the checks that say the arrival was real and not just scenery:
+   - **M** lists the new world's missions, not Tatooine's.
+   - **J** and the HUD name the new world.
+   - The NPCs standing about are the new world's.
+   - **Die on purpose.** You respawn on the world you flew to. *(A wrong
+     `currentPlanet` would put you back where you started, hours away.)*
+9. Fly to a world you have **never travelled to before** and confirm it is built
+   and populated when you get there rather than empty ground.
+
+**You cannot step out into vacuum**
+
+10. In orbit, try to leave the pilot's seat. You are put straight back in it and
+    told **"Not out here. Land first, or set down on a pad."** Hold the jump key
+    down while you try: you must not be able to bounce out of the seat.
+11. Same test out in deep space, where there is no world at all. Same refusal.
+12. Land on a **landing pad** and get out: allowed, immediately, no argument.
+    Then press **V** — the ship comes back.
+13. Land on ordinary ground *away* from a pad, below the ceiling, and get out:
+    also allowed. The rule is about vacuum, not about pads.
+
+**The case that is still an error**
+
+14. Fly **off the side of the plate at low altitude** — over the rim, under 900
+    studs, without climbing. That is still wrong, and still says so: one toast,
+    **"Beyond the world's edge — set a course"**, and the star map opens. Once,
+    not every frame. *(A player who rode off a cliff has not set out for
+    anywhere.)*
+
+**Both boys at once — the one that matters**
+
+15. One brother on the ground, the other in orbit above him. Each sees his own
+    sky, which is correct and deliberate. Each must still be able to **see the
+    other's ship**, because the hulls are real parts in one Workspace and are
+    not per-client.
+16. Now have the one in orbit fly out of the system entirely while the other
+    watches from the ground. He should shrink into the distance and keep going,
+    not vanish at a boundary.
+17. **A speeder still cannot do any of this.** No altimeter, no DEEP SPACE line,
+    no climb. Ride one off a cliff and it falls.
 
 ---
 

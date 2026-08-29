@@ -1276,6 +1276,76 @@ wastes do not have rush hour.
 
 ---
 
+### 2d. Flying between worlds — **part 1 DONE 2026-08-29**
+
+*"ok I have a ship, how do I fly it into space? and to other planets? Logan
+wants the game to be more open world."*
+
+**Grepped first — the ninth time — and again most of it was already built.** The
+ships already fly in full 3D with pitch (2c). Space already exists as a place
+(`5b20b8b`: cloud deck, black starred sky, altimeter, re-entry hysteresis). And
+the load-bearing one: **all nine worlds have been in one `Workspace` at real
+addresses on a 12,000-stud grid since the first planet was generated**
+(`Planets.originFor`). Tatooine and its neighbour were never two scenes to be
+swapped. They were two places you could have driven between, if anything had let
+you.
+
+So the gap was small, specific, and not flight:
+
+1. **`profile.currentPlanet` could only change by respawning.** `travelTo` called
+   `LoadCharacterAsync`, and that respawn *was* the teleport. It also fires
+   `CharacterRemoving`, which dismisses your ship — so the reward for flying
+   twelve thousand studs would have been arriving on foot, over a world the game
+   still thought you had left.
+2. **Being between worlds was an error.** `VehicleController` called it *strayed*,
+   toasted *"Beyond the world's edge"* and threw the star map over the view.
+3. **Nothing closed the gap at a playable speed** — 50 seconds of holding W. That
+   is Part 2's job (the hyperdrive), not this one's.
+
+**`Orbit.luau` gained the geography of the void.** `SYSTEM_RADIUS = 3600` is how
+far a world's authority reaches: comfortably outside `Planets.worldRadius`
+(~1,700), so a wide circuit of your own world cannot flip you in and out, and
+comfortably inside half the grid spacing (6,000), so **no two systems ever touch
+and there is ~4,800 studs of real void between neighbours**. `systemAt` returns
+which world you are in the system of, or nil; `nearestSystem` never returns nil,
+because something on screen always has to be able to name a place. Both compose
+at require time off `Planets.ids()`, and `validate` now warns at boot if a tenth
+planet or a changed `WORLD_SPACING` would make two systems overlap.
+
+**`PlayerService.setPlanet` — arriving without a respawn.** The smaller half of
+`travelTo`, which now delegates to it: write `currentPlanet`, `ensure` the world,
+re-apply that planet's gravity, **move nothing**. Not repositioning is the entire
+point — you are already there. All fourteen readers of `currentPlanet` follow on
+their own, because every one of them listens on `ClientState.changed` or polls.
+
+**The server decides which system you are in**, on a 1 Hz sweep in
+`VehicleService` over piloted starships. Server-side because the client owns the
+hull's physics and must not be trusted to say which world it has reached — and it
+costs no new remote either way, since position replicates back regardless of
+network ownership. Nine distance checks per ship per second. **Deep space keeps
+your last world rather than clearing it**: there is nothing sensible for a sky, a
+mission board or a spawn point to be when the answer is "nowhere".
+
+**Deep space stopped being an error.** The old toast was honest while there was
+nowhere to go; now it would be the game arguing with a player about the middle of
+the journey they set out on. The HUD gains a `setBearing` line that names the
+nearest world and its distance where the altimeter has nothing to measure. **G
+still opens the star map anywhere**, which is the escape hatch that means nobody
+out there is stranded. The genuinely wrong case survives untouched: off the rim
+of the plate, low, still inside a system — no ground under you and not high
+enough to be in orbit, which is a player who rode off a cliff.
+
+**You cannot step out into vacuum.** Leaving the driver's seat above the ceiling
+or outside any system, and not within `PAD_RANGE` of a pad, re-seats you with a
+reason. Deferred by a quarter second, because leaving a `VehicleSeat` is a jump
+and a character re-seated in the same frame leaps straight back out on the input
+still being held.
+
+**Still to come:** the hyperdrive (Part 2), the player's own species and
+proportions (Part 3), and an interior that is not a box (Part 4).
+
+---
+
 ## Phase 3 — Make the places real
 
 **Current state: the worlds are procedural, not authored.** Every planet is the

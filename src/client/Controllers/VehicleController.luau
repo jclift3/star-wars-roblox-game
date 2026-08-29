@@ -92,11 +92,19 @@ local seated: {
 	speedMult: number,
 	turnMult: number,
 	--[[
-		Where this world is and how far it reaches, resolved once on sitting
-		down for the same reason the stat multipliers are. Both come from
-		`Planets`, so the pilot measures the plate with the ruler that built
-		it -- see the flight loop for what the pair is used to tell apart.
+		Which world's system the hull is in, and that world's geography.
+
+		Resolved once on sitting down until 2026-08-29, which was honest
+		while twelve thousand studs of grid was a wall. It is a road now, and
+		a pilot who crosses it would otherwise spend the rest of the flight
+		measuring their altitude against a world a system behind them.
+
+		`system` is nil out in the dark between them, where none of the other
+		three has a meaning -- which is why they are cached rather than read:
+		the flight loop asks every frame and the answer changes about once a
+		minute.
 	]]
+	system: string?,
 	origin: Vector3,
 	worldRadius: number,
 	--- Where this world's atmosphere ends. Not `Ships.CEILING` everywhere:
@@ -138,6 +146,14 @@ local function showAltitude(altitude: number?, ceiling: number?, inSpace: boolea
 	end
 end
 
+--- A named place and how far off it is, or nil to put the line away.
+local function showBearing(caption: string?, value: string?)
+	local hud = ServiceLoader.find("HudController")
+	if hud then
+		hud.setBearing(caption, value)
+	end
+end
+
 --[[
 	Tells the sky which side of the atmosphere the camera is on.
 
@@ -174,6 +190,7 @@ local function release()
 	end
 	if current.starship then
 		showAltitude(nil)
+		showBearing(nil)
 	end
 	-- Left enabled, a speeder nobody is driving keeps whatever velocity was
 	-- last written into it. The server anchors it a moment later; this is what
@@ -211,7 +228,6 @@ local function take(seat: VehicleSeat)
 	local profile = ServiceLoader.get("ClientState").get()
 	local skills: { [string]: number } = if profile then profile.skills else {}
 	local stats = Progression.computeStats(skills)
-	local planetId: string = if profile then profile.currentPlanet else Planets.ids()[1]
 
 	seated = {
 		model = model,
@@ -228,9 +244,13 @@ local function take(seat: VehicleSeat)
 		speed = 0,
 		speedMult = stats.ShipSpeedMult or 1,
 		turnMult = stats.ShipTurnMult or 1,
-		origin = Planets.originFor(planetId),
-		worldRadius = Planets.worldRadius(planetId),
-		ceiling = Orbit.ceilingFor(planetId),
+		-- Left blank rather than seeded from `profile.currentPlanet`: the
+		-- flight loop's first frame reads it off the hull's own position,
+		-- which is the same question asked of the thing that actually knows.
+		system = nil,
+		origin = Vector3.zero,
+		worldRadius = 0,
+		ceiling = Ships.CEILING,
 		aloft = false,
 		strayed = false,
 	}
@@ -346,28 +366,81 @@ local function onStep(dt: number)
 			ray goes back to the one job it is good at, which is finding the
 			floor to push off.
 		]]
-		local altitude = s.chassis.Position.Y
-		local flat = s.chassis.Position - s.origin
-		local overWorld = Vector3.new(flat.X, 0, flat.Z).Magnitude <= s.worldRadius
-		-- Asymmetric on purpose: you leave the atmosphere at the ceiling and
-		-- re-enter it a little below. `Orbit.REENTRY_DROP` says why.
-		local threshold = if s.aloft then s.ceiling - Orbit.REENTRY_DROP else s.ceiling
-		local aloft = overWorld and altitude >= threshold
-		local strayed = below == nil and not overWorld
-
-		if aloft ~= s.aloft then
-			enterSpace(aloft)
+		local position = s.chassis.Position
+		local system = Orbit.systemAt(position)
+		if system ~= s.system then
+			s.system = system
+			if system then
+				s.origin = Planets.originFor(system)
+				s.worldRadius = Planets.worldRadius(system)
+				s.ceiling = Orbit.ceilingFor(system)
+			end
 		end
-		-- Being nowhere is the one case the star map is still the honest
-		-- answer to: there is no planet under you to go back down to.
-		if strayed and not s.strayed then
-			toast("Beyond the world's edge -- set a course", "Error")
-			raiseStarMap()
-		end
-		s.aloft = aloft
-		s.strayed = strayed
 
-		showAltitude(altitude, s.ceiling, aloft)
+		if not system then
+			--[[
+				DEEP SPACE IS A PLACE NOW, NOT AN ERROR
+
+				This branch used to be one line further down, and it toasted
+				*"Beyond the world's edge"* and threw the star map over the
+				view. That was the honest answer while there was nowhere to
+				go: the nine worlds sat 12,000 studs apart in one Workspace
+				and nothing crossed the gap, so leaving one was a mistake by
+				definition.
+
+				It is a road now. Being between worlds is where you are for
+				most of a crossing, and warning a player about the middle of
+				the journey they set out on is the game arguing with them.
+
+				G still opens the star map anywhere, which is the escape
+				hatch that means nobody out here can be stranded.
+			]]
+			if not s.aloft then
+				enterSpace(true)
+			end
+			s.aloft = true
+			s.strayed = false
+
+			-- The altimeter has nothing to measure against out here -- no
+			-- ground, no ceiling, and a Y that means nothing on its own. What
+			-- the player wants instead is which way is home.
+			local nearest, away = Orbit.nearestSystem(position)
+			showAltitude(nil)
+			showBearing("DEEP SPACE", `{Planets.get(nearest).displayName}  {math.floor(away)}`)
+		else
+			local altitude = position.Y
+			local flat = position - s.origin
+			local overWorld = Vector3.new(flat.X, 0, flat.Z).Magnitude <= s.worldRadius
+			-- Asymmetric on purpose: you leave the atmosphere at the ceiling
+			-- and re-enter it a little below. `Orbit.REENTRY_DROP` says why.
+			local threshold = if s.aloft then s.ceiling - Orbit.REENTRY_DROP else s.ceiling
+			local aloft = altitude >= threshold
+			--[[
+				The one shape of "nowhere" still worth a warning: off the rim
+				of the plate, low, and inside a system all the same. No ground
+				under you and not high enough to be in orbit either -- which
+				is a player who rode off a cliff, not one who set out.
+
+				`aloft` no longer asks whether you are over the plate. It did
+				while off-the-plate was an error state; now that drifting past
+				the rim at altitude is simply the first thousand studs of a
+				crossing, the height alone is the question.
+			]]
+			local strayed = below == nil and not overWorld and not aloft
+
+			if aloft ~= s.aloft then
+				enterSpace(aloft)
+			end
+			if strayed and not s.strayed then
+				toast("Beyond the world's edge -- set a course", "Error")
+				raiseStarMap()
+			end
+			s.aloft = aloft
+			s.strayed = strayed
+
+			showBearing(nil)
+			showAltitude(altitude, s.ceiling, aloft)
+		end
 	else
 		local vertical: number
 		local distance = groundDistance(s.chassis, def.hoverHeight * 3)

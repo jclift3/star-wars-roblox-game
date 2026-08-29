@@ -311,8 +311,28 @@ local function onCharacterAdded(player: Player, character: Model)
 	PlayerService.characterReady:fire(player, character, profile)
 end
 
---- Moves a player to another world, respawning them at its spawn point.
-function PlayerService.travelTo(player: Player, planetId: string): (boolean, string?)
+--[[
+	Says a player is now on `planetId`, and moves nothing.
+
+	Which world you are on is the single most load-bearing field in the
+	profile -- the sky, the weather, which NPCs exist, which missions are
+	offered, what a district's level band is and where you come back if you
+	die all hang off it -- and until now the only way to change it was to
+	respawn, because arriving and being rebuilt somewhere were the same act.
+
+	They are not the same act any more. A pilot who has flown the twelve
+	thousand studs to the next world is *already there*, in their seat, in
+	their ship. Respawning them would drop them at a spawn point on the
+	ground and, worse, fire `CharacterRemoving`, which dismisses the ship
+	they flew in: the reward for crossing under your own power would be
+	losing the thing you crossed in.
+
+	So this is the half of `travelTo` that is about the profile, and nothing
+	else. Everything downstream follows on its own -- the client controllers
+	watch `currentPlanet` and `NPCService` polls it -- which is why arriving
+	needs no notification of its own.
+]]
+function PlayerService.setPlanet(player: Player, planetId: string): (boolean, string?)
 	if not Planets.exists(planetId) then
 		return false, "Unknown destination"
 	end
@@ -324,11 +344,32 @@ function PlayerService.travelTo(player: Player, planetId: string): (boolean, str
 		return false, "Already there"
 	end
 
+	-- Before the profile changes, so that anything reacting to the change
+	-- finds a world that has been generated.
+	ServiceLoader.get("WorldService").ensure(planetId)
+
 	local distance = Planets.distance(profile.currentPlanet, planetId)
 	data().update(player, function(p: PlayerProfile)
 		p.currentPlanet = planetId
 		p.stats.lightYearsTravelled += distance
 	end)
+
+	-- Gravity is a per-character physics object, applied on spawn. Arriving
+	-- without a spawn means it would otherwise still be the old world's.
+	local character = player.Character
+	if character then
+		applyGravity(character, Planets.get(planetId).gravity)
+	end
+
+	return true, nil
+end
+
+--- Moves a player to another world, respawning them at its spawn point.
+function PlayerService.travelTo(player: Player, planetId: string): (boolean, string?)
+	local ok, reason = PlayerService.setPlanet(player, planetId)
+	if not ok then
+		return false, reason
+	end
 
 	player:LoadCharacterAsync()
 	return true, nil

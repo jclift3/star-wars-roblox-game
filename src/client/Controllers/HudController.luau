@@ -274,6 +274,53 @@ function HudController.setAltitude(altitude: number?, ceiling: number?, inSpace:
 end
 
 --[[
+	A named place and how far off it is, sitting above the altimeter.
+
+	The altimeter answers "how high", and out between the worlds that has no
+	answer -- there is no ground beneath a ship in deep space and no ceiling
+	over it, and its Y is a number about nothing. The question that replaces
+	it is *which way is home*, so this line names a world and its distance.
+
+	Wide where the altimeter is narrow, because the whole content is a proper
+	noun and "Dromund Kaas" does not fit in a gauge 58 pixels across.
+]]
+local bearing: Frame
+local bearingCaption: TextLabel
+local bearingValue: TextLabel
+
+local function buildBearing()
+	local root = panel("Bearing", screen)
+	root.AnchorPoint = Vector2.new(1, 1)
+	-- Clear of the altimeter's own 186 by its own 16 again.
+	root.Position = UDim2.new(1, -16, 1, -16 - 186 - 8)
+	root.Size = UDim2.fromOffset(178, 44)
+	root.Visible = false
+	bearing = root
+
+	bearingCaption = text("Caption", root, 10, DIM)
+	bearingCaption.Position = UDim2.fromOffset(10, 7)
+	bearingCaption.Size = UDim2.new(1, -20, 0, 12)
+
+	bearingValue = text("Value", root, 13, TEXT)
+	bearingValue.Position = UDim2.fromOffset(10, 21)
+	bearingValue.Size = UDim2.new(1, -20, 0, 16)
+end
+
+--- Shows `caption` over `value`, or nil to put the line away.
+function HudController.setBearing(caption: string?, value: string?)
+	if not bearing then
+		return
+	end
+	if not (caption and value) then
+		bearing.Visible = false
+		return
+	end
+	bearing.Visible = true
+	bearingCaption.Text = caption
+	bearingValue.Text = value
+end
+
+--[[
 	Keeps a top-anchored frame clear of Roblox's own topbar.
 
 	This `ScreenGui` sets `IgnoreGuiInset`, so y = 0 is the very top of the
@@ -805,6 +852,7 @@ function HudController.init()
 
 	buildStatusPanel()
 	buildAltimeter()
+	buildBearing()
 	buildTracker()
 	buildToasts()
 	buildLegend()

@@ -84,6 +84,115 @@ end
 Orbit.REENTRY_DROP = 60
 
 --------------------------------------------------------------------------------
+-- Where one world's authority ends and the next begins
+--------------------------------------------------------------------------------
+
+--[[
+	THE FACT THIS WHOLE SECTION IS BUILT ON
+
+	All nine worlds are already in one `Workspace`, at real addresses, on a
+	12,000-stud grid -- `Planets.originFor` has laid them out that way since
+	the first planet was generated. Tatooine and its neighbour are not two
+	scenes that have to be swapped. They are two places you could drive
+	between today if anything let you.
+
+	So "fly to another planet" needs no new world, no loading screen and no
+	teleport. It needs a way to say which of the nine you are currently at,
+	and a name for being at none of them.
+]]
+
+--[[
+	How far a world's authority reaches.
+
+	Everything the game knows about "where you are" hangs off
+	`profile.currentPlanet`: the sky, the weather, which NPCs are spawned,
+	which missions are offered, what a zone's level band is, where you come
+	back if you die. This radius is the border that flips it.
+
+	It has to clear `Planets.worldRadius` (about 1,700 with the relief ring)
+	by enough that leaving the plate is not the same event as leaving the
+	system -- otherwise flying a wide circuit round your own world keeps
+	handing you back and forth. And it has to be under half of
+	`Planets.WORLD_SPACING`, because two systems that touch have a seam where
+	the answer depends on rounding.
+
+	3,600 sits between those two with room on both sides, which leaves a real
+	void of about 4,800 studs between neighbours. That void is the point: if
+	the systems met, there would be no such place as *between* worlds, and
+	the crossing would be a border rather than a journey.
+]]
+Orbit.SYSTEM_RADIUS = 3600
+
+--[[
+	How close to the arrival point counts as having got there.
+
+	Deliberately smaller than `SYSTEM_RADIUS`, and that ordering is the
+	feature: a ship arriving from outside crosses into the world's authority
+	*before* it stops. The sky, the cloud deck and the population are
+	therefore already the destination's by the time the pilot can see any of
+	them, instead of snapping over a second after they have looked.
+]]
+Orbit.ARRIVAL_RADIUS = 2400
+
+--- Where the worlds actually sit. Filled by the composition loop below.
+local origins: { [string]: Vector3 } = {}
+
+--[[
+	Horizontal only.
+
+	A world is a plate with a sky over it and nothing under it, so altitude
+	never changes which world you are above -- a hull at six thousand studs
+	over Tatooine is still over Tatooine. Comparing in three dimensions would
+	make climbing high enough count as leaving, which is exactly the state
+	this is supposed to distinguish itself from.
+]]
+local function flatDistance(a: Vector3, b: Vector3): number
+	return Vector2.new(a.X - b.X, a.Z - b.Z).Magnitude
+end
+
+--- Which world's system `position` is in, or nil out in the dark between them.
+function Orbit.systemAt(position: Vector3): string?
+	for id, origin in origins do
+		if flatDistance(position, origin) <= Orbit.SYSTEM_RADIUS then
+			return id
+		end
+	end
+	return nil
+end
+
+--[[
+	The nearest world and how far off it is, for a ship that is nowhere.
+
+	Never nil. There is always a nearest world, and something on screen has
+	to be able to name it -- being lost in a place with no landmarks is the
+	one way this feature could still strand somebody.
+]]
+function Orbit.nearestSystem(position: Vector3): (string, number)
+	local bestId = Planets.STARTING_PLANET
+	local bestAt = math.huge
+	for id, origin in origins do
+		local away = flatDistance(position, origin)
+		if away < bestAt then
+			bestId, bestAt = id, away
+		end
+	end
+	return bestId, bestAt
+end
+
+--[[
+	Where a crossing ends: over the world, above its weather, nose-down.
+
+	Above the ceiling rather than at it, so a ship that has just arrived is
+	unambiguously in orbit and not straddling the threshold that decides
+	whether the sky is black. Descending from here is ordinary flying, which
+	is the whole reason arrival is a place rather than a cutscene.
+]]
+function Orbit.arrivalPointFor(planetId: string): Vector3
+	local origin = origins[planetId] or Vector3.zero
+	return origin + Vector3.new(0, Orbit.ceilingFor(planetId) * 1.4, 0)
+end
+
+--------------------------------------------------------------------------------
 -- The cloud deck
 --------------------------------------------------------------------------------
 
@@ -199,6 +308,7 @@ for _, id in Planets.ids() do
 	local planet = Planets.get(id)
 	local ceiling = math.max(Ships.CEILING, planet.flightCeiling or 0)
 	ceilings[id] = ceiling
+	origins[id] = Planets.originFor(id)
 
 	--[[
 		A world with no walkable ground gets no deck.
@@ -265,7 +375,32 @@ end
 ]]
 function Orbit.validate(): { string }
 	local problems = {}
+
+	--[[
+		The two ways the map of systems can stop making sense.
+
+		Neither is reachable by editing this file -- they are reachable by
+		editing `Planets.WORLD_SPACING`, or by adding a tenth world, or by
+		widening a settlement until its relief ring outgrows its own system.
+		All three are things somebody will do without ever opening Orbit.luau,
+		and the symptom of getting it wrong is a pilot whose sky changes to
+		the wrong planet's halfway across the void.
+	]]
+	if Orbit.SYSTEM_RADIUS * 2 >= Planets.WORLD_SPACING then
+		table.insert(
+			problems,
+			`system radius {Orbit.SYSTEM_RADIUS} overlaps its neighbour at {Planets.WORLD_SPACING} spacing`
+		)
+	end
+	if Orbit.ARRIVAL_RADIUS >= Orbit.SYSTEM_RADIUS then
+		table.insert(problems, "arrival radius reaches outside the system it arrives in")
+	end
+
 	for _, id in Planets.ids() do
+		if Planets.worldRadius(id) >= Orbit.SYSTEM_RADIUS then
+			table.insert(problems, `{id}: the world is wider than the system it sits in`)
+		end
+
 		local deck = decks[id]
 		if deck then
 			local ceiling = Orbit.ceilingFor(id)
