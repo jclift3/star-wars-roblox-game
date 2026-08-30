@@ -36,6 +36,7 @@ local Workspace = game:GetService("Workspace")
 
 local Shared = game:GetService("ReplicatedStorage"):WaitForChild("Shared")
 local Types = require(Shared.Types)
+local Inventory = require(Shared.Core.Inventory)
 local Net = require(Shared.Core.Net)
 local Panels = require(Shared.Core.Panels)
 local Orbit = require(Shared.Config.Orbit)
@@ -75,6 +76,10 @@ local SYSTEM_POLL = 1
 
 local function data()
 	return ServiceLoader.get("DataService")
+end
+
+local function progression()
+	return ServiceLoader.get("ProgressionService")
 end
 
 local function notify(player: Player, message: string, kind: string)
@@ -283,6 +288,226 @@ function VehicleService.spawnedFor(player: Player): Model?
 end
 
 --------------------------------------------------------------------------------
+-- Durability
+--------------------------------------------------------------------------------
+
+--[[
+	DAMAGE LIVES ON THE PROFILE, NOT ON THE WRECK
+
+	The obvious build is a broken hull left standing in the world with a
+	repair prompt on it. It is also the wrong one, and the reason is the
+	summon key: `toggle` is a toggle, so a player whose speeder had just
+	been wrecked would press V once to put the wreck away and once more to
+	get a factory-fresh one out. Free repairs, discovered in about ten
+	seconds by anyone who presses a key twice.
+
+	Keyed by ship id on the profile, none of that is reachable. Dismissing a
+	broken hull and calling it back gets you the same broken hull, on this
+	server or the next one, tomorrow. The model in the world is a *view* of
+	a number in the save file, which is the same shape as everything else
+	the player owns.
+
+	It also gets the fiction right for free: the speeder is not a rental.
+]]
+
+--[[
+	What mends a hull, and how much of one.
+
+	`HullPlate` already existed -- a salvage pickup with a world model, a
+	prompt verb of "Salvage", and exactly one use anywhere in the game (a
+	single Deliver objective in Missions.luau). It has been sitting in the
+	loot tables being scenery. This is the job it was named for.
+
+	A fraction of the hull's own maximum rather than a flat number, so a
+	plate is worth the same *proportion* on a Swoop as on a Freighter. Two
+	plates rebuild anything from scrap, which is a real cost without being
+	an expedition.
+]]
+local REPAIR_ITEM = "HullPlate"
+local REPAIR_FRACTION = 0.5
+
+--- Current and maximum integrity of `shipId` for this profile.
+function VehicleService.integrity(profile: PlayerProfile, shipId: string): (number, number)
+	local max = Ships.get(shipId).integrity
+	local taken = profile.shipDamage[shipId] or 0
+	return math.clamp(max - taken, 0, max), max
+end
+
+--[[
+	Publishes a hull's condition onto the model itself.
+
+	Attributes rather than a remote, for the same reason the weapon tint is:
+	Roblox replicates them to everyone who can see the model, so the driver's
+	gauge, a brother watching from the kerb and the prompt below all read one
+	server-authored number and cannot disagree.
+]]
+local function publish(model: Model, current: number, max: number)
+	model:SetAttribute("Integrity", current)
+	model:SetAttribute("MaxIntegrity", max)
+	model:SetAttribute("Disabled", current <= 0)
+end
+
+--- True if the hull `player` has out is too broken to drive.
+local function isDisabled(model: Model): boolean
+	return model:GetAttribute("Disabled") == true
+end
+
+--[[
+	Stops a dead hull dead: pilot out, physics back, and it stays put.
+
+	Deliberately *not* a despawn. The player chose "disabled until repaired
+	in the field", and the whole weight of that choice is that the thing is
+	still there, in the wrong place, and you are looking at it.
+]]
+local function ground(model: Model)
+	local chassis = model.PrimaryPart :: BasePart
+	for _, seat in model:GetDescendants() do
+		if seat:IsA("Seat") or seat:IsA("VehicleSeat") then
+			local occupant = seat.Occupant
+			if occupant then
+				occupant.Sit = false
+			end
+		end
+	end
+	-- Ownership must be revoked before anchoring, the same ordering `watch`
+	-- documents -- backwards, it throws, and the hull keeps flying.
+	chassis:SetNetworkOwner(nil)
+	chassis.AssemblyLinearVelocity = Vector3.zero
+	chassis.AssemblyAngularVelocity = Vector3.zero
+	chassis.Anchored = true
+end
+
+--[[
+	Takes damage off the hull `player` currently has out.
+
+	WHO IS TRUSTED WITH THIS, AND WHY IT IS THE CLIENT
+	The driver's own machine simulates the vehicle -- that is settled at the
+	top of this file and is not up for renegotiation at 200 studs a second.
+	Only that machine knows it hit something, so only that machine can say
+	so. What that concedes is worth stating plainly and is *smaller* than it
+	looks: a modified client can decline to report its own crashes, and the
+	prize for doing so is not paying a repair bill on its own speeder. It
+	cannot damage anybody else's, because nobody else's is ever the subject
+	of this call.
+
+	That asymmetry is exactly why vehicle *weapons* will not come through
+	here when they arrive. A shot that hurts your brother's hull has to be
+	decided by the server, the way every other shot in the game already is.
+
+	The clamp is therefore for bugs, not for cheats. A hull cannot lose more
+	speed in one impact than its own top speed, so anything larger is a
+	physics spike -- a spawn, a teleport, a lift -- and not a crash.
+]]
+function VehicleService.impact(player: Player, amount: number)
+	local model = spawned[player]
+	if not model or isDisabled(model) then
+		return
+	end
+	local shipId = model:GetAttribute("ShipId")
+	if type(shipId) ~= "string" or not Ships.exists(shipId) then
+		return
+	end
+
+	local def = Ships.get(shipId)
+	local damage = math.clamp(amount, 0, def.speed)
+	if damage < 1 then
+		return
+	end
+
+	local current, max = 0, def.integrity
+	data().update(player, function(p: PlayerProfile)
+		local taken = math.min((p.shipDamage[shipId] or 0) + damage, def.integrity)
+		p.shipDamage[shipId] = taken
+		current = def.integrity - taken
+	end)
+
+	publish(model, current, max)
+	if current <= 0 then
+		ground(model)
+		local plates = math.ceil(1 / REPAIR_FRACTION)
+		notify(player, `{def.displayName} is wrecked. {plates} hull plates will get it running.`, "Error")
+	end
+end
+
+--[[
+	Spends one hull plate on the vehicle `player` is standing at.
+
+	Returns false and something to show them. Repairing a hull that is
+	merely dented is allowed on purpose: making the player wait until it is
+	dead before a plate will go in teaches them to drive it into a wall.
+]]
+function VehicleService.repair(player: Player): (boolean, string?)
+	local model = spawned[player]
+	if not model then
+		return false, "Nothing here to work on"
+	end
+	local shipId = model:GetAttribute("ShipId")
+	if type(shipId) ~= "string" or not Ships.exists(shipId) then
+		return false, "Nothing here to work on"
+	end
+
+	local profile = data().get(player)
+	if not profile then
+		return false, "Profile not loaded"
+	end
+
+	local def = Ships.get(shipId)
+	local current, max = VehicleService.integrity(profile, shipId)
+	if current >= max then
+		return false, `The {def.displayName} is not damaged`
+	end
+	if Inventory.count(profile.inventory, REPAIR_ITEM) < 1 then
+		return false, `You need hull plating. Salvage some -- wrecks and scrapyards have it.`
+	end
+
+	--[[
+		Field Repair, ranked in Engineering, is what a plate is worth to you.
+
+		That node has been sitting in `Progression.luau` marked
+		`unimplemented = "Nothing damages a ship yet"` since the trees were
+		written, and its blocker was true right up until the paragraph above
+		this one. It is now the only thing in the game that reads
+		`RepairMult`, which is what lets the `unimplemented` come off -- and
+		it means the tree's one dead node is dead because of a missing
+		mechanic rather than a missing idea.
+
+		Five ranks take a plate from half a hull to 110% of one, so a
+		maxed engineer walks away from any wreck for a single plate. That is
+		a real reason to be the one carrying them.
+	]]
+	local mult = progression().getStats(player)["RepairMult"] or 1
+	local mended = 0
+	data().update(player, function(p: PlayerProfile)
+		-- `remove` returns what it actually took, and the payout is against
+		-- that, not against what was asked for -- Core/Inventory.luau's rule.
+		local took = Inventory.remove(p.inventory, REPAIR_ITEM, 1)
+		if took < 1 then
+			return
+		end
+		local taken = math.max((p.shipDamage[shipId] or 0) - def.integrity * REPAIR_FRACTION * mult * took, 0)
+		mended = (p.shipDamage[shipId] or 0) - taken
+		if taken <= 0 then
+			p.shipDamage[shipId] = nil
+		else
+			p.shipDamage[shipId] = taken
+		end
+	end)
+	if mended <= 0 then
+		return false, "You need hull plating"
+	end
+
+	local after = data().get(player)
+	local now = if after then (VehicleService.integrity(after, shipId)) else current
+	publish(model, now, max)
+	if now > 0 then
+		-- Only unanchored if somebody gets back in; `watch` owns that. All
+		-- this has to undo is the "will not start" flag.
+		model:SetAttribute("Disabled", false)
+	end
+	return true, `{def.displayName} repaired -- {math.floor(now)}/{math.floor(max)}`
+end
+
+--------------------------------------------------------------------------------
 -- Spawning
 --------------------------------------------------------------------------------
 
@@ -379,6 +604,14 @@ local function watch(model: Model)
 		if not prompt then
 			return
 		end
+		-- A wreck offers the only thing it can do. Same prompt, same key: the
+		-- label has always been what says which of its jobs is currently
+		-- true, and being broken is a third one.
+		if isDisabled(model) then
+			prompt.Enabled = true
+			prompt.ActionText = "Repair"
+			return
+		end
 		if not seat.Occupant then
 			prompt.Enabled = true
 			prompt.ActionText = ShipModel.PILOT_TEXT
@@ -388,10 +621,24 @@ local function watch(model: Model)
 		prompt.ActionText = ShipModel.RIDE_TEXT
 	end
 
+	model:GetAttributeChangedSignal("Disabled"):Connect(relabel)
+
 	if prompt then
 		prompt.Triggered:Connect(function(player: Player)
 			local humanoid = livingHumanoid(player)
 			if not humanoid then
+				return
+			end
+			if isDisabled(model) then
+				-- Anyone may turn a spanner on it, but it is still the
+				-- owner's speeder and the owner's plating -- `repair` reads
+				-- the caller's own bag and their own hull, so a passing
+				-- stranger simply finds nothing of theirs here to mend.
+				local ok, reason = VehicleService.repair(player)
+				if reason then
+					notify(player, reason, if ok then "Success" else "Error")
+				end
+				relabel()
 				return
 			end
 			if not seat.Occupant then
@@ -474,7 +721,12 @@ local function watch(model: Model)
 			end)
 		end
 
-		if driver then
+		if driver and isDisabled(model) then
+			-- Sitting in it is allowed; going anywhere is not. Tipping them
+			-- straight back out would read as the seat being broken rather
+			-- than the speeder, and the hull stays anchored either way.
+			notify(driver, "It will not start. It needs hull plating.", "Error")
+		elseif driver then
 			chassis.Anchored = false
 			chassis:SetNetworkOwner(driver)
 		else
@@ -589,7 +841,17 @@ function VehicleService.toggle(player: Player): (boolean, string?)
 	model:SetAttribute("OwnerUserId", player.UserId)
 	spawned[player] = model
 
+	-- Before `watch`, which reads `Disabled` the moment it labels the prompt.
+	local current, max = VehicleService.integrity(profile, shipId)
+	publish(model, current, max)
+
 	watch(model)
+
+	if current <= 0 then
+		ground(model)
+		notify(player, `The {def.displayName} is wrecked. Repair it where it stands.`, "Error")
+		return true, nil
+	end
 
 	--[[
 		The toast says how to ride it, because nothing else in the game does.
@@ -635,6 +897,19 @@ function VehicleService.init()
 		-- model, which is the most expensive thing a keypress can do here.
 		rateLimit = 2,
 		validate = Net.check.none,
+	})
+
+	Net.onServerEvent(Net.Event.VehicleImpact, function(player: Player, amount: number)
+		VehicleService.impact(player, amount)
+	end, {
+		-- Loose enough for a hull bouncing along a canyon wall, which is
+		-- several genuine impacts a second, and the handler clamps each one
+		-- anyway. See `impact` for why a flood here is not worth defending
+		-- against: the only hull it can reach is the sender's own.
+		rateLimit = 12,
+		-- The upper bound is the fastest hull in the file with room over it.
+		-- `impact` clamps properly, against the hull actually being driven.
+		validate = Net.check.number(0, 1000),
 	})
 end
 

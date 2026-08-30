@@ -601,15 +601,14 @@ node({
 	id = "FieldRepair",
 	tree = "Engineering",
 	displayName = "Field Repair",
-	description = "+12% ship hull repair rate per rank.",
+	description = "Each hull plate mends 12% more of a wrecked hull, per rank.",
 	maxRank = 5,
 	requiredLevel = 9,
 	requires = { "Slicer" },
 	effect = { stat = "RepairMult", perRank = 0.12 },
-	-- Ships fly now, but nothing damages one: a hull has no health to
-	-- repair. Same honest reason as ShieldHarmonics, and both go live the
-	-- day either of them has something to shoot at.
-	unimplemented = "Nothing damages a ship yet",
+	-- Live since 2026-08-30. It waited on a hull having health at all, and
+	-- `ShipDef.integrity` gave it one; `VehicleService.repair` reads this to
+	-- decide how much of a wreck one plate puts back.
 })
 --[[
 	Engineering's capstone, and the only cross-tree one.
@@ -728,6 +727,7 @@ local LIVE_STATS: { [string]: string } = {
 	ShipSpeedMult = "VehicleController.onStep (top speed)",
 	ShipTurnMult = "VehicleController.onStep (yaw and pitch rate)",
 	FuelCostMult = "TravelService.galaxyFor / travelTo (your own hull)",
+	RepairMult = "VehicleService.repair (hull mended per plate)",
 	DamageReduction = "CombatService.applyDamage",
 	MaxForce = "AbilityService (Force pool)",
 	ForceRegen = "AbilityService (Force pool)",

@@ -372,6 +372,7 @@ Net.Event = {
 	-- Vehicles
 	EquipShip = "EquipShip",
 	SummonVehicle = "SummonVehicle",
+	VehicleImpact = "VehicleImpact",
 	-- Ship interiors
 	ToggleCabin = "ToggleCabin",
 	PlaceFurnishing = "PlaceFurnishing",

@@ -76,20 +76,43 @@ export type WeaponPart = {
 	field rather than a second pipeline: if the meshes ever stop loading, the
 	`model` line comes out and the weapon is a part list again.
 
-	THE THREE NUMBERS ARE TUNING, AND ARE MEANT TO BE
-	A Blender export arrives at whatever size and facing that scene happened
-	to use, and there is no way to know either from in here. `scale` brings it
-	to studs, `offset` moves the grip onto the origin, and `rot` turns the
-	barrel to -Z. Getting them right is a Play test and a number, not a code
-	change -- which is the whole reason they are declared and not derived.
+	MEASURED OFF THE MODEL, NOT OFF THE MODEL'S PIVOT, 2026-08-30
+	This first shipped as a raw `scale` and a stud `offset` applied to
+	`Model:PivotTo`, and the gun came out floating beside the character:
+	*"the gun is weirdly positioned. not in his hand."*
+
+	A `Model`'s pivot is not a property of the geometry, it is whatever
+	Blender's world origin happened to be. This one is at (4.37, 1.00, 5.08)
+	while the geometry occupies X 2.8-6.1, Y 2.1-13.9, Z 7.8-35.2 -- so the
+	pivot is a stud below the model and nearly three behind it, and both
+	`ScaleTo` (which scales *about* the pivot) and `PivotTo` (which places
+	it) were working off a point that is not on the gun. No value of
+	`offset` fixes that in general, because the error moves when `scale`
+	does.
+
+	So both numbers are now measured against the model's own **bounding
+	box**, which is a fact about the geometry:
+
+	- `length` is how long the weapon should be, in studs, along its longest
+	  axis. The scale factor is derived. "A heavy pistol is about two and a
+	  quarter studs" is a thing you can decide; "Blender was in centimetres,
+	  so 0.1" is a thing you can only discover.
+	- `grip` is where the hand holds it, as a **fraction of the box** on each
+	  axis -- (0.5, 0.3, 0.88) is centred across, low down, near the back.
+	  Fractions rather than studs so it survives a re-export at a different
+	  size, and so it can be read off a screenshot: the gun is sitting too
+	  far forward, so raise Z.
+
+	`rot` is still authored, because nothing derivable says which end of the
+	long axis is the muzzle.
 ]]
 export type ModelSource = {
 	--- A child of `ReplicatedStorage.Assets.Weapons`, i.e. the file stem.
 	asset: string,
-	--- Multiplier onto the imported geometry. Blender metres are not studs.
-	scale: number,
-	--- Grip-relative shift, in studs, applied after scaling.
-	offset: Vector3?,
+	--- End-to-end length in studs. The scale factor is derived from this.
+	length: number,
+	--- Where the hand holds it, as a fraction of the bounding box per axis.
+	grip: Vector3,
 	--- Euler degrees. The barrel has to end up pointing down -Z.
 	rot: Vector3?,
 }
@@ -418,19 +441,23 @@ def({
 	boltColor = Palette.BlasterRed,
 	muzzleOffset = V3(0, 0.18, -1.6),
 	--[[
-		Scaled to about two and a quarter studs end to end, which is a heavy
-		pistol in a character's hand. The raw export is 22 studs long: Blender
-		was working in something other than studs, as it always is.
+		Two and a quarter studs end to end, which is a heavy pistol in a
+		character's hand. The raw export is 27.4 studs on its longest axis;
+		Blender was working in something other than studs, as it always is.
 
-		`rot` and `offset` are where a Play test lands. The export's long axis
-		is Z, so the barrel is already on the right axis -- but nothing here
-		knows which *end* of it the muzzle is, and a gun held backwards is one
-		`rot = V3(0, 180, 0)` away from being held forwards.
+		No `rot`, and that is measured rather than hoped for. Reading the
+		twenty-six part extents out of the `.rbxmx`: the suppressor occupies
+		Z 7.8-17.2 and the grip screws Z 32.9-34.3 at the lowest Y in the
+		model, so the muzzle is already at -Z and +Y is already up. This
+		export happens to arrive in Roblox's own convention.
+
+		`grip` puts the hand on the grip rather than at Blender's origin --
+		centred across the frame, low on the butt, near the back.
 	]]
 	model = {
 		asset = "reysblaster",
-		scale = 0.1,
-		offset = V3(0, 0.1, -0.2),
+		length = 2.25,
+		grip = V3(0.5, 0.3, 0.88),
 	},
 	parts = {
 		grip(Palette.SmugglerBrown),

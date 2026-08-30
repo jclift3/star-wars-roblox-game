@@ -71,6 +71,16 @@ local FREEFALL = 90 -- studs/sec over a gap, where there is nothing to hover abo
 local REVERSE_FRACTION = 0.35
 
 --[[
+	The fraction of top speed a hull has to lose in one frame to have crashed.
+
+	Braking from full throttle to nothing takes `def.acceleration` studs/sec²
+	-- the fastest ramp in the file is the Dagger's 150, which at 60Hz is
+	2.5 studs/sec in a frame, or well under one percent of its top speed.
+	Half of top speed in a single frame is not deceleration; it is a wall.
+]]
+local HARD_STOP = 0.5
+
+--[[
 	How hard the hyperdrive pulls the hull up to lane speed, in studs/sec².
 
 	Nothing to do with `ShipDef.acceleration`, which is a repulsorlift
@@ -147,6 +157,10 @@ local seated: {
 	--- frame. The pair is what makes engaging a hold and aborting a press.
 	engageHeld: number,
 	engageDown: boolean,
+	--- How fast the hull was actually moving last frame, and how fast it had
+	--- been *told* to. The impact test needs both; see `HARD_STOP`.
+	lastActual: number,
+	lastCommand: number,
 }? =
 	nil
 
@@ -174,6 +188,29 @@ local function showAltitude(altitude: number?, ceiling: number?, inSpace: boolea
 	local hud = ServiceLoader.find("HudController")
 	if hud then
 		hud.setAltitude(altitude, ceiling, inSpace)
+	end
+end
+
+--[[
+	Puts the hull's condition on the HUD, read off the model's own attributes.
+
+	Not off `ClientState`, even though the profile carries the damage. The
+	model is what the server writes the moment an impact lands, and it is
+	what a passenger and a bystander are both already seeing -- so reading
+	it here means the gauge cannot lag the wreck it is describing, and one
+	number is showing on every screen in the room.
+]]
+local function showIntegrity(model: Model?)
+	local hud = ServiceLoader.find("HudController")
+	if not hud then
+		return
+	end
+	local current = if model then model:GetAttribute("Integrity") else nil
+	local max = if model then model:GetAttribute("MaxIntegrity") else nil
+	if type(current) == "number" and type(max) == "number" then
+		hud.setIntegrity(current, max)
+	else
+		hud.setIntegrity(nil, nil)
 	end
 end
 
@@ -282,6 +319,9 @@ local function release()
 	-- the one it is here to fix.
 	holdJump(false)
 	showFlightKeys(false)
+	-- With the other flight readouts, and for the same reason: standing in a
+	-- yard, the condition of a speeder is nobody's live question.
+	showIntegrity(nil)
 	if not current then
 		return
 	end
@@ -351,6 +391,8 @@ local function take(seat: VehicleSeat)
 		speed = 0,
 		speedMult = stats.ShipSpeedMult or 1,
 		turnMult = stats.ShipTurnMult or 1,
+		lastActual = 0,
+		lastCommand = 0,
 		-- Left blank rather than seeded from `profile.currentPlanet`: the
 		-- flight loop's first frame reads it off the hull's own position,
 		-- which is the same question asked of the thing that actually knows.
@@ -365,6 +407,25 @@ local function take(seat: VehicleSeat)
 		engageHeld = 0,
 		engageDown = false,
 	}
+
+	showIntegrity(model)
+	--[[
+		Watched rather than polled, and watched rather than pushed.
+
+		The gauge has to move at the moment the crash lands, and the crash is
+		decided on the server -- so the client is told by the only thing
+		Roblox is already replicating, which is the attribute itself. No
+		remote, no per-frame read, and it disconnects with the seat.
+	]]
+	local seatedNow = seated
+	local watchIntegrity = model:GetAttributeChangedSignal("Integrity"):Connect(function()
+		if seated == seatedNow then
+			showIntegrity(model)
+		end
+	end)
+	seat:GetPropertyChangedSignal("Occupant"):Once(function()
+		watchIntegrity:Disconnect()
+	end)
 
 	if Ships.isStarship(shipId) then
 		holdJump(true)
@@ -744,6 +805,50 @@ local function onStep(dt: number)
 	-- decided where the vehicle goes -- and it is most of what makes a swoop
 	-- feel different from a cargo sled.
 	s.attitude.CFrame = heading * CFrame.Angles(0, 0, -s.seat.Steer * math.rad(def.bank))
+
+	--[[
+		A CRASH IS THE SPEED YOU DID NOT KEEP
+
+		No `Touched` connections, no collision groups, no hitboxes. The hull
+		is a real physics body being *commanded* to a velocity by the
+		constraint above, so when it meets a wall the command does not
+		change and the body's own speed collapses. The gap between the two
+		is the crash, and it is one property read per frame on a part this
+		loop is already holding.
+
+		That is not a shortcut -- it is the only version that works
+		everywhere this vehicle can go. It costs nothing on nine worlds of
+		procedurally generated geometry that nobody tagged, it catches a
+		canyon wall and a docking gantry and another player's parked
+		freighter with the same line, and it cannot be fooled by geometry
+		the builder forgot to mark as solid.
+
+		`HARD_STOP` is what separates a crash from a hill. Cresting a dune
+		or scraping a wall bleeds speed over several frames; hitting
+		something loses most of it inside one. The threshold is a fraction
+		of the hull's own top speed rather than a constant, so a Swoop and a
+		HoverSled agree about what counts as an accident.
+
+		WHAT THE THROTTLE ASKED FOR HAS TO COME OFF THE TOP
+		Speed the hull gave up because the *pilot* gave it up is not a
+		crash, and the first draft of this could not tell the difference.
+		Dropping out of hyperspace sheds about eleven hundred studs a second
+		inside one frame -- so every arrival in the game, at the end of every
+		journey the player paid a fare for, would have wrecked the ship they
+		arrived in. Lifting off the throttle is a milder version of the same
+		lie.
+
+		Subtracting the fall in the *commanded* speed leaves only the part
+		nobody asked for, which is the definition of a collision: still
+		holding W, and no longer moving.
+	]]
+	local actual = s.chassis.AssemblyLinearVelocity.Magnitude
+	local unbidden = (s.lastActual - actual) - (s.lastCommand - s.speed)
+	s.lastActual = actual
+	s.lastCommand = s.speed
+	if unbidden > def.speed * HARD_STOP then
+		Net.fireServer(Net.Event.VehicleImpact, unbidden)
+	end
 end
 
 function VehicleController.start()

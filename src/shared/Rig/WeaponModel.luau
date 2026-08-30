@@ -31,6 +31,84 @@ local WeaponModel = {}
 ]]
 local GRIP_C0 = CFrame.new(0, -0.55, -0.15)
 
+--[[
+	HOW A BLASTER IS HELD, 2026-08-30
+
+	Reported with a screenshot: the gun hangs at the character's hip, because
+	the arm is in Roblox's idle pose and nothing had ever told it otherwise.
+	A weapon that is welded correctly to a hand that is by its owner's side
+	is still a weapon nobody is holding.
+
+	WRITTEN TO `C0`, WHICH IS WHY THIS COSTS NOTHING PER FRAME
+	A joint's final position is `C0 * Transform * C1:Inverse()`, and the
+	`Animator` writes only `Transform`. So an offset written once into `C0`
+	*composes* with whatever animation is playing rather than fighting it:
+	the character keeps Roblox's walk, run and idle cycles and performs all
+	of them with the gun up. The alternative -- re-writing `Transform` every
+	frame after the animation step -- is the usual way this is done and it
+	buys nothing here, at the cost of a `RenderStepped` loop per character.
+
+	AND IT IS SET ON THE SERVER, SO IT IS SET ONCE FOR EVERYONE
+	`Motor6D.C0` replicates. Posing here, where the weapon is already being
+	built and welded, covers players and the ~160 NPCs by the same three
+	lines, and means no client has to be told a character is armed. The two
+	brothers see each other holding the same gun the same way, which is the
+	standing requirement for anything they can both look at.
+
+	THE NUMBERS ARE READ OFF THE SWING TABLE, NOT GUESSED
+	`EffectsController.SWINGS` has been through a play test and establishes
+	the convention: on the shoulder, X pitches the arm forward as it goes
+	*negative* (-40 is forward and down, -150 is overhead and back), and Z
+	swings it away from the torso. So -62 is a relaxed forward carry, and the
+	small negative Z brings the muzzle in towards the character's centre line
+	rather than leaving it out by the hip. A bent elbow, because a straight
+	arm reads as pointing rather than holding.
+
+	Blasters only. A vibroblade at low ready would be a second pose and a
+	second set of numbers, and melee already has the whole swing arc to say
+	that it is armed.
+]]
+local HOLD_SHOULDER = Vector3.new(-62, 0, -10)
+local HOLD_ELBOW = Vector3.new(-20, 0, 0)
+
+--- The right arm's two joints, either of which a species may legitimately lack.
+local function armMotors(character: Model): (Motor6D?, Motor6D?)
+	local upper = character:FindFirstChild("RightUpperArm")
+	local lower = character:FindFirstChild("RightLowerArm")
+	local shoulder = if upper then upper:FindFirstChild("RightShoulder") else nil
+	local elbow = if lower then lower:FindFirstChild("RightElbow") else nil
+	return (if shoulder and shoulder:IsA("Motor6D") then shoulder else nil),
+		(if elbow and elbow:IsA("Motor6D") then elbow else nil)
+end
+
+--[[
+	Rotates a joint away from its rest pose, remembering the rest pose once.
+
+	Stored as an attribute on the joint rather than in a table keyed by
+	character: the rig is the thing that owns this, a rig can be destroyed at
+	any moment, and an attribute cannot leak or go stale after it is. Read
+	back on the first call only, so a pose interrupted by a second pose can
+	never become the new rest.
+]]
+local function poseJoint(joint: Motor6D?, degrees: Vector3)
+	if not joint then
+		return
+	end
+	local rest = joint:GetAttribute("RestC0")
+	if typeof(rest) ~= "CFrame" then
+		rest = joint.C0
+		joint:SetAttribute("RestC0", rest)
+	end
+	joint.C0 = (rest :: CFrame) * CFrame.Angles(math.rad(degrees.X), math.rad(degrees.Y), math.rad(degrees.Z))
+end
+
+local function relaxJoint(joint: Motor6D?)
+	local rest = if joint then joint:GetAttribute("RestC0") else nil
+	if joint and typeof(rest) == "CFrame" then
+		joint.C0 = rest
+	end
+end
+
 local function resolveShape(shape: string?): (Enum.PartType, boolean)
 	if shape == "Ball" then
 		return Enum.PartType.Ball, false
@@ -217,12 +295,19 @@ end
 	as a bug in equipping. So the caller falls back to the `parts` list, which
 	is why an imported weapon still declares one.
 
-	SCALE, THEN PIVOT, THEN WELD, IN THAT ORDER
-	`ScaleTo` scales about the model's pivot and leaves the pivot where it
-	was, so scaling first and placing second is the only order that puts the
-	right thing at the origin. Welds go on last because a `WeldConstraint`
-	freezes the offset it was created with, and both of the moves above are
-	still to come at that point.
+	MOVE THE PIVOT ONTO THE GRIP FIRST, THEN SCALE, THEN PLACE, THEN WELD
+	Both of the operations below act on the model's *pivot*, and an imported
+	model's pivot is Blender's world origin, which is not on the gun --
+	see `ModelSource` for the measurements that proved it and the report
+	that prompted them. So the pivot is moved onto the grip before either
+	one runs, using the bounding box, which is the only frame of reference
+	the geometry actually supplies.
+
+	`ScaleTo` scales *about* the pivot and leaves it where it is, so with
+	the pivot already on the grip the gun shrinks around the hand instead of
+	sliding away from it -- which is also why this cannot be done in the
+	other order. Welds go on last because a `WeldConstraint` freezes the
+	offset it was created with, and every move above is still to come.
 ]]
 local function buildImported(model: Model, handle: BasePart, source: Weapons.ModelSource): boolean
 	local assets = ReplicatedStorage:FindFirstChild("Assets")
@@ -235,14 +320,22 @@ local function buildImported(model: Model, handle: BasePart, source: Weapons.Mod
 
 	local clone = template:Clone()
 	clone.Name = "Imported"
-	clone:ScaleTo(source.scale)
+
+	local box, size = clone:GetBoundingBox()
+	local longest = math.max(size.X, size.Y, size.Z)
+	if longest <= 0 then
+		warn(`WeaponModel: imported model "{source.asset}" has no geometry`)
+		clone:Destroy()
+		return false
+	end
+
+	-- `box` is centred, so a grip fraction of 0.5 on an axis is no shift at
+	-- all and 0 and 1 are the two faces.
+	clone.WorldPivot = box * CFrame.new((source.grip - Vector3.one * 0.5) * size)
+	clone:ScaleTo(source.length / longest)
 
 	local rot = source.rot or Vector3.zero
-	clone:PivotTo(
-		handle.CFrame
-			* CFrame.new(source.offset or Vector3.zero)
-			* CFrame.Angles(math.rad(rot.X), math.rad(rot.Y), math.rad(rot.Z))
-	)
+	clone:PivotTo(handle.CFrame * CFrame.Angles(math.rad(rot.X), math.rad(rot.Y), math.rad(rot.Z)))
 	clone.Parent = model
 
 	for _, part in clone:GetDescendants() do
@@ -400,6 +493,15 @@ function WeaponModel.equip(character: Model, weaponId: string, tint: Color3?): M
 	weld.C0 = GRIP_C0
 	weld.Parent = handle
 
+	local shoulder, elbow = armMotors(character)
+	if def.class == "Blaster" then
+		poseJoint(shoulder, HOLD_SHOULDER)
+		poseJoint(elbow, HOLD_ELBOW)
+	else
+		relaxJoint(shoulder)
+		relaxJoint(elbow)
+	end
+
 	return model
 end
 
@@ -408,6 +510,12 @@ function WeaponModel.unequip(character: Model)
 	if existing then
 		existing:Destroy()
 	end
+
+	-- Unconditionally, because the arm has to come down even if the weapon
+	-- model was already gone -- a respawn, a death, a swapped rig.
+	local shoulder, elbow = armMotors(character)
+	relaxJoint(shoulder)
+	relaxJoint(elbow)
 end
 
 --[[

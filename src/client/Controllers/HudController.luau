@@ -306,6 +306,72 @@ local function buildBearing()
 	bearingValue.Size = UDim2.new(1, -20, 0, 16)
 end
 
+--[[
+	The hull's condition, above the bearing line.
+
+	Bottom right with the other two flight readouts, and hidden with them,
+	because it answers a question that only exists while you are sitting in
+	something: a speeder standing in a yard has a condition, and nobody is
+	asking about it.
+
+	A bar rather than a number, and the colour is the whole message. A pilot
+	who has just hit a gantry at full throttle is not reading "412/620"; they
+	are seeing whether the thing under them went red.
+]]
+local integrity: Frame
+local integrityFill: Frame
+local integrityLabel: TextLabel
+
+local function buildIntegrity()
+	local root = panel("Integrity", screen)
+	root.AnchorPoint = Vector2.new(1, 1)
+	-- Above the bearing line, clear of it by the same 8 it clears the
+	-- altimeter by. Its own 44 and 8 more.
+	root.Position = UDim2.new(1, -16, 1, -16 - 186 - 8 - 44 - 8)
+	root.Size = UDim2.fromOffset(178, 38)
+	root.Visible = false
+	integrity = root
+
+	local caption = text("Caption", root, 10, DIM)
+	caption.Position = UDim2.fromOffset(10, 6)
+	caption.Size = UDim2.new(1, -20, 0, 12)
+	caption.Text = "HULL"
+
+	local track, fill = bar("Track", root, Theme.GOOD)
+	track.Position = UDim2.fromOffset(10, 21)
+	track.Size = UDim2.new(1, -20, 0, 8)
+	integrityFill = fill
+
+	integrityLabel = text("Readout", root, 10, TEXT)
+	integrityLabel.AnchorPoint = Vector2.new(1, 0)
+	integrityLabel.Position = UDim2.new(1, -10, 0, 6)
+	integrityLabel.Size = UDim2.fromOffset(90, 12)
+	integrityLabel.TextXAlignment = Enum.TextXAlignment.Right
+end
+
+--- Shows a hull's condition, or nil to put the gauge away.
+function HudController.setIntegrity(current: number?, max: number?)
+	if not integrity then
+		return
+	end
+	if not (current and max and max > 0) then
+		integrity.Visible = false
+		return
+	end
+
+	integrity.Visible = true
+	local fraction = math.clamp(current / max, 0, 1)
+	integrityFill.Size = UDim2.fromScale(fraction, 1)
+	-- Three bands, not a gradient: a gradient tells you the number twice and
+	-- a colour change is the thing that catches an eye that is on the road.
+	integrityFill.BackgroundColor3 = if fraction <= 0.25
+		then Theme.BAD
+		elseif fraction <= 0.6 then Theme.WARN
+		else Theme.GOOD
+	integrityLabel.Text = if current <= 0 then "WRECKED" else `{math.floor(current)} / {math.floor(max)}`
+	integrityLabel.TextColor3 = if current <= 0 then Theme.BAD else TEXT
+end
+
 --- Shows `caption` over `value`, or nil to put the line away.
 function HudController.setBearing(caption: string?, value: string?)
 	if not bearing then
@@ -336,80 +402,68 @@ end
 --[[
 	Hangs something from the top edge, under whatever Roblox has put there.
 
-	`clearChat` additionally drops it below the chat window, and is the whole
-	of the 2026-08-29 fix. See `buildLegend`: only the legend asks for it,
-	because only the legend is wide enough and far enough left to be under
-	the chat at all. The tracker is top *right* and the toasts are top
-	centre, and pushing those down would move two things that were never
-	covered to solve a problem neither of them has.
-
-	MEASURED, NOT GUESSED
-	`ChatWindowConfiguration` publishes its own `AbsolutePosition` and
-	`AbsoluteSize`, so the clearance is read off the thing being cleared
-	rather than written as a number that is right on one screen. The
-	alternative -- a hardcoded offset -- is the mistake this codebase has
-	already made twice with billboards and prompts, where the geometry was
-	assumed instead of computed and the result was live, in range and
-	invisible.
+	This is the only vertical adjustment the top row makes. It used to make a
+	second one -- see `moveChatOut` below for why that was wrong.
 ]]
-local belowTopbar: (frame: GuiObject, x: UDim, clearChat: boolean?) -> ()
+local belowTopbar: (frame: GuiObject, x: UDim) -> ()
 do
-	local anchored: { { frame: GuiObject, x: UDim, clearChat: boolean? } } = {}
-	local chat = TextChatService:FindFirstChildOfClass("ChatWindowConfiguration")
-
-	--- The y a thing must start at to be clear of the chat window, or nil.
-	local function chatBottom(): number?
-		if not chat or not chat.Enabled then
-			return nil
-		end
-		local size = chat.AbsoluteSize
-		if size.Y <= 0 then
-			return nil
-		end
-		return chat.AbsolutePosition.Y + size.Y
-	end
-
-	--[[
-		How far the chat is allowed to push something down. Reported
-		2026-08-29 with a screenshot: *"why is the menu in the middle of the
-		screen?"* -- the legend had been shoved to the vertical centre.
-
-		Dodging the chat was right; chasing it was not. The thing being
-		dodged is Roblox's translation notice, which is two lines and
-		temporary. A chat *window* the player has left expanded is several
-		hundred pixels tall, and following it turns a top-left reference card
-		into a banner across the middle of the view.
-
-		So the dodge is capped. Past the cap the legend stops moving and the
-		player can close or shrink a window they chose to open.
-	]]
-	local MAX_CHAT_DROP = 96
+	local anchored: { { frame: GuiObject, x: UDim } } = {}
 
 	local function place()
 		local top = GuiService.TopbarInset.Max.Y + 10
-		local under = chatBottom()
 		for _, held in anchored do
-			local y = top
-			if held.clearChat and under then
-				y = math.clamp(under + 10, y, top + MAX_CHAT_DROP)
-			end
-			held.frame.Position = UDim2.new(held.x.Scale, held.x.Offset, 0, y)
+			held.frame.Position = UDim2.new(held.x.Scale, held.x.Offset, 0, top)
 		end
 	end
 
-	function belowTopbar(frame: GuiObject, x: UDim, clearChat: boolean?)
-		table.insert(anchored, { frame = frame, x = x, clearChat = clearChat })
+	function belowTopbar(frame: GuiObject, x: UDim)
+		table.insert(anchored, { frame = frame, x = x })
 		place()
 	end
 
 	GuiService:GetPropertyChangedSignal("TopbarInset"):Connect(place)
-	if chat then
-		-- The window is resizable and can be turned off entirely, and both
-		-- leave the legend in the wrong place until something re-places it.
-		chat:GetPropertyChangedSignal("AbsoluteSize"):Connect(place)
-		chat:GetPropertyChangedSignal("AbsolutePosition"):Connect(place)
-		chat:GetPropertyChangedSignal("Enabled"):Connect(place)
+end
+
+--[[
+	Sends Roblox's chat window to the bottom right, because the top left is
+	the game's.
+
+	MOVE THE OBSTACLE, NOT THE THING BEHIND IT
+	Reported 2026-08-29: Roblox's chat lands on the first three legend rows.
+	The fix then was to drop the legend below the chat, measured off
+	`ChatWindowConfiguration.AbsolutePosition + AbsoluteSize` and capped at
+	96px so a big window could not drag it to the middle of the screen.
+
+	Reported again 2026-08-30, with a screenshot: *"The key is still way to
+	centered. it needs to be at the top."* The cap was not the fix, it was a
+	bound on how wrong the fix could get. Those two properties describe the
+	rect the chat *reserves*, which exists from join to logout whether or not
+	a word has ever been said in it, and is comfortably taller than 96px on
+	every screen. So the dodge never lifted: the legend was pinned 96px down
+	permanently, and the cap is why it stopped there instead of lower.
+
+	A dodge that always applies is not a dodge, it is just a lower position.
+
+	So the legend goes back to the top and stays there, and the chat moves
+	instead. `ChatWindowConfiguration` will take an alignment, which is a
+	thing this codebase learned the hard way it should look for: the mistake
+	both times was treating Roblox's furniture as immovable and rearranging
+	our own around it.
+
+	Bottom right is the one corner where a 400px window costs nothing. The
+	status panel is bottom left, the ability bar bottom centre, the tracker
+	top right, toasts top centre; the only residents of bottom right are the
+	altimeter and the bearing readout, and both are `Visible = false` unless
+	you are at a ship's controls -- which is the one time nobody is reading
+	chat.
+]]
+local function moveChatOut()
+	local chat = TextChatService:FindFirstChildOfClass("ChatWindowConfiguration")
+	if not chat then
+		return
 	end
+	chat.HorizontalAlignment = Enum.HorizontalAlignment.Right
+	chat.VerticalAlignment = Enum.VerticalAlignment.Bottom
 end
 
 local function buildTracker()
@@ -482,7 +536,7 @@ end
 	was covering the first two entries, which is the whole legend for a
 	player who reads left to right and stops.
 
-	AND IT CLEARS THE CHAT, WHICH IS THE SAME BUG ONE OBSTACLE FURTHER DOWN
+	AND THE CHAT IS NOT ALLOWED TO SIT ON IT
 	Seen in play 2026-08-29: Roblox's own "automatically translates supported
 	languages in chat" notice fires on join, for everybody, and lands square
 	on top of the first three entries -- LMB, SHIFT and 1-6. Those are the
@@ -492,10 +546,9 @@ end
 	what put them under the chat. So the one minute they exist for was the
 	one minute they could not be read.
 
-	Top left is no longer "the corner with nothing in it"; Roblox moved in.
-	Dropping below the chat keeps the row and its priority order intact,
-	which the alternatives (splitting it in two, or relocating a control
-	players already know the position of) do not.
+	The legend does not move for that. `moveChatOut` does -- see the second
+	report there, which is the record of what happens when you concede a
+	corner you own.
 
 	IT HIDES NOW, AND IT ONLY SHOWS WHAT IS TRUE RIGHT NOW
 	Reported 2026-08-29: *"we should be able to minimize mostly and then
@@ -534,7 +587,7 @@ local function buildLegend()
 	root.Size = UDim2.fromOffset(0, 20)
 	root.AutomaticSize = Enum.AutomaticSize.X
 	root.Parent = screen
-	belowTopbar(root, UDim.new(0, 16), true)
+	belowTopbar(root, UDim.new(0, 16))
 
 	local layout = Instance.new("UIListLayout")
 	layout.FillDirection = Enum.FillDirection.Horizontal
@@ -985,9 +1038,11 @@ function HudController.init()
 	buildStatusPanel()
 	buildAltimeter()
 	buildBearing()
+	buildIntegrity()
 	buildTracker()
 	buildToasts()
 	buildLegend()
+	moveChatOut()
 	-- No crosshair here. There used to be a permanent white dot in the middle
 	-- of the screen, and it was a lie by omission: shots do go through the
 	-- centre, but nothing about a free mouse and a character facing wherever

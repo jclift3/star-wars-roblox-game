@@ -1861,6 +1861,53 @@ than being undone on the way out.
    **You jump.** The worst version of this bug is a player who can walk and never
    jump again for the rest of the session, with nothing on screen to explain it.
 
+### 6.12 Wrecking a speeder, and fixing it — **new, 2026-08-30**
+
+Hulls used to be indestructible. A crash is now detected as **speed the hull lost
+that the throttle did not ask it to lose**, and damage lives on your profile
+keyed by ship id, so it survives putting the hull away.
+
+1. Summon any speeder (**V**) and sit in it. A **HULL** bar appears bottom-right,
+   above the bearing line, full and green.
+2. Drive gently — turn, brake, coast to a stop, let go of W at full speed. **The
+   bar must not move.** Normal driving costing you integrity is the failure mode
+   that makes the whole feature feel broken.
+3. Now hit a rock or a building at full throttle. The bar drops and the amount
+   is roughly the speed you were doing. Green → amber below 60%, red below 25%.
+4. Keep crashing until it reads **WRECKED**. The speeder **drops where it is and
+   stays there** — you are put out of the seat, it will not move, and the board
+   prompt now says **Repair** instead of Board.
+5. Try to sit in it anyway. You are told *"It will not start. It needs hull
+   plating."*
+6. **Press V twice** — put the hull away and summon it again. It comes back
+   **still wrecked and grounded**. This is the exploit the design is built
+   around; a free repair here means damage got stored on the model.
+7. Get `HullPlate` (`greedisgood`, or salvage). Hold **E** on the wreck: one
+   plate restores half the hull, two restore all of it. With no plates in the
+   bag you are told so and nothing is consumed.
+8. Repair to full, drive off, **rejoin the game**. The hull is still full. Now
+   damage it to half and rejoin: it is **still at half**.
+9. **The hyperspace check, which has never been played.** Take a *starship* into
+   orbit and hold **F** to jump. On arrival, the hull **must be untouched**.
+   Dropping out sheds over a thousand studs/sec in one frame; if the bar empties
+   on arrival, the commanded-speed subtraction is wrong and every journey ends in
+   a wreck.
+10. Same for **taking off and landing normally**, and for **putting the ship away
+    at speed** with **V**.
+11. **Both boys.** One wrecks a speeder; the other walks up to it. He sees the
+    same wreck, the same **Repair** prompt, and can repair it with *his* plates.
+    The integrity number is a replicated attribute, so a passenger riding along
+    watches the bar drop in real time too.
+12. Check the tuning: the **AssaultSpeeder** should take visibly more punishment
+    than the **SwoopRacer** despite being slower. If every hull dies in the same
+    number of hits, `integrity` is not being read per-hull.
+13. **Field Repair, which has never done anything.** Open **K**, buy the
+    Engineering node (level 9, needs Slicer; `whosyourdaddy` covers both). It no
+    longer shows as unimplemented. With five ranks in it, **one** plate takes a
+    wrecked hull from zero to full — against two at rank 0. That difference is
+    the whole test; if a plate mends the same amount either way, `RepairMult` is
+    not reaching `VehicleService.repair`.
+
 ---
 
 ## 7. Missions
@@ -2701,6 +2748,27 @@ There is no Rojo setting that fixes this.
    (Studio → Home → Import 3D), which mints new asset ids, then export the
    result over `assets/Weapons/reysblaster.rbxmx` and start again at step 3.
 8. **Verify.** §9.0c, from the top.
+
+### 9.0e The blaster stance — **new, 2026-08-30**
+
+The arm pose is written into `Motor6D.C0` on the server, so it composes with
+whatever animation is playing and every client sees the same thing.
+
+1. Equip **any** blaster. The right arm comes **up and forward** and the gun
+   points where the character faces, instead of hanging at the hip.
+2. **Walk, run, jump.** The stock cycles all still play — the arm swings from
+   the raised pose rather than snapping back to it. If the arm animates as if
+   nothing were equipped, `C0` is being overwritten somewhere.
+3. **Equip a lightsaber.** The arm drops back to normal, and a swing (LMB) still
+   arcs correctly.
+4. **Blaster → sabre → blaster, five times.** The arm must land in the *same*
+   place every time. Creeping higher each swap means `RestC0` is not being read.
+5. **Both boys, facing each other.** Each sees the other's arm raised. This is
+   the check that matters — the pose replicating is the reason it lives on the
+   server.
+6. **An NPC with a blaster** (Imperial Troopers, Nar Shaddaa Docks) holds it the
+   same way.
+7. **Die while holding a blaster.** The new character's arm is at rest.
 
 ### 9.1 Deflection — **new, never played**
 

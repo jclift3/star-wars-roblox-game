@@ -41,6 +41,7 @@ export type Profile = {
 	inventory: Inventory.Inventory,
 	equipped: { weapon: string?, offhand: string?, outfit: string?, ship: string? },
 	unlockedShips: { string },
+	shipDamage: { [string]: number },
 	missions: {
 		active: {
 			[string]: { missionId: string, startedAt: number, objectives: { [number]: number }, stage: number },

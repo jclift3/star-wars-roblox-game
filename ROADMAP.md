@@ -1459,7 +1459,7 @@ anything to see the ship *by*.
 **The legend had drifted to mid-screen.** `belowTopbar(clearChat = true)`
 measured Roblox's chat window and followed it down without limit, so a tall chat
 put the reference card in the middle of the play area. Clamped at
-`MAX_CHAT_DROP = 96`.
+`MAX_CHAT_DROP = 96` — **which was not the fix, see 5.7.**
 
 **And eleven hot keys.** *"we should be able to minimize mostly and then maximize
 it. also if it makes sense to have less hot keys that's ok."* Three cuts, in
@@ -1892,11 +1892,30 @@ when the import cannot be found, so the failure mode is an ordinary scavenged
 pistol rather than an empty hand. If the meshes ever stop loading, the `model`
 line comes out and the weapon is a part list again — no other file changes.
 
-`ModelSource` carries three tuning numbers (`scale`, `offset`, `rot`) because a
-Blender export arrives at whatever size and facing that scene happened to use,
-and there is no way to know either from inside a config file. They are declared
-rather than derived so that fixing a gun held backwards is a number, not a code
-change.
+**A model's pivot is not on the model, 2026-08-30.** `ModelSource` first carried
+a raw `scale` and a stud `offset`, both fed to `ScaleTo` and `PivotTo`, and the
+gun came out floating beside the character: *"the gun is weirdly positioned. not
+in his hand."* Both of those operate on the **pivot**, and an imported model's
+pivot is Blender's world origin — here (4.37, 1.00, 5.08), against geometry
+occupying X 2.8-6.1, Y 2.1-13.9, Z 7.8-35.2. A stud below the gun and nearly
+three behind it, and the error *moves when the scale does*, so no value of
+`offset` fixes it in general.
+
+Both numbers are now measured against the model's **bounding box**, which is a
+fact about the geometry rather than about the exporter: `length` is the weapon's
+end-to-end size in studs (2.25, a heavy pistol) and the scale factor is derived
+from it, and `grip` is where the hand holds it as a *fraction* of the box per
+axis — `(0.5, 0.3, 0.88)`, centred across, low, near the back. Fractions survive
+a re-export at a different size and can be read off a screenshot. The pivot is
+moved onto the grip **before** scaling, so the gun shrinks around the hand rather
+than sliding away from it.
+
+`rot` stays authored, and is `nil` here — measured, not hoped for. Parsing the
+twenty-six part extents out of the `.rbxmx` puts the suppressor at Z 7.8-17.2 and
+the grip screws at Z 32.9-34.3 on the lowest Y in the model, so the muzzle is
+already at -Z and +Y is already up. This export happens to arrive in Roblox's own
+convention. **Parsing the asset file is an offline test** — the same trick the
+Config tables get, applied to geometry.
 
 **`.gitignore` was the quieter bug.** `*.rbxmx` had excluded the model outright,
 so the file existed on one machine, was invisible to `git status`, and would
@@ -3632,6 +3651,123 @@ and is the Space/C pairing every flight game already uses.
 The lesson generalises past this one key: `Bindings.validate` can only see the
 keys **this game** declares, so it can never catch a collision with the host.
 Studio and the browser both own Ctrl, Alt and Shift outright. Never bind one.
+
+### 5.7 Move the obstacle, not the thing behind it — **2026-08-30**
+
+*"The key is still way to centered. it needs to be at the top."* — the second
+report of the same complaint, which by this project's own rule means the first
+fix (5.4's `MAX_CHAT_DROP = 96`) guessed at the cause.
+
+It did. `belowTopbar(clearChat = true)` dropped the legend below
+`ChatWindowConfiguration.AbsolutePosition + AbsoluteSize`. Those describe the
+rect the chat **reserves**, which exists from join to logout whether or not a
+word has ever been said in it, and is taller than 96px on every screen. So the
+dodge never lifted: the legend sat 96px down permanently, and the cap is the
+reason it stopped there rather than lower. **A dodge that always applies is not
+a dodge, it is just a lower position** — and a clamp against a constant is a
+constant.
+
+The chat moves instead. `ChatWindowConfiguration` takes a `HorizontalAlignment`
+and a `VerticalAlignment`, and both fixes had assumed Roblox's furniture was
+nailed down and rearranged ours around it. Bottom right is the one corner where
+a 400px window costs nothing: status is bottom left, the ability bar bottom
+centre, the tracker top right, toasts top centre, and the only residents of
+bottom right — the altimeter and the bearing readout — are hidden unless you are
+at a ship's controls, which is the one time nobody is reading chat.
+
+`belowTopbar` is now what its name says and nothing else. The whole `clearChat`
+path, the two chat property connections and the cap are gone.
+
+### 5.8 A blaster is held, not carried — **2026-08-30**
+
+With the NN-14's mesh finally in the right hand, the next thing wrong was the
+arm: Roblox's stock idle hangs it at the hip, so the gun pointed at the floor.
+
+*"We also need to be able to add animations. Is that something we can do
+programmatically?"* — three ways, and the cheapest one was already in the
+codebase twice. A joint's final transform is `C0 * Transform * C1:Inverse()`,
+and the `Animator` writes **only `Transform`**. So an offset written once into
+**`C0` composes with whatever animation is playing** — the character keeps
+Roblox's walk, run and idle cycles and performs all of them with the gun up, at
+zero per-frame cost and with no asset to upload.
+
+`WeaponModel.equip` now poses `RightShoulder` (−62° X, −10° Z) and `RightElbow`
+(−20° X) when `def.class == "Blaster"`, and `unequip` puts them back. Two
+details make it safe:
+
+- **The rest pose is cached in a `RestC0` attribute on the joint itself**, not in
+  a controller's table. Equip → unequip → equip must not compound, and the rig
+  outlives any client-side state.
+- **It runs on the server, because `Motor6D.C0` replicates.** Three lines cover
+  every player *and* all ~160 NPCs, and the two brothers see each other's stance
+  identically — which is the whole reason this is not an `EffectsController` job.
+
+The angles are lifted from `EffectsController.SWINGS`, which is playtested: on
+the right shoulder negative X pitches the arm forward, Z swings it off the
+torso. `EffectsController.swing` is melee-only (`InputController:122` branches on
+`class ~= "Blaster"`), so a blaster pose can never corrupt the swing's cached
+rest.
+
+### 5.9 A speeder can be wrecked — **2026-08-30**
+
+*"they should be able to uplevel their speeds, speed, durability (they are
+unbreakable currently which shouldn't be the case), weapons, etc."* — the first
+commit of the speeder-modification subsystem, and deliberately the destructive
+half first. Grepping first, the 11th time: `ShipSpeedMult` and `ShipTurnMult`
+are already declared stats with live readers in the flight loop, and the
+crystals-and-sockets pattern is already the template for "what a mod does
+depends on the slot". **Durability is the only genuinely missing piece, and it
+is the one that makes every other mod matter** — a hull that cannot be hurt has
+no reason to be armoured, salvaged for, or repaired.
+
+**A crash is a velocity command the hull failed to obey.** `VehicleController`
+already commands a `LinearVelocity`; on an impact the *command* is unchanged and
+`AssemblyLinearVelocity` collapses. So impact detection is the difference of
+those two numbers, and needs **no `Touched`, no collision groups and no
+hitboxes** — which is the only reason it works across nine worlds of untagged
+procedural geometry.
+
+The subtraction matters as much as the difference. Dropping out of hyperspace
+sheds ~1,160 studs/sec in one frame, so a naive test wrecks the ship at the end
+of every journey the player just paid a fare for. The test is therefore
+`(lastActual - actual) - (lastCommand - commanded)` — **what the throttle asked
+for comes off the top** — which also correctly ignores simply letting go of W.
+
+Four decisions worth keeping:
+
+- **Damage lives on the profile, keyed by ship id — not on the wreck model.**
+  `toggle` is a toggle, so a wreck bound to the model means pressing **V** twice
+  is a free repair. Two boys in one room find that in a minute.
+- **`profile.shipDamage` is a map**, for the fourth time and the fourth
+  identical reason as `flags`, `inventory` and `raceBests`. Stored as *damage
+  taken*, so an absent key is an undamaged hull and no save needs migrating.
+- **The gauge reads `Integrity`/`MaxIntegrity` attributes off the model**, not
+  `ClientState`. Attributes replicate, so driver, passenger and bystander all
+  read one server-authored number and the gauge cannot lag the wreck.
+- **`ShipDef.integrity` is the one field not correlated with tier.** Everything
+  else rises with price, which makes every hull above yours better at everything
+  and choosing just spending. The AssaultSpeeder is the slowest thing on the
+  list bar the starter sled and soaks nearly three times the Swoop — so "fast"
+  and "survives" are finally two answers. `Ships.validate` enforces
+  `integrity >= speed`: **one flat-out hit has to leave you limping, not
+  walking.** It caught four of my own eight numbers on the first run.
+
+At zero the hull **grounds where it died** (the user's call: *"it drops to the
+ground and stays there. You repair it on the spot with parts from your bag, or
+walk"*) — occupants ejected, network ownership released, anchored. Not
+despawned. The board prompt becomes **Repair**, paid in `HullPlate` at half a
+hull each. `HullPlate` already existed in `Items.luau` with `verb = "Salvage"`
+and exactly one other reference in the codebase; it was scenery waiting for a
+job.
+
+**And it woke a dead skill.** Engineering's `FieldRepair` has carried
+`unimplemented = "Nothing damages a ship yet"` since the trees were written —
+an honest note that stopped being true halfway through this commit.
+`VehicleService.repair` now reads `RepairMult`, so five ranks take a plate from
+half a hull to 110% of one and a maxed engineer walks away from any wreck for a
+single plate. Engineering is down to zero dead nodes for the first time, which
+is also the argument for raising `KitDiscipline`'s twelve-point gate the next
+time the capstones are looked at.
 
 ---
 

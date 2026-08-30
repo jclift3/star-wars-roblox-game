@@ -112,6 +112,26 @@ export type ShipDef = {
 		weakness that can strand you is not a weakness, it is a dead end."
 	]]
 	fuelMult: number?,
+	--[[
+		How much damage the hull absorbs before it stops working.
+
+		Authored rather than derived, and the one field in this table that
+		is deliberately *not* correlated with tier. Speed, acceleration and
+		turn all rise together with price, which means every hull above the
+		one you own is better at everything and choosing is just spending.
+		Integrity is where that stops: the AssaultSpeeder is the slowest
+		thing on this list except the starter sled and it takes nearly three
+		times the punishment of the Swoop, so "fast" and "survives" become
+		two answers instead of one.
+
+		Damage is in the same units as `speed`, because that is what
+		produces it: a crash costs the hull the speed it lost stopping. So
+		the *ratio* of these two fields is the toughness, readable at a
+		glance -- the Swoop is 1.07 and the Assault 3.3 -- and the
+		validator below enforces the floor of 1.0, which is "survives one
+		flat-out head-on".
+	]]
+	integrity: number,
 
 	-- Economy ----------------------------------------------------------
 	tier: number, -- 1..5, drives vendor stocking
@@ -365,6 +385,8 @@ def({
 	turnSpeed = 95,
 	hoverHeight = 3.4,
 	bank = 6,
+	--- A cargo sled: no speed to lose and a frame built to be dropped on.
+	integrity = 150,
 	tier = 1,
 	cost = 900,
 	requiredLevel = 1,
@@ -458,6 +480,8 @@ def({
 	turnSpeed = 130,
 	hoverHeight = 3.2,
 	bank = 22,
+	--- Two engines and a seat. Nothing between the rider and the wall.
+	integrity = 140,
 	tier = 2,
 	cost = 2400,
 	requiredLevel = 5,
@@ -540,6 +564,8 @@ def({
 	turnSpeed = 100,
 	hoverHeight = 3.8,
 	bank = 14,
+	--- A civilian runabout with a cowling, which is most of this number.
+	integrity = 210,
 	tier = 3,
 	cost = 6800,
 	requiredLevel = 12,
@@ -635,6 +661,8 @@ def({
 	turnSpeed = 165,
 	hoverHeight = 3.2,
 	bank = 32,
+	--- The fastest thing you can buy and the least of it is structure.
+	integrity = 220,
 	tier = 4,
 	cost = 14000,
 	requiredLevel = 20,
@@ -738,6 +766,8 @@ def({
 	turnSpeed = 82,
 	hoverHeight = 4.2,
 	bank = 8,
+	--- Armour is the whole point. Slower than a Flare and outlasts three.
+	integrity = 420,
 	tier = 5,
 	cost = 26000,
 	requiredLevel = 28,
@@ -978,6 +1008,8 @@ def({
 	-- it much higher and the ship rests on nothing, visibly.
 	hoverHeight = 3.4,
 	bank = 26,
+	--- Hull plating enough for atmosphere, not for a fight.
+	integrity = 300,
 	-- Thirsty. The cheap hull costs you on every jump for the rest of the
 	-- campaign, which is the whole reason to want the next one.
 	fuelMult = 1.6,
@@ -1129,6 +1161,8 @@ def({
 	turnSpeed = 62,
 	hoverHeight = 4.4,
 	bank = 12,
+	--- Toughest thing in the game, because it is mostly cargo frame.
+	integrity = 620,
 	fuelMult = 1,
 	tier = 7,
 	cost = 85000,
@@ -1253,6 +1287,8 @@ def({
 	turnSpeed = 145,
 	hoverHeight = 3.2,
 	bank = 45,
+	--- Military spaceframe -- fast *and* solid, which is what 175,000 buys.
+	integrity = 470,
 	-- Half the bill of the courier, forever. The reason this is the last
 	-- thing you buy rather than the first thing you skip to.
 	fuelMult = 0.55,
@@ -1751,6 +1787,23 @@ function Ships.validate(): { string }
 		end
 		if d.cost < 0 then
 			table.insert(problems, `Ships: "{id}" has a negative cost`)
+		end
+
+		--[[
+			A hull must survive its own top speed at least once.
+
+			Impact damage is the speed the hull lost in the crash, so a hull
+			whose integrity is under its own `speed` is disabled by the first
+			wall it meets at full throttle -- undamaged to stranded with no
+			warning and nothing the player could have read beforehand. One
+			flat-out hit has to leave you limping rather than walking, or
+			"durability" is just a despawn on a delay.
+		]]
+		if d.integrity < d.speed then
+			table.insert(
+				problems,
+				`Ships: "{id}" has {d.integrity} integrity and does {d.speed} -- one crash kills it`
+			)
 		end
 		if #d.parts == 0 then
 			table.insert(problems, `Ships: "{id}" has no parts and would be invisible`)

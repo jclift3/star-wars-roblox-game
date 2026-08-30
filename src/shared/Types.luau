@@ -89,6 +89,19 @@ export type PlayerProfile = {
 	-- against the bag cap. `equipped.ship` names which of these the summon
 	-- key calls in.
 	unlockedShips: { string },
+	--[[
+		Damage carried by each owned hull, keyed by ship id.
+
+		A map for the fourth time, and the fourth time for the same reason
+		as `flags`, `inventory` and `raceBests`: an array with holes in it
+		does not survive DataStore serialisation or replication.
+
+		Stored as *damage taken* rather than as remaining integrity, so that
+		an absent key means an undamaged hull. A hull you have never
+		scratched, one you just bought, and one saved before this field
+		existed all read the same, and none of them needs a migration.
+	]]
+	shipDamage: { [string]: number },
 	-- Furnishings owned, and which slot of the cabin each placed one fills.
 	-- Same reasoning as `unlockedShips`: a bunk bolted to a deck cannot be
 	-- dropped or sold, so it is an id and not an ItemStack. `cabin` maps a

@@ -141,6 +141,9 @@ local function defaultProfile(): PlayerProfile
 		-- speeder is the first real thing to save up for; being handed one
 		-- would have taken that away.
 		unlockedShips = {},
+		-- No key means no damage, so a new profile starts here and stays here
+		-- until something is actually crashed.
+		shipDamage = {},
 		-- Empty for the same reason, and one step stronger: a cabin you were
 		-- handed furnished is a room you never chose anything about.
 		unlockedFurnishings = {},
@@ -258,6 +261,24 @@ local function migrate(saved: any): PlayerProfile
 		for _, id in saved.unlockedShips do
 			if type(id) == "string" and Ships.exists(id) then
 				table.insert(base.unlockedShips, id)
+			end
+		end
+	end
+
+	--[[
+		Damage is filtered *and* clamped, because both halves can rot.
+
+		The id can stop existing, the same way `unlockedShips` ids do. And
+		the ceiling can move under it: retuning a hull's `integrity` down in
+		config would leave an old profile holding more damage than the hull
+		can now take, which reads as a negative-integrity speeder that
+		cannot be repaired to working. Clamping here means a config edit is
+		always a mercy and never a brick.
+	]]
+	if type(saved.shipDamage) == "table" then
+		for id, taken in saved.shipDamage do
+			if type(id) == "string" and type(taken) == "number" and taken > 0 and Ships.exists(id) then
+				base.shipDamage[id] = math.min(taken, Ships.get(id).integrity)
 			end
 		end
 	end
@@ -548,6 +569,7 @@ local function clientView(profile: PlayerProfile)
 		inventory = profile.inventory,
 		equipped = profile.equipped,
 		unlockedShips = profile.unlockedShips,
+		shipDamage = profile.shipDamage,
 		unlockedFurnishings = profile.unlockedFurnishings,
 		cabin = profile.cabin,
 		missions = profile.missions,
