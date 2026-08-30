@@ -740,6 +740,43 @@ local function saber(
 	})
 end
 
+--[[
+	HOW HARD A LIGHTSABER HITS -- raised across the board, 2026-08-29
+
+	Reported from play: *"lightsaber needs to be more deadly."* Doing the
+	arithmetic first, because "it feels weak" and "it is weak" are different
+	complaints with different fixes, and the numbers said it was the second
+	one.
+
+	Damage times fire rate put the blue sabre at 63 a second against the
+	DL-44's 49 and the DC-15A's 51 -- a 25% edge, for a weapon that can only
+	be used from seven studs away. That is the whole problem in one figure.
+	The blaster kites; the sabre has to cross the room while being shot, and
+	then stand still inside a firing line for as long as the kill takes.
+	Twenty-five per cent does not buy that. It is not a premium, it is a
+	rounding error.
+
+	What it bought in practice: a level-20 Sand Raider carries 260 health, so
+	the blue sabre needed **seven swings**, just under five seconds of standing
+	in the open. Seven swings is not a lightsaber, it is a bat. Roughly 1.75x
+	across every blade puts that at four, and four is what the word "deadly"
+	is describing.
+
+	The ordering between the blades is untouched -- green quicker and lighter,
+	red heaviest, shoto weakest per swing -- because none of that was wrong.
+	Only the scale was.
+
+	IF THIS OVERSHOOTS, THIS COMMENT IS THE KNOB. Halve the increase, not the
+	fire rates: rate is what makes each blade feel different from the others,
+	and it is the one thing here that has already been tuned against play.
+
+	Deliberately NOT raised with them: `Gaderffii`, `VibroBlade` and
+	`ElectroStaff`. They pay the same closing cost and have the same case, and
+	the honest answer is that they probably need it too -- but nobody has
+	reported it, a gaffi stick beating a DL-44 is a claim about the setting as
+	much as the maths, and a lightsaber ought to be *the* reason to walk into
+	arm's reach. One change, one report, one thing to watch in the next test.
+]]
 saber(
 	"SaberBlue",
 	"Lightsaber (Blue)",
@@ -747,7 +784,7 @@ saber(
 	Palette.SaberBlue,
 	Palette.WornSteel,
 	{
-		damage = 42,
+		damage = 74,
 		fireRate = 1.5,
 		tier = 3,
 		cost = 7500,
@@ -762,7 +799,7 @@ saber(
 	"A Consular's blade. Slightly faster in the hand, favoured by those who talk first.",
 	Palette.SaberGreen,
 	Palette.CopperTrim,
-	{ damage = 38, fireRate = 1.75, tier = 3, cost = 7500, requiredLevel = 10, factions = { "Jedi" } }
+	{ damage = 66, fireRate = 1.75, tier = 3, cost = 7500, requiredLevel = 10, factions = { "Jedi" } }
 )
 
 saber(
@@ -771,7 +808,7 @@ saber(
 	"Neither side of the line. A rare crystal for a rarer temperament.",
 	Palette.SaberPurple,
 	Palette.DarkMetal,
-	{ damage = 46, fireRate = 1.5, tier = 4, cost = 14000, requiredLevel = 24 }
+	{ damage = 82, fireRate = 1.5, tier = 4, cost = 14000, requiredLevel = 24 }
 )
 
 saber(
@@ -780,7 +817,7 @@ saber(
 	"A bled crystal screams inside the blade. It hits harder because it is meant to.",
 	Palette.SaberRed,
 	Palette.SithBlack,
-	{ damage = 52, fireRate = 1.4, tier = 4, cost = 15000, requiredLevel = 24, factions = { "Empire" } }
+	{ damage = 92, fireRate = 1.4, tier = 4, cost = 15000, requiredLevel = 24, factions = { "Empire" } }
 )
 
 saber(
@@ -790,7 +827,7 @@ saber(
 	Palette.SaberYellow,
 	Palette.DroidGold,
 	{
-		damage = 26,
+		damage = 44,
 		fireRate = 2.4,
 		tier = 3,
 		cost = 6000,
@@ -807,7 +844,13 @@ def({
 	displayName = "Double-Bladed Lightsaber",
 	class = "Saber",
 	description = "Twice the blade, twice the ways to lose a hand. Sith discipline required.",
-	damage = 44,
+	-- Raised by less than the other five (1.55x rather than 1.75x). It was
+	-- already the highest damage-per-second in the game before this pass, on
+	-- the longest reach, so the full multiplier would have made every other
+	-- blade a stepping stone to it rather than a choice. Level 34 and 26,000
+	-- credits is late enough that it should be the best; it should not be the
+	-- only one.
+	damage = 68,
 	fireRate = 2.0,
 	-- Two studs longer than a single blade's reach, because it is swung from
 	-- the middle of a hilt twice as long. Same arithmetic as `saber`'s note.

@@ -3435,6 +3435,39 @@ at the moment of refusal, where a number would turn a record of what you did
 into a bar to fill. It is only wrong if there is nowhere at all to go and check
 afterwards, which is what this fixes.
 
+### 5.4 The lightsaber was actually weak — **DONE 2026-08-29**
+
+Reported: *"lightsaber needs to be more deadly."* Damage times fire rate first,
+because "feels weak" and "is weak" are different complaints — and this time it
+was the second one.
+
+The blue sabre put out **63 a second** against the DL-44's 49 and the DC-15A's
+51. A 25% edge, for the only weapon class that cannot be used from more than
+seven studs away. The blaster kites; the sabre crosses the room under fire and
+then stands still inside a firing line for the length of the kill. **Twenty-five
+per cent does not buy that** — it is not a premium, it is a rounding error.
+
+In practice: a level-20 Sand Raider carries 260 health, so the blue sabre needed
+**seven swings**, just under five seconds in the open. Seven swings is not a
+lightsaber, it is a bat. Every blade went up about **1.75×**, which puts that at
+four — and four is what the word "deadly" describes.
+
+Untouched on purpose: the ordering between blades (green quicker, red heaviest,
+shoto weakest per swing) was never wrong, only the scale was; and **fire rate**,
+which is the one thing here already tuned against play and the only reason the
+five blades feel different from each other. The double-blade got 1.55× rather
+than 1.75× — it was already the highest DPS in the game on the longest reach,
+and the full multiplier would have made every other blade a stepping stone to
+it rather than a choice.
+
+Also untouched: **the vibroblade, gaderffii and electrostaff**. They pay exactly
+the same closing cost and have exactly the same case, and they probably need it
+too. But nobody reported it, a gaffi stick beating a DL-44 is a claim about the
+setting as much as the maths, and a lightsaber ought to be *the* reason to walk
+into arm's reach. One change, one report, one thing to watch next test.
+
+---
+
 ---
 
 ## Phase 6 — Ship it
