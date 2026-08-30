@@ -324,6 +324,91 @@ do
 	defs.Zabrak.features = horns
 end
 
+--[[
+	The Underlevels.
+
+	*"There is also mutant monsters in the lower levels"* -- Landon, and the
+	only reason this is a species rather than a costume is that a monster is
+	a silhouette. Coruscant's bottom deck is 440 studs under the Senate, sealed
+	on every side, with no sun and no patrols; what lives down there has been
+	down there long enough to stop reading as a person from across a street.
+
+	So the scale fields do all the work: shorter than a human but half again
+	as wide and thick, `proportionScale` at 0 for short blocky limbs, and an
+	oversized skull -- the file's own note says head size is the single
+	biggest cue for "alien", and it is right. Two colours, both sunless. The
+	claws are on the hands rather than in them, which is what makes the
+	`Claws` weapon draw nothing and still land.
+]]
+defs.Mutant = {
+	displayName = "Undercity Mutant",
+	heightScale = 0.92,
+	widthScale = 1.44,
+	headScale = 1.3,
+	depthScale = 1.28,
+	proportionScale = 0,
+	skinTones = { Palette.MutantFlesh, Palette.MutantPallor },
+	-- Slower than anything else on two legs. What makes it frightening is
+	-- that there are six of them and the deck is sealed.
+	baseWalkSpeed = 11,
+	features = {
+		-- A brow heavy enough to lose the eyes under, which is most of it.
+		{
+			name = "Brow",
+			limb = "Head",
+			scale = Vector3.new(1.08, 0.26, 0.5),
+			offset = Vector3.new(0, 0.22, -0.3),
+			color = Palette.MutantClaw,
+			material = Enum.Material.Slate,
+		},
+		{
+			name = "Jaw",
+			limb = "Head",
+			scale = Vector3.new(0.8, 0.34, 0.5),
+			offset = Vector3.new(0, -0.34, -0.28),
+			color = Palette.MutantFlesh,
+			material = Enum.Material.Slate,
+		},
+		-- The hunch. A slab across the shoulders reads as stooped without
+		-- touching the rig, which cannot be bent without breaking every
+		-- animation the R15 gets for free.
+		{
+			name = "Hunch",
+			limb = "UpperTorso",
+			scale = Vector3.new(1.18, 0.5, 1.3),
+			offset = Vector3.new(0, 0.34, 0.16),
+			color = Palette.MutantFlesh,
+			material = Enum.Material.Slate,
+		},
+	},
+}
+
+-- Claws, three to a hand. Generated rather than typed because six near-
+-- identical records is six places for a number to drift.
+do
+	local claws = {}
+	for _, side in { { limb = "LeftHand", sign = -1 }, { limb = "RightHand", sign = 1 } } do
+		local limb, sign = side.limb, side.sign
+		for i = -1, 1 do
+			table.insert(
+				claws,
+				{
+					name = `Claw{limb}{i}`,
+					limb = limb,
+					scale = Vector3.new(0.16, 0.16, 0.9),
+					offset = Vector3.new(i * 0.26, -0.1, -0.55),
+					rot = Vector3.new(-18, sign * i * 8, 0),
+					color = Palette.MutantClaw,
+					material = Enum.Material.Slate,
+				} :: CosmeticPart
+			)
+		end
+	end
+	for _, claw in claws do
+		table.insert(defs.Mutant.features :: { CosmeticPart }, claw)
+	end
+end
+
 defs.ProtocolDroid = {
 	displayName = "Protocol Droid",
 	heightScale = 1.02,

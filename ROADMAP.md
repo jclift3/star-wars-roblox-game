@@ -3769,6 +3769,72 @@ single plate. Engineering is down to zero dead nodes for the first time, which
 is also the argument for raising `KitDiscipline`'s twelve-point gate the next
 time the capstones are looked at.
 
+### 5.10 The well — **2026-08-30**
+
+The boys, in a thread with a photograph attached:
+
+> *"Well on Coruscant there are big hole highways that go to the lower levels"*
+> — Logan. *"There's holes that go through. That you fly your ship down"* —
+> Landon. *"Yeah I want it where you can only access the levels from like the
+> highway down the middle and like walkways"* / *"Make it inaccessible from the
+> sides and bottom"* — Logan. *"There is also mutant monsters in the lower
+> levels"* — Landon.
+
+§5.5 built five decks and they read as five storeys. What it did not build is
+**how the storeys relate**. The only way down was a turbolift, and a turbolift is
+a door with a load screen behind it: the 440 studs between the Senate and the
+Underlevels were a number, never a place. The boys are not asking for more
+levels. They are asking for the distance between them to be the point.
+
+**The well.** One shaft down the middle, punched through the same five cells of
+all five grids — so it lines up by construction rather than by five numbers
+agreeing. A new legend glyph, `V`/`Void`, and it is the first entry in `PREFABS`
+that *subtracts*: no paving, no anchor, no `build`, no `fill`, so
+`buildFromLayout` falls straight through and nothing there had to learn about it.
+What reads it is `buildDeck`, which lays the plate as the eight rectangles
+*around* the hole, and `buildWell`, which drops a shaft through it.
+
+Three things worth keeping:
+
+- **A square grid cannot cut a round hole, and the collar does not care.** The
+  grid cuts a 160-stud square; the collar is sixteen slabs reaching from the
+  inscribed circle out to `radius × √2`, which fills the four corner gaps, makes
+  the mouth read as a circle from every deck above and below, and *is* the
+  parapet — three jobs from one ring of parts. One face is left out at bearing
+  zero on every storey, and that gap is the walkway's door. A hole in a fence is
+  a door if it is in the same place every time.
+- **Two whole turns per deck is a correctness constraint, not a taste one.** The
+  spiral walkway starts at bearing zero on every deck, so a half turn would put
+  its mouth on the far side of the shaft from the next deck's and the walkway
+  would arrive at a wall. Two turns over 220 studs at radius 62 is about
+  fourteen degrees, which an R15 rig walks without touching jump. Each segment
+  is built from its own two endpoints via `CFrame.lookAt`, so they meet exactly
+  at whatever slope the arithmetic produced and changing `WELL_TURNS`
+  re-pitches the whole thing without another number moving.
+- **The seal is the parapet, extended.** *"Make it inaccessible from the sides
+  and bottom"* — each deck's rail now hangs a curtain wall down to the storey
+  below, so five plates and four walls make a closed box: the floor is the
+  Underlevels plate, the lid is open sky. A ship comes in over the top and goes
+  down the hole, which is the whole point. Every deck draws the same 22×22 grid
+  at the same cell size, so the walls meet storey to storey for free.
+
+**And the monsters.** `Species.Mutant` is the first thing in that file that is
+not a person, and it is a species rather than a costume because a monster is a
+*silhouette*: shorter than a human, half again as wide and thick,
+`proportionScale` at 0 for blocky limbs, and an oversized skull, which the file's
+own header already says is the single biggest cue for "alien". Claws are welded
+to the hands as species features, which is why the `Claws` weapon draws nothing
+and still lands — the alternative was a second set of claws in the fist holding
+the first. Fourteen `UnderlevelMutant` and four `MutantBrute`, and they are the
+**only melee enemies on the planet**, so the Underlevels are now the one deck
+that does not fight like the other four. Before this, the bottom of the well
+fought exactly like the top of it, which rather undercut the descent.
+
+The one number a Play test has to settle is the **clear flying diameter** —
+about 120 studs once the walkway and its rail are inside the 160-stud mouth. A
+Longhaul Freighter has to fit down it. If it does not, `WELL_RAMP_WIDTH` is the
+knob and it is one line.
+
 ---
 
 ## Phase 6 — Ship it

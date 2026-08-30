@@ -1172,6 +1172,41 @@ defs.Civilian = compose(
 	})
 )
 
+--[[
+	Not an outfit so much as what is left of one.
+
+	The Underlevels mutants were people, and the story only lands if you can
+	see that -- so they are still wearing the scraps of somebody's work clothes
+	over a body that has stopped fitting them. Deliberately thin: the species'
+	proportions are the silhouette, and burying them under fabric would undo
+	the one thing that makes these read as monsters at fifty studs.
+]]
+defs.Mutant = compose(
+	part({
+		name = "Rag",
+		limb = "UpperTorso",
+		scale = Vector3.new(1.04, 0.62, 1.1),
+		offset = Vector3.new(0, -0.18, 0),
+		color = Palette.JawaBrown,
+		material = Enum.Material.Fabric,
+	}),
+	part({
+		name = "Wrap",
+		limb = "LowerTorso",
+		scale = Vector3.new(1.08, 0.9, 1.12),
+		color = Palette.SmugglerBrown,
+		material = Enum.Material.Fabric,
+	}),
+	mirror(LOWER_ARMS, "Binding", {
+		name = "",
+		limb = "",
+		scale = Vector3.new(1.14, 0.5, 1.14),
+		offset = Vector3.new(0, 0.2, 0),
+		color = Palette.TuskenWrap,
+		material = Enum.Material.Fabric,
+	})
+)
+
 defs.Merchant = compose(
 	robe(Palette.NabooRoyal, false),
 	boots(Palette.SmugglerBrown),

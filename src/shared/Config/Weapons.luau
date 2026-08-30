@@ -1187,6 +1187,39 @@ def({
 	},
 })
 
+--[[
+	What the Underlevels mutants hit with.
+
+	`parts` is empty on purpose and it is not an oversight: the claws are
+	`Species.Mutant` features welded to the hands, so they are already on the
+	rig before a weapon is handed out. A `WeaponDef` with no geometry is the
+	honest way to say "the damage comes from something that grew there" --
+	the alternative is drawing a second set of claws in the fist holding the
+	first set.
+
+	`cost = 0` is what keeps it out of the drop tables -- `Loot.gather` reads
+	that as "not a thing you acquire", which is how `Fists` has always stayed
+	out -- and it is the truth here too. You cannot pick these up because they
+	are not detachable.
+]]
+def({
+	id = "Claws",
+	displayName = "Claws",
+	class = "Melee",
+	description = "Bone that kept growing after whatever was in the water stopped telling it not to.",
+	damage = 42,
+	fireRate = 1.5,
+	range = 7,
+	spread = 0,
+	critMultiplier = 2.0,
+	handedness = "OneHand",
+	tier = 3,
+	cost = 0,
+	requiredLevel = 26,
+	muzzleOffset = V3(0, 0, -1.5),
+	parts = {},
+})
+
 def({
 	id = "Fists",
 	displayName = "Bare Hands",

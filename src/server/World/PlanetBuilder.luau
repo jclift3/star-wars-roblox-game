@@ -3366,6 +3366,17 @@ local PREFABS: { [string]: PrefabDef } = {
 	-- storey; on a world with one ground level an `X` is just a paved square,
 	-- which is exactly what a lift to nowhere should look like.
 	Lift = { paved = true },
+	--[[
+		The one glyph that means "do not build here, and do not floor it
+		either". Every other entry in this table adds something; `Void`
+		subtracts, and it is deliberately empty rather than flagged, because
+		nothing in `buildFromLayout` has to know about it -- no paving, no
+		anchor, no `build`, no `fill`, so the loop falls straight through.
+
+		What reads it is `buildDeck`, which lays the plate around the hole
+		these cells cut, and `buildWell`, which drops a shaft through it.
+	]]
+	Void = {},
 }
 
 --[[
@@ -4009,6 +4020,298 @@ local function buildTurbolift(
 	end
 end
 
+--------------------------------------------------------------------------------
+-- The well
+--------------------------------------------------------------------------------
+
+--[[
+	THE HOLE DOWN THE MIDDLE, AND WHY IT IS THE WHOLE PLANET
+
+	*"On Coruscant there are big hole highways that go to the lower levels...
+	there's holes that go through that you fly your ship down"*, and then, of
+	the build as it stood: *"I want it where you can only access the levels
+	from like the highway down the middle and like walkways."*
+
+	Five decks already existed and already read as five storeys. What they had
+	no answer for was how the storeys relate to each other. A turbolift is a
+	door with a load screen behind it: you press E on the Plaza and you are in
+	the Underlevels, and the four hundred and forty studs in between were
+	never a place. The well makes the distance the point. You fly down it, or
+	you walk down it and it takes a minute and gets darker the whole way, and
+	either way you have *been* through the city rather than skipped it.
+
+	It is one shaft, punched through the same five cells of all five grids, so
+	it lines up by construction rather than by five numbers agreeing.
+]]
+
+--- How many faces the shaft is drawn with. Sixteen reads as round from inside
+--- it and costs sixteen parts a storey, which is less than one building.
+local WELL_FACES = 16
+
+--- How thick the shaft lining is, and how far the collar reaches past the
+--- circle. The collar has to make it out to the *corner* of the square hole
+--- the grid cuts -- radius x sqrt(2) -- or the corners are four holes in the
+--- floor nobody drew.
+local WELL_LINING = 12
+
+--- The walkway: how wide it is, and how far in from the lining it runs.
+local WELL_RAMP_WIDTH = 16
+local WELL_RAMP_GAP = 4
+
+--- Waist height on the ramp's outer rail, and on the lip round the mouth.
+local WELL_RAIL = 5
+
+--[[
+	How many times the walkway goes round between one deck and the next.
+
+	Two, and it has to be a whole number: the ramp starts at bearing zero on
+	every deck and a half turn would put its mouth on the far side of the
+	shaft from the next deck's, so the walkway would arrive at a wall. Two
+	turns over a 220-stud drop at radius ~62 is about fourteen degrees, which
+	an R15 rig walks up without touching the jump.
+]]
+local WELL_TURNS = 2
+
+--- Segments per turn. Twenty is enough that the joins do not read as steps.
+local WELL_RAMP_SEGMENTS = 20
+
+--- The bearing the walkway meets each deck at. Zero -- due east -- on every
+--- storey, because a landing you have to look for is a landing you fall past.
+local WELL_MOUTH = 0
+
+--[[
+	Where a deck's grid says there is no deck, in the layout's own coordinates.
+
+	Returns the corners of the hole, or nil on a grid with no `Void` in it --
+	which is every layout in the game except Coruscant's five, and the reason
+	this is a lookup rather than a `DeckDef` field. The hole is where the
+	picture says it is.
+]]
+local function voidCorners(layout: Planets.LayoutDef): (Vector3?, Vector3?)
+	local columns, rows = Planets.layoutSize(layout)
+	local minC, minR, maxC, maxR = math.huge, math.huge, -math.huge, -math.huge
+
+	for row = 1, rows do
+		for column = 1, columns do
+			if layout.legend[glyphAt(layout, column, row)] ~= "Void" then
+				continue
+			end
+			minC, maxC = math.min(minC, column), math.max(maxC, column)
+			minR, maxR = math.min(minR, row), math.max(maxR, row)
+		end
+	end
+	if minC > maxC then
+		return nil, nil
+	end
+
+	local half = layout.cell * 0.5
+	local a = Planets.cellOffset(layout, minC, minR) - Vector3.new(half, 0, half)
+	local b = Planets.cellOffset(layout, maxC, maxR) + Vector3.new(half, 0, half)
+	return a, b
+end
+
+--[[
+	A rectangle of deck plate, cut into slabs no bigger than `DECK_SLAB`.
+
+	Pulled out of `buildDeck` when the well arrived. The plate used to be one
+	loop over the whole span; now it is eight of these laid round the hole,
+	which is the only way to get an exact edge -- tiling the whole span and
+	skipping the tiles that overlap the hole leaves either a gap you fall
+	through at the seam or a lip that hangs over the drop.
+]]
+local function tilePlate(
+	parent: Instance,
+	base: Vector3,
+	from: Vector2,
+	to: Vector2,
+	color: Color3,
+	material: Enum.Material
+)
+	local spanX, spanZ = to.X - from.X, to.Y - from.Y
+	if spanX <= 0.5 or spanZ <= 0.5 then
+		return
+	end
+
+	local tilesX = math.max(1, math.ceil(spanX / DECK_SLAB))
+	local tilesZ = math.max(1, math.ceil(spanZ / DECK_SLAB))
+	local stepX, stepZ = spanX / tilesX, spanZ / tilesZ
+
+	for ix = 1, tilesX do
+		for iz = 1, tilesZ do
+			local at = base
+				+ Vector3.new(from.X + (ix - 0.5) * stepX, -DECK_THICKNESS * 0.5, from.Y + (iz - 0.5) * stepZ)
+			block(parent, CFrame.new(at), Vector3.new(stepX, DECK_THICKNESS, stepZ), color, material).Name =
+				"Slab"
+		end
+	end
+end
+
+--[[
+	The mouth of the well on one deck: a round collar over a square hole.
+
+	The grid can only cut squares, and a square hole in a floor is a hole in a
+	floor. The collar is a ring of `WELL_FACES` slabs standing on the plate's
+	cut edge, reaching from the inscribed circle out past the square's
+	corners, which does three jobs with one set of parts: it fills the four
+	corner gaps, it makes the opening read as a circle from every deck above
+	and below, and it is the parapet stopping somebody walking off the plaza
+	into a 440-stud drop.
+
+	One face is left out, at `WELL_MOUTH`, and that gap is the only way onto
+	the walkway. A hole in a fence is a door if it is in the same place every
+	time.
+]]
+local function wellCollar(parent: Instance, centre: Vector3, radius: number, style: Style)
+	local outer = radius * math.sqrt(2) + 2
+	local chord = 2 * outer * math.tan(math.pi / WELL_FACES) + 3
+	local depth = outer - radius
+	local height = DECK_THICKNESS + WELL_RAIL * 2
+
+	for face = 0, WELL_FACES - 1 do
+		local angle = face * (2 * math.pi / WELL_FACES)
+		-- The one face the walkway comes through.
+		if math.abs(angle - WELL_MOUTH) < math.pi / WELL_FACES then
+			continue
+		end
+
+		local at = centre
+			+ Vector3.new(
+				math.cos(angle) * (radius + depth * 0.5),
+				WELL_RAIL - DECK_THICKNESS * 0.5,
+				math.sin(angle) * (radius + depth * 0.5)
+			)
+		local ring = block(
+			parent,
+			CFrame.new(at) * CFrame.Angles(0, -angle, 0),
+			Vector3.new(depth, height, chord),
+			style.buildingColors[1],
+			style.wallMaterial
+		)
+		ring.Name = "Collar"
+
+		local lamp = block(
+			parent,
+			CFrame.new(at + Vector3.new(0, WELL_RAIL, 0)) * CFrame.Angles(0, -angle, 0),
+			Vector3.new(depth * 0.6, 0.8, chord),
+			style.windowColor,
+			Enum.Material.Neon
+		)
+		lamp.Name = "CollarLight"
+		lamp.CanCollide = false
+	end
+end
+
+--[[
+	The shaft between one deck and the next, and the walkway down it.
+
+	`drop` is the distance to the deck below. On the bottom deck there is
+	none, so this builds the collar and stops -- the Underlevels floor is the
+	bottom of the city and the well ends on it.
+
+	The walkway is built from its own endpoints rather than from an angle and
+	a pitch: two points on the helix, a `CFrame.lookAt` between them, and a
+	block as long as the gap. Every segment therefore meets the next one
+	exactly, at whatever slope the arithmetic produced, and changing
+	`WELL_TURNS` re-pitches the entire ramp without another number moving.
+]]
+local function buildWell(parent: Instance, centre: Vector3, radius: number, style: Style, drop: number?)
+	local well = folder("Well", parent)
+	wellCollar(well, centre, radius, style)
+
+	if not drop or drop <= 0 then
+		return
+	end
+
+	--[[
+		The lining. A `WELL_FACES`-sided tube hanging under the collar, which
+		is what you are looking at for the whole descent -- so it carries the
+		light. A lit band at every storey's worth of height gives the shaft a
+		scale you can read while falling down it, which is the difference
+		between a hole and a distance.
+	]]
+	local chord = 2 * (radius + WELL_LINING) * math.tan(math.pi / WELL_FACES) + 3
+	for face = 0, WELL_FACES - 1 do
+		local angle = face * (2 * math.pi / WELL_FACES)
+		local at = centre
+			+ Vector3.new(
+				math.cos(angle) * (radius + WELL_LINING * 0.5),
+				-DECK_THICKNESS - drop * 0.5,
+				math.sin(angle) * (radius + WELL_LINING * 0.5)
+			)
+		block(
+			well,
+			CFrame.new(at) * CFrame.Angles(0, -angle, 0),
+			Vector3.new(WELL_LINING, drop, chord),
+			style.buildingColors[2],
+			style.wallMaterial
+		).Name =
+			"Lining"
+
+		local strip = block(
+			well,
+			CFrame.new(at - Vector3.new(0, drop * 0.5 - 12, 0)) * CFrame.Angles(0, -angle, 0),
+			Vector3.new(WELL_LINING * 0.4, 2.5, chord),
+			style.windowColor,
+			Enum.Material.Neon
+		)
+		strip.Name = "LiningLight"
+		strip.CanCollide = false
+	end
+
+	--[[
+		The walkway. `WELL_TURNS` whole turns, so it arrives under the mouth
+		it left -- see the constant. Built as a chain of chords rather than as
+		an arc because Roblox has no curved part and a wedge would need one
+		per segment anyway.
+	]]
+	local ramp = folder("Walkway", well)
+	local run = radius - WELL_RAMP_GAP - WELL_RAMP_WIDTH * 0.5
+	local steps = WELL_TURNS * WELL_RAMP_SEGMENTS
+
+	local function pointAt(step: number): Vector3
+		local t = step / steps
+		local angle = WELL_MOUTH - t * WELL_TURNS * 2 * math.pi
+		return centre + Vector3.new(math.cos(angle) * run, -t * drop, math.sin(angle) * run)
+	end
+
+	for step = 0, steps - 1 do
+		local from, to = pointAt(step), pointAt(step + 1)
+		local mid = (from + to) * 0.5
+		-- Overlapped by a stud at each end: two blocks that merely touch on
+		-- a slope leave a seam an R15 rig catches its feet on.
+		local length = (to - from).Magnitude + 2
+		local along = CFrame.lookAt(mid, to)
+
+		block(
+			ramp,
+			along,
+			Vector3.new(WELL_RAMP_WIDTH, 2, length),
+			style.buildingColors[1],
+			style.wallMaterial
+		).Name =
+			"Tread"
+
+		local rail = block(
+			ramp,
+			along * CFrame.new(WELL_RAMP_WIDTH * 0.5, WELL_RAIL * 0.5, 0),
+			Vector3.new(1.5, WELL_RAIL, length),
+			style.buildingColors[3],
+			style.wallMaterial
+		)
+		rail.Name = "Rail"
+
+		local glow = block(
+			ramp,
+			along * CFrame.new(WELL_RAMP_WIDTH * 0.5, WELL_RAIL, 0),
+			Vector3.new(1.5, 0.5, length),
+			style.windowColor,
+			Enum.Material.Neon
+		)
+		glow.Name = "RailLight"
+		glow.CanCollide = false
+	end
+end
+
 --[[
 	One walkable storey of a city built on nothing.
 
@@ -4047,44 +4350,72 @@ local function buildDeck(
 	local spanZ = rows * deck.layout.cell + DECK_MARGIN * 2
 
 	--[[
-		The plate. Tiled rather than laid as one part -- see `DECK_SLAB` --
-		and sized so the tiles divide the span exactly, because a plate that
-		is a few studs short on one side is a gap you fall through at the
-		seam and a plate a few studs long is a lip you trip on.
+		The plate, with the well's hole cut out of it.
+
+		Tiled rather than laid as one part -- see `DECK_SLAB` -- and laid as
+		the eight rectangles *around* the hole rather than as one grid with
+		the middle tiles skipped, so the cut edge lands exactly where the
+		grid said the void starts. On a world whose layout has no `Void` in
+		it, which is the other eight, `hole` is nil and this is a single
+		rectangle: precisely the loop it used to be.
 	]]
 	local plate = folder("Plate", root)
-	local tilesX = math.max(1, math.ceil(spanX / DECK_SLAB))
-	local tilesZ = math.max(1, math.ceil(spanZ / DECK_SLAB))
-	local stepX, stepZ = spanX / tilesX, spanZ / tilesZ
+	local holeA, holeB = voidCorners(deck.layout)
+	local edgeA = Vector2.new(-spanX * 0.5, -spanZ * 0.5)
+	local edgeB = Vector2.new(spanX * 0.5, spanZ * 0.5)
 
-	for ix = 1, tilesX do
-		for iz = 1, tilesZ do
-			local at = base
-				+ Vector3.new(
-					-spanX * 0.5 + (ix - 0.5) * stepX,
-					-DECK_THICKNESS * 0.5,
-					-spanZ * 0.5 + (iz - 0.5) * stepZ
+	if holeA and holeB then
+		local xs = { edgeA.X, holeA.X, holeB.X, edgeB.X }
+		local zs = { edgeA.Y, holeA.Z, holeB.Z, edgeB.Y }
+		for ix = 1, 3 do
+			for iz = 1, 3 do
+				if ix == 2 and iz == 2 then
+					continue
+				end
+				tilePlate(
+					plate,
+					base,
+					Vector2.new(xs[ix], zs[iz]),
+					Vector2.new(xs[ix + 1], zs[iz + 1]),
+					plateColor,
+					worn.wallMaterial
 				)
-			block(
-				plate,
-				CFrame.new(at),
-				Vector3.new(stepX, DECK_THICKNESS, stepZ),
-				plateColor,
-				worn.wallMaterial
-			).Name =
-				"Slab"
+			end
 		end
+
+		--[[
+			And the shaft through it. The radius is the square hole's
+			inscribed circle; the collar is what reaches out to the corners.
+			`drop` is nil on the bottom storey, where the well ends.
+		]]
+		buildWell(
+			root,
+			base + Vector3.new((holeA.X + holeB.X) * 0.5, 0, (holeA.Z + holeB.Z) * 0.5),
+			math.min(holeB.X - holeA.X, holeB.Z - holeA.Z) * 0.5,
+			worn,
+			if below then deck.y - below else nil
+		)
+	else
+		tilePlate(plate, base, edgeA, edgeB, plateColor, worn.wallMaterial)
 	end
 
 	--[[
-		The parapet, and a lit strip along the top of it.
+		The parapet, a lit strip along the top of it, and the curtain wall
+		hanging under it down to the storey below.
 
-		Solid all the way round on purpose. The old platforms made falling the
-		defining experience of the planet, and the drop off a deck is up to
-		1,080 studs onto another deck -- survivable in the sense that you
-		arrive in a district banding twenty levels above you. The light strip
-		is the part that matters four storeys down, where there is no sun and
-		an unlit edge is invisible until you are past it.
+		Solid all the way round on purpose, and since the well arrived it is
+		solid all the way *down* too: *"make it inaccessible from the sides
+		and bottom"* -- Logan, who had worked out before I had that a hole in
+		the middle is only the way in if it is the *only* way in. Five plates
+		each hung with a wall to the next make a closed box -- the lid is
+		open sky, the floor is the Underlevels plate, and these are the four
+		sides -- so a ship arrives over the top and goes down the shaft.
+		Every deck draws the same 22x22 grid at the same cell size, so the
+		walls meet storey to storey by construction rather than by five
+		numbers agreeing.
+
+		The light strip is the part that matters four storeys down, where
+		there is no sun and an unlit edge is invisible until you are past it.
 	]]
 	local rails = folder("Parapet", root)
 	for _, side in { Vector2.new(1, 0), Vector2.new(-1, 0), Vector2.new(0, 1), Vector2.new(0, -1) } do
@@ -4103,6 +4434,19 @@ local function buildDeck(
 		)
 		strip.Name = "RailLight"
 		strip.CanCollide = false
+
+		if not below then
+			continue
+		end
+		local fall = deck.y - below
+		block(
+			rails,
+			CFrame.new(at - Vector3.new(0, DECK_RAIL * 0.5 + DECK_THICKNESS + fall * 0.5, 0)),
+			Vector3.new(if side.X ~= 0 then 4 else spanX, fall, if side.Y ~= 0 then 4 else spanZ),
+			plateColor,
+			worn.wallMaterial
+		).Name =
+			"CanyonWall"
 	end
 
 	local anchors, rooms = buildFromLayout(root, planet, deck.layout, base, worn, rng)

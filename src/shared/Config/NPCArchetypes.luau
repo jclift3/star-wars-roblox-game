@@ -640,6 +640,90 @@ def({
 })
 
 --------------------------------------------------------------------------------
+-- The Underlevels
+--------------------------------------------------------------------------------
+
+--[[
+	*"There is also mutant monsters in the lower levels"* -- Landon.
+
+	The first thing in this file that is not a person, and the first enemy
+	that closes rather than shoots. Everything in Coruscant's Underlevels
+	until now was a bounty hunter with a disruptor pistol, which meant the
+	bottom of the well fought exactly like the top of it -- and the reason to
+	go down there was supposed to be that it is worse down there.
+
+	So these are melee, they hold ground, and they come in numbers. `Claws`
+	hits hard at seven studs and not at all at eight, which is a fight you
+	win by backing up a corridor and lose by standing in a room, and the
+	Underlevels layout is mostly rooms.
+
+	They are `Independent` and `repOnKill` is nil deliberately: there is
+	nobody to be angry about it. A faction that resents you for this would be
+	a faction, and the point of these is that whatever they were, they are
+	not organised any more.
+]]
+def({
+	id = "UnderlevelMutant",
+	displayName = "Mutant",
+	faction = "Independent",
+	costume = "Mutant",
+	speciesPool = pool({ Mutant = 1 }),
+	behavior = Behavior.Aggressive,
+	holdsGround = true,
+	-- Overlapping the Underlevels' 31-34 band with room either side, because
+	-- `rollLevel` clamps and a range that only touches the band at one end
+	-- pins every spawn to that end. See `Planets.validate`.
+	minLevel = 26,
+	maxLevel = 38,
+	baseHealth = 240,
+	healthPerLevel = 11,
+	walkSpeed = 11,
+	-- Slower on the approach than you are, and faster once it has you. That
+	-- gap is the whole encounter: you get one decision about whether to be
+	-- in the room, and after that you do not.
+	runSpeed = 23,
+	weapon = "Claws",
+	-- Short. It has no eyes worth the name and there is no light down here,
+	-- so it finds you late -- which is the only mercy in the district.
+	sightRange = 70,
+	attackRange = 7,
+	reactionTime = 0.5,
+	xpReward = 320,
+	creditReward = { min = 40, max = 140 },
+	nameStyle = "None",
+})
+
+--[[
+	The one that does not die on the way in.
+
+	Same body, more of it: `baseHealth` is a bounty hunter's and then some,
+	and it is the reason a group of these is not just six of the above. Rare
+	on purpose -- two per deck against fourteen of the common one.
+]]
+def({
+	id = "MutantBrute",
+	displayName = "Undercity Brute",
+	faction = "Independent",
+	costume = "Mutant",
+	speciesPool = pool({ Mutant = 1 }),
+	behavior = Behavior.Aggressive,
+	holdsGround = true,
+	minLevel = 30,
+	maxLevel = 42,
+	baseHealth = 620,
+	healthPerLevel = 18,
+	walkSpeed = 9,
+	runSpeed = 19,
+	weapon = "Claws",
+	sightRange = 85,
+	attackRange = 8,
+	reactionTime = 0.4,
+	xpReward = 700,
+	creditReward = { min = 150, max = 420 },
+	nameStyle = "None",
+})
+
+--------------------------------------------------------------------------------
 -- Civilians -- the "everyday people with basic AI" layer
 --------------------------------------------------------------------------------
 

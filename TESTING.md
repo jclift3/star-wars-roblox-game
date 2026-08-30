@@ -1908,6 +1908,67 @@ keyed by ship id, so it survives putting the hull away.
     the whole test; if a plate mends the same amount either way, `RepairMult` is
     not reaching `VehicleService.repair`.
 
+### 6.13 The well — **new, 2026-08-30**
+
+Coruscant's five decks now have a 160-stud shaft down the middle of all five,
+a spiral walkway round it, and a curtain wall sealing the sides. Nothing here
+has been played.
+
+`whosyourdaddy`, then **G** to Coruscant. You land on the Plaza deck.
+
+1. Walk to the middle of the Plaza. There is a **round mouth** in the floor with
+   a waist-high collar all the way round it — and the collar must read as a
+   *circle*, not a square with rounded bits. The grid cuts a square; if you can
+   see four corner gaps you can fall down, the collar is not reaching
+   `radius × √2`.
+2. Look down it. You should see lit bands receding — one per storey — and the
+   walkway spiralling. **A shaft you cannot see the bottom of is the bug**; the
+   lining lights are what give it a readable depth.
+3. Find the **one gap in the collar**, at due east on every deck. That is the
+   only way onto the walkway and it must be in the same place on all five.
+4. Walk down. Two full turns per storey, about fourteen degrees. **You must not
+   need to jump, and you must not catch your feet on a seam** — the treads
+   overlap by a stud each for exactly that reason. There is a rail on the
+   outside edge the whole way.
+5. Keep going: Skylane, The Works, Temple Ruin, Underlevels. Each landing puts
+   you out through that deck's collar gap, onto that deck's street. **Confirm
+   you never arrive facing a wall** — that is what a non-whole `WELL_TURNS`
+   looks like.
+6. It gets dirtier and darker as you descend. That is `grime`, and it was
+   already working; what is new is that you now *travel* through it instead of
+   riding a lift past it.
+7. **The seal.** On any deck, walk to the outer edge. There is no way off — the
+   rail is solid, and below it a wall runs all the way to the next deck. Try to
+   get under a deck from the outside: you should not be able to. *"Make it
+   inaccessible from the sides and bottom."*
+8. **Fly it.** Summon a **starship** on the Plaza pad, take off, and fly down the
+   well. **This is the headline test.** A Longhaul Freighter — the widest hull —
+   must fit: clear diameter is about 120 studs once the walkway and rail are
+   inside the 160-stud mouth. Land in the Underlevels, **E** to get out. If the
+   freighter scrapes, `WELL_RAMP_WIDTH` is the knob.
+9. Fly back up the well and out over the top. That is the only entrance now.
+10. **The mutants.** In the Underlevels there are eighteen of them and they are
+    **melee** — the only melee enemies on the planet. They should look wrong at
+    fifty studs without you needing to see the face: shorter, much wider, big
+    skull, hunched, rags. Claws on the hands, and **nothing drawn in the fist**.
+11. Fight one in the open and then fight one in a room. In the open you can back
+    up and it never touches you; in a room you cannot, and that difference is
+    the encounter. If it hits you from ten studs away, `attackRange` is not
+    being read.
+12. Let a **Brute** find you. It should take roughly three times the killing of
+    a common mutant. If they die in the same number of hits, `baseHealth` is not
+    per-archetype.
+13. Levels on the nameplates should sit in the high twenties to mid thirties —
+    the Underlevels band. Anything at 26 flat on every single one means
+    `rollLevel` is pinning to an end of the range.
+14. **Both boys.** One on the Plaza deck and one in the Underlevels, then swap by
+    walking. The shaft, the walkway and the wall are server geometry, so both
+    must see the same hole in the same place; and one of them jumping in must be
+    visible to the other on the way down.
+15. **Frame rate on the Plaza deck** is the number to watch — the well adds a
+    collar per deck and a lining per gap. If it is bad, deck radius is the knob
+    and it is one number.
+
 ---
 
 ## 7. Missions

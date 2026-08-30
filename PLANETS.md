@@ -534,6 +534,42 @@ used to belong to a spaceport dropped on a random tower platform with no path to
 it. NPCs never use the lifts, and that is the point — `PathfindingService` will
 not path through one, so each deck keeps its own population and its own band.
 
+**And a well down the middle of all five (2026-08-30).** The decks read as five
+storeys; what they did not have was any relationship to each other. A turbolift
+is a door with a load screen behind it, so the 440 studs between the Senate and
+the Underlevels were a number rather than a place — which is what the boys were
+pointing at with *"big hole highways that go to the lower levels… that you fly
+your ship down"* and *"you can only access the levels from like the highway down
+the middle and like walkways."*
+
+- **`V`/`Void`** is a new legend glyph, and the first `PREFABS` entry that
+  subtracts. It has no `paved`, no `anchor`, no `build` and no `fill`, so
+  `buildFromLayout` falls straight through it and needed no new branch. The 5×5
+  block of it at the centre of all five grids cuts a 160-stud square, and it is
+  the *same* five cells on every deck, so the shaft lines up by construction.
+- **The collar** is sixteen slabs from the hole's inscribed circle out to
+  `radius × √2`. That single ring fills the four corners the square hole leaves,
+  makes the mouth read as a circle from above and below, and serves as the
+  parapet. One face is missing, at due east on every storey, and that gap is the
+  walkway's door.
+- **The walkway** is a helix, **two whole turns per 220-stud gap** — whole
+  because it starts at bearing zero on each deck, so a half turn would land it
+  on the far side of the shaft from the next deck's mouth. That works out at
+  about fourteen degrees, which an R15 rig walks without jumping. Segments are
+  built from their own endpoints, so re-pitching the ramp is one constant.
+- **The seal:** each deck's parapet now hangs a curtain wall to the storey
+  below. Five plates and four walls make a closed box — floor is the Underlevels
+  plate, lid is open sky. *"Make it inaccessible from the sides and bottom."*
+  Clear flying diameter is about 120 studs, which a Longhaul Freighter has to
+  fit down; `WELL_RAMP_WIDTH` is the knob if it does not.
+
+The Underlevels also got the thing that makes the descent worth making:
+**eighteen mutants**, the only melee enemies on the planet. `Species.Mutant` is
+the first entry in that file that is not a person — short, half again as wide,
+`proportionScale` 0, oversized skull, claws welded to the hands as species
+features rather than held. Before this, the bottom of the well fought exactly
+like the top of it.
+
 ---
 
 ### Tython — the Order

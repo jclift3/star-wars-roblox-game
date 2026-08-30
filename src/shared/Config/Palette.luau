@@ -60,6 +60,12 @@ local Palette = {
 	GunganTan = rgb(178, 152, 110),
 	ZabrakRust = rgb(178, 88, 62),
 
+	-- The Underlevels. Sunless skin over an industrial sump, and the horn
+	-- that grows over the hands of something that climbs for a living.
+	MutantFlesh = rgb(126, 132, 118),
+	MutantPallor = rgb(154, 150, 132),
+	MutantClaw = rgb(58, 52, 44),
+
 	-- Droids --------------------------------------------------------------
 	DroidGold = rgb(198, 158, 54),
 	DroidSilver = rgb(178, 182, 188),
