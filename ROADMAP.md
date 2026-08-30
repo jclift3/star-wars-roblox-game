@@ -116,8 +116,10 @@ for nine worlds, one each, none shared:
 Terrain still picks the *scatter* (dunes, drifts, trees, rocks) — that one it
 was always right about. `styleFor` no longer branches on terrain at all, and
 PlanetBuilder warns at load about any architecture name it does not know, rather
-than at the moment someone flies there. Coruscant's `Spire` is declared but not
-drawn: `hasWalkableGround = false` sends it down the vertical-city path.
+than at the moment someone flies there. Coruscant's `Spire` was declared but
+never drawn for two weeks — `hasWalkableGround = false` sent it down the
+vertical-city path, which calls no room builder at all. `PlanetDef.decks` fixed
+that on 2026-08-29; see **Coruscant's five decks** below.
 
 **B3. Everything charges you on sight from a very long way off.** — **[fixed]**
 Half of this was already solved and half was real:
@@ -507,9 +509,10 @@ Two things fell out of drawing it, both of the "nothing reads X" kind:
   checker.
 
 **Tython, Hoth and Dromund Kaas finish the set — every walkable world in the
-galaxy is now drawn.** Eight grids; **Coruscant is the one planet that should
-not get one**, since `hasWalkableGround = false` genuinely sends it down
-`buildVerticalCity`. The last three were each drawn around a single sentence the
+galaxy is now drawn.** Eight grids; Coruscant was ruled out here as *the one
+planet that should not get one*, since `hasWalkableGround = false` genuinely
+sends it down `buildVerticalCity`. **That was wrong, and it took a play test to
+show it** — see **Coruscant's five decks** below. The last three were each drawn around a single sentence the
 planet already said about itself:
 
 - **Tython built nothing it could defend**, so it is the only grid in the game
@@ -3529,6 +3532,89 @@ setting as much as the maths, and a lightsaber ought to be *the* reason to walk
 into arm's reach. One change, one report, one thing to watch next test.
 
 ---
+
+### 5.5 Coruscant's five decks — **2026-08-29**
+
+Reported, with four screenshots: *"there don't seem to be any levels here as we
+discussed. There should be floor / buildings to walk through and lower levels.
+The lower you go the more ghetto it becomes, higher up is more luxury, right? I
+spawn on a platform but can't get my spaceship and can't go anywhere."*
+
+**Grep first, tenth time, and the answer is again that the machinery exists and
+Coruscant is the one world that opted out of it.** `hasWalkableGround = false`
+was doing two unrelated jobs at once:
+
+- *lay no terrain* — correct. The planet is a shell of durasteel; there is no
+  soil to `FillCylinder`.
+- *have no districts* — wrong, and it silently turned off settlements, ASCII
+  layouts, `roomShell` interiors, roads, signposts, races and terminals. In their
+  place `buildVerticalCity` cantilevered 90×90 slabs off towers at **random
+  bearings, 35% of the time**. Those are the "random platforms", and Coruscant's
+  ~160 NPCs and all six POIs were standing on them.
+
+The proof it was an opt-out and not a design: **`spireShape` and `spireDress` —
+Coruscant's own authored building style, tiered towers with a 0.93 taper, ledges,
+continuous glazing and a mast — had never been called once in two weeks.** The
+comment above `spireDress` admitted it.
+
+So the fix is not "build a city system", it is **give Coruscant ground to run the
+city system the other eight worlds already run on.** New optional
+`PlanetDef.decks`; `hasWalkableGround` keeps only its terrain meaning; every
+marker and layout branch that used to read the boolean now reads *"is there
+ground"*, which decks also satisfy. Five 22×22 grids at 32 studs, one per
+existing district, 220 studs apart — and from there the streets, the shop
+interiors, the crowds, the patrol routes and the signposts all arrive through
+code that has been running for a fortnight. Details in PLANETS.md.
+
+Three things worth keeping:
+
+- **The gradient is derived, not authored.** *"The lower you go the more ghetto
+  it becomes"* is one argument, `grime`, computed from the deck's own height
+  against the stack: paint lerps towards soot, glazing towards sodium, and clean
+  metal turns corroded past halfway down. Five authored numbers would have come
+  apart the first time a deck moved.
+- **Towers are dropped, not cut.** `buildVerticalCity` now takes the decks'
+  half-extent and simply never builds a tower whose footprint would come through
+  a street — much cheaper and more reliable than punching holes afterwards, and
+  the ones that survive crowd right up to the railing.
+- **The stranding was a tag problem.** A starship may only be called down within
+  `Ships.PAD_RANGE` of a part tagged `Ships.PAD_TAG`, and the only tagged parts
+  on the planet were inside a spaceport that `claimNear` had dropped on a random
+  tower platform. Making the pad an **authorable glyph** (`Pad`, `L`) means the
+  answer to "can I get my ship here" is now visible on the page, and every one of
+  the five decks has one.
+
+Turbolifts are the second commit: an `X` in the legend, a pair of booths — up
+cold, down warm — and a hold-E `ProximityPrompt` on a panel bolted to the
+*outside* of the south wall. That last part is the third time this project has
+shipped a prompt that was live, in range and painted over by the geometry it was
+parented to. **NPCs never ride them, on purpose:** `PathfindingService` will not
+path through a lift, so each deck keeps its own population and its own level
+band, which is what makes descending mean something.
+
+The third commit is the one that makes it read as a planet-city rather than a
+model of one, and both halves of it are the same mistake in two places:
+
+- **The tower grid was a literal `5` in the builder and a private `LANE_SPREAD
+  = 5` in `SkyTrafficController`** — exactly the disagreement `TOWER_GRID` was
+  moved into config to prevent. Now `Planets.TOWER_REACH`, raised to 8: 289
+  towers instead of 121, 4,080 studs across instead of 2,640. `groundRadius`
+  and the traffic `SPAN` both derive from it, so the world boundary and the
+  lane wrap moved with it and nothing had to be told twice. World radius
+  lands at 2,490 against `Orbit.SYSTEM_RADIUS = 3,600`, so no system moved.
+- **The hulls were authored to the wrong reference.** *"Other spaceships look
+  too tiny"* — the airbus is 13 studs long next to a tower 150 wide, because
+  it was drawn in the same vocabulary as the ships a player *stands beside*.
+  New `TrafficHull.scale`, applied in `ShipModel.buildTraffic`: one number
+  against forty part offsets, and the first offset missed puts an engine
+  through a wing. Airbus ×2.5, barge ×3, patrol ×1.8. Ghosts on a racing
+  circuit are explicitly never scaled — a lap record set against a bigger
+  rival is a lie.
+- Plus one new hull, the **capital transport**: 240 studs long after its ×4,
+  slowest thing in the sky, one appearance in eleven. Four hulls between 11
+  and 30 studs is one size of object with variations; the point of this one
+  is that there is now something in the air that is unmistakably *far away
+  and enormous* rather than near and small.
 
 ---
 

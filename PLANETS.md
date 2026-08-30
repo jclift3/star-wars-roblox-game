@@ -499,6 +499,41 @@ person who signed it is still in the building.
 
 **Cameo:** Darth Malgus walks through a room you are hiding in. No health bar.
 
+**Built as five stacked decks (2026-08-29).** Coruscant is the only world where
+`hasWalkableGround = false`, and that one boolean used to mean two unrelated
+things at once: *lay no terrain* (right — the planet has no soil) and *have no
+districts* (wrong, and the reason a play test found *"random platforms"* with
+nothing on them). `PlanetDef.decks` splits them. The boolean keeps only its
+terrain meaning; a world that declares decks gets everything the other eight
+get — ASCII layouts, walk-in interiors, crowds, patrol routes, roads,
+signposts — one storey at a time.
+
+| deck | zone | `y` | reads as |
+|---|---|---|---|
+| Senate District | `Plaza` | +440 | sunlight, a 12×8 plaza, the landing field |
+| Skylane Alpha | `Skylane` | +220 | two full-width lanes, freight halls between |
+| The Works | `Works` | 0 | resettlement housing, three rows deep |
+| Temple Ruin | `TempleRuin` | −220 | broken walls and a huge empty yard |
+| Underlevels | `Underlevels` | −440 | one-cell alleys, no open ground but the hunters' yard |
+
+Each is a 22×22 grid at 32 studs, so the corner sits at 498 — inside the 610
+`tools/gridcheck.py` insists on, and clear of the towers, which
+`buildVerticalCity` now drops rather than builds when their footprint would come
+through a street.
+
+*"The lower you go the more ghetto it becomes"* is one argument, `grime`, derived
+from the deck's own height: paint lerps towards soot, lit glazing towards sodium,
+and clean metal turns to corroded past halfway down. Adding a sixth storey
+re-grades the whole city rather than needing five numbers edited.
+
+**Every deck has a landing pad** (`L` in the legend, the `Pad` prefab) and a
+**turbolift bank** (`X`, north-east corner of every grid, so you learn where it
+is once). The pads are not decoration: a starship may only be called down within
+`Ships.PAD_RANGE` of a part tagged `Ships.PAD_TAG`, and Coruscant's only pads
+used to belong to a spaceport dropped on a random tower platform with no path to
+it. NPCs never use the lifts, and that is the point — `PathfindingService` will
+not path through one, so each deck keeps its own population and its own band.
+
 ---
 
 ### Tython — the Order

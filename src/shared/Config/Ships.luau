@@ -1292,6 +1292,21 @@ def({
 export type TrafficHull = {
 	id: string,
 	parts: { ShipPart },
+	--[[
+		How much bigger than its parts say it is, applied at build time.
+
+		Reported from a play test: *"other spaceships -- the current ones look
+		too tiny."* Correct, and measurable: the airbus is 13 studs long
+		against towers 150 studs wide and a deck 704 studs across. It was
+		authored to the same vocabulary as the ships a player flies, and a
+		player's ship is a thing they stand next to.
+
+		A multiplier rather than re-authored offsets because there are about
+		forty of those between the four hulls, and the first one missed puts
+		an engine through a wing. Absent means 1, which is what a ghost on a
+		racing circuit needs.
+	]]
+	scale: number?,
 }
 
 --- An airbus: the commuter traffic, and most of what is in the air.
@@ -1393,19 +1408,97 @@ local patrolParts: { ShipPart } = {
 }
 add(patrolParts, turbine("Engine", V3(0, -0.9, 4.4), 5, 1.1, Palette.BlasterBlue))
 
-local airbus: TrafficHull = { id = "Airbus", parts = busParts }
-local barge: TrafficHull = { id = "Barge", parts = bargeParts }
-local patrol: TrafficHull = { id = "Patrol", parts = patrolParts }
+--[[
+	A capital transport. Rare, slow, and the reason the sky has a scale.
+
+	Four hulls at three sizes still reads as one size of object when the
+	spread is 11 to 30 studs; this is the entry that fixes that, at 60 parts
+	before its x4 and 240 studs long after it -- longer than a tower is wide,
+	so a lane it is in is a lane where something is *passing*.
+
+	Deliberately the plainest geometry here. At this size the silhouette is
+	the whole read, and the run of lit ports down the flank is what tells you
+	it is a ship carrying people rather than a wall going by.
+]]
+local capitalParts: { ShipPart } = {
+	{
+		name = "Hull",
+		size = V3(11, 6, 60),
+		offset = V3(0, 0, 0),
+		color = Palette.HullGrey,
+		material = Enum.Material.Metal,
+	},
+	{
+		name = "Prow",
+		shape = "Wedge",
+		size = V3(11, 5, 14),
+		offset = V3(0, -0.5, -37),
+		rot = V3(0, 180, 0),
+		color = Palette.HullGrey,
+		material = Enum.Material.Metal,
+	},
+	{
+		name = "Spine",
+		size = V3(7, 4, 34),
+		offset = V3(0, 5, 4),
+		color = Palette.Gunmetal,
+		material = Enum.Material.Metal,
+	},
+	{
+		name = "Bridge",
+		size = V3(6, 3, 7),
+		offset = V3(0, 8.5, -14),
+		color = Palette.WornSteel,
+		material = Enum.Material.Metal,
+	},
+	{
+		name = "Pane",
+		size = V3(5.4, 1.4, 0.4),
+		offset = V3(0, 8.8, -17.4),
+		color = Palette.CockpitGlass,
+		material = Enum.Material.Neon,
+	},
+	{
+		name = "PortLights",
+		size = V3(11.2, 1.2, 46),
+		offset = V3(0, 1.4, 2),
+		color = Palette.CoruscantLight,
+		material = Enum.Material.Neon,
+	},
+	lamp("PortLamp", V3(-6, 0, -24), Palette.BlasterRed, 1.4),
+	lamp("StarboardLamp", V3(6, 0, -24), Palette.BlasterGreen, 1.4),
+	lamp("TailLamp", V3(0, 4, 30.6), Palette.BlasterRed, 1.4),
+}
+add(capitalParts, turbine("EngineLeft", V3(-4, -1.6, 28), 9, 2.4, Palette.BlasterBlue))
+add(capitalParts, turbine("EngineRight", V3(4, -1.6, 28), 9, 2.4, Palette.BlasterBlue))
+
+--[[
+	The sizes, and the only tuning these ever get.
+
+	Not one multiplier for all four: a barge that read as freight at 30 studs
+	and a skiff that read as a police car at 11 should not both come out the
+	same length. The barge takes the largest step because "the thing you look
+	up at" is what its own comment claims it is, and at 30 studs it was
+	shorter than the platform under the player's feet.
+]]
+local airbus: TrafficHull = { id = "Airbus", parts = busParts, scale = 2.5 }
+local barge: TrafficHull = { id = "Barge", parts = bargeParts, scale = 3 }
+local patrol: TrafficHull = { id = "Patrol", parts = patrolParts, scale = 1.8 }
+local capital: TrafficHull = { id = "Capital", parts = capitalParts, scale = 4 }
 
 --[[
 	The mix, weighted by repetition rather than by a weight field.
 
-	A lane picks one of these uniformly, so the list is the odds: four
-	commuters to one barge to one patrol. A weight field would be a second
-	number to keep in step with a table anyone can already count, and a sky
-	that is one-third freight is a sky nobody commutes in.
+	A lane picks one of these uniformly, so the list is the odds: six
+	commuters to two barges to two patrols to one capital. A weight field
+	would be a second number to keep in step with a table anyone can already
+	count, and a sky that is one-third freight is a sky nobody commutes in.
+
+	The capital appears once in eleven on purpose. It is 240 studs long, and
+	the thing it is for is being *rare* -- two of them in one lane is a fleet
+	review, not a city.
 ]]
-Ships.TRAFFIC = { airbus, airbus, airbus, airbus, barge, patrol }
+Ships.TRAFFIC = { airbus, airbus, airbus, airbus, airbus, airbus, barge, barge, patrol, patrol, capital }
 
 --------------------------------------------------------------------------------
 -- Public API
@@ -1704,6 +1797,13 @@ function Ships.validate(): { string }
 	for _, hull in Ships.TRAFFIC do
 		if #hull.parts == 0 then
 			table.insert(problems, `Ships: traffic hull "{hull.id}" has no parts and would be invisible`)
+		end
+		-- A hull's own comments are written against its authored sizes, so a
+		-- scale that shrinks one is a hull nobody has looked at. Zero or
+		-- negative is worse: the model builds, at nothing, in silence.
+		local scale = hull.scale
+		if scale and scale < 1 then
+			table.insert(problems, `Ships: traffic hull "{hull.id}" scale {scale} would shrink it`)
 		end
 	end
 

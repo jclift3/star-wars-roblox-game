@@ -329,8 +329,14 @@ end
 
 	`floor` is a transparency nothing may be more solid than. Zero leaves
 	the hull exactly as its config draws it; a ghost passes something higher.
+
+	`scale` multiplies every size and every offset, which is the only honest
+	way to make a traffic hull bigger: the alternative is re-authoring forty
+	part offsets by hand, and the first one that is missed puts an engine
+	through a wing. It applies to `size` and `offset` and deliberately not to
+	`rot` -- a rotation does not have a length.
 ]]
-local function staticHull(name: string, parts: { Ships.ShipPart }, floor: number): Model
+local function staticHull(name: string, parts: { Ships.ShipPart }, floor: number, scale: number): Model
 	local model = Instance.new("Model")
 	model.Name = name
 
@@ -348,7 +354,12 @@ local function staticHull(name: string, parts: { Ships.ShipPart }, floor: number
 
 	for _, spec in parts do
 		local p = buildPart(spec, false)
-		p.CFrame = specCFrame(spec)
+		local at = specCFrame(spec)
+		if scale ~= 1 then
+			p.Size *= scale
+			at = at.Rotation + at.Position * scale
+		end
+		p.CFrame = at
 		p.Transparency = math.max(p.Transparency, floor)
 		p.Anchored = true
 		p.CastShadow = false
@@ -358,9 +369,9 @@ local function staticHull(name: string, parts: { Ships.ShipPart }, floor: number
 	return model
 end
 
---- An ambient sky-traffic hull, drawn exactly as its config draws it.
+--- An ambient sky-traffic hull, at whatever size its config asks for.
 function ShipModel.buildTraffic(hull: Ships.TrafficHull): Model
-	return staticHull(hull.id, hull.parts, 0)
+	return staticHull(hull.id, hull.parts, 0, hull.scale or 1)
 end
 
 --[[
@@ -379,7 +390,9 @@ end
 	would be lying about where it is anyway.
 ]]
 function ShipModel.buildGhost(shipId: string, transparency: number): Model
-	return staticHull(shipId, Ships.get(shipId).parts, transparency)
+	-- Never scaled. A ghost is a rival on a circuit whose real counterpart the
+	-- player is sitting in, and a lap record set against a bigger one is a lie.
+	return staticHull(shipId, Ships.get(shipId).parts, transparency, 1)
 end
 
 --- The driver's seat of a built speeder, or nil if this is not one.

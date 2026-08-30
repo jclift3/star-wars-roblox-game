@@ -27,14 +27,13 @@
 	There is no spawning, no despawning and no per-ship state that changes:
 	given the time alone, `place` says where hull `n` is. Reaching the end
 	of a lane wraps it back to the start, which is a teleport, and it
-	happens 1,800 studs from the middle of a city whose outermost tower is
-	at 1,320 -- past the last building, in air the atmosphere has already
-	turned to haze.
+	happens one tower row past the last building, in air the atmosphere has
+	already turned to haze.
 
 	The lanes are pinned to the *planet*, not to the camera. The obvious
 	build follows the player around so traffic is always nearby, and it
 	costs a visible sideways jump of a whole grid square every time they
-	cross a tower row. It is also unnecessary: the vertical city is 2,640
+	cross a tower row. It is also unnecessary: the vertical city is 4,080
 	studs across in total, so a lane laid over the whole of it is never far
 	from anyone standing in it.
 
@@ -72,13 +71,17 @@ local SkyTrafficController = {
 --[[
 	How long a lane is before it wraps, in studs.
 
-	Centred on the planet's origin, so a hull jumps at 1,800 studs out --
-	past the edge of the tower grid, which reaches 1,320. Every world with
-	traffic is an Urban one whose atmosphere is opaque well before that:
-	Coruscant's own `fogEnd` is 4,000 but its haze reduces a thirty-stud
-	hull to nothing at a fraction of it.
+	One tower row longer than the city is wide, and centred on the planet's
+	origin, so a hull jumps at 2,160 studs out -- past the last tower at
+	1,920, in air the atmosphere has already turned to haze. Every world with
+	traffic is an Urban one: Coruscant's own `fogEnd` is 4,000 but its haze
+	reduces a hull to nothing at a fraction of that.
+
+	Derived rather than the flat 3,600 it used to be, which was comfortably
+	past the old skyline and is now 500 studs *short* of the new one -- hulls
+	would have wrapped in plain sight over the middle of the city.
 ]]
-local SPAN = 3600
+local SPAN = Planets.TOWER_GRID * (Planets.TOWER_REACH * 2 + 2)
 
 --- Cruising speeds, studs/sec, by traffic hull id. A barge and a patrol
 --- skiff moving at one speed is a conveyor belt rather than a city.
@@ -86,19 +89,24 @@ local SPEEDS: { [string]: NumberRange } = {
 	Airbus = NumberRange.new(80, 130),
 	Barge = NumberRange.new(40, 65),
 	Patrol = NumberRange.new(150, 200),
+	-- Slowest thing in the sky, and it has to be: 240 studs of hull crossing
+	-- a 240-stud canyon at commuter speed is a flicker, and the whole reason
+	-- for building it is that you have time to notice how big it is.
+	Capital = NumberRange.new(22, 34),
 }
 local DEFAULT_SPEED = NumberRange.new(80, 130)
 
 --[[
 	How many corridors either side of the planet's origin are flown.
 
-	`buildVerticalCity` runs its tower grid from -5 to 5, so five each way
-	covers every canyon in the city and no more. Getting this wrong is not
-	a bug worth a shared constant: too small leaves the outskirts empty,
-	too large flies a lane past the edge of the skyline, and both look like
-	weather rather than a fault.
+	Was a private 5 here matching a literal 5 in `buildVerticalCity`, on the
+	grounds that getting it wrong only looked like weather. It stopped being
+	true the moment the grid widened: a lane count left behind at 5 puts every
+	airbus in the game inside the middle third of a city three times that
+	across, and the outskirts read as abandoned. Same constant as the builder
+	now, for the same reason `TOWER_GRID` is.
 ]]
-local LANE_SPREAD = 5
+local LANE_SPREAD = Planets.TOWER_REACH
 
 --- The lowest and highest deck gaps a lane may sit in, counted in
 --- `SKYLANE_STEP`s. One is below the tops of the shortest towers; the top is

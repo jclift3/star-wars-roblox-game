@@ -36,6 +36,8 @@ PREFABS = {
     "Plaza": {"paved": True, "anchor": True},
     "Yard": {"anchor": True},
     "Lamp": {"anchor": True, "build": True},
+    "Pad": {"paved": True, "anchor": True, "build": True},
+    "Lift": {"paved": True},
 }
 
 ZONE_POINT_LOAD = 6
@@ -51,21 +53,50 @@ def blocks(text):
             yield m.group(1), p
 
 
-def parse_layout(block):
-    m = re.search(r"\n\tlayout = \{(.*?)\n\t\},\n", block, re.S)
-    if not m:
-        return None
-    body = m.group(1)
+def parse_layout_fields(body):
+    """`cell`, `legend` and `grid` out of one LayoutDef, at any indent.
+
+    Indent-agnostic on purpose: the same shape appears one tab deep as a
+    planet's `layout` and three tabs deep as a deck's, and pinning the closing
+    brace to an exact number of tabs is how the deck grids would go unchecked
+    while still looking checked.
+    """
     cell = int(re.search(r"cell = (\d+)", body).group(1))
     legend = {}
-    lm = re.search(r"legend = \{(.*?)\n\t\t\},", body, re.S)
+    lm = re.search(r"legend = \{(.*?)\n\t+\},", body, re.S)
     for k, v in re.findall(r'\["(.)"\] = "(\w+)"', lm.group(1)):
         legend[k] = v
     for k, v in re.findall(r"(?<![\[\"])\b(\w) = \"(\w+)\"", lm.group(1)):
         legend[k] = v
-    gm = re.search(r"grid = \{(.*?)\n\t\t\},", body, re.S)
+    gm = re.search(r"grid = \{(.*?)\n\t+\},", body, re.S)
     grid = re.findall(r'"([^"]*)"', gm.group(1))
     return cell, legend, grid
+
+
+def parse_layout(block):
+    m = re.search(r"\n\tlayout = \{(.*?)\n\t\},\n", block, re.S)
+    return parse_layout_fields(m.group(1)) if m else None
+
+
+def parse_decks(block):
+    """A decked world's storeys: district, height and the grid drawn on it.
+
+    Only Coruscant. Each deck is one district drawn as its own picture, so the
+    checks below run once per deck with the whole grid standing in for the
+    `cells` rectangle an ordinary district would carry.
+    """
+    m = re.search(r"\n\tdecks = \{(.*)\n\t\} :: \{ DeckDef \},\n", block, re.S)
+    if not m:
+        return []
+    out = []
+    for entry in braced(m.group(1)):
+        z = re.search(r'zone = "(\w+)"', entry)
+        # Anchored to its own line so the legend's `y = "Yard"` cannot be read
+        # as a deck height, and signed because four of the five are below zero.
+        y = re.search(r"\n\t+y = (-?\d+),", entry)
+        if z and y:
+            out.append((z.group(1), int(y.group(1)), parse_layout_fields(entry)))
+    return out
 
 
 def parse_zones(block):
@@ -272,13 +303,23 @@ def main():
     for planet, block in blocks(text):
         if wanted and planet not in wanted:
             continue
+        pop = parse_spawns(block)
+
         layout = parse_layout(block)
-        if not layout:
-            continue
-        drawn += 1
-        cell, legend, grid = layout
-        zones, pop = parse_zones(block), parse_spawns(block)
-        good = check(planet, cell, legend, grid, zones, pop, verbose) and good
+        if layout:
+            drawn += 1
+            cell, legend, grid = layout
+            good = check(planet, cell, legend, grid, parse_zones(block), pop, verbose) and good
+
+        for zone, y, (cell, legend, grid) in parse_decks(block):
+            drawn += 1
+            # The whole picture is the district. There is no rectangle to fall
+            # inside because the storeys are stacked, not laid side by side.
+            rect = ((1, 1), (max(len(r) for r in grid), len(grid)))
+            good = (
+                check(f"{planet}/{zone}@{y}", cell, legend, grid, [(zone, 0.0, rect)], pop, verbose)
+                and good
+            )
 
     if not good:
         sys.exit(1)

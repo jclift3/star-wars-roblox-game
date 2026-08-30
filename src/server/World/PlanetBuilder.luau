@@ -137,7 +137,21 @@ local ROAD_LIFT_NS = 0.12
 local ROAD_LIFT_EW = 0.24
 local ROAD_LIFT_RADIAL = 0.36
 
-local TOWER_BASE_Y = -400
+-- Where a Coruscant tower comes out of the dark. Lowered from -400 when the
+-- decks arrived: the bottom one is the Underlevels at -440, and a tower that
+-- stopped above it left the lowest storey of the city standing in open air
+-- with the skyline starting a hundred studs over its head.
+local TOWER_BASE_Y = -640
+--[[
+	How far a tower keeps off the edge of a walkable deck.
+
+	Small on purpose. The towers are the only reason a decked Coruscant reads
+	as a planet-city rather than a car park in the sky, so the aim is for them
+	to crowd right up to the railing -- close enough that the street ends in a
+	wall of lit windows -- and only be dropped when they would actually stand
+	in it.
+]]
+local TOWER_CLEARANCE = 30
 -- The tower grid and the height between platform decks. Declared in config
 -- rather than here because the client's ambient traffic flies down the gaps
 -- these leave; see the note beside them in Planets.luau.
@@ -3118,6 +3132,55 @@ local function buildLampCell(parent: Instance, centre: Vector3, _span: Vector2, 
 end
 
 --[[
+	A landing pad an author drew, rather than one a spaceport happened to make.
+
+	Until now the only parts tagged `Ships.PAD_TAG` in the game were the three
+	discs inside `buildSpaceport`, which means a starship could only be called
+	down where a *point of interest* had landed. On eight worlds that is right
+	and reads as a rule. On Coruscant it was the whole of the complaint from
+	the 2026-08-29 play test -- *"I spawn on a platform but can't get my
+	spaceship and can't go anywhere"* -- because the vertical-city builder had
+	put the spaceport on a random tower platform 1,200 studs from the player
+	with nothing but air in between. Finished but unreachable, for the fifth
+	time.
+
+	One disc per *rectangle*, not per cell: a four-by-three block of `L` is one
+	landing pad 96 studs across, the same way `hh` over two rows is one house
+	with an upstairs. Sized off the short side so the circle stays on the cells
+	that were drawn for it.
+]]
+local function buildPadCell(parent: Instance, centre: Vector3, span: Vector2, style: Style)
+	local diameter = math.min(span.X, span.Y) * 0.9
+
+	local pad = cylinder(
+		parent,
+		CFrame.new(centre + Vector3.new(0, 1.5, 0)) * UPRIGHT,
+		Vector3.new(3, diameter, diameter),
+		Palette.WornSteel,
+		Enum.Material.DiamondPlate
+	)
+	pad.Name = "Pad"
+	CollectionService:AddTag(pad, Ships.PAD_TAG)
+
+	-- Approach lights. A pad without them is a floor, and on a deck four
+	-- storeys down in permanent shade it is a floor you cannot find.
+	for light = 1, 8 do
+		local angle = (light - 1) * (math.pi * 2 / 8)
+		local lamp = cylinder(
+			parent,
+			CFrame.new(
+				centre + Vector3.new(math.cos(angle) * diameter * 0.5, 3.4, math.sin(angle) * diameter * 0.5)
+			) * UPRIGHT,
+			Vector3.new(1.2, 4, 4),
+			style.windowColor,
+			Enum.Material.Neon
+		)
+		lamp.Name = "PadLight"
+		lamp.CanCollide = false
+	end
+end
+
+--[[
 	FITTINGS ARE WRITTEN IN THE ROOM'S OWN FRAME
 
 	`at` is the room's centre turned so that local +X is the door, and `inner`
@@ -3294,6 +3357,15 @@ local PREFABS: { [string]: PrefabDef } = {
 	Plaza = { paved = true, anchor = true },
 	Yard = { anchor = true },
 	Lamp = { anchor = true, build = buildLampCell },
+	-- `anchor` and `paved` as well as `build`: the disc lies flush with the
+	-- street, so the cells it covers are still standing room, and a pad with
+	-- people waiting around its edge is what a pad is supposed to look like.
+	Pad = { paved = true, anchor = true, build = buildPadCell },
+	-- Paved and nothing else. The booths themselves are put up by `buildDeck`,
+	-- which is the only caller that knows what is above and below this
+	-- storey; on a world with one ground level an `X` is just a paved square,
+	-- which is exactly what a lift to nowhere should look like.
+	Lift = { paved = true },
 }
 
 --[[
@@ -3323,8 +3395,14 @@ type LayoutRect = { glyph: string, from: Vector2, to: Vector2 }
 	all the way to `buildMarkers` because that is the only thing that can say
 	which district a room belongs to -- a district is a rectangle of cells,
 	and a room's world position would have to be turned back into one.
+
+	`zone` is the exception, and only a decked world sets it. There a whole
+	grid *is* one district, so there is no rectangle to fall inside: five
+	pictures at five heights all have a cell (11, 11) and it means a different
+	storey of the city each time. The district is known before the room is
+	built, so it is simply carried rather than worked out afterwards.
 ]]
-type RoomSpot = { at: Vector3, cell: Vector2, size: number }
+type RoomSpot = { at: Vector3, cell: Vector2, size: number, zone: string? }
 
 --[[
 	The glyph at a cell, with everything off the page reading as open ground.
@@ -3723,28 +3801,372 @@ local function buildFromLayout(
 end
 
 --------------------------------------------------------------------------------
+-- Decks
+--------------------------------------------------------------------------------
+
+--- How thick a deck plate is. Read from below it looks like a floor slab.
+local DECK_THICKNESS = 6
+
+--[[
+	How far the plate runs past the last cell of the grid drawn on it.
+
+	A cell and a half. Enough that a building on the edge of the picture has
+	pavement outside its door rather than a drop, and not so much that the
+	deck reads as a car park with a village in the middle of it.
+]]
+local DECK_MARGIN = 48
+
+--[[
+	The largest side a single slab of deck is allowed to have.
+
+	One 800-stud part would be legal and would be a mistake: `StreamingEnabled`
+	loads whole parts, shadows are cast per part, and a plate that big is
+	either entirely in memory or entirely absent from a hundred studs away.
+	Tiling costs about sixteen parts a deck, which against ~1,500 for the
+	planet is nothing.
+]]
+local DECK_SLAB = 200
+
+--- Waist height on the parapet, measured off the deck's own floor.
+local DECK_RAIL = 7
+
+--- What a deck is stained towards as it gets further from the sun.
+local DECK_SOOT = Color3.fromRGB(38, 36, 40)
+
+--- And what its lights turn into: sodium and fire rather than clean white.
+local DECK_UNDERGLOW = Color3.fromRGB(214, 96, 46)
+
+--[[
+	The same architecture, further down.
+
+	*"The lower you go the more ghetto it becomes. Higher up is more luxury,
+	right?"* -- and the level bands already said so, but a band is a number on
+	an enemy and this is the part you can see. One argument, 0 at the top deck
+	and 1 at the bottom, and everything the storey is built out of is dragged
+	along it: paint towards soot, lit glazing towards sodium, and clean metal
+	to corroded once you are past halfway down.
+
+	Derived from the deck's own height rather than authored per deck, so the
+	gradient cannot come apart from the stack -- adding a sixth storey between
+	two others re-grades the whole city instead of needing five numbers edited.
+]]
+local function weathered(style: Style, grime: number): Style
+	if grime <= 0 then
+		return style
+	end
+
+	local worn = table.clone(style)
+	local colors: { Color3 } = {}
+	for index, color in style.buildingColors do
+		colors[index] = color:Lerp(DECK_SOOT, grime * 0.65)
+	end
+	worn.buildingColors = colors
+	worn.windowColor = style.windowColor:Lerp(DECK_UNDERGLOW, grime)
+	-- Not a gradient: a material is a choice, and rust starts somewhere.
+	worn.wallMaterial = if grime > 0.5 then Enum.Material.CorrodedMetal else style.wallMaterial
+	return worn
+end
+
+--- Long enough to be deliberate, short enough not to feel like a loading bar.
+local LIFT_HOLD = 0.4
+
+--- How far from the call panel the prompt is offered.
+local LIFT_RANGE = 14
+
+--- Head height in the booth, plus enough for the R15 rig's jump.
+local LIFT_HEIGHT = 26
+
+--- How far above the destination deck a passenger is set down.
+local LIFT_ARRIVE = 4
+
+--- Up is cold, down is warm. The only thing telling the two booths apart at
+--- a glance, and it needs to work from across a street.
+local LIFT_UP = Color3.fromRGB(150, 220, 245)
+local LIFT_DOWN = Color3.fromRGB(240, 168, 66)
+
+--[[
+	One booth: three walls, a lit floor, and a panel you hold E on.
+
+	The prompt goes on a slab bolted to the *outside* of the south wall, not
+	on the car and not on the shaft. This is the third time on this project
+	that a `ProximityPrompt` has been live, in range and invisible because it
+	was parented to something the player was standing inside or behind -- a
+	prompt draws its billboard at its parent's centre, so the parent has to be
+	a thing you can see from the street.
+
+	`target` is a world position, resolved by the caller, because a booth has
+	no way of knowing what is above it and every reason not to care.
+]]
+local function liftBooth(
+	parent: Instance,
+	centre: Vector3,
+	size: number,
+	tint: Color3,
+	action: string,
+	target: Vector3
+)
+	local booth = folder(action, parent)
+	local half = size * 0.5
+
+	-- Open to the north (-Z), which is where the street is on every one of
+	-- the five authored decks. Walls elsewhere so the car reads as a box
+	-- rather than a rug.
+	local walls: { { at: Vector3, size: Vector3 } } = {
+		{ at = Vector3.new(0, LIFT_HEIGHT * 0.5, half), size = Vector3.new(size, LIFT_HEIGHT, 2) },
+		{ at = Vector3.new(-half, LIFT_HEIGHT * 0.5, 0), size = Vector3.new(2, LIFT_HEIGHT, size) },
+		{ at = Vector3.new(half, LIFT_HEIGHT * 0.5, 0), size = Vector3.new(2, LIFT_HEIGHT, size) },
+		{ at = Vector3.new(0, LIFT_HEIGHT, 0), size = Vector3.new(size, 2, size) },
+	}
+	for _, wall in walls do
+		block(booth, CFrame.new(centre + wall.at), wall.size, Palette.WornSteel, Enum.Material.Metal).Name =
+			"Shaft"
+	end
+
+	local car = block(
+		booth,
+		CFrame.new(centre + Vector3.new(0, 0.4, 0)),
+		Vector3.new(size - 4, 0.8, size - 4),
+		tint,
+		Enum.Material.Neon
+	)
+	car.Name = "Car"
+	car.CanCollide = false
+
+	local panel = block(
+		booth,
+		CFrame.new(centre + Vector3.new(0, 6, -half - 1.5)),
+		Vector3.new(6, 8, 1),
+		tint,
+		Enum.Material.Neon
+	)
+	panel.Name = "CallPanel"
+
+	local prompt = Instance.new("ProximityPrompt")
+	prompt.ActionText = action
+	prompt.ObjectText = "Turbolift"
+	prompt.HoldDuration = LIFT_HOLD
+	prompt.MaxActivationDistance = LIFT_RANGE
+	prompt.RequiresLineOfSight = false
+	prompt.Parent = panel
+
+	prompt.Triggered:Connect(function(player: Player)
+		local character = player.Character
+		if not character or not character.PrimaryPart then
+			return
+		end
+		-- Rotation kept, so a passenger arrives facing the way they were
+		-- walking rather than being spun round by the ride.
+		character:PivotTo(CFrame.new(target) * character:GetPivot().Rotation)
+	end)
+end
+
+--[[
+	A pair of booths, up and down, wherever a deck's grid says `X`.
+
+	Which is the point of putting it in the legend: the lifts are drawn on the
+	map beside the streets they serve, so moving one is an edit to a picture,
+	and the same two cells on all five decks means the bank is in the same
+	place on every storey -- you learn where it is once.
+
+	A teleport, not a moving car. A platform that carries a player between two
+	`CFrame`s is a physics problem (`Humanoid` state, network ownership, being
+	shoved through the floor at the top) that buys nothing here; the ride is
+	four tenths of a second either way.
+
+	NPCs never use these, and that is deliberate rather than a limitation:
+	`PathfindingService` will not path through one, so each deck's population
+	stays on its own deck and the level bands keep meaning something.
+]]
+local function buildTurbolift(
+	parent: Instance,
+	centre: Vector3,
+	span: Vector2,
+	above: number?,
+	below: number?
+)
+	local size = math.max(12, math.min(span.X * 0.5, span.Y) - 4)
+	local offset = span.X * 0.25
+
+	if above then
+		liftBooth(
+			parent,
+			centre + Vector3.new(offset, 0, 0),
+			size,
+			LIFT_UP,
+			"Ascend",
+			Vector3.new(centre.X + offset, above + LIFT_ARRIVE, centre.Z)
+		)
+	end
+	if below then
+		liftBooth(
+			parent,
+			centre + Vector3.new(-offset, 0, 0),
+			size,
+			LIFT_DOWN,
+			"Descend",
+			Vector3.new(centre.X - offset, below + LIFT_ARRIVE, centre.Z)
+		)
+	end
+end
+
+--[[
+	One walkable storey of a city built on nothing.
+
+	This is the whole answer to *"there don't seem to be any levels here... I
+	spawn on a platform and can't go anywhere."* A deck is a plate with a rail
+	round it and one of the ordinary ASCII layouts drawn on top, which means
+	everything the other eight worlds get -- streets, shops with insides,
+	crowds standing in them, patrol routes, a landing pad -- arrives on
+	Coruscant through code that has been running for two weeks. The only thing
+	this function adds to `buildFromLayout` is a floor and a height to put it
+	at.
+
+	Returns the same pair as `buildFromLayout`, because that is the contract
+	`buildMarkers` reads and a deck is deliberately not a new kind of thing.
+]]
+local function buildDeck(
+	parent: Instance,
+	planet: Planets.PlanetDef,
+	deck: Planets.DeckDef,
+	origin: Vector3,
+	style: Style,
+	rng: Random,
+	--- 0 on the top storey, 1 on the bottom one. See `weathered`.
+	grime: number,
+	--- `DeckDef.y` of the storeys either side of this one, if there are any.
+	above: number?,
+	below: number?
+): ({ Vector3 }, { RoomSpot })
+	local root = folder(`Deck_{deck.zone}`, parent)
+	local base = origin + Vector3.new(0, deck.y, 0)
+	local worn = weathered(style, grime)
+	local plateColor = Palette.CoruscantPlate:Lerp(DECK_SOOT, grime * 0.65)
+
+	local columns, rows = Planets.layoutSize(deck.layout)
+	local spanX = columns * deck.layout.cell + DECK_MARGIN * 2
+	local spanZ = rows * deck.layout.cell + DECK_MARGIN * 2
+
+	--[[
+		The plate. Tiled rather than laid as one part -- see `DECK_SLAB` --
+		and sized so the tiles divide the span exactly, because a plate that
+		is a few studs short on one side is a gap you fall through at the
+		seam and a plate a few studs long is a lip you trip on.
+	]]
+	local plate = folder("Plate", root)
+	local tilesX = math.max(1, math.ceil(spanX / DECK_SLAB))
+	local tilesZ = math.max(1, math.ceil(spanZ / DECK_SLAB))
+	local stepX, stepZ = spanX / tilesX, spanZ / tilesZ
+
+	for ix = 1, tilesX do
+		for iz = 1, tilesZ do
+			local at = base
+				+ Vector3.new(
+					-spanX * 0.5 + (ix - 0.5) * stepX,
+					-DECK_THICKNESS * 0.5,
+					-spanZ * 0.5 + (iz - 0.5) * stepZ
+				)
+			block(
+				plate,
+				CFrame.new(at),
+				Vector3.new(stepX, DECK_THICKNESS, stepZ),
+				plateColor,
+				worn.wallMaterial
+			).Name =
+				"Slab"
+		end
+	end
+
+	--[[
+		The parapet, and a lit strip along the top of it.
+
+		Solid all the way round on purpose. The old platforms made falling the
+		defining experience of the planet, and the drop off a deck is up to
+		1,080 studs onto another deck -- survivable in the sense that you
+		arrive in a district banding twenty levels above you. The light strip
+		is the part that matters four storeys down, where there is no sun and
+		an unlit edge is invisible until you are past it.
+	]]
+	local rails = folder("Parapet", root)
+	for _, side in { Vector2.new(1, 0), Vector2.new(-1, 0), Vector2.new(0, 1), Vector2.new(0, -1) } do
+		local along =
+			Vector3.new(if side.X ~= 0 then 2 else spanX, DECK_RAIL, if side.Y ~= 0 then 2 else spanZ)
+		local at = base + Vector3.new(side.X * spanX * 0.5, DECK_RAIL * 0.5, side.Y * spanZ * 0.5)
+
+		block(rails, CFrame.new(at), along, plateColor, worn.wallMaterial).Name = "Rail"
+
+		local strip = block(
+			rails,
+			CFrame.new(at + Vector3.new(0, DECK_RAIL * 0.5, 0)),
+			Vector3.new(along.X, 0.6, along.Z),
+			worn.windowColor,
+			Enum.Material.Neon
+		)
+		strip.Name = "RailLight"
+		strip.CanCollide = false
+	end
+
+	local anchors, rooms = buildFromLayout(root, planet, deck.layout, base, worn, rng)
+	for _, room in rooms do
+		room.zone = deck.zone
+	end
+
+	-- Wherever the author drew an `X`. `buildFromLayout` has already paved
+	-- those cells and declined to build anything on them, because it is the
+	-- one function here with no idea which storey it is drawing.
+	local lifts = folder("Turbolifts", root)
+	for _, rect in layoutRects(deck.layout) do
+		if deck.layout.legend[rect.glyph] ~= "Lift" then
+			continue
+		end
+		local a = Planets.cellOffset(deck.layout, rect.from.X, rect.from.Y)
+		local b = Planets.cellOffset(deck.layout, rect.to.X, rect.to.Y)
+		local span =
+			Vector2.new(math.abs(b.X - a.X) + deck.layout.cell, math.abs(b.Z - a.Z) + deck.layout.cell)
+		buildTurbolift(
+			lifts,
+			base + (a + b) * 0.5,
+			span,
+			-- A deck's `y` is measured from the planet's origin, and a
+			-- passenger has to be put down in world coordinates.
+			if above then origin.Y + above else nil,
+			if below then origin.Y + below else nil
+		)
+	end
+
+	return anchors, rooms
+end
+
+--------------------------------------------------------------------------------
 -- Vertical city
 --------------------------------------------------------------------------------
 
 --[[
-	Coruscant. No ground, only towers and the platforms bolted to them.
+	Coruscant's skyline. Towers, and -- on a world with no decks -- the
+	platforms bolted to them.
 
-	This is the one planet where falling is a real threat rather than a bug,
-	so every platform is generated as a solid slab with a lip, and the spawn
-	markers are placed on platforms rather than anywhere in open air.
+	`clearance` is the half-extent of the ground a decked world has authored in
+	the middle of this grid, and passing it changes what this function is *for*.
+	Without it the returned platforms are the only places on the planet a person
+	can stand, which is what Coruscant was until 2026-08-29 and what the play
+	test called *"random platforms"*: 90x90 slabs cantilevered off towers at
+	random bearings, unconnected, with nothing inside, holding the planet's
+	entire population. With it, the decks are the ground and this is scenery --
+	so the slabs are not built at all, and any tower whose footprint would come
+	up through a street is dropped instead.
 ]]
 local function buildVerticalCity(
 	parent: Instance,
 	planet: Planets.PlanetDef,
 	origin: Vector3,
-	rng: Random
+	rng: Random,
+	clearance: Vector2?
 ): { Vector3 }
 	local city = folder("Towers", parent)
 	local platforms: { Vector3 } = {}
 	local ceiling = planet.flightCeiling or 1400
 
 	--[[
-		121 towers is by far the largest single view in the game, and until
+		289 towers is by far the largest single view in the game, and until
 		2026-08-16 every one of them was a square-section box on an exact
 		240-stud grid with a flat top -- which is the most literally blocky
 		thing here, and the thing the playtest note was most likely looking at.
@@ -3762,14 +4184,36 @@ local function buildVerticalCity(
 		become landmark positions and NPC spawn points. A jittered skyline is
 		not worth a district spawning inside a wall.
 	]]
-	for gx = -5, 5 do
-		for gz = -5, 5 do
+	local reach = Planets.TOWER_REACH
+	for gx = -reach, reach do
+		for gz = -reach, reach do
 			local centre = origin + Vector3.new(gx * TOWER_GRID, 0, gz * TOWER_GRID)
 			local width = rng:NextNumber(70, 150)
 			-- Not square, but never wider than `width` could already be, for
 			-- the clearance reason above. A grid of square towers is a grid
 			-- however it is lit: every one looks the same from every side.
 			local depth = math.clamp(width * rng:NextNumber(0.55, 1.5), 60, 150)
+
+			--[[
+				Drop a tower that would stand in the street.
+
+				Tested per tower against its own footprint rather than by
+				culling whole rings, because the widths vary by better than
+				two to one: at the same grid position a 70-stud tower still
+				clears the deck by 100 studs while a 150-stud one is through
+				the pavement. Culling by ring would either leave a wall in a
+				plaza or open a hole in the skyline four blocks wide.
+			]]
+			if clearance then
+				local gap = Vector2.new(math.abs(centre.X - origin.X), math.abs(centre.Z - origin.Z))
+				if
+					gap.X < clearance.X + TOWER_CLEARANCE + width * 0.5
+					and gap.Y < clearance.Y + TOWER_CLEARANCE + depth * 0.5
+				then
+					continue
+				end
+			end
+
 			local top = rng:NextNumber(ceiling * 0.45, ceiling * 0.95)
 			local height = top - TOWER_BASE_Y
 
@@ -3825,7 +4269,15 @@ local function buildVerticalCity(
 			end
 
 			-- Landing platforms cantilevered off the tower at skylane heights.
-			local platformY = math.floor(top / SKYLANE_STEP) * SKYLANE_STEP
+			-- These are the "random platforms" from the play test, and a decked
+			-- world does not get them: there is real ground under them now, and
+			-- an unreachable slab hanging over it is only somewhere to fall
+			-- off. Starting the loop below its own floor is how it is skipped,
+			-- which keeps the old behaviour in one piece for a world that has
+			-- towers and no decks.
+			local platformY = if clearance
+				then TOWER_BASE_Y
+				else math.floor(top / SKYLANE_STEP) * SKYLANE_STEP
 			while platformY > TOWER_BASE_Y + 200 do
 				if rng:NextNumber() < 0.35 then
 					-- Measured off the wider axis, since the offset is then
@@ -5726,6 +6178,21 @@ local function buildMarkers(
 	root: Instance,
 	origin: Vector3,
 	anchors: { Vector3 },
+	--[[
+		Which district each anchor belongs to, on a decked world, and `nil`
+		everywhere else.
+
+		Parallel to `anchors` rather than folded into it because `anchors` is
+		the contract three different builders hand back and none of the other
+		two has any idea what a district is. Without it every search below is
+		three-dimensional and unbounded, so the Senate's landing platform is
+		free to claim a yard in the Underlevels 880 studs beneath it -- which
+		is exactly the class of bug that put Coruscant's only spaceport on a
+		tower nobody could reach.
+	]]
+	anchorZones: { string }?,
+	--- The storeys, by district, on a world whose ground is built. See `buildDeck`.
+	decks: { [string]: Planets.DeckDef }?,
 	rooms: { RoomSpot },
 	style: Style,
 	rng: Random
@@ -5780,16 +6247,39 @@ local function buildMarkers(
 		-- east of the plaza is a fact about the town, and a bearing rolled
 		-- from the seed cannot express it.
 		local cells = def.cells
-		if layout and cells then
+		local deck = if decks then decks[def.id] else nil
+
+		if deck then
+			--[[
+				A decked district is its whole grid, at its own height.
+
+				There is no compass fan and no `cells` rectangle here, because
+				the districts are not laid out beside each other -- they are
+				the same footprint five times over, and which one you are in
+				is a question about altitude. So the reach is the picture, and
+				`ZoneDef.distance` is left doing only the job it does through
+				`bandFor`: deciding how dangerous this storey is.
+
+				Pulled in to 0.88 of the drawn rectangle so the patrol ring
+				stops short of the parapet. A waypoint against the railing is
+				a walker standing with its back to a thousand-stud drop, and
+				`NPCBrain` gives up on a point it cannot reach in six seconds
+				-- which is what a crowd pressed into a corner looks like.
+			]]
+			local columns, rows = Planets.layoutSize(deck.layout)
+			local whole = { from = Vector2.new(1, 1), to = Vector2.new(columns, rows) }
+			local at, reach = Planets.rectBounds(deck.layout, whole)
+			centre = origin + Vector3.new(0, deck.y, 0) + at
+			reaches[def.id] = reach * 0.88
+			extents[def.id] = Planets.rectExtents(deck.layout, whole) * 0.88
+		elseif layout and cells then
 			local at, reach = Planets.rectBounds(layout, cells)
 			centre = origin + at
 			reaches[def.id] = reach
 			extents[def.id] = Planets.rectExtents(layout, cells)
-		end
-
-		-- Vertical cities have no ground, so districts snap to a platform
-		-- instead of hanging in the air.
-		if not planet.hasWalkableGround and #anchors > 0 then
+		elseif not planet.hasWalkableGround and #anchors > 0 then
+			-- A vertical city with no decks has no ground, so districts snap
+			-- to a platform instead of hanging in the air.
 			centre = anchors[math.min(index, #anchors)]
 		end
 		centres[def.id] = centre
@@ -5821,11 +6311,18 @@ local function buildMarkers(
 		the farmstead it is named after, and from the farmers who make it a
 		place rather than a building.
 	]]
-	local function claimNear(position: Vector3, limit: number): Vector3?
+	local function claimNear(position: Vector3, limit: number, zone: string?): Vector3?
 		local bestIndex: number? = nil
 		local bestDistance = limit
 		for i, anchor in anchors do
 			if claimed[i] then
+				continue
+			end
+			-- On a decked world the storeys share a footprint, so the nearest
+			-- clear ground to a point on the Plaza is very often a yard four
+			-- decks below it. Naming the district is the only thing that
+			-- separates them.
+			if zone and anchorZones and anchorZones[i] ~= zone then
 				continue
 			end
 			local distance = (anchor - position).Magnitude
@@ -5906,6 +6403,16 @@ local function buildMarkers(
 		]]
 		if poi.drawn and centre then
 			position = centre
+		elseif decks and poi.zone then
+			--[[
+				A decked world: its district's own storey, and nowhere else.
+
+				Unbounded like the platform case below, because the deck is
+				finite and every anchor on it is somewhere this landmark could
+				honestly stand -- but confined by district, so "the nearest
+				clear ground" cannot mean a different level of the city.
+			]]
+			position = claimNear(position, math.huge, poi.zone) or position
 		elseif not planet.hasWalkableGround then
 			-- No ground at all: a platform or nowhere, so any platform will
 			-- do and the search is deliberately unbounded.
@@ -6017,6 +6524,7 @@ local function buildMarkers(
 		-- townspeople out to the landing field with it.
 		local centre = if landmark and not authored then landmark.at else centres[def.id]
 		local zone = folder(def.id, zoneRoot)
+		local deck = if decks then decks[def.id] else nil
 		local points = math.clamp(math.ceil((population[def.id] or 0) / ZONE_POINT_LOAD), 3, ZONE_POINTS_MAX)
 		-- Linear in the number of points, so the ring grows about as fast as
 		-- the crowd does rather than falling behind it.
@@ -6062,7 +6570,16 @@ local function buildMarkers(
 			end
 			local size = Vector3.new(60, 1, 60)
 
-			if not planet.hasWalkableGround and #anchors > 0 then
+			if deck then
+				-- Same as the authored case below, at this deck's height:
+				-- the streets are where they were drawn, so the crowd goes
+				-- onto the paving rather than into the shopfronts.
+				local paved = ontoPaving(deck.layout, origin + Vector3.new(0, deck.y, 0), position)
+				if paved then
+					position = Vector3.new(paved.X, position.Y, paved.Z)
+					size = Vector3.new(deck.layout.cell * 0.9, 1, deck.layout.cell * 0.9)
+				end
+			elseif not planet.hasWalkableGround and #anchors > 0 then
 				position = anchors[rng:NextInteger(1, #anchors)]
 			elseif layout then
 				-- An authored town's streets are where the author drew them,
@@ -6102,8 +6619,12 @@ local function buildMarkers(
 		goes out than if it wanders in halfway round.
 	]]
 	for index, room in rooms do
-		local zoneId: string? = nil
+		-- A deck already knows, because the whole grid is one district.
+		local zoneId: string? = room.zone
 		for _, def in planet.zones do
+			if zoneId then
+				break
+			end
 			local cells = def.cells
 			if
 				cells
@@ -6167,11 +6688,35 @@ local function buildMarkers(
 	local spawnFolder = folder(planetId, folder("Spawns", Workspace))
 	spawnFolder:ClearAllChildren()
 
+	--[[
+		A decked world puts every player spawn on its highest storey.
+
+		Not for the view. `bandFor` makes the top deck the gentlest district on
+		the planet, so landing there and walking *down* is the difficulty ramp
+		-- and it is the deck with the spaceport, which is the difference
+		between arriving somewhere and being stranded. Spread over five decks
+		instead, one brother in three would land in the Underlevels among
+		level 34 bounty hunters and the other in the Senate.
+	]]
+	local spawnZone: string? = nil
+	if decks then
+		local highest = -math.huge
+		for id, deck in decks do
+			if deck.y > highest then
+				highest, spawnZone = deck.y, id
+			end
+		end
+	end
+
 	local open: { Vector3 } = {}
 	for i, anchor in anchors do
-		if not claimed[i] then
-			table.insert(open, anchor)
+		if claimed[i] then
+			continue
 		end
+		if spawnZone and anchorZones and anchorZones[i] ~= spawnZone then
+			continue
+		end
+		table.insert(open, anchor)
 	end
 	if #open == 0 then
 		table.insert(open, origin)
@@ -6206,6 +6751,8 @@ function PlanetBuilder.build(planetId: string)
 	local root = folder(planetId, planetsFolder)
 	local anchors: { Vector3 }
 	local rooms: { RoomSpot } = {}
+	local anchorZones: { string }? = nil
+	local byZone: { [string]: Planets.DeckDef }? = nil
 
 	if planet.hasWalkableGround then
 		local flat = flatRadiusFor(planet)
@@ -6218,11 +6765,67 @@ function PlanetBuilder.build(planetId: string)
 			anchors = buildSettlement(root, planet, origin, style, rng)
 		end
 		buildScatter(root, planet, origin, flat, ground, style, rng)
+	elseif planet.decks then
+		--[[
+			A world with no soil that has ground anyway.
+
+			The skyline goes up first and is told how much room the decks
+			need, so a tower that would stand in a street is simply never
+			built -- cheaper and more reliable than cutting a hole in one
+			afterwards. Then each storey is drawn, and the anchors are
+			accumulated across all five with a district name beside each,
+			which is the only thing downstream that keeps the levels apart.
+		]]
+		local widest, deepest = 0, 0
+		local highest, lowest = -math.huge, math.huge
+		for _, deck in planet.decks do
+			local columns, rows = Planets.layoutSize(deck.layout)
+			widest = math.max(widest, columns * deck.layout.cell * 0.5 + DECK_MARGIN)
+			deepest = math.max(deepest, rows * deck.layout.cell * 0.5 + DECK_MARGIN)
+			highest = math.max(highest, deck.y)
+			lowest = math.min(lowest, deck.y)
+		end
+		buildVerticalCity(root, planet, origin, rng, Vector2.new(widest, deepest))
+
+		-- Guarded because a one-deck world is legal and would divide by zero.
+		local fall = math.max(1, highest - lowest)
+
+		anchors = {}
+		local zones: { string } = {}
+		local decks: { [string]: Planets.DeckDef } = {}
+		for _, deck in planet.decks do
+			decks[deck.zone] = deck
+
+			-- The next storey up and the next one down, found by height and
+			-- not by position in the table, so that slotting a sixth deck in
+			-- between two others rewires the lifts instead of leaving them
+			-- riding past it.
+			local above: number?, below: number? = nil, nil
+			for _, other in planet.decks do
+				if other.y > deck.y and (not above or other.y < above) then
+					above = other.y
+				elseif other.y < deck.y and (not below or other.y > below) then
+					below = other.y
+				end
+			end
+
+			local open, built =
+				buildDeck(root, planet, deck, origin, style, rng, (highest - deck.y) / fall, above, below)
+			for _, at in open do
+				table.insert(anchors, at)
+				table.insert(zones, deck.zone)
+			end
+			for _, room in built do
+				table.insert(rooms, room)
+			end
+		end
+		anchorZones = zones
+		byZone = decks
 	else
 		anchors = buildVerticalCity(root, planet, origin, rng)
 	end
 
-	buildMarkers(planet, root, origin, anchors, rooms, style, rng)
+	buildMarkers(planet, root, origin, anchors, anchorZones, byZone, rooms, style, rng)
 end
 
 return PlanetBuilder

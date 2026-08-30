@@ -905,8 +905,94 @@ ended up standing in a doorway.**
     matter how small the shell, so small buildings are where a dressing intrudes.
 13. **Vendors still trade.** Walk up to any shopkeeper and open the shop. Nothing
     in a dressing should have moved the counter or blocked the approach.
-14. **Coruscant is unaffected** — it has no ground layout, so it has no rooms.
-    Its towers should look exactly as they did.
+14. **Coruscant used to be the exception here** — no ground layout, so no rooms,
+    so no `Spire` dressing anywhere in the game. Since 5.14 below it has five of
+    them, and item 11 applies to it like everywhere else.
+
+### 5.14 Coruscant has streets — **new, 2026-08-29**
+
+The largest single change to a world since the terrain landed, and the whole of
+it came out of one report: *"there don't seem to be any levels here… I spawn on
+a platform but can't get my spaceship and can't go anywhere."* Coruscant is now
+**five stacked decks**, 220 studs apart, one per district. `whosyourdaddy`, then
+**G** → Coruscant.
+
+1. **You land on a street, not a slab.** The arrival is on the **Senate
+   District**, the top deck. There should be pavement under you, buildings with
+   doors on both sides, and NPCs standing on the ground rather than on floating
+   squares. **No cantilevered 90×90 platform should exist anywhere on the
+   planet** — if you can see one, the place file is stale.
+2. **Walk into a building.** Same as every other world: no prompt, no loading,
+   you walk through a 16-stud doorway into a lit interior with furniture in it.
+   This is the first time `spireDress` has ever run, so look at the outside too —
+   tapered tiers, ledges, a continuous glazing band and a mast on top.
+3. **Walk to the edge.** There is a solid parapet the whole way round with a lit
+   strip along the top of it. The drop past it is real and it is a long way. The
+   light strip is the thing to check four storeys down, where there is no sun.
+4. **Find the turbolifts.** Same place on every deck — the **north-east corner**
+   of the street grid. Two booths side by side: the **blue** one goes up, the
+   **amber** one goes down, and the panel you hold **E** on is on the *outside*
+   of each booth facing the street. If a prompt is invisible, say so — that
+   failure has shipped three times on this project.
+5. **Ride down all four.** Senate District → Skylane Alpha → The Works → Temple
+   Ruin → Underlevels. Each one should be **populated, and dirtier than the last**:
+   the paint darkens, the window light goes from white to sodium orange, and past
+   halfway the metal is visibly corroded. The Underlevels and the Senate District
+   are the same 22×22 page and should not look remotely alike.
+6. **The levels climb as you descend.** Check the zone banner and the enemies:
+   roughly 10–16 at the top and 31–34 at the bottom. Going *down* is the
+   dangerous direction and it should feel like it.
+7. **Summon your ship on any deck.** **V**. This is the actual bug that was
+   reported: every deck now has its own landing pad (a lit disc, ringed with
+   markers). Stand on or near one and the ship should come down. Then fly off a
+   deck, come back, and land on a different one.
+8. **Open M on each deck** and confirm the mission board offers that district's
+   work — the decks are the existing districts, so the radiant missions should
+   follow you down.
+9. **The towers still stand.** They rise *through* the decks rather than being
+   cut off by them, and they come right up to the railing. What should **not**
+   happen is a tower standing in the middle of a street; if one does, its
+   footprint escaped the clearance test.
+10. **Both boys at once**, one on the Senate District and one in the Underlevels.
+    The decks, the buildings and the lifts are all server-built, so both should
+    see identical geometry, and one riding a lift should be visible arriving.
+11. **Frame rate on the Senate deck is the number to watch.** It is the busiest
+    storey and the one with the most open sightlines. If it is bad, say so —
+    the knob is a single number.
+12. **NPCs never ride the lifts.** That is deliberate, not a bug: each deck keeps
+    its own crowd. What *would* be a bug is an NPC walking off an edge, or one
+    standing inside a lift booth.
+
+### 5.15 The sky over Coruscant — **new, 2026-08-29**
+
+The other half of the same report: *"other spaceships — the current ones look too
+tiny."* The city also went from 121 towers to 289 and from 2,640 studs across to
+4,080, so this is worth a look from a deck edge and from a ship.
+
+1. **Stand at a deck rail and look out.** The skyline should run to the horizon
+   in every direction and fade into haze rather than into an edge. If you can
+   see the last row of towers with sky behind it, say so.
+2. **Watch the traffic.** Airspeeders should read as **large objects some way
+   off**, not as toys close by. There should be visibly more of them than before
+   — 54 hulls rather than 26 — spread across the whole city rather than bunched
+   over the middle.
+3. **Wait for a capital transport.** One hull in eleven, 240 studs long — longer
+   than a tower is wide — and the slowest thing up there. You should have time to
+   watch it cross a canyon. This is the single check that the sky has a sense of
+   scale; if you never see one in a couple of minutes, say so.
+4. **Nothing flies through a building.** The lanes are half a grid square off the
+   tower rows and half a step between platform decks. A hull clipping a tower
+   means the builder and the controller have stopped agreeing about the grid.
+5. **Nothing wraps in plain sight.** A hull that vanishes and reappears should
+   only ever do it far out in the haze, never over the city.
+6. **Both boys, same sky.** The traffic is client-drawn but seeded off the planet
+   id and flown off the server clock. Stand side by side, look the same way, and
+   confirm you are pointing at the same ships. This has always been true and this
+   change touched the numbers it depends on.
+7. **Racing is unaffected.** Run a circuit on any planet and confirm the rival
+   ghosts on the start grid are still the same size as the hull you are driving.
+   Ghosts are deliberately never scaled, and that is the thing most likely to
+   have been broken by accident here.
 
 ---
 

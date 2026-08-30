@@ -94,6 +94,22 @@ Planets.TOWER_GRID = 240
 Planets.SKYLANE_STEP = 220
 
 --[[
+	How many tower rows stand either side of the middle.
+
+	Was a literal `5` in `buildVerticalCity` and a private `LANE_SPREAD = 5`
+	in `SkyTrafficController`, which is the same disagreement `TOWER_GRID`
+	moved here to prevent -- widening one without the other either empties
+	the outskirts of traffic or flies a lane past the last building.
+
+	Raised from 5 to 8 on 2026-08-29. At 5 the skyline was 2,640 studs across
+	in total, and once the middle 800 of that became walkable decks the
+	remaining city was two rings deep: you could see the edge of the world
+	from the street. Eight puts the far towers 1,920 studs out, which is past
+	the point Coruscant's own haze has finished with them.
+]]
+Planets.TOWER_REACH = 8
+
+--[[
 	How far out a world's ground reaches, in studs. Client-visible for the
 	same reason `TOWER_GRID` is.
 
@@ -208,6 +224,41 @@ export type LayoutDef = {
 	cell: number,
 	legend: { [string]: string },
 	grid: { string },
+}
+
+--[[
+	One walkable storey of a world whose ground is built rather than filled.
+
+	Coruscant is the whole reason this exists. `hasWalkableGround = false` was
+	doing two unrelated jobs at once: "lay no terrain", which is right, and
+	"have no districts", which is what left the capital as 121 towers with
+	90x90 slabs cantilevered off them at random bearings. Nothing connected
+	them, nothing had an inside, and the planet's ~160 people and all six of
+	its points of interest were standing on them. Reported from a play test in
+	four words: *"I can't go anywhere."*
+
+	A deck splits the two meanings apart. `hasWalkableGround` keeps the real
+	one -- no `FillCylinder`, no relief, no scatter -- and a `decks` list says
+	the surface is authored plates instead. Each deck is one district, drawn
+	with the same ASCII `LayoutDef` that Anchorhead, Taris and Nar Shaddaa
+	already use, so every deck gets streets, buildings with walk-in interiors,
+	crowds and patrol routes through code that was already there. The one
+	thing it adds is `y`.
+
+	Ordered so that **down is dangerous**, which is not a new rule: it falls
+	straight out of `ZoneDef.distance` and `Planets.bandFor`. The Senate
+	district is the top deck and the lowest-levelled; the Underlevels are the
+	bottom deck and the highest. "The lower you go, the more ghetto it gets"
+	is therefore a fact about the level bands and not just about the paint.
+]]
+export type DeckDef = {
+	-- Must name a `ZoneDef` on the same planet. `validate` says so, because
+	-- a deck whose zone is a typo builds a whole storey nobody spawns on.
+	zone: string,
+	-- Height above the planet origin, in studs. `SKYLANE_STEP` apart, so the
+	-- towers' window bands and the decks line up rather than nearly doing so.
+	y: number,
+	layout: LayoutDef,
 }
 
 export type ZoneDef = {
@@ -405,6 +456,17 @@ export type PlanetDef = {
 		tell which it walked into.
 	]]
 	layout: LayoutDef?,
+
+	--[[
+		Stacked walkable storeys, for a world with no ground to lay a town on.
+
+		Only Coruscant. See `DeckDef`: each entry is one district drawn as its
+		own picture at its own height, and the whole authored-town pipeline --
+		streets, interiors, crowds, patrol routes -- runs once per deck. A
+		planet with `decks` must not also have a `layout`; there is only one
+		settlement origin and they would be built on top of each other.
+	]]
+	decks: { DeckDef }?,
 }
 
 local defs: { [string]: PlanetDef } = {}
@@ -725,9 +787,11 @@ def({
 
 	gravity = 196.2,
 	terrain = "Urban",
-	-- Declared but not drawn: `hasWalkableGround = false` below sends this
-	-- planet down the vertical-city path, which builds its own towers. Kept
-	-- accurate anyway, so it is right the day Coruscant grows a ground level.
+	-- Declared and, since the decks below, finally drawn. `spireShape` and
+	-- `spireDress` -- tiered towers with a 0.93 taper, ledges, continuous
+	-- Neon glazing and a mast -- sat in `PlanetBuilder` unreachable for two
+	-- weeks, because Coruscant was the one world with no ground layout and
+	-- so nothing ever called `buildRoom` on it.
 	architecture = "Spire",
 	groundColor = Palette.CoruscantPlate,
 	rockColor = Palette.WornSteel,
@@ -741,14 +805,17 @@ def({
 	outdoorAmbient = Color3.fromRGB(154, 164, 186),
 	dayLength = 0.3,
 
-	-- The headline feature of this planet: no walkable ground anywhere. You
-	-- move between towers on platforms and skybridges, or you fly.
+	-- No *terrain* anywhere: no cylinder of soil, no relief, no scatter, and
+	-- no cloud deck in orbit. It no longer means "nowhere to stand" -- the
+	-- five `decks` at the bottom of this entry are the ground, and they are
+	-- built, not filled.
 	hasWalkableGround = false,
 	flightCeiling = 1400,
-	-- The busiest sky in the galaxy, and the one world where the traffic is
-	-- not decoration but the reason the place reads as inhabited: there is
-	-- no street below to put a crowd on.
-	airTraffic = 26,
+	-- The busiest sky in the galaxy. Raised from 26 when the tower grid went
+	-- from 11 rows to 17: the same hull count over 2.4x the area is a quieter
+	-- sky, and this is the one world where traffic doing the work of a crowd
+	-- is not a saving but the point.
+	airTraffic = 54,
 
 	-- The Republic still holds its own capital. It was sacked, not taken: the
 	-- treaty left the Senate sitting in a city it had watched burn, which is
@@ -758,13 +825,20 @@ def({
 	maxLevel = 34,
 	lawLevel = 1.0,
 
-	-- Distance is horizontal spread here; a vertical city snaps its zones to
-	-- whichever platforms the builder made, so the order matters more than
-	-- the numbers.
+	-- Distance is the difficulty dial and nothing else here: every district
+	-- is a deck stacked on the same footprint, so `bandFor` reads these and
+	-- the compass fan they normally drive is never used. Ordered top deck
+	-- first, which is why the Senate is 0 and the Underlevels 1.5 -- the
+	-- descent through the city *is* the walk out of town.
 	zones = {
 		{ id = "Plaza", distance = 0 },
-		{ id = "Works", distance = 0.35 },
-		{ id = "Skylane", distance = 0.7 },
+		-- Skylane and Works swapped places 2026-08-29, when the decks gave
+		-- these numbers a physical meaning. "The high commercial lane" has to
+		-- be above "resettlement stacks thrown up in a hurry", and once it is,
+		-- the band it inherits has to be the easier of the two as well --
+		-- otherwise descending the city gets *safer* for one storey.
+		{ id = "Skylane", distance = 0.35 },
+		{ id = "Works", distance = 0.7 },
 		{ id = "TempleRuin", distance = 1.1 },
 		{ id = "Underlevels", distance = 1.5 },
 	},
@@ -889,6 +963,294 @@ def({
 			zone = "Underlevels",
 		},
 	},
+
+	--[[
+		FIVE STOREYS OF CITY, STACKED ON ONE FOOTPRINT
+
+		Every other authored world draws its districts side by side on one
+		page, because on a planet with soil that is what a town is. Coruscant's
+		districts are the same page five times over at five heights, 220 studs
+		apart, and the tower grid is punched through all of them -- which is
+		the only arrangement in which "the lower you go, the more ghetto it
+		becomes" is a thing you can *see* rather than a thing you are told.
+
+		Read each grid as a map, exactly as Anchorhead's: north at the top,
+		west at the left, touching cells that share a glyph are one building.
+		22 cells at 32 studs is 704 studs a side, which puts the corner at 498
+		-- inside the 610 that `tools/gridcheck.py` insists on, and clear of
+		the first ring of towers with room for `PlanetBuilder` to drop any
+		tower whose footprint would come through a street.
+
+		EVERY DECK HAS A LANDING PAD, and that is not decoration. This whole
+		job started with *"I spawn on a platform but can't get my spaceship and
+		can't go anywhere"*: a starship may only be called down within
+		`Ships.PAD_RANGE` of a part tagged `Ships.PAD_TAG`, Coruscant's only
+		pads belonged to a spaceport the vertical-city builder had dropped on
+		a random tower platform, and no path led to it. Until turbolifts land,
+		a hull is also the only way between decks -- so a deck with no pad is a
+		deck you can be stranded on, which is the bug this is fixing.
+	]]
+	decks = {
+		--[[
+			THE SENATE DISTRICT. Sunlight, width, and nothing to be afraid of.
+
+			The top deck is deliberately the emptiest: one enormous plaza in
+			the middle with the towers standing off it, shop frontage on two
+			streets and the landing field in the north-west corner. It is the
+			first thing a player sees when they arrive, and the contrast with
+			the bottom deck four storeys down is the whole point of building
+			five of these.
+		]]
+		{
+			zone = "Plaza",
+			y = 440,
+			layout = {
+				cell = 32,
+				legend = {
+					["."] = "Road",
+					L = "Pad",
+					T = "Tower",
+					s = "Shop",
+					P = "Plaza",
+					H = "Hall",
+					y = "Yard",
+					X = "Lift",
+				},
+				grid = {
+					"..LLLL......TTTT......",
+					"..LLLL......TTTT......",
+					"..LLLL..............XX",
+					"....................XX",
+					".ssss.sss......sss.ss.",
+					".ssss.sss......sss.ss.",
+					"......................",
+					".TT.PPPPPPPPPPPP.TT...",
+					".TT.PPPPPPPPPPPP.TT...",
+					"....PPPPPPPPPPPP......",
+					"....PPPPPPPPPPPP......",
+					"....PPPPPPPPPPPP......",
+					"....PPPPPPPPPPPP......",
+					".TT.PPPPPPPPPPPP.TT...",
+					".TT.PPPPPPPPPPPP.TT...",
+					"......................",
+					".HHH..ssss.....ssss...",
+					".HHH..ssss.....ssss...",
+					".HHH..................",
+					"......................",
+					"..yy....TTTT....yy....",
+					"..yy....TTTT....yy....",
+				},
+			},
+		},
+
+		--[[
+			SKYLANE ALPHA. Two lanes of moving traffic and the strip between.
+
+			Drawn as two full-width paved runs with a spine of freight halls
+			between them, which is what a commercial lane is: somewhere things
+			pass through rather than somewhere anybody lives. The housing rows
+			at the top and bottom are the only reason it is a district at all.
+		]]
+		{
+			zone = "Skylane",
+			y = 220,
+			layout = {
+				cell = 32,
+				legend = {
+					["."] = "Road",
+					T = "Tower",
+					h = "House",
+					P = "Plaza",
+					s = "Shop",
+					H = "Hall",
+					L = "Pad",
+					y = "Yard",
+					X = "Lift",
+				},
+				grid = {
+					"..TT..............TT..",
+					"..TT..............TT..",
+					"....................XX",
+					".hhh.hhh.hhh.hhh.hhhXX",
+					".hhh.hhh.hhh.hhh.hhh..",
+					"......................",
+					".PPPPPPPPPPPPPPPPPPPP.",
+					".PPPPPPPPPPPPPPPPPPPP.",
+					".PPPPPPPPPPPPPPPPPPPP.",
+					"......................",
+					".ss..HHH....HHH....ss.",
+					".ss..HHH....HHH....ss.",
+					".ss..HHH....HHH....ss.",
+					"......................",
+					".PPPPPPPPPPPPPPPPPPPP.",
+					".PPPPPPPPPPPPPPPPPPPP.",
+					".PPPPPPPPPPPPPPPPPPPP.",
+					"......................",
+					".hhh.hhh.hhh.hhh.hhh..",
+					".hhh.hhh.hhh.hhh.hhh..",
+					"..LLLL........yy......",
+					"..LLLL........yy......",
+				},
+			},
+		},
+
+		--[[
+			THE WORKS. Resettlement stacks, thirteen years after the Sacking.
+
+			Housing rows top, middle and bottom with no space between them,
+			because that is what "thrown up in a hurry" looks like on a page.
+			The Imperial embassy's escort stands somewhere in here, which is
+			why it is the busiest deck after the Senate.
+		]]
+		{
+			zone = "Works",
+			y = 0,
+			layout = {
+				cell = 32,
+				legend = {
+					["."] = "Road",
+					h = "House",
+					T = "Tower",
+					s = "Shop",
+					P = "Plaza",
+					L = "Pad",
+					H = "Hall",
+					y = "Yard",
+					X = "Lift",
+				},
+				grid = {
+					"hhh.hhh.hhh.hhh.hhh...",
+					"hhh.hhh.hhh.hhh.hhh...",
+					"hhh.hhh.hhh.hhh.hhh.XX",
+					"....................XX",
+					".TT..ssss....ssss..TT.",
+					".TT..ssss....ssss..TT.",
+					"......................",
+					".PPPPPPPP..PPPPPPPPPP.",
+					".PPPPPPPP..PPPPPPPPPP.",
+					".PPPPPPPP..PPPPPPPPPP.",
+					"......................",
+					"..LLLL......HHHH......",
+					"..LLLL......HHHH......",
+					"..LLLL......HHHH......",
+					"......................",
+					"hhh.hhh.hhh.hhh.hhh...",
+					"hhh.hhh.hhh.hhh.hhh...",
+					"......................",
+					".yy...TTTT.....yy.....",
+					".yy...TTTT.....yy.....",
+					"......................",
+					"hhh.hhh.hhh.hhh.hhh...",
+				},
+			},
+		},
+
+		--[[
+			THE TEMPLE RUIN. Mostly not there any more.
+
+			The emptiest grid in the game, and on purpose: two broken wall runs,
+			four stubs of tower and a huge open yard where the Temple stood.
+			`JediTempleRuin`'s own geometry lands in that yard, and the eight
+			Imperial commandos picking over it have nowhere to hide.
+		]]
+		{
+			zone = "TempleRuin",
+			y = -220,
+			layout = {
+				cell = 32,
+				legend = {
+					["."] = "Road",
+					W = "Wall",
+					T = "Tower",
+					y = "Yard",
+					H = "Hall",
+					L = "Pad",
+					X = "Lift",
+				},
+				grid = {
+					"......................",
+					"..WWWW........WWWW....",
+					"..WWWW........WWWW..XX",
+					"....................XX",
+					"....TT........TT......",
+					"....TT........TT......",
+					"......................",
+					"..yyyyyyyyyyyyyyyy....",
+					"..yyyyyyyyyyyyyyyy....",
+					"..yyyyyyyyyyyyyyyy....",
+					"..yyyyyyyyyyyyyyyy....",
+					"......................",
+					".HHH..........HHH.....",
+					".HHH..........HHH.....",
+					"......................",
+					"..LLLL................",
+					"..LLLL................",
+					"......................",
+					".WWWWWW......WWWWWW...",
+					".WWWWWW......WWWWWW...",
+					"......................",
+					".....TT......TT.......",
+				},
+			},
+		},
+
+		--[[
+			THE UNDERLEVELS. No sunlight, no patrols, no questions.
+
+			Every alley one cell wide, every block of housing pressed against
+			the next, and the only open ground on the deck is the yard the
+			bounty hunters work out of. It is the same 22x22 page as the Senate
+			district and it is the opposite thing, which is the comparison the
+			whole feature is for.
+		]]
+		{
+			zone = "Underlevels",
+			y = -440,
+			layout = {
+				cell = 32,
+				legend = {
+					["."] = "Road",
+					h = "House",
+					s = "Shop",
+					y = "Yard",
+					L = "Pad",
+					H = "Hall",
+					T = "Tower",
+					X = "Lift",
+				},
+				grid = {
+					"hhhh.hh.hhhh.hh.hhhh..",
+					"hhhh.hh.hhhh.hh.hhhh..",
+					"....................XX",
+					"hh.hhh.hh.hhh.hh.hhhXX",
+					"hh.hhh.hh.hhh.hh.hhh..",
+					"......................",
+					".ss..ss..ss..ss..ss...",
+					".ss..ss..ss..ss..ss...",
+					"......................",
+					"..yyyy......LLLL......",
+					"..yyyy......LLLL......",
+					"..yyyy......LLLL......",
+					"......................",
+					".HHHH.....hhh....hhh..",
+					".HHHH.....hhh....hhh..",
+					".HHHH.................",
+					"......................",
+					"hhh.hh.hhh.hh.hhh.hh..",
+					"hhh.hh.hhh.hh.hhh.hh..",
+					"......................",
+					"..TT..........TT......",
+					"..TT..........TT......",
+				},
+			},
+		},
+		-- Annotated, and it is not decoration. Luau infers an array's element
+		-- type from its first entry and then demands the rest match it
+		-- *exactly*, so the Plaza's legend became the type of a legend and the
+		-- four decks below it were each rejected for the glyphs the Plaza did
+		-- not happen to use. Five districts drawn with five vocabularies is
+		-- the entire point of authoring them separately.
+	} :: { DeckDef },
 })
 
 def({
@@ -2639,6 +3001,71 @@ function Planets.rectExtents(layout: LayoutDef, rect: CellRect): Vector3
 end
 
 --[[
+	Every mistake an ASCII grid can make that the type checker cannot see.
+
+	Pulled out of `validate` when decks arrived, because Coruscant has five
+	grids and the checks were written once, inline, against `p.layout`. Five
+	unchecked pictures is exactly the situation this function exists to
+	prevent -- a glyph the legend does not know builds nothing, and nothing
+	is precisely what open ground looks like from the street. So the space
+	character is the *only* way to write open ground, and any other unlisted
+	glyph is reported: otherwise a typo'd `H` for `h` is a hall that was
+	never there, and a bug you find by counting buildings.
+
+	`label` rather than a planet id, because "Coruscant: deck "Underlevels""
+	is the sentence that gets someone to the right grid and "Coruscant" is
+	not.
+]]
+local function checkGrid(
+	problems: { string },
+	label: string,
+	layout: LayoutDef,
+	prefabExists: (string) -> boolean
+)
+	local columns, rows = Planets.layoutSize(layout)
+	if layout.cell <= 0 then
+		table.insert(problems, `{label} cell size {layout.cell} must be positive`)
+	end
+	if rows == 0 then
+		table.insert(problems, `{label} has no rows`)
+	end
+
+	for glyph, prefab in layout.legend do
+		if #glyph ~= 1 then
+			table.insert(problems, `{label} legend key "{glyph}" is not a single character`)
+		elseif glyph == " " then
+			table.insert(problems, `{label} legend claims " ", which always means open ground`)
+		end
+		if not prefabExists(prefab) then
+			table.insert(problems, `{label} glyph "{glyph}" names unknown prefab "{prefab}"`)
+		end
+	end
+
+	local used: { [string]: boolean } = {}
+	for r, line in layout.grid do
+		-- A ragged row does not error -- `layoutSize` takes the longest --
+		-- but it shifts every cell east of it, so the picture stops being
+		-- what gets built.
+		if #line ~= columns then
+			table.insert(problems, `{label} row {r} is {#line} characters, not {columns}`)
+		end
+		for c = 1, #line do
+			local glyph = line:sub(c, c)
+			used[glyph] = true
+			if glyph ~= " " and not layout.legend[glyph] then
+				table.insert(problems, `{label} row {r} column {c} uses undeclared glyph "{glyph}"`)
+			end
+		end
+	end
+
+	for glyph in layout.legend do
+		if not used[glyph] then
+			table.insert(problems, `{label} legend declares "{glyph}", which never appears in the grid`)
+		end
+	end
+end
+
+--[[
 	Cross-checks every planet against the ids it references.
 
 	Zone names are strings written in two places -- the spawn rules and the
@@ -2698,62 +3125,66 @@ function Planets.validate(
 			table.insert(problems, `{id}: airTraffic {traffic} would draw nothing; leave it out instead`)
 		end
 
-		--[[
-			The authored grid, if this world has one.
-
-			Every mistake available here is silent when the world builds and
-			expensive to notice from the ground: a glyph the legend does not
-			know builds nothing, and nothing is exactly what open ground looks
-			like. So the space character is the *only* way to write open
-			ground, and any other unlisted glyph is reported -- otherwise a
-			typo'd `H` for `h` is a house that was never there and a bug you
-			find by counting buildings.
-		]]
+		-- The authored grid, if this world has one. `columns` and `rows` are
+		-- kept out here for the district-rectangle check further down.
 		local layout = p.layout
 		local columns, rows = 0, 0
 		if layout then
 			columns, rows = Planets.layoutSize(layout)
-			if layout.cell <= 0 then
-				table.insert(problems, `{id}: layout cell size {layout.cell} must be positive`)
+			checkGrid(problems, `{id}: layout`, layout, prefabExists)
+		end
+
+		--[[
+			The stacked storeys, and the four ways a deck goes wrong silently.
+
+			A deck is a whole district's worth of geometry keyed by a string,
+			so a typo'd zone builds five hundred parts nobody ever spawns on
+			and leaves the district it meant to fill standing on nothing. Two
+			decks at one height interleave two street grids. A deck on a
+			planet that also has a `layout` builds both at the same origin.
+			None of the four errors, and all four look like "the city is
+			broken" from the ground.
+		]]
+		local decks = p.decks
+		if decks then
+			if layout then
+				table.insert(problems, `{id}: has both a layout and decks; they share one origin`)
 			end
-			if rows == 0 then
-				table.insert(problems, `{id}: layout has no rows`)
-			end
-			for glyph, prefab in layout.legend do
-				if #glyph ~= 1 then
-					table.insert(problems, `{id}: layout legend key "{glyph}" is not a single character`)
-				elseif glyph == " " then
-					table.insert(problems, `{id}: layout legend claims " ", which always means open ground`)
+			local heights: { [number]: string } = {}
+			local decked: { [string]: boolean } = {}
+			for _, deck in decks do
+				checkGrid(problems, `{id}: deck "{deck.zone}"`, deck.layout, prefabExists)
+				if decked[deck.zone] then
+					table.insert(problems, `{id}: two decks both claim zone "{deck.zone}"`)
 				end
-				if not prefabExists(prefab) then
-					table.insert(problems, `{id}: layout glyph "{glyph}" names unknown prefab "{prefab}"`)
+				decked[deck.zone] = true
+
+				local owner = heights[deck.y]
+				if owner then
+					table.insert(problems, `{id}: decks "{deck.zone}" and "{owner}" are both at y = {deck.y}`)
+				else
+					heights[deck.y] = deck.zone
 				end
-			end
-			local used: { [string]: boolean } = {}
-			for r, line in layout.grid do
-				-- A ragged row does not error -- `layoutSize` takes the
-				-- longest -- but it shifts every cell east of it, so the
-				-- picture stops being what gets built.
-				if #line ~= columns then
-					table.insert(problems, `{id}: layout row {r} is {#line} characters, not {columns}`)
-				end
-				for c = 1, #line do
-					local glyph = line:sub(c, c)
-					used[glyph] = true
-					if glyph ~= " " and not layout.legend[glyph] then
-						table.insert(
-							problems,
-							`{id}: layout row {r} column {c} uses undeclared glyph "{glyph}"`
-						)
+
+				local found = false
+				for _, zone in p.zones do
+					if zone.id == deck.zone then
+						found = true
+						break
 					end
 				end
+				if not found then
+					table.insert(problems, `{id}: deck names unknown zone "{deck.zone}"`)
+				end
 			end
-			for glyph in layout.legend do
-				if not used[glyph] then
-					table.insert(
-						problems,
-						`{id}: layout legend declares "{glyph}", which never appears in the grid`
-					)
+
+			-- A district with no deck on a decked world has no ground under
+			-- it at all: its crowd, its landmark and its spawn points are
+			-- placed in open air and fall out of the world on the first
+			-- Heartbeat.
+			for _, zone in p.zones do
+				if not decked[zone.id] then
+					table.insert(problems, `{id}: zone "{zone.id}" has no deck to stand on`)
 				end
 			end
 		end
@@ -3179,8 +3610,10 @@ function Planets.groundRadius(planetId: string): number
 		return 900
 	end
 	if not planet.hasWalkableGround then
-		-- A vertical city has no plate at all; its extent is its tower grid.
-		return Planets.TOWER_GRID * 5.5
+		-- A vertical city has no plate at all; its extent is its tower grid,
+		-- half a square past the last row so the outermost footprints are
+		-- inside it.
+		return Planets.TOWER_GRID * (Planets.TOWER_REACH + 0.5)
 	end
 	local furthest = 0
 	for _, zone in planet.zones do
