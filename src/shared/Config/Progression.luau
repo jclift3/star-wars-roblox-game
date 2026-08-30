@@ -470,7 +470,11 @@ node({
 	id = "ForceLightning",
 	tree = "Force",
 	displayName = "Force Lightning",
-	description = "Unlocks Force Lightning. +10% Force damage per rank. Cruel characters only.",
+	-- "Callous", not "Cruel": the gate is -100, which is the bottom edge of
+	-- Unaligned, so Callous is the first band that can buy this. Cruel is
+	-- -700, and naming it here promised a much longer walk than the code
+	-- actually asks for. The mirrored node below says "Decent" and means it.
+	description = "Unlocks Force Lightning. +10% Force damage per rank. Callous characters only.",
 	maxRank = 5,
 	requiredLevel = 16,
 	requires = { "ForceSensitive" },

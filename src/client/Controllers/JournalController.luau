@@ -121,6 +121,79 @@ local function spacer(order: number, height: number)
 	f.Parent = pageFrame
 end
 
+--[[
+	Where this character sits on the one axis they cannot buy their way along.
+
+	Reported 2026-08-29: *"there needs to be an option to see what your
+	alignment is somehow."* It was already here, and on the skills panel, and
+	toasted on every change -- as a band NAME. That is the bug. A name is a
+	label, and a label answers "what am I called" while the player is asking
+	"how far gone am I, and which way have I been going." Neither of those is
+	a word, so neither of them was on the screen.
+
+	Drawn rather than written for the same reason: the useful facts are
+	distance to an end and room remaining, and a sentence can show neither.
+	The number goes on it too, because `Progression.canPurchase` refuses the
+	Force fork with "you have not been the kind of person this answers to" --
+	deliberately vague, which is right at the moment of refusal and useless
+	afterwards if there is nowhere at all to go and check.
+]]
+local function alignmentBar(order: number, alignment: number)
+	local band = Alignment.bandFor(alignment)
+
+	local holder = Instance.new("Frame")
+	holder.Name = `Alignment{order}`
+	holder.LayoutOrder = order
+	holder.BackgroundTransparency = 1
+	holder.Size = UDim2.new(1, -16, 0, 34)
+	holder.Parent = pageFrame
+
+	local track = Instance.new("Frame")
+	track.Name = "Track"
+	track.Position = UDim2.fromOffset(0, 5)
+	track.Size = UDim2.new(1, 0, 0, 6)
+	track.BackgroundColor3 = FAINT
+	track.BackgroundTransparency = 0.25
+	track.BorderSizePixel = 0
+	track.Parent = holder
+	corner(track, 3)
+
+	--[[
+		Clamped even though the server clamps it.
+
+		`profile.alignment` cannot legally leave -1000..1000, but a marker at
+		a scale outside 0..1 draws outside the panel it lives in, and a layout
+		that a single bad number can push off its own frame is one that
+		eventually will be.
+	]]
+	local t = math.clamp((alignment - Alignment.MIN) / (Alignment.MAX - Alignment.MIN), 0, 1)
+
+	local marker = Instance.new("Frame")
+	marker.Name = "Marker"
+	marker.AnchorPoint = Vector2.new(0.5, 0)
+	marker.Position = UDim2.new(t, 0, 0, 0)
+	marker.Size = UDim2.fromOffset(4, 16)
+	marker.BackgroundColor3 = band.colour
+	marker.BorderSizePixel = 0
+	marker.Parent = holder
+	corner(marker, 2)
+
+	-- The ends are read off `Alignment.BANDS` rather than typed, so renaming
+	-- a band renames it here as well. Two spellings of "Merciless" is exactly
+	-- the sort of drift that makes a player think there are two scales.
+	local left = text("Dark", holder, 11, FAINT)
+	left.Position = UDim2.fromOffset(0, 19)
+	left.Size = UDim2.fromOffset(200, 14)
+	left.Text = Alignment.titleFor(Alignment.MIN)
+
+	local right = text("Light", holder, 11, FAINT)
+	right.AnchorPoint = Vector2.new(1, 0)
+	right.Position = UDim2.new(1, 0, 0, 19)
+	right.Size = UDim2.fromOffset(200, 14)
+	right.TextXAlignment = Enum.TextXAlignment.Right
+	right.Text = Alignment.titleFor(Alignment.MAX)
+end
+
 --------------------------------------------------------------------------------
 -- Layout
 --------------------------------------------------------------------------------
@@ -286,8 +359,14 @@ local function renderSelf()
 	heading.AutomaticSize = Enum.AutomaticSize.None
 
 	local band = Alignment.bandFor(profile.alignment)
-	line(at(), 13, band.colour, `Level {profile.level}  ·  {band.name}`)
-	spacer(at(), 8)
+	line(
+		at(),
+		13,
+		band.colour,
+		string.format("Level %d  ·  %s  (%+d)", profile.level, band.name, profile.alignment)
+	)
+	alignmentBar(at(), profile.alignment)
+	spacer(at(), 6)
 
 	if origin then
 		line(at(), 13, TEXT, origin.blurb)

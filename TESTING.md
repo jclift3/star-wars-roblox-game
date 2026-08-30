@@ -1828,6 +1828,19 @@ already done. It reads the profile you already have, so a fresh character is
    currently are — then **What is going on**, which on a new character honestly
    says *nothing yet*. This is the answer to "I still don't know who I am", so
    the test is that you can get all of it back at any time from one key.
+0b. **The alignment bar — new, 2026-08-29, never played.** Directly under the
+   level line there is a track running Merciless → Selfless with a marker on it,
+   the end names written under each end, and the signed figure on the line above
+   (`Level 1 · Unaligned (+0)`). On a new character the marker sits **dead
+   centre**. Run `unlimitedpower` and re-open: it is hard against the left end
+   and everything on that line is red. `iamajedi`, and it is hard against the
+   right and blue. The failure to watch for is the marker drawn *outside* the
+   page — it is clamped, so if you ever see that, the profile is carrying a
+   number the server should not have let through.
+0c. Both boys, one at each extreme, looking at their own journals. Neither bar
+   moves when the other's alignment changes. This is a read of `profile`, so it
+   should be impossible; it is here because "shared state read the same for
+   both" is the failure this house finds fastest.
 0a. Play far enough to hear one of the four hints about The Quiet, then re-open.
    **What is going on** has a paragraph now. Name it outright (the
    `NamedTheQuiet` flag) and the paragraph gets longer. A character who has not
@@ -2568,9 +2581,12 @@ to exist since the tree was written and never has.** Fastest route in is
    you are talking to. This is the one collision worth being sure about.
 7. **The fork.** At level 16 the Force tree offers **Force Lightning** and
    **Force Mend**. With a neutral character **both refuse**, saying *"You have
-   not been the kind of person this answers to."* Push alignment dark (the
-   Cartel choices in 8.1) and Lightning becomes buyable while Mend does not.
-   **A character can never hold both.**
+   not been the kind of person this answers to."* Push alignment dark — the
+   Cartel choices in 8.1, or `unlimitedpower` — and Lightning becomes buyable
+   while Mend does not. **A character can never hold both**: buy Lightning, then
+   run `iamajedi` and try for Mend. It must still refuse, because `excludes`
+   guards by node id and not by alignment. Lightning's description says
+   **Callous**, not Cruel, and that is the honest reading of its `-100` gate.
 8. **Force Mend / Field Stim reach your brother.** Both stand in one place, hurt
    both, then one presses the heal. **Both health bars rise.** Nothing hostile
    standing in the same radius is healed or hurt.

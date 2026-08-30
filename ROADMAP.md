@@ -3396,6 +3396,47 @@ becomes unreachable, silently, with a fresh empty board standing in its place.
 
 ---
 
+### 5.3 Alignment you can actually read — **DONE 2026-08-29**
+
+Reported from play: *"there needs to be an option to see what your alignment is
+somehow."* Grep first, the eleventh time, and the eleventh time the answer is
+that it was already there — three times over. The skills panel (**K**) has
+carried `Merciless  (-1000)` in the band colour since 4.3, the journal (**J**)
+has said `Level 50 · Merciless` since 3b.4, and `awardAlignment` toasts on every
+single shift and again on every band crossing.
+
+So the request is real and the premise is wrong, which means the interesting
+question is what the player was actually looking for and did not find. All three
+of those show a **name**. A name answers *what am I called*. Nobody asks that.
+The questions are *how far gone am I* and *which way have I been going*, and
+neither of those is a word, so neither was ever on the screen — three readouts,
+none of which said the one thing being asked.
+
+Hence a **bar**, on the journal's Self page, spanning Merciless to Selfless with
+a marker at the character's position and the signed number on the line above.
+Drawn rather than worded because both of the real questions are spatial:
+distance to an end, and room remaining. The end labels are read out of
+`Alignment.BANDS` rather than typed, so a renamed band renames itself here.
+
+The journal rather than the skills panel because the journal's Self page exists
+for exactly this — it was built in answer to *"I still don't know who I am"* —
+and because the skills panel's label is a *gate check*, sitting beside the nodes
+it explains. Two audiences, two jobs, one number.
+
+Also fixed here: **`ForceLightning.description` was lying.** It said "Cruel
+characters only" and the gate is `maxAlignment = -100`, which is the bottom edge
+of Unaligned — Callous is the first band that can buy it. Cruel is -700, so the
+node advertised roughly twice the walk it charges. Its mirror says "Decent" and
+means it, which is how the discrepancy showed up at all.
+
+`Progression.canPurchase` is deliberately vague when it refuses — *"You have not
+been the kind of person this answers to"* — and that stays. Vagueness is right
+at the moment of refusal, where a number would turn a record of what you did
+into a bar to fill. It is only wrong if there is nowhere at all to go and check
+afterwards, which is what this fixes.
+
+---
+
 ## Phase 6 — Ship it
 
 - Publish the place (also fixes DataStores — saves currently run memory-only)
