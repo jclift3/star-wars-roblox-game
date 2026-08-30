@@ -210,6 +210,39 @@ StyLua first.
 
 ---
 
+## 2.7 The sky between them — **2026-08-30**
+
+All nine worlds live in one Workspace at real addresses, four to a row, and as
+of today they are **16,000 studs apart** rather than 12,000. The number is not
+tuned for feel: it is the largest spacing at which the far corner of the grid
+(about 57,700 studs out) stays inside the range the game already flies without
+float drift, and it nearly doubles the void between neighbouring systems, 4,800
+studs to 8,800.
+
+That widening is only worth anything because of what landed with it.
+`PlanetBodyController` now draws **every world other than the one you are in**,
+as a ball at its true `Planets.originFor` address, lit by the same sun that
+lights the ground, wrapped in a Neon shell in the world's own `skyTint`. Before
+this there was no planet-shaped object anywhere in the game — a world was a flat
+plate under a cloud deck whose whole job was to hide that fact.
+
+Three consequences for anyone authoring a world:
+
+- **`groundColor` and `skyTint` are now seen from space.** They were a soil
+  colour and a haze colour; they are also, from today, what your world looks
+  like from the next one over. A world with a muddy `groundColor` is a brown dot
+  in eight other skies.
+- **The body is not the plate.** `BODY_RADIUS` is 900 — half of
+  `Planets.worldRadius` — because 1,800 studs of diameter is the largest round
+  number under Roblox's part limit. The plate you land on is a *region* of a
+  world; the ball is the world. The two are never on screen together, because
+  the body dissolves as you cross into its system.
+- **Nothing per-planet needs authoring.** Nine bodies compose from the catalogue
+  at build time, the `Radiant.luau` pattern, so a tenth world appears in the
+  other nine skies for free.
+
+---
+
 ## 3. The nine planets
 
 Each entry: what it is for, its level band, its districts, its building

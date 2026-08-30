@@ -3835,6 +3835,65 @@ about 120 studs once the walkway and its rail are inside the 160-stud mouth. A
 Longhaul Freighter has to fit down it. If it does not, `WELL_RAMP_WIDTH` is the
 knob and it is one line.
 
+### 5.11 The neighbours — **2026-08-30**
+
+> *"We also have to make the planets look like planets and be farther apart."*
+> — Logan
+
+Two complaints in one sentence, and one hole under both of them. **There has
+never been a planet-shaped object anywhere in this game.** From orbit you look
+down at a cloud deck whose stated job (`SkyDeckController.luau:7-21`) is to
+*hide* the fact that a world is a flat plate, and out at a black sky with
+nothing in it. The nine worlds have sat 12,000 studs apart in one Workspace
+since the first one was generated — but **distance you cannot see is not
+distance**. An empty void is the same experience at four thousand studs as at
+forty, which is why widening the grid on its own would have bought exactly
+nothing.
+
+So the two halves are the same fix. `PlanetBodyController` draws every world
+**at its real address** — a lit ball on `Planets.originFor`, with a Neon shell a
+little larger in the world's own `skyTint` for the atmosphere. No projection, no
+shell, no per-frame angular arithmetic: put the thing where it is and perspective
+does the rest. Bearing, size, and the rate it swells as you close on it all come
+out right, and so do two things that would otherwise have been work:
+
+- **Occlusion.** Your own weather is between you and it, so a neighbour hides
+  behind cloud the way it should.
+- **Haze.** `Orbit.Sky` takes atmospheric density to zero above the ceiling, so
+  the bodies are invisible from the ground and knife-sharp from orbit without a
+  line in the controller knowing which is which.
+
+`BODY_RADIUS` is 900 because 1,800 is the largest round diameter under Roblox's
+2,048-stud part limit — the limit set the number, not taste. It puts a
+neighbour at about **six and a half degrees across**, thirteen moons: plainly a
+place, plainly somewhere else. It is also smaller than `Planets.worldRadius`,
+and that is not a mismatch to reconcile. The plate you land on is a *region* of
+a world the way every playable map in every game is; the ball is the world. You
+never see both, because the body dissolves across the approach and is gone by
+the time `Orbit.systemAt` would name it — a wide band on purpose, since it is
+crossed in the seconds a pilot is dropping out of a jump and looking around.
+
+**Then the grid widens: `WORLD_SPACING` 12,000 → 16,000.** Now it means
+something, because there is something in the gap to be far away. Sixteen
+thousand is not chosen for feel — it is the largest spacing at which the far
+corner of the four-by-three grid, about 57,700 studs out, stays inside the range
+this game already flies without float drift, and it nearly doubles the void
+between neighbours, 4,800 studs to 8,800. `Orbit.SYSTEM_RADIUS` deliberately
+does **not** move with it: what it is measured against is `worldRadius`, which
+has not changed, and widening it would only push a border away from the thing it
+is the border of.
+
+What gives is the one thing Orbit.luau already said would give. `jumpSpeedFor`
+caps at `MAX_JUMP_SPEED`, so a pair that is close on the authored map and most
+of the grid apart takes a few seconds longer than the map implied. That was the
+declared trade at 12,000 and it is the same trade here — a duration nobody is
+timing, against a crossing that lands.
+
+The one thing a Play test has to settle is whether Roblox renders an 1,800-stud
+part at 16,000 studs at all. If the neighbours are simply absent from orbit,
+that is the reason, and the fallback is the `companionSun` trick — project onto
+a fixed shell and size by angular diameter — not a bigger ball.
+
 ---
 
 ## Phase 6 — Ship it

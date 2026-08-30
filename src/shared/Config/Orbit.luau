@@ -91,7 +91,7 @@ Orbit.REENTRY_DROP = 60
 	THE FACT THIS WHOLE SECTION IS BUILT ON
 
 	All nine worlds are already in one `Workspace`, at real addresses, on a
-	12,000-stud grid -- `Planets.originFor` has laid them out that way since
+	16,000-stud grid -- `Planets.originFor` has laid them out that way since
 	the first planet was generated. Tatooine and its neighbour are not two
 	scenes that have to be swapped. They are two places you could drive
 	between today if anything let you.
@@ -117,9 +117,15 @@ Orbit.REENTRY_DROP = 60
 	the answer depends on rounding.
 
 	3,600 sits between those two with room on both sides, which leaves a real
-	void of about 4,800 studs between neighbours. That void is the point: if
+	void of about 8,800 studs between neighbours. That void is the point: if
 	the systems met, there would be no such place as *between* worlds, and
 	the crossing would be a border rather than a journey.
+
+	It stays at 3,600 now that `WORLD_SPACING` has gone to 16,000, because
+	what it is measured against is `Planets.worldRadius` and that has not
+	moved. Widening it would only push the border further from the thing it
+	is the border of. What the extra spacing buys is the void, and since
+	2026-08-30 the void has planets visible across it.
 ]]
 Orbit.SYSTEM_RADIUS = 3600
 

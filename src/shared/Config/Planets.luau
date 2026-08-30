@@ -74,8 +74,29 @@ Planets.UNDERLEVELLED_BY = 3
 	Every planet is built into the same place at a different address, far
 	enough apart that no two are ever in the same streaming region.
 	`Planets.originFor` turns an id into that address.
+
+	RAISED FROM 12,000 ON 2026-08-30: *"we also have to make the planets look
+	like planets and be farther apart."*
+
+	Widening this on its own would have changed nothing anyone could see,
+	because until the same day nothing rendered in the gap and an empty void
+	is the same void at any width. It is worth doing now only because
+	`PlanetBodyController` draws the neighbours at their real addresses, so
+	the extra studs come out as a world that looks farther away rather than
+	as a longer stretch of black.
+
+	Sixteen thousand is not a round number picked for feel. It is the largest
+	spacing at which the far corner of a four-by-three grid -- (48,000,
+	32,000), about 57,700 studs out -- still sits inside the range this game
+	has already been flying in without float drift, and the void between two
+	neighbouring systems still nearly doubles, 4,800 studs to 8,800.
+
+	The thing that gives, and it already gave at 12,000: `Orbit.jumpSpeedFor`
+	caps at `MAX_JUMP_SPEED`, so a pair that is close on the authored map and
+	most of the grid apart now takes a few seconds longer than the map
+	implied. Orbit.luau argues that trade where it makes it.
 ]]
-Planets.WORLD_SPACING = 12000
+Planets.WORLD_SPACING = 16000
 
 --[[
 	The vertical city's grid, in studs. Client-visible on purpose.

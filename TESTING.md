@@ -1969,6 +1969,52 @@ has been played.
     collar per deck and a lining per gap. If it is bad, deck radius is the knob
     and it is one number.
 
+### 6.14 The neighbours — **new, 2026-08-30**
+
+The other eight worlds are now drawn in the sky at their real addresses, and the
+grid they sit on has gone from 12,000 studs to 16,000. Nothing here has been
+played.
+
+1. **The one that decides everything.** Summon a starship anywhere, fly up
+   through the ceiling into orbit, and look at the horizon all the way round.
+   There should be **discs out there** — small, lit on one side, each a
+   different colour. If the sky is empty black, Roblox is not rendering an
+   1,800-stud part at 16,000 studs and the whole approach needs the shell
+   fallback instead; nothing else in this section will tell you anything.
+2. They should be **small** — roughly the width of your thumbnail at arm's
+   length for the nearest, smaller for the rest. Big is the failure here.
+   Logan's complaint was that the worlds felt crowded together.
+3. Look at one closely. It must have a **terminator** — a lit face, a dark face,
+   and a curved edge between them — not a flat coloured circle. A flat circle
+   means it built as Neon and has no shape in it.
+4. There should be a faint **halo** past the lit edge. That is the atmosphere,
+   and it is the difference between a planet and a marble.
+5. **Colours differ.** Hoth white, Kashyyyk green, Coruscant grey. If they are
+   all the same colour, `groundColor` is not being read.
+6. Come back down to the ground and look up. **They should be gone**, washed out
+   by the air. If a planet is hanging over Anchorhead in daylight, the
+   atmosphere density is not doing its job. *(At night, faint is fine.)*
+7. **Fly out into the void.** From orbit, pick a direction and hold it without
+   jumping. The world you left should shrink and one ahead should grow. This is
+   the whole feature: it is the first time the gap between worlds has had
+   anything in it.
+8. Keep flying at a neighbour. As you come into its system the ball should
+   **fade out smoothly** while its cloud deck and plate appear. A hard pop, or a
+   translucent ball drawn *through* the ground, means the fade band is wrong.
+9. **Jump.** **G**, pick a world, hold **F**. It should still work exactly as
+   before and drop you in orbit at the destination. Watch the clock: nothing
+   should feel slower except possibly one or two of the longest crossings.
+10. Jump between a **far pair on the map** and check the fare is unchanged —
+    fuel is priced off the authored map, which did not move.
+11. **Both boys.** One in orbit over Tatooine, one over Korriban. Each should see
+    eight planets, in different arrangements, and neither should see one where
+    the other's ship is. These are client-only, so the test is that they are
+    *consistent*, not shared.
+12. Fly a wide circuit around your own world at the ceiling without leaving the
+    system. The sky must not hand you back and forth, and no planet should
+    flicker in and out — `SYSTEM_RADIUS` did not move, but the void it sits in
+    got bigger.
+
 ---
 
 ## 7. Missions
