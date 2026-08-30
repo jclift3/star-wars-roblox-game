@@ -2485,6 +2485,111 @@ away every melee `WeaponEffect` it was sent, so nothing about it was visible.
    character model is on the wire for exactly this. And your own arm moves the
    instant you click, without waiting for the server.
 6. Swing, then die mid-swing. The arm must not be left stuck out on respawn.
+7. **How many swings it takes — retuned 2026-08-29.** Reported as *"lightsaber
+   needs to be more deadly"*, and the numbers agreed: at 42 damage a blue sabre
+   was 63 a second against a DL-44's 49, a 25% edge for a weapon that has to
+   stand inside a firing line to be used at all. Every blade went up about 1.75×.
+   The check is **count the swings**: a level-20 Sand Raider (260 health) must
+   fall in **four**, not seven. Anything landing on five or six means the crit
+   roll flattered the sample — swing at four more.
+8. **Then check it did not go too far.** Take the same blade to something two
+   bands above you and to a boss archetype (900 base health). Neither should
+   melt. If they do, the block comment above the sabres in `Weapons.luau` says
+   which number to halve, and says not to touch fire rate — rate is what makes
+   the five blades feel different and it is the part that was already tuned
+   against play.
+9. **The vibroblade, gaderffii and electrostaff were deliberately left alone.**
+   Swing each straight after a sabre. They *should* now feel markedly worse,
+   because a lightsaber ought to be the reason you walk into arm's reach. If
+   they instead feel unusable, that is the next report, and it is a separate
+   one.
+
+### 9.0c The NN-14, the one weapon nobody wrote — **new, 2026-08-29**
+
+The blaster modelled in Blender. Everything else in the game is built out of
+`Instance.new` and cannot fail to appear; this one depends on mesh uploads that
+live on somebody's Roblox account, so **most of this section is about telling the
+two failure modes apart.**
+
+**Rojo does not deliver this one, and never did.** `MeshPart.MeshId` is a
+property Roblox will not let a plugin write, so the `assets/` mount produced
+twenty-six MeshParts and twenty-six *"changes failed to apply"* — a gun made of
+blank cubes. The mount was removed on 2026-08-30. The folder is put in by hand,
+once, and lives in the saved place file thereafter.
+
+**Setup, done once (see §9.0d for the walkthrough).** In the Explorer there must
+be **ReplicatedStorage → Assets → Weapons → reysblaster**, and clicking any
+MeshPath inside it must show a mesh in the viewport, not a grey cube. If that
+path is missing the weapon is a part list before you start, which is the
+fallback and not a bug.
+
+1. **Buy it.** `thereisnocow` for credits and level 12, then travel to Tatooine
+   and walk out to the **Wastes** — the Jawas by the Sandcrawler Wreck. It is in
+   their stock as **NN-14 Scavenger's Blaster**, 1,400 before their markup, and
+   it is the best thing on the cart.
+2. **Equip it and look at your hand.** You should be holding **the modelled gun**
+   — a revolver frame with a suppressor and visible screws. If you are holding a
+   plain blocky pistol instead, the import did not load: check the Output window
+   for `WeaponModel: no imported model "reysblaster"`. That fallback is
+   deliberate, and an empty hand would be the bug worth reporting.
+3. **Size.** It should read as a heavy pistol — about two studs, filling a hand.
+   Comically huge or a speck means `scale` in `Weapons.luau` is wrong, and it is
+   one number.
+4. **Which way it points.** Bolts must leave the **muzzle end**, forwards. If the
+   gun is held backwards, that is `rot = V3(0, 180, 0)` on the `model` table, and
+   nothing else. If the grip floats beside the hand rather than in it, that is
+   `offset`. Both are expected to need one pass — they cannot be worked out
+   offline.
+5. **Shoot something and check the shots land.** Every weapon part is built
+   `CanQuery = false` for a reason: a queryable mesh sitting in front of you eats
+   your own combat raycasts. If the gun fires but nothing ever takes damage, that
+   flag did not reach the imported parts.
+6. **B, and select it.** The inventory's `ViewportFrame` should turn the real
+   modelled gun, not a stand-in — same clone path as the world model.
+7. **Your brother must see it too.** Geometry is server-built; a mesh that
+   appears for one boy and not the other means the other client cannot read those
+   uploads, which is exactly the dependency this weapon has and the other
+   eighteen do not.
+8. **Socket a Crimson into it.** The bolts turn red. The *gun* does not, and that
+   is correct — tints apply to lit parts, and an imported mesh has none.
+
+### 9.0d Putting the blaster into the place — **new, 2026-08-30**
+
+Done **once**, in Studio, by the account that owns the game. After this it is
+part of the saved place and neither Rojo nor a git pull can undo it.
+
+Why by hand: Rojo builds instances through the ordinary Roblox API, and
+`MeshPart.MeshId` is one of the few properties that API refuses a plugin. Live
+sync therefore made all twenty-six parts and set no mesh on any of them —
+which is exactly what *"Synced, but 26 changes failed to apply"* was reporting.
+There is no Rojo setting that fixes this.
+
+1. **Pull and restart the sync.** `default.project.json` no longer mounts
+   `assets/`. Stop the Rojo plugin, `rojo serve` again, connect. If
+   `ReplicatedStorage.Assets` is still in the Explorer from yesterday, **delete
+   it** — it is the failed copy, and it is the blocking answer to *"should I
+   remove the current blaster?"*: yes, remove that one, keep the weapon.
+2. **Make the shelf.** Right-click `ReplicatedStorage` → Insert Object →
+   **Folder**, name it `Assets`. Inside it, another **Folder** named `Weapons`.
+   Both names are case-sensitive; `WeaponModel.buildImported` looks them up by
+   string.
+3. **Insert the model.** Right-click the `Weapons` folder → **Insert from
+   File…** → `assets/Weapons/reysblaster.rbxmx` in the repo.
+4. **Rename it.** It arrives called **"Reys blaster"** (that is the name in the
+   file). It must be **`reysblaster`**, which is what `Weapons.luau` asks for by
+   `model.asset`. This is the single most likely thing to be wrong.
+5. **Check the meshes actually resolved.** Expand it: `Cube`, `Cube.001` …
+   Click one. If it is a featureless grey box, the upload behind its `MeshId` is
+   not readable by this account and the whole exercise stops here — see step 7.
+6. **Save the place** (Ctrl+S), and **Publish** if the boys are going to see it.
+   The model ships inside the place file the same way the template world's
+   scenery does.
+7. **If the meshes are grey boxes:** they were uploaded from a different Roblox
+   account. Meshes are not shareable across accounts by default. The fix is to
+   re-import the original `.obj`/`.fbx` from Blender using **this** account
+   (Studio → Home → Import 3D), which mints new asset ids, then export the
+   result over `assets/Weapons/reysblaster.rbxmx` and start again at step 3.
+8. **Verify.** §9.0c, from the top.
 
 ### 9.1 Deflection — **new, never played**
 

@@ -15,6 +15,8 @@
 	can look wrong but cannot make an NPC harmless or a player invincible.
 ]]
 
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+
 local Weapons = require(script.Parent.Parent.Config.Weapons)
 
 local WeaponModel = {}
@@ -203,6 +205,69 @@ local function trailSpec(def: Weapons.WeaponDef): Weapons.WeaponPart?
 end
 
 --[[
+	Hangs imported geometry off the handle, or reports that it could not.
+
+	RETURNING FALSE IS THE POINT OF THE SIGNATURE
+	Every other weapon in the game is built out of `Instance.new` and cannot
+	fail. This one depends on mesh uploads that live on somebody's Roblox
+	account, and the honest failure -- the account is gone, the place was
+	published by someone without access, Rojo was never told about `assets/`
+	-- is that `ReplicatedStorage.Assets.Weapons.<name>` is simply not there.
+	Silently building nothing would put an empty hand on a character and read
+	as a bug in equipping. So the caller falls back to the `parts` list, which
+	is why an imported weapon still declares one.
+
+	SCALE, THEN PIVOT, THEN WELD, IN THAT ORDER
+	`ScaleTo` scales about the model's pivot and leaves the pivot where it
+	was, so scaling first and placing second is the only order that puts the
+	right thing at the origin. Welds go on last because a `WeldConstraint`
+	freezes the offset it was created with, and both of the moves above are
+	still to come at that point.
+]]
+local function buildImported(model: Model, handle: BasePart, source: Weapons.ModelSource): boolean
+	local assets = ReplicatedStorage:FindFirstChild("Assets")
+	local shelf = assets and assets:FindFirstChild("Weapons")
+	local template = shelf and shelf:FindFirstChild(source.asset)
+	if not (template and template:IsA("Model")) then
+		warn(`WeaponModel: no imported model "{source.asset}" under ReplicatedStorage.Assets.Weapons`)
+		return false
+	end
+
+	local clone = template:Clone()
+	clone.Name = "Imported"
+	clone:ScaleTo(source.scale)
+
+	local rot = source.rot or Vector3.zero
+	clone:PivotTo(
+		handle.CFrame
+			* CFrame.new(source.offset or Vector3.zero)
+			* CFrame.Angles(math.rad(rot.X), math.rad(rot.Y), math.rad(rot.Z))
+	)
+	clone.Parent = model
+
+	for _, part in clone:GetDescendants() do
+		if not part:IsA("BasePart") then
+			continue
+		end
+		-- The same four flags every built weapon part carries. `CanQuery` is
+		-- the one that matters: a mesh left queryable sits directly in front
+		-- of the owner's own combat raycast and eats every shot they fire.
+		part.Anchored = false
+		part.CanCollide = false
+		part.CanQuery = false
+		part.CanTouch = false
+		part.Massless = true
+
+		local weld = Instance.new("WeldConstraint")
+		weld.Part0 = handle
+		weld.Part1 = part
+		weld.Parent = part
+	end
+
+	return true
+end
+
+--[[
 	Builds an unparented, unpositioned weapon model.
 
 	The Handle is invisible and sits at the grip, so callers can weld to it
@@ -233,28 +298,41 @@ function WeaponModel.build(weaponId: string, tint: Color3?): Model
 	handle.Parent = model
 	model.PrimaryPart = handle
 
-	local specs = table.clone(def.parts)
-	if def.blade then
-		table.insert(specs, def.blade)
-	end
+	--[[
+		An imported model replaces the part list rather than joining it.
 
-	local wantsTrail = trailSpec(def)
-	local trailPart: BasePart? = nil
-	for _, spec in specs do
-		local p = buildPart(spec, handle.CFrame, tint)
-		p.Parent = model
-		if spec == wantsTrail then
-			trailPart = p
+		Drawing both would put a procedural blaster inside a modelled one --
+		two guns in one hand, roughly the same size, clipping through each
+		other. So `parts` on an imported weapon is what you get when the mesh
+		does not load, and `buildImported` says which happened.
+	]]
+	local source = def.model
+	local imported = source ~= nil and buildImported(model, handle, source)
+
+	if not imported then
+		local specs = table.clone(def.parts)
+		if def.blade then
+			table.insert(specs, def.blade)
 		end
 
-		local weld = Instance.new("WeldConstraint")
-		weld.Part0 = handle
-		weld.Part1 = p
-		weld.Parent = p
-	end
+		local wantsTrail = trailSpec(def)
+		local trailPart: BasePart? = nil
+		for _, spec in specs do
+			local p = buildPart(spec, handle.CFrame, tint)
+			p.Parent = model
+			if spec == wantsTrail then
+				trailPart = p
+			end
 
-	if trailPart and wantsTrail then
-		buildTrail(trailPart, wantsTrail, def.blade ~= nil, tint)
+			local weld = Instance.new("WeldConstraint")
+			weld.Part0 = handle
+			weld.Part1 = p
+			weld.Parent = p
+		end
+
+		if trailPart and wantsTrail then
+			buildTrail(trailPart, wantsTrail, def.blade ~= nil, tint)
+		end
 	end
 
 	-- Muzzle is an Attachment rather than a part so effects can be parented to
@@ -284,7 +362,7 @@ function WeaponModel.equip(character: Model, weaponId: string, tint: Color3?): M
 	WeaponModel.unequip(character)
 
 	local def = Weapons.get(weaponId)
-	if #def.parts == 0 and not def.blade then
+	if #def.parts == 0 and not def.blade and not def.model then
 		return nil
 	end
 

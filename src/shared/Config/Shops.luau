@@ -200,6 +200,13 @@ def({
 		"SE14C",
 		"Gaderffii",
 		"T21",
+		-- The best thing on this cart by a wide margin, and the only vendor
+		-- in the game that could plausibly be holding it: a revolver frame
+		-- with a suppressor bolted on and sixteen visible screws is exactly
+		-- what "mostly works" means. Level 5 and 1,400, so a character who
+		-- has just found the Jawas can leave with it rather than noting it
+		-- down for later.
+		"NN14",
 	},
 	-- No landspeeder and no starship: a Jawa sells what fell off something,
 	-- and what falls off a swoop gang is a swoop.

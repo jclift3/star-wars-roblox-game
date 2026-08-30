@@ -38,6 +38,62 @@ export type WeaponPart = {
 	light: { color: Color3, range: number, brightness: number }?,
 }
 
+--[[
+	A weapon whose geometry was modelled elsewhere and imported, instead of
+	being written as a part list.
+
+	THE PART LIST IS STILL THE DEFAULT AND STILL THE RIGHT ANSWER. Building
+	out of `Instance.new` is what lets the inventory panel draw a live
+	`ViewportFrame` of the real weapon, lets a crystal recolour whatever is
+	emitting, and keeps the game free of asset ids owned by somebody else.
+	Nothing about any of that changes.
+
+	This is the exception, and it exists because one of the boys modelled a
+	blaster in Blender and no part list would honour that. The `.rbxmx` lives
+	at `assets/Weapons/` and `asset` is a child of
+	`ReplicatedStorage.Assets.Weapons` by that name.
+
+	IT IS NOT SYNCED, AND CANNOT BE, 2026-08-30
+	`assets/` was mounted at `ReplicatedStorage.Assets` in
+	`default.project.json` for one day. Rojo built the twenty-six MeshParts
+	and then failed to write a single `MeshId`, because that is one of the
+	few properties Roblox refuses a plugin -- twenty-six meshes, "26 changes
+	failed to apply", and a gun made of blank cubes. The mount is gone. The
+	file is inserted into the place by hand, once, and saved with it.
+
+	That is why `buildImported` returns a boolean and this weapon still
+	declares a `parts` list: on any machine where the folder was never
+	inserted, the fallback is the difference between a scavenged pistol and
+	an empty hand.
+
+	WHAT AN IMPORTED MESH COSTS
+	A MeshPart's `.rbxmx` stores an `rbxassetid://` per mesh rather than the
+	geometry itself, so this weapon renders only while those uploads exist and
+	are readable by whoever is running the place -- which means they have to
+	have been uploaded by the account that owns the game, not by whichever
+	account was open in Studio when the model was made. That is a dependency
+	the other eighteen weapons do not have, and it is why this is one optional
+	field rather than a second pipeline: if the meshes ever stop loading, the
+	`model` line comes out and the weapon is a part list again.
+
+	THE THREE NUMBERS ARE TUNING, AND ARE MEANT TO BE
+	A Blender export arrives at whatever size and facing that scene happened
+	to use, and there is no way to know either from in here. `scale` brings it
+	to studs, `offset` moves the grip onto the origin, and `rot` turns the
+	barrel to -Z. Getting them right is a Play test and a number, not a code
+	change -- which is the whole reason they are declared and not derived.
+]]
+export type ModelSource = {
+	--- A child of `ReplicatedStorage.Assets.Weapons`, i.e. the file stem.
+	asset: string,
+	--- Multiplier onto the imported geometry. Blender metres are not studs.
+	scale: number,
+	--- Grip-relative shift, in studs, applied after scaling.
+	offset: Vector3?,
+	--- Euler degrees. The barrel has to end up pointing down -Z.
+	rot: Vector3?,
+}
+
 export type WeaponDef = {
 	id: string,
 	displayName: string,
@@ -76,6 +132,8 @@ export type WeaponDef = {
 	muzzleOffset: Vector3, -- studs from the grip to the barrel tip
 	parts: { WeaponPart },
 	blade: WeaponPart?, -- sabers only; animated on ignition
+	--- Imported geometry instead of `parts`. See `ModelSource`; almost always nil.
+	model: ModelSource?,
 }
 
 local defs: { [string]: WeaponDef } = {}
@@ -291,6 +349,93 @@ def({
 			color = Palette.Gunmetal,
 			material = Enum.Material.Metal,
 		},
+	},
+})
+
+--[[
+	THE ONE WEAPON IN THE GAME THAT WAS NOT WRITTEN, 2026-08-29
+
+	Modelled in Blender by one of the boys and imported as twenty-six
+	MeshParts; see `ModelSource` for what that costs and why it is allowed
+	here and nowhere else yet.
+
+	The part list below is not decoration. `WeaponModel.build` draws it only
+	when the imported model cannot be found, so this weapon degrades into an
+	ordinary scavenged pistol rather than into an empty hand -- which is the
+	failure mode that matters, because the meshes live on somebody's account
+	and this file cannot check that they are still there.
+
+	Sold by the Jawas, which is the only vendor it could belong to: it is a
+	revolver frame with a suppressor bolted to it and sixteen visible screws,
+	and "mostly works" is already their greeting.
+
+	PRICED TO BE OWNED, 2026-08-29
+	It first went in at tier 3, level 10 and 3,100 credits -- the reasoning
+	being that the best thing on a scavenger's cart should be a reason to walk
+	out to the Wastes. That reasoning was about the shelf and not about the
+	gun. This is the one weapon in the game somebody in this house made, and a
+	gate that means it is not in your hand for the first several hours is the
+	wrong gate whatever it does for the curve. Tier 2, level 5, 1,400.
+
+	Tier moved with the level rather than staying at 3, because the panel
+	sorts the shelf by tier and prints it on the row: a tier-3 badge on a
+	level-5 weapon is both a lie and the reason it was sitting below the fold
+	where nobody found it.
+]]
+def({
+	id = "NN14",
+	displayName = "NN-14 Scavenger's Blaster",
+	class = "Blaster",
+	description = "Somebody built this out of three other guns and it shoots straighter than any of them did.",
+	--[[
+		Left where it was when the level came down, and that is a real
+		decision rather than an oversight: at 19 this outguns the SE-14C
+		(11, and 700 credits dearer) so completely that the Jawa's other
+		pistol stops having a reason to exist, and the DL-44 at level 8 is a
+		smaller step up than it used to be.
+
+		Worth it. The alternative is a gun that is exciting to own and
+		disappointing to fire, and "the thing I built is actually good" is
+		the entire point of it being in here. If it flattens the first hour
+		in a play test, this number is the knob -- 14 restores the curve and
+		still beats the SE-14C.
+	]]
+	damage = 19,
+	fireRate = 2.1,
+	range = 180,
+	falloffStart = 90,
+	falloffMin = 0.55,
+	mode = "Semi",
+	spread = 1.6,
+	projectileSpeed = 400,
+	magazine = 8,
+	reloadTime = 1.9,
+	critMultiplier = 2.0,
+	handedness = "OneHand",
+	tier = 2,
+	cost = 1400,
+	requiredLevel = 5,
+	boltColor = Palette.BlasterRed,
+	muzzleOffset = V3(0, 0.18, -1.6),
+	--[[
+		Scaled to about two and a quarter studs end to end, which is a heavy
+		pistol in a character's hand. The raw export is 22 studs long: Blender
+		was working in something other than studs, as it always is.
+
+		`rot` and `offset` are where a Play test lands. The export's long axis
+		is Z, so the barrel is already on the right axis -- but nothing here
+		knows which *end* of it the muzzle is, and a gun held backwards is one
+		`rot = V3(0, 180, 0)` away from being held forwards.
+	]]
+	model = {
+		asset = "reysblaster",
+		scale = 0.1,
+		offset = V3(0, 0.1, -0.2),
+	},
+	parts = {
+		grip(Palette.SmugglerBrown),
+		receiver(1.15, Palette.WornSteel),
+		barrel(1.0, 0.11, -1.15),
 	},
 })
 

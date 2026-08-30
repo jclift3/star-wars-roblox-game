@@ -4,6 +4,22 @@
 *.rbxm
 *.rbxmx
 
+# ...except the models under assets/, which are source, not build output.
+#
+# Rojo does NOT mount this directory -- it cannot. `MeshPart.MeshId` is one
+# of the few properties Roblox will not let a plugin write, so live sync
+# builds the parts, fails once per mesh ("26 changes failed to apply",
+# 2026-08-30) and leaves a blaster made of blank cubes. The file is inserted
+# into the place by hand, once, and lives in the place file after that --
+# the same deal as the template world's scenery.
+#
+# Tracked anyway, because it is the only copy of geometry one of the boys
+# modelled and losing it means it never existed. A narrow exception rather
+# than dropping the rules above, which are still right for everything
+# Studio exports by accident.
+!assets/**/*.rbxm
+!assets/**/*.rbxmx
+
 # Roblox Studio cache and temporary files
 *.rbxl.lock
 *.rbxlx.lock

@@ -1865,6 +1865,68 @@ zooms.
 - Everything that hangs off a wall is `CanCollide = false`. A ledge you can stand
   on is a ledge the boys will stand on.
 
+### 3.4 The one weapon that was not written — **2026-08-29**
+
+One of the boys modelled a blaster in Blender and exported it. There is no part
+list that would honour that, so the rule bends here and nowhere else yet: an
+optional `WeaponDef.model` naming a child of `ReplicatedStorage.Assets.Weapons`,
+whose source `.rbxmx` is tracked at `assets/Weapons/`.
+
+**The procedural pipeline stays the default and stays right.** Building weapons
+out of `Instance.new` is what lets the inventory panel draw a live
+`ViewportFrame` of the real item, lets a crystal recolour whatever is emitting,
+and keeps the game free of asset ids owned by somebody else. The other eighteen
+weapons still work that way.
+
+**What the exception costs, precisely.** A MeshPart's `.rbxmx` does not contain
+geometry — it contains an `rbxassetid://` per mesh, twenty-six of them in this
+file, all pointing at uploads on whichever account did the export. The weapon
+renders only while those uploads exist and are readable by whoever is running the
+place. That is a dependency nothing else in the game has, and it is why `NN14`
+**also declares a full `parts` list**: `WeaponModel.build` draws the part list
+when the import cannot be found, so the failure mode is an ordinary scavenged
+pistol rather than an empty hand. If the meshes ever stop loading, the `model`
+line comes out and the weapon is a part list again — no other file changes.
+
+`ModelSource` carries three tuning numbers (`scale`, `offset`, `rot`) because a
+Blender export arrives at whatever size and facing that scene happened to use,
+and there is no way to know either from inside a config file. They are declared
+rather than derived so that fixing a gun held backwards is a number, not a code
+change.
+
+**`.gitignore` was the quieter bug.** `*.rbxmx` had excluded the model outright,
+so the file existed on one machine, was invisible to `git status`, and would
+never have reached the other boy or a publish. Narrow negations for `assets/**`
+now carve it out; the rules above are still right for everything Studio exports
+by accident.
+
+**Sold by the Jawas**, at level 5 for 1,400 credits before their 0.8 markup.
+Not an arbitrary shelf: `JawaScrap` is the only vendor in the game that could
+plausibly be holding a revolver frame with a suppressor bolted to it and sixteen
+visible screws, and *"Utinni! Very good price. Mostly works"* was already their
+greeting. It is also the strongest thing on that cart, which is what makes the
+walk out to the Wastes worth making. It first went in at level 10 and 3,100 on
+the reasoning that the best thing on a scavenger's cart should be a reason to
+travel — which was about the shelf and not about the gun. This is the one weapon
+in the game somebody in this house made, and a gate that keeps it out of your
+hand for the first several hours is the wrong gate whatever it does for the
+curve.
+
+**Rojo cannot deliver it, 2026-08-30.** `assets/` was mounted at
+`ReplicatedStorage.Assets` in `default.project.json` for one day. The plugin
+reported *"Synced, but 26 changes failed to apply"* and Studio showed twenty-six
+MeshParts shaped like cubes — twenty-six being exactly the mesh count.
+`MeshPart.MeshId` is one of the few properties Roblox will not let a plugin
+write, so Rojo can create the parts and can never fill them. There is no setting
+that changes this.
+
+The mount is removed and the folder is inserted into the place **by hand, once**,
+after which it lives in the saved place file — the same arrangement the template
+world's scenery has always had, and for the same reason: not everything in a
+Roblox game can come from a text file. Walkthrough in TESTING §9.0d. This is also
+the second reason `buildImported` returns a boolean rather than trusting the
+folder is there.
+
 ---
 
 ## Phase 3b — The campaign
