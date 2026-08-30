@@ -77,14 +77,36 @@ pressing H in a ship.
 
 ### Cheat codes
 
-Typed into normal chat. **Studio or the place owner only** — they are silently
-ignored for anyone else, so do not be surprised when nothing happens in a
-published place under another account.
+Typed into normal chat. **Open to every player right now** —
+`DevService.EVERYONE_MAY_CHEAT` is `true`, so both boys can run all of these
+without anything being added anywhere. `DEV_USER_IDS` names them as well, so
+turning the flag off does not take the codes away from them. The published
+server prints a yellow `CHEAT CODES ARE OPEN TO EVERY PLAYER` line at boot; that
+is the reminder to turn it off before anyone outside the house sees the game.
+
+**A code fix does not reach a live server until the place is republished.**
+Reported 2026-08-29: *"none of the codes work for landon"*, with an Output log
+showing the refusal line — which is itself code written that same day. So the
+running server had *some* of the day's work and not the rest, because it was a
+published build from a particular moment. If a code behaves like a version you
+have moved past, the question is when the place was last published, not what the
+code does.
+
+**If a code "does not work" once the flag is off, check who typed it before you
+check what they typed.** Reported 2026-08-29 as *"whosyourdaddy doesn't work and
+neither does thereisnocow"*, which reads as two broken codes and was neither:
+the second player was not the owner, and **every** code in the file was equally
+silent for him. The gate does not look at the word. To add somebody
+permanently, have them type any code once while you watch the Output window —
+the refusal line prints their UserId, which is what goes in `DEV_USER_IDS`.
 
 | Code | Does |
 | --- | --- |
 | `thereisnocow` | 10,000 credits and level 12 |
 | `whosyourdaddy` | Level 50 and five times the price of the dearest thing anyone sells. The only way to reach the top tier of ships, which is gated on level 36 **and** six figures at once |
+| `unlimitedpower` | Alignment to −1000 (Merciless). The only way to reach the dark half of the Force fork without playing a whole moral arc |
+| `iamajedi` | Alignment to +1000 (Selfless), same job in the other direction |
+| `whoisjohngalt` | Skill points equal to every rank in every tree. The only way to see past the fifty a character earns in a whole game, and there is no respec |
 | `greedisgood` | One drop of each rarity, Common through Legendary |
 | `iseedeadpeople` | Samples 5,000 drops and prints a histogram. Output window, not a toast |
 | `showmethemoney` | Prints every radiant mission on every planet and which are posted today. Output window |

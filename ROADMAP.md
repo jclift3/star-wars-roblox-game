@@ -3592,14 +3592,70 @@ into arm's reach. One change, one report, one thing to watch next test.
 
 ### Cheat codes
 
-`DevService` listens on normal chat. **Studio or the place owner only** — silent
-for anyone else, so a stranger who guesses a real word learns nothing.
+`DevService` listens on normal chat. **`EVERYONE_MAY_CHEAT` is currently `true`,
+so every player can run every code.** The rule underneath it is Studio, the
+place owner, or a UserId in `DEV_USER_IDS` — silent for anyone else, so a
+stranger who guesses a real word learns nothing.
+
+**Why the flag is on.** Asked for 2026-08-29, an hour after the allow-list went
+in: *"I want anyone to be able to run codes for now, it is causing too many
+issues debugging."* Correct while the game is being built by three people in one
+room, and **a debugging tool the debuggers cannot use is worse than no gate at
+all.**
+
+`DEV_USER_IDS` is now filled — `Jeffman8080` and `Coolguy80800`, harvested off
+three refusal lines in a live session the same evening, which is exactly the job
+that trace was added to do. So there are two independent fixes in place and the
+flag can come off whenever, with the allow-list carrying it.
+
+**Neither reaches a running server.** The refusal lines above came from a
+*published* place, so they were the live build, not Studio — and a live build
+only changes when the place is republished from Studio. Every fix in this file
+is one manual publish away from mattering, and that publish is a thing only the
+account owner can do.
+
+**A skill-point code is not impatience.** `whoisjohngalt` went in the same
+evening, asked for by name. A character earns 1 + 1/level = **fifty points over
+an entire game**, against a catalogue several times that size, and there is no
+respec — so most of the skill tree has never been seen by anybody and there was
+no way to see it. `whosyourdaddy` reaches level 50 and hands over the whole
+lifetime budget, which is still not enough to reach the bottom of one tree. The
+total is summed off `nodesInTree` at call time, so a node added tomorrow is
+covered. It does *not* unlock everything: level gates, tree-rank prerequisites
+and the three exclusive pairs are all still in the way — points were never the
+only obstacle, only the one you could not get more of.
+
+It is a flag rather than a deleted check so turning it back is one word, and
+`DevService.start` warns yellow at boot whenever it is true outside Studio,
+because the failure mode of this line is forgetting it. **Flip it before the
+game is shown to anyone outside the house.**
 
 | Code | Effect |
 |---|---|
 | `thereisnocow` | +10,000 cr and up to level 12 — enough to reach most worlds |
 | `whosyourdaddy` | Level 50 and 5× the dearest price in the game — enough to buy the top tier of ships, which `thereisnocow` deliberately does not reach |
+| `unlimitedpower` | Alignment to −1000, Merciless |
+| `iamajedi` | Alignment to +1000, Selfless |
+| `whoisjohngalt` | Skill points equal to every rank in every tree, totalled at call time |
 | `iamacolyte` `iamconscript` `iamscoundrel` `iamscrapper` | Set your origin and its faction |
+
+**`DEV_USER_IDS` — 2026-08-29.** Reported from play: the second player typed a
+code and nothing happened, and the natural reading was that the *word* was
+wrong — the request was for "a different code that works." It was not the word.
+The gate never looked at what was typed; it looked at who typed it, and every
+code in the file was equally silent for a player who is not the account that
+owns the place. So the fix is a named list rather than a second secret word,
+because there is no word that could have helped. A UserId is public information,
+so the list is safe in a public repo. To fill it in, have somebody type any code
+once: **the refusal trace prints their UserId.**
+
+The two alignment codes exist because alignment is the one number in the game
+that **cannot be farmed** — it moves only on dialogue choices and mission
+resolutions, so testing the Force fork at level 16 otherwise means playing an
+entire moral arc twice. They drive through `ProgressionService.awardAlignment`
+rather than writing the field, so the ordinary toasts fire and the code tests
+the real path. Swinging both ways does **not** buy both halves of the fork:
+`excludes` guards it by node id, not by alignment.
 
 The origin codes still matter now that 3b.1 has shipped a creation screen: that
 screen asks once and refuses to ask again, so these are the only way to see all

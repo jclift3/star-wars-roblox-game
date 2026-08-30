@@ -10,11 +10,23 @@
 	cold currently costs about four hours of Tatooine. This is the skeleton key.
 
 	WHO CAN USE IT
-	Studio, or the account that owns the place. Nobody else, ever -- a code
-	that hands out 10,000 credits is an economy with a hole in it the moment a
-	stranger learns the word. The gate is checked per message rather than once
-	at join, because it is one comparison and the failure mode of caching it
-	wrongly is the entire problem.
+	**Right now, everyone** -- see `EVERYONE_MAY_CHEAT` below, which is on and
+	is not supposed to stay on. The rule underneath it is Studio, the account
+	that owns the place, or one of the named accounts in `DEV_USER_IDS`, and
+	nobody else ever: a code that hands out 10,000 credits is an economy with a
+	hole in it the moment a stranger learns the word. The gate is checked per
+	message rather than once at join, because it is one comparison and the
+	failure mode of caching it wrongly is the entire problem.
+
+	Reported from play 2026-08-29: the second player typed a code and nothing
+	happened, and the natural reading was that the *word* was wrong. It was
+	not -- ownership was, and every code in this file was equally silent for
+	him. `DEV_USER_IDS` is the durable fix, and it is a list rather than a
+	second secret word because there is no word that could have helped: the
+	gate never looked at what was typed. It is also empty, because filling it
+	in needs two UserIds that have to be collected from a live session, and a
+	gate nobody can get through is worse than no gate while the game is still
+	being built -- which is what the flag is for.
 
 	THE ORIGIN CODES ARE THE POINT
 	`thereisnocow` is the convenient one, but `iamacolyte` and friends are the
@@ -56,6 +68,7 @@ local Types = require(Shared.Types)
 local Net = require(Shared.Core.Net)
 local Inventory = require(Shared.Core.Inventory)
 local Affixes = require(Shared.Config.Affixes)
+local Alignment = require(Shared.Config.Alignment)
 local Crystals = require(Shared.Config.Crystals)
 local Loot = require(Shared.Config.Loot)
 local Origins = require(Shared.Config.Origins)
@@ -102,7 +115,59 @@ end
 --------------------------------------------------------------------------------
 
 --[[
-	True in Studio, true for the account that owns the place, false for everyone.
+	OPEN TO EVERYONE. This is temporary and it is meant to be noticed.
+
+	Asked for 2026-08-29, an hour after the allow-list went in: *"I want anyone
+	to be able to run codes for now. It is causing too many issues debugging
+	atm."* That is the right call while the game is being built by three people
+	in one room -- the allow-list needs two UserIds nobody has collected yet,
+	and until they are collected it is a gate that stops the authors and stops
+	nobody else. A debugging tool the debuggers cannot use is worse than no
+	gate at all.
+
+	It is one flag rather than a deleted function so that turning it back is
+	one word, and `mayCheat` below still holds the real rule underneath it,
+	unchanged and ready. `DevService.start` warns loudly at boot whenever this
+	is true outside Studio -- because the failure mode of this line is
+	forgetting it, and a forgotten `true` here means the first stranger to
+	learn the word "greedisgood" owns the economy.
+
+	FLIP THIS BEFORE THE GAME IS SHOWN TO ANYONE OUTSIDE THE HOUSE.
+]]
+local EVERYONE_MAY_CHEAT = true
+
+--[[
+	The accounts allowed to cheat in a published place besides the owner.
+
+	This is the two boys, and it is meant to stay that size. Everyone in this
+	list can hand themselves level 50 and six figures, so it is a list of
+	people the game belongs to, not a list of people who asked.
+
+	A UserId is public information on Roblox -- it is the number in a profile
+	URL -- so nothing is leaked by it living in a public repo, and nobody who
+	reads it gains anything: knowing Landon's id does not make you Landon.
+	That is the whole reason this can be a plain table instead of the
+	DataStore the analytics credentials need.
+
+	TO FILL ONE IN: have them type any code once while you watch the Output
+	window. The refusal line below prints the id that was refused, which is
+	exactly the number to paste here. Both of the ids below arrived that way,
+	2026-08-29, off three refusal lines in a live session -- which is the one
+	thing that trace was written to do.
+
+	Keyed by account name rather than by the boy's name, because the account
+	name is the only half of the pair this file can ever check itself against:
+	the trace prints `Jeffman8080`, not Logan.
+]]
+local DEV_USER_IDS: { [number]: string } = {
+	[4702145851] = "Jeffman8080",
+	[5002107171] = "Coolguy80800",
+}
+
+--[[
+	True in Studio, true for the account that owns the place, true for the
+	named accounts above, false for everyone else -- and, while
+	`EVERYONE_MAY_CHEAT` is set, true for everyone.
 
 	A group-owned place reports the *group* id as `game.CreatorId` and so never
 	matches a UserId -- deliberately not handled. Every API for asking "does this
@@ -110,7 +175,13 @@ end
 	group the codes still work in Studio, which is where they are used anyway.
 ]]
 local function mayCheat(player: Player): boolean
+	if EVERYONE_MAY_CHEAT then
+		return true
+	end
 	if RunService:IsStudio() then
+		return true
+	end
+	if DEV_USER_IDS[player.UserId] then
 		return true
 	end
 	return game.CreatorType == Enum.CreatorType.User and player.UserId == game.CreatorId
@@ -185,6 +256,94 @@ codes.whosyourdaddy = function(player: Player)
 	progression().awardCredits(player, credits, true)
 	liftToLevel(player, Progression.MAX_LEVEL)
 	tell(player, `Level {Progression.MAX_LEVEL}, and {credits} credits. Buy something silly.`)
+end
+
+--[[
+	Both ends of the alignment axis, one word each.
+
+	Alignment is the only number in this game that cannot be farmed -- it
+	moves on dialogue choices and mission resolutions and on nothing else, by
+	design, so either end of it is thirty-odd decisions taken in the same
+	direction. That is exactly right for a character and useless for checking
+	that the thing the axis gates actually works.
+
+	Driven through `awardAlignment` rather than by writing the field, so the
+	shift toast and the band-crossing line fire precisely as they do in play.
+	Those two messages are usually the thing being tested, and a cheat that
+	set the number silently would be exercising a path nothing else uses.
+
+	SWINGING BOTH WAYS DOES NOT BUY BOTH HALVES OF THE FORK, AND THAT IS THE
+	POINT. Force Lightning and Force Mend exclude each other by id as well as
+	by alignment bound, because bounds are read only at the moment of purchase
+	and alignment moves afterwards. That guard was written against a player
+	drifting over thirty levels; these two codes are the fastest way there is
+	to prove it holds, which is half of why they are worth having.
+]]
+local function swing(player: Player, target: number)
+	local profile = data().get(player)
+	if not profile then
+		return
+	end
+	progression().awardAlignment(player, target - profile.alignment)
+	tell(player, string.format("%s (%+d)", Alignment.titleFor(target), target), "Alignment")
+end
+
+codes.unlimitedpower = function(player: Player)
+	swing(player, Alignment.MIN)
+end
+
+codes.iamajedi = function(player: Player)
+	swing(player, Alignment.MAX)
+end
+
+--[[
+	Enough skill points to buy the entire tree, whatever the tree currently is.
+
+	Asked for 2026-08-29: *"logan needs a code for more skill points."* The
+	reason the ask is reasonable and not just impatience is arithmetic. A
+	character earns `STARTING_SKILL_POINTS` plus one per level, so **fifty over
+	an entire game**, against a catalogue that is several times that. Missions
+	add a handful more. `whosyourdaddy` reaches level 50 in one word and hands
+	over fifty points with it -- which is the whole budget, and still not
+	enough to see the bottom of one tree, let alone all four.
+
+	So most of the skill tree has never been looked at by anybody, and there is
+	no way to look at it: no respec, by design, so a spent point is spent for
+	the life of the character and checking what a capstone does costs a
+	playthrough.
+
+	Derived rather than typed, like `topPrice`. It totals `maxRank` across
+	every node in every tree, so a node added tomorrow is covered without
+	anybody remembering this line exists. It is granted in full on every use
+	rather than topped up to a target, which means running it twice gives twice
+	as much -- harmless, and it keeps the code a single addition with no
+	hidden state.
+
+	IT CANNOT BUY EVERYTHING AND IT IS NOT MEANT TO. Level gates, tree-rank
+	prerequisites and the three exclusive pairs all still apply -- points were
+	never the only thing in the way, they were only the thing you could not
+	get more of. A character with a thousand points still cannot hold both
+	halves of the Force fork, which is worth checking with it.
+]]
+local function totalRanks(): number
+	local total = 0
+	for _, tree in Progression.TREES do
+		-- Safe: every id came out of `Progression.TREES`. The annotation on
+		-- that table does not survive being read from another module, which
+		-- is the same widening the skill panel casts around.
+		for _, node in Progression.nodesInTree(tree :: Types.SkillId) do
+			total += node.maxRank
+		end
+	end
+	return total
+end
+
+codes.whoisjohngalt = function(player: Player)
+	local points = totalRanks()
+	data().update(player, function(p: PlayerProfile)
+		p.skillPoints += points
+	end)
+	tell(player, `+{points} skill points. Open K and spend them badly.`)
 end
 
 --[[
@@ -440,6 +599,20 @@ local function trace(message: string)
 end
 
 function DevService.start()
+	--[[
+		The one line that stops `EVERYONE_MAY_CHEAT` from being permanent.
+
+		A `warn` rather than a `print` so it comes up yellow among the boot
+		chatter, and only outside Studio because Studio is where the flag is
+		harmless and where the noise would be constant enough to stop being
+		read. In a published place it is the whole reminder.
+	]]
+	if EVERYONE_MAY_CHEAT and not RunService:IsStudio() then
+		warn(
+			"[DevService] CHEAT CODES ARE OPEN TO EVERY PLAYER. Set EVERYONE_MAY_CHEAT = false before release."
+		)
+	end
+
 	local function listen(player: Player)
 		player.Chatted:Connect(function(message: string)
 			local typed = normalise(message)
@@ -452,7 +625,14 @@ function DevService.start()
 				-- Deliberately silent *to the player*. Telling a stranger they
 				-- typed a real code and were refused is an invitation to keep
 				-- guessing; the console is not a place a stranger can look.
-				trace(`{player.Name} typed "{typed}" and was refused -- not the owner, not Studio`)
+				--
+				-- The UserId is here so that this line doubles as the way to
+				-- fill in `DEV_USER_IDS`: somebody who should be allowed types
+				-- a code once, and the number to add prints itself.
+				trace(
+					`{player.Name} typed "{typed}" and was refused -- not the owner, not Studio, `
+						.. `not in DEV_USER_IDS. UserId is {player.UserId}`
+				)
 				return
 			end
 			trace(`{player.Name} ran "{typed}"`)
