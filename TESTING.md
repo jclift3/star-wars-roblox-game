@@ -1282,9 +1282,12 @@ Needs `showmethemoney` (30,000 cr minimum) and `greedisgood` to level 16.
 
 5. Sit in the pilot's seat. W throttles up. It **does not hover-follow the
    ground** the way a speeder does — it just leaves.
-6. **Space** climbs, **LeftControl** dives. Let go of both: the nose **returns
-   to level on its own** over a second or two. *(A held angle in a place with no
-   horizon is how you get lost.)*
+6. **Space** climbs, **C** dives. Let go of both: the nose **returns to level on
+   its own** over a second or two. *(A held angle in a place with no horizon is
+   how you get lost.)* Dive was **LeftControl** until 2026-08-30 — while diving
+   and steering you were pressing Ctrl+W and Ctrl+D, which Studio reads as
+   select-all and duplicate, so **hold C and steer through a full turn** and
+   confirm nothing in the Explorer multiplies.
 7. Fly low over a dune. The ship refuses to go through the ground — there is a
    floor at its own gear height — but a deliberate climb is never fought.
 8. Climb straight up. Somewhere around 900 studs you reach **orbit** — see

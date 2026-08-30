@@ -1605,26 +1605,37 @@ Ships.MAX_PITCH = 60
 
 	Two keys are cruder and cannot fail to be found, which here is worth more
 	than elegance. Space is free the moment you sit down -- there is nothing
-	to jump off -- and LeftControl is not bound to anything.
+	to jump off.
+
+	Dive was LeftControl until 2026-08-30, on the grounds that `Bindings`
+	said nothing was using it. `Bindings` only knows about keys this game
+	declares, and Ctrl is not one of those: it is a *modifier*, so holding it
+	turns every other key into somebody else's shortcut. A boy holding it to
+	descend and steering with W and D was pressing Ctrl+W and Ctrl+D, which
+	in Studio are select-all and duplicate -- he reported duplicating his own
+	ship and his brother repeatedly. In a browser Ctrl+W closes the tab.
+
+	C is free, is next to nothing that steers, and is the climb/dive pairing
+	every flight game already uses. Never bind a modifier.
 ]]
 Ships.PITCH_UP_KEY = Enum.KeyCode.Space
-Ships.PITCH_DOWN_KEY = Enum.KeyCode.LeftControl
+Ships.PITCH_DOWN_KEY = Enum.KeyCode.C
 
 --[[
 	How the legend spells the two of them.
 
-	Written out rather than taken from `KeyCode.Name` because that yields
-	"LeftControl", which is eleven characters in a box cut for four and is
-	not what is printed on the key anyway. The hint is here beside the
-	binding for the reason `SUMMON_HINT` is: rebinding one and forgetting the
-	other is how a legend starts lying.
+	Written out rather than taken from `KeyCode.Name` because a name is not
+	always what is printed on the key -- and because the box is cut for four
+	characters, which "LeftControl" was never going to fit in. The hint is
+	here beside the binding for the reason `SUMMON_HINT` is: rebinding one
+	and forgetting the other is how a legend starts lying.
 
 	And they are in the legend at all because pitch has never been written
 	down anywhere -- see the note above about shipping the same bug twice.
 ]]
 Ships.PITCH_UP_CAP = "SPACE"
 Ships.PITCH_UP_HINT = "CLIMB"
-Ships.PITCH_DOWN_CAP = "CTRL"
+Ships.PITCH_DOWN_CAP = "C"
 Ships.PITCH_DOWN_HINT = "DIVE"
 
 --[[

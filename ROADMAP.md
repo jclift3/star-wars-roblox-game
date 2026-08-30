@@ -1194,8 +1194,9 @@ Decisions worth not relitigating:
   while the right mouse button is held, so a player who does not know that flies
   dead level forever and never finds the ceiling. This project has shipped that
   exact bug twice under the name *"finished but unreachable is not finished"*.
-  Space climbs, LeftControl dives, and pitch **decays to level** when neither is
-  held — a held angle in a place with no visible horizon is a trap.
+  Space climbs, C dives, and pitch **decays to level** when neither is held — a
+  held angle in a place with no visible horizon is a trap. Dive was LeftControl
+  until 2026-08-30; see §5.6.
 - **Above `Ships.CEILING` the star map opens itself**, once, on the way up. One
   raycast does both jobs: a hit closer than the hull's ride height is a floor to
   push off, and no hit at all *is* what leaving a planet looks like from the
@@ -3615,6 +3616,22 @@ model of one, and both halves of it are the same mistake in two places:
   and 30 studs is one size of object with variations; the point of this one
   is that there is now something in the air that is unmistakably *far away
   and enormous* rather than near and small.
+
+### 5.6 Never bind a modifier — **2026-08-30**
+
+Reported by one of the boys:
+*"we need to get rid of Ctrl as down, it selects everything and I keep
+accidentally duping my ship… I kept duping you."* `Ships.PITCH_DOWN_KEY` was
+`LeftControl`, and its own comment said *"LeftControl is not bound to
+anything"* — which was true of `Bindings.luau` and false of the machine. Ctrl
+is a **modifier**: holding it to descend while steering with W and D sends
+Ctrl+W and Ctrl+D, which in Studio are select-all and duplicate, and in a
+browser is close-tab. Now **C**, which is free, is next to nothing that steers,
+and is the Space/C pairing every flight game already uses.
+
+The lesson generalises past this one key: `Bindings.validate` can only see the
+keys **this game** declares, so it can never catch a collision with the host.
+Studio and the browser both own Ctrl, Alt and Shift outright. Never bind one.
 
 ---
 
