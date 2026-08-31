@@ -40,6 +40,7 @@ local Shared = game:GetService("ReplicatedStorage"):WaitForChild("Shared")
 local Net = require(Shared.Core.Net)
 local Panels = require(Shared.Core.Panels)
 local Ships = require(Shared.Config.Ships)
+local Upgrades = require(Shared.Config.Upgrades)
 local Furnishings = require(Shared.Config.Furnishings)
 local Orbit = require(Shared.Config.Orbit)
 local Planets = require(Shared.Config.Planets)
@@ -375,6 +376,7 @@ local function take(seat: VehicleSeat)
 	local profile = ServiceLoader.get("ClientState").get()
 	local skills: { [string]: number } = if profile then profile.skills else {}
 	local stats = Progression.computeStats(skills)
+	local fitted = if profile then profile.shipParts[shipId] else nil
 
 	seated = {
 		model = model,
@@ -389,8 +391,18 @@ local function take(seat: VehicleSeat)
 		yaw = math.atan2(-chassis.CFrame.LookVector.X, -chassis.CFrame.LookVector.Z),
 		pitch = 0,
 		speed = 0,
-		speedMult = stats.ShipSpeedMult or 1,
-		turnMult = stats.ShipTurnMult or 1,
+		--[[
+			Two multipliers into one, and it has to be a product.
+
+			The skill number is what the *pilot* brings and the fitted part
+			is what the *hull* brings, so a maxed Piloting tree and a Mk V
+			engine both paying out is the correct answer -- and it is the
+			only combination in the game where the character sheet and the
+			garage compound. Adding them instead would make whichever you
+			built second feel like it did nothing.
+		]]
+		speedMult = (stats.ShipSpeedMult or 1) * Upgrades.multiplier(fitted, "Engine"),
+		turnMult = (stats.ShipTurnMult or 1) * Upgrades.multiplier(fitted, "Gyro"),
 		lastActual = 0,
 		lastCommand = 0,
 		-- Left blank rather than seeded from `profile.currentPlanet`: the

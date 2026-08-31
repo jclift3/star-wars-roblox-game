@@ -42,6 +42,7 @@ local Origins = require(Shared.Config.Origins)
 local Planets = require(Shared.Config.Planets)
 local Progression = require(Shared.Config.Progression)
 local Ships = require(Shared.Config.Ships)
+local Upgrades = require(Shared.Config.Upgrades)
 
 type PlayerProfile = Types.PlayerProfile
 
@@ -144,6 +145,9 @@ local function defaultProfile(): PlayerProfile
 		-- No key means no damage, so a new profile starts here and stays here
 		-- until something is actually crashed.
 		shipDamage = {},
+		-- And bare for the same reason: nothing is fitted until somebody
+		-- pays a vendor to bolt it on.
+		shipParts = {},
 		-- Empty for the same reason, and one step stronger: a cabin you were
 		-- handed furnished is a room you never chose anything about.
 		unlockedFurnishings = {},
@@ -279,6 +283,44 @@ local function migrate(saved: any): PlayerProfile
 		for id, taken in saved.shipDamage do
 			if type(id) == "string" and type(taken) == "number" and taken > 0 and Ships.exists(id) then
 				base.shipDamage[id] = math.min(taken, Ships.get(id).integrity)
+			end
+		end
+	end
+
+	--[[
+		Fitted parts are filtered on all three of their keys.
+
+		A hull can be retired from `Ships`, a slot can be dropped from
+		`Upgrades.SLOTS`, and a part id can be renamed -- and each of those
+		is a config edit somebody will make without thinking about the
+		profiles already in the DataStore. Anything unrecognised is dropped
+		rather than kept, because a slot nobody reads is a part the player
+		paid for and cannot see, which is the failure this codebase keeps
+		writing `validate` checks to avoid.
+
+		The extra `d.slot.id == slot` test catches the one case ids alone
+		would let through: a `GyroMkII` saved under the `Engine` key, which
+		`Upgrades.multiplier` would refuse at runtime anyway. Better to not
+		carry it than to carry a lie.
+	]]
+	if type(saved.shipParts) == "table" then
+		for shipId, fitted in saved.shipParts do
+			if type(shipId) ~= "string" or type(fitted) ~= "table" or not Ships.exists(shipId) then
+				continue
+			end
+			for slot, partId in fitted do
+				if type(slot) ~= "string" or type(partId) ~= "string" or not Upgrades.exists(partId) then
+					continue
+				end
+				if Upgrades.get(partId).slot.id ~= slot then
+					continue
+				end
+				local into = base.shipParts[shipId]
+				if not into then
+					into = {}
+					base.shipParts[shipId] = into
+				end
+				into[slot] = partId
 			end
 		end
 	end
@@ -570,6 +612,7 @@ local function clientView(profile: PlayerProfile)
 		equipped = profile.equipped,
 		unlockedShips = profile.unlockedShips,
 		shipDamage = profile.shipDamage,
+		shipParts = profile.shipParts,
 		unlockedFurnishings = profile.unlockedFurnishings,
 		cabin = profile.cabin,
 		missions = profile.missions,

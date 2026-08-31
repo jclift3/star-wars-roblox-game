@@ -480,8 +480,16 @@ def({
 	turnSpeed = 130,
 	hoverHeight = 3.2,
 	bank = 22,
-	--- Two engines and a seat. Nothing between the rider and the wall.
-	integrity = 140,
+	--[[
+		Two engines and a seat. Nothing between the rider and the wall.
+
+		Was 140, which was under its own maxed top speed once `Upgrades`
+		landed -- a Mk V engine takes this frame to 153 and one flat-out hit
+		would have disabled it outright. Raised, not the engine lowered:
+		`Upgrades.validate` reports the gap and the fix is always a tougher
+		frame.
+	]]
+	integrity = 160,
 	tier = 2,
 	cost = 2400,
 	requiredLevel = 5,
@@ -661,8 +669,15 @@ def({
 	turnSpeed = 165,
 	hoverHeight = 3.2,
 	bank = 32,
-	--- The fastest thing you can buy and the least of it is structure.
-	integrity = 220,
+	--[[
+		The fastest thing you can buy and the least of it is structure.
+
+		Was 220, and the fastest hull in the game is where the upgraded-speed
+		rule bites hardest: a Mk V engine puts this at 267. 275 keeps it the
+		thinnest-skinned speeder relative to its own speed without leaving it
+		one wall away from a walk home.
+	]]
+	integrity = 275,
 	tier = 4,
 	cost = 14000,
 	requiredLevel = 20,
@@ -1008,8 +1023,15 @@ def({
 	-- it much higher and the ship rests on nothing, visibly.
 	hoverHeight = 3.4,
 	bank = 26,
-	--- Hull plating enough for atmosphere, not for a fight.
-	integrity = 300,
+	--[[
+		Hull plating enough for atmosphere, not for a fight.
+
+		Was 300, twelve short of its own maxed top speed of 312. The smallest
+		of the three corrections `Upgrades` forced, and the one that shows the
+		check was worth writing: nobody would have noticed twelve studs by
+		reading the table.
+	]]
+	integrity = 320,
 	-- Thirsty. The cheap hull costs you on every jump for the rest of the
 	-- campaign, which is the whole reason to want the next one.
 	fuelMult = 1.6,

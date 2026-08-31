@@ -156,6 +156,18 @@ type Session = {
 		paid for beating a Hover Sled's ghost in a Swoop Racer.
 	]]
 	ship: string,
+	--[[
+		And what was bolted to it, captured at the same moment and for the
+		same reason.
+
+		The ghost is scaled by the fitted engine -- see `Races.ghostTime` --
+		so a run started bare and finished with a Mk V would otherwise be
+		paid against the slower ghost. That is not reachable today, since
+		there is no vendor on a circuit, but "the hull cannot change mid-run"
+		and "its parts can" is not a pair of rules worth holding in a file
+		that already explains why the first one exists.
+	]]
+	fitted: { [string]: string }?,
 }
 
 --- Circuits already composed, keyed by planet.
@@ -681,7 +693,7 @@ local function push(player: Player, session: Session?)
 			getting paid" are genuinely different questions here.
 		]]
 		purse = purses[circuit.planet] or 0,
-		target = Races.ghostTime(session.ship, circuit.length, Races.LAPS),
+		target = Races.ghostTime(session.ship, circuit.length, Races.LAPS, session.fitted),
 	})
 end
 
@@ -721,11 +733,13 @@ local function chargeEntry(player: Player): string?
 end
 
 local function begin(player: Player, circuit: Circuit, ship: string, paidWith: string)
+	local entrant = data().get(player)
 	sessions[player] = {
 		circuit = circuit,
 		startedAt = Workspace:GetServerTimeNow(),
 		hits = 0,
 		ship = ship,
+		fitted = if entrant then entrant.shipParts[ship] else nil,
 	}
 	armed[player] = false
 
@@ -803,7 +817,7 @@ local function finish(player: Player, session: Session)
 		medal. Both of those are won by owning a faster speeder; this one is
 		the same difficulty in all five.
 	]]
-	local target = Races.ghostTime(session.ship, circuit.length, Races.LAPS)
+	local target = Races.ghostTime(session.ship, circuit.length, Races.LAPS, session.fitted)
 	local won = target ~= nil and time <= target
 	local payout = 0
 	if won then

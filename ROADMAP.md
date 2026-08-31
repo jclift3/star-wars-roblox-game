@@ -3894,6 +3894,66 @@ part at 16,000 studs at all. If the neighbours are simply absent from orbit,
 that is the reason, and the fallback is the `companionSun` trick — project onto
 a fixed shell and size by angular diameter — not a bigger ball.
 
+### 5.12 A speeder can be modified — **2026-08-30**
+
+The second commit of the speeder-modification subsystem, and the one the ask
+was actually about: *"they should be able to uplevel their speeds, speed,
+durability… weapons"*. §5.9 built the durability half because a hull that
+cannot be hurt has nothing to protect. `Config/Upgrades.luau` is the parts.
+
+**Three slots, five grades, fitted to a hull.** `Engine` moves `speed`, `Gyro`
+moves `turnSpeed`, `Plating` moves `integrity` — and a `SlotDef` *names* the
+`ShipDef` field it multiplies rather than being wired up by hand at each call
+site, so `Upgrades.validate` can prove at boot that every slot moves something
+every hull actually has. Weapons are the fourth slot and are deliberately
+absent: a hardpoint is a new verb, not a multiplier on an existing number, and
+folding it in here would mean a slot whose `field` is a lie.
+
+**The decision that shapes the file: a part lives at
+`profile.shipParts[shipId][slot]`** — the user's call, keyed by hull exactly
+the way `shipDamage` is. Upgrading the Swoop does nothing for the Assault, a
+hull bought tomorrow starts bare, and the speeder in the garage is something
+you built. The alternative was a fifth `Affixes.ITEM_SLOTS` entry letting
+existing crystals grant `ShipSpeedMult` — almost no code, since that stat has a
+live reader — and it was rejected because the bonus would follow the *pilot*,
+and then there is no garage and nothing to be proud of.
+
+**Buying is fitting.** There is no loose part in a bag and no fitting screen: a
+vendor who sells hulls of your ship's class bolts the part straight onto the
+hull you have equipped, and a better one in the same slot replaces what is
+there at full price with nothing back. `ShopDef` gains **no new field** —
+"stocks a hull of this class" is derived, so a vendor's stock and its services
+cannot drift apart.
+
+**The gain ladder is authored; the price is not.** I tried three times to
+derive the gains from the hull catalogue and abandoned it: `integrity` is
+deliberately *anti*-correlated with tier (§5.9) and `speed` is too, so adjacent
+ratios are noise. The **price** is a fraction of the hull's own `cost`, so
+modding a starter sled is cheap, modding an interceptor is not, and the whole
+economy retunes itself the day a `cost` changes.
+
+Two `validate` rules do real work, and both of them changed other files:
+
+- **`integrity >= speed * (1 + MAX_GAIN)`.** `Ships.validate` already demanded
+  `integrity >= speed`; a maxed engine moves the right-hand side. Caught three
+  hulls — SaddleBike, SwoopRacer, SkipjackCourier — and all three were fixed in
+  `Ships.luau`. **The fix is a tougher frame, never a smaller engine**: honouring
+  the constraint by shrinking `MAX_GAIN` would have capped it at 7.3%.
+- **A full Mk V set costs more than the next hull up.** The one economic rule
+  this feature has to keep — if maxing out were the cheap way to advance, the
+  ship catalogue would be dead the day this shipped. The tightest step in the
+  catalogue is 30,000 → 85,000, a factor of 2.83, so three top parts only clear
+  it once each is worth 0.944 of a frame. **Mk V is therefore priced at a whole
+  hull**, which is not a flourish; it is the smallest number that passes.
+
+**And it moved the race payout.** `Races.ghostTime` pays for beating a ghost of
+the hull under you, and argues at length that this is the one benchmark equally
+hard in every speeder. A ghost computed off the catalogue number would be
+beaten by 30% the moment a Mk V engine was fitted — the purse paying out for a
+*purchase* rather than a lap. The ghost is now scaled by the fitted engine, and
+the parts are captured in the `Session` at the line for the same reason the
+hull already was.
+
 ---
 
 ## Phase 6 — Ship it

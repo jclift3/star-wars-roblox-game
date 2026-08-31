@@ -32,6 +32,7 @@
 
 local Items = require(script.Parent.Items)
 local Ships = require(script.Parent.Ships)
+local Upgrades = require(script.Parent.Upgrades)
 
 local Races = {}
 
@@ -366,12 +367,23 @@ Races.PASS_ITEM = "RacePass"
 	Nil for anything that cannot race -- a starship, or an id no catalogue
 	knows -- so the caller has to decide what a run in one of those is worth
 	rather than being handed a number that pretends it is comparable.
+
+	`fitted` IS NOT OPTIONAL IN SPIRIT.
+	It is the speeder's fitted parts, and passing it is what keeps every word
+	above true now that `Upgrades` exists. A Mk V engine is 30% more speed,
+	so a ghost computed off the catalogue number would be beaten by 30% the
+	moment the part was bolted on: the purse would be paying out for a
+	purchase rather than for a lap, which is the exact failure this whole
+	block argues against. It is nilable only because `Upgrades.multiplier`
+	already answers 1 for a bare hull, and a caller with nothing fitted
+	should not have to invent an empty table to say so.
 ]]
-function Races.ghostTime(shipId: string, length: number, laps: number): number?
+function Races.ghostTime(shipId: string, length: number, laps: number, fitted: { [string]: string }?): number?
 	if not Ships.exists(shipId) or Ships.isStarship(shipId) then
 		return nil
 	end
-	return Races.rivalTime(Ships.get(shipId).speed * RIVAL_PACE, length, laps)
+	local top = Ships.get(shipId).speed * Upgrades.multiplier(fitted, "Engine")
+	return Races.rivalTime(top * RIVAL_PACE, length, laps)
 end
 
 --[[

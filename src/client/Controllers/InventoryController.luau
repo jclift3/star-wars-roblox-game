@@ -140,6 +140,10 @@ local TABS = {
 	{ id = "Weapon", label = "WEAPONS" },
 	{ id = "Crystal", label = "CRYSTALS" },
 	{ id = "Vehicle", label = "SHIPS" },
+	-- Straight after SHIPS because a part is not a thing you have, it is a
+	-- thing the hull one tab left of here has -- and it is empty away from a
+	-- vendor who works on your class, which is what the empty state says.
+	{ id = "Upgrade", label = "PARTS" },
 	{ id = "Furnishing", label = "CABIN" },
 	{ id = "Pass", label = "PASSES" },
 }
@@ -937,7 +941,9 @@ local function renderDetail()
 		actionButton.Active = true
 	elseif item.equipped then
 		actionButton.Text = if item.kind == "Vehicle"
-			then `SELECTED — PRESS {Ships.SUMMON_KEY.Name}`
+			then `SELECTED — PRESS {Ships.SUMMON_KEY.Name}` -- "FITTED", not "EQUIPPED": it is bolted to a hull, not worn, and			-- the whole point of the feature is that the distinction is real.
+
+			elseif item.kind == "Upgrade" then "FITTED"
 			else "EQUIPPED"
 		actionButton.BackgroundColor3 = ROW
 		actionButton.TextColor3 = DIM
@@ -972,7 +978,11 @@ local function renderDetail()
 		actionButton.TextColor3 = BAD
 		actionButton.Active = false
 	else
-		actionButton.Text = `BUY — {item.price} CR`
+		-- Buying a part *is* fitting it -- there is no loose part and no
+		-- fitting screen -- so the button says what actually happens.
+		actionButton.Text = if item.kind == "Upgrade"
+			then `FIT — {item.price} CR`
+			else `BUY — {item.price} CR`
 		actionButton.BackgroundColor3 = GOOD
 		actionButton.TextColor3 = Color3.new(0, 0, 0)
 		actionButton.Active = true
@@ -1104,7 +1114,7 @@ local function renderRow(item: ItemEntry, order: number)
 	if item.equipped then
 		price.Text = if item.kind == "Vehicle"
 			then "SELECTED"
-			elseif item.kind == "Furnishing" then "FITTED"
+			elseif item.kind == "Furnishing" or item.kind == "Upgrade" then "FITTED"
 			else "EQUIPPED"
 		price.TextColor3 = ACCENT
 	elseif item.kind == "Crystal" or item.kind == "Pass" then
@@ -1165,7 +1175,12 @@ local function renderList()
 		-- `unlockedShips`, not in the bag, precisely so that it cannot be sold
 		-- or take up a slot. Splitting on `carried` alone would therefore file
 		-- the speeder you just bought under the shopkeeper's stock.
-		local yours = item.carried or ((item.kind == "Vehicle" or item.kind == "Furnishing") and item.owned)
+		-- A fitted part is the same shape again: owned, never carried, and
+		-- living on the hull rather than in the bag.
+		local yours = item.carried
+			or (
+				(item.kind == "Vehicle" or item.kind == "Furnishing" or item.kind == "Upgrade") and item.owned
+			)
 		table.insert(if yours then mine else theirs, item)
 	end
 
@@ -1196,6 +1211,14 @@ local function renderList()
 			elseif
 				activeTab == "Furnishing"
 			then `Your cabin is bare. Buy a fitting, then stand by your starship and press {Furnishings.BOARD_KEY.Name}.`
+			elseif
+				activeTab
+				== "Upgrade" -- Names both halves of why this can be empty, because they are			-- different problems: no hull selected, or the wrong counter.
+
+			then "Nothing is fitted to your ship. Select one in SHIPS, then stand at a trader who sells hulls of its class."
+			elseif
+				activeTab == "Pass"
+			then "You hold no race passes. They turn up as loot and pay a race entry fee."
 			else "You are carrying no weapons. Find a trader to buy some."
 	end
 

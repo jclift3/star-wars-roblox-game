@@ -42,6 +42,7 @@ export type Profile = {
 	equipped: { weapon: string?, offhand: string?, outfit: string?, ship: string? },
 	unlockedShips: { string },
 	shipDamage: { [string]: number },
+	shipParts: { [string]: { [string]: string } },
 	missions: {
 		active: {
 			[string]: { missionId: string, startedAt: number, objectives: { [number]: number }, stage: number },

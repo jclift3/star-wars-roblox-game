@@ -102,6 +102,22 @@ export type PlayerProfile = {
 		existed all read the same, and none of them needs a migration.
 	]]
 	shipDamage: { [string]: number },
+	--[[
+		Parts fitted to each owned hull: ship id -> slot id -> part id.
+
+		A map of maps, and a map for the fifth time for the fifth identical
+		reason. Keyed by *ship* rather than held on the pilot because that
+		is the whole point of the feature: what you bolt to the Swoop does
+		nothing for the Assault, a hull bought tomorrow starts bare, and the
+		speeder still in the garage is something you built. See
+		Config/Upgrades.luau for the argument that was had against making
+		these crystals instead.
+
+		Absent keys all the way down, so a bare hull, a hull nobody has ever
+		modified and a profile saved before this existed all read alike --
+		`Upgrades.multiplier` returns exactly 1 for every one of them.
+	]]
+	shipParts: { [string]: { [string]: string } },
 	-- Furnishings owned, and which slot of the cabin each placed one fills.
 	-- Same reasoning as `unlockedShips`: a bunk bolted to a deck cannot be
 	-- dropped or sold, so it is an id and not an ItemStack. `cabin` maps a

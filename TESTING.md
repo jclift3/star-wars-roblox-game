@@ -2015,6 +2015,53 @@ played.
     flicker in and out — `SYSTEM_RADIUS` did not move, but the void it sits in
     got bigger.
 
+### 6.15 Fitting parts to a speeder — **new, 2026-08-30**
+
+Three slots — **Engine** (speed), **Gyros** (handling), **Plating** (integrity)
+— five grades each, **fitted to one hull**. There is no loose part and no
+fitting screen: a vendor who sells hulls of your ship's class bolts it on.
+
+`thereisnocow` for credits, then buy any speeder and **select** it in **B** →
+SHIPS. Selecting it matters — parts go on the hull you have equipped.
+
+1. Walk up to a trader who sells speeders. Open **B**. There is a **PARTS** tab
+   between SHIPS and CABIN, with fifteen rows in the vendor's half.
+2. Pick **Engine Mk I**. The detail pane says **+6%** and, on the line under it,
+   **your hull's actual number before and after** — not a percentage on its own.
+   The price is a fraction of what that hull cost you.
+3. Buy it. The button says **FIT**, not BUY, and the toast says *"Fitted … to
+   your \<hull\>"*. The row moves to your half of the list and reads **FITTED**.
+4. **Sit in it and drive.** It should be measurably quicker. Then fit **Gyros**
+   and confirm it turns tighter. If neither changes, the fitted multipliers are
+   not reaching the flight loop.
+5. Fit **Plating** and check the **HULL** bar's maximum went up — crash it and
+   it should take more hits than it did in §6.12.
+6. Buy **Engine Mk III** over the Mk I. It replaces it, you get **nothing
+   back**, and the detail pane warned you: a **Replaces** line naming what is in
+   the slot. This is deliberate, the same call `Shops.EXTRACT_FRACTION` makes.
+7. **The point of the whole design.** Select a *different* speeder you own. The
+   PARTS tab is now empty on your side — **the parts stayed on the other hull.**
+   Select the first one again and they are back.
+8. Walk to a trader who sells **starships** while a *speeder* is equipped. The
+   PARTS tab is empty and says so. A speeder lot cannot fit a starship engine
+   and vice versa; the Ship Yard is the only counter that touches a Dagger.
+9. Stand nowhere near a vendor and open PARTS. Empty, with a line telling you
+   both reasons it can be — no hull selected, or the wrong counter.
+10. **Rejoin the game.** Everything you fitted is still fitted.
+11. **The race check, which is the subtle one.** Note your time on a circuit in a
+    bare hull, then fit a **Mk V engine** and run it again. You will be faster —
+    but the **target** time on the race HUD should have come down by the same
+    30%, so beating your own ghost is **no easier than it was**. If a fitted
+    engine makes the purse free money, `Races.ghostTime` is not being told what
+    is bolted on, and the boys will find that before the end of the evening.
+12. **Both boys.** One fits a part; the other, standing beside him, should see no
+    change to his own ship at all — this is per-hull *and* per-profile.
+13. Watch the Output at boot for `[VehicleService] Upgrades:` lines. There should
+    be none. One means a hull is now too thin to survive its own maxed top
+    speed, or that a full set of Mk V has become cheaper than the next hull up
+    — and the fix for the first is always a **tougher frame**, never a smaller
+    engine.
+
 ---
 
 ## 7. Missions

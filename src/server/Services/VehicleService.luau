@@ -42,6 +42,7 @@ local Panels = require(Shared.Core.Panels)
 local Orbit = require(Shared.Config.Orbit)
 local Planets = require(Shared.Config.Planets)
 local Ships = require(Shared.Config.Ships)
+local Upgrades = require(Shared.Config.Upgrades)
 local ShipModel = require(Shared.Rig.ShipModel)
 local ServiceLoader = require(Shared.Core.ServiceLoader)
 
@@ -326,9 +327,22 @@ end
 local REPAIR_ITEM = "HullPlate"
 local REPAIR_FRACTION = 0.5
 
+--[[
+	How much punishment `shipId` takes for this profile, plating included.
+
+	The one place the fitted Plating multiplier is applied, because integrity
+	is read from four places in this file and a hull whose gauge, damage cap
+	and repair ceiling disagreed about its own maximum would be a bug nobody
+	could describe. Everything else calls this.
+]]
+function VehicleService.maxIntegrity(profile: PlayerProfile, shipId: string): number
+	local fitted = profile.shipParts[shipId]
+	return math.floor(Ships.get(shipId).integrity * Upgrades.multiplier(fitted, "Plating") + 0.5)
+end
+
 --- Current and maximum integrity of `shipId` for this profile.
 function VehicleService.integrity(profile: PlayerProfile, shipId: string): (number, number)
-	local max = Ships.get(shipId).integrity
+	local max = VehicleService.maxIntegrity(profile, shipId)
 	local taken = profile.shipDamage[shipId] or 0
 	return math.clamp(max - taken, 0, max), max
 end
@@ -409,16 +423,30 @@ function VehicleService.impact(player: Player, amount: number)
 	end
 
 	local def = Ships.get(shipId)
-	local damage = math.clamp(amount, 0, def.speed)
+	local profile = data().get(player)
+	if not profile then
+		return
+	end
+	--[[
+		Both bounds move with what is bolted on.
+
+		The clamp is the hull's *upgraded* top speed, because a fitted engine
+		genuinely lets it hit the wall harder and clamping to the catalogue
+		number would quietly refund the difference. The cap is the *plated*
+		maximum, for the obvious reason.
+	]]
+	local top = def.speed * Upgrades.multiplier(profile.shipParts[shipId], "Engine")
+	local damage = math.clamp(amount, 0, top)
 	if damage < 1 then
 		return
 	end
 
-	local current, max = 0, def.integrity
+	local max = VehicleService.maxIntegrity(profile, shipId)
+	local current = 0
 	data().update(player, function(p: PlayerProfile)
-		local taken = math.min((p.shipDamage[shipId] or 0) + damage, def.integrity)
+		local taken = math.min((p.shipDamage[shipId] or 0) + damage, max)
 		p.shipDamage[shipId] = taken
-		current = def.integrity - taken
+		current = max - taken
 	end)
 
 	publish(model, current, max)
@@ -484,7 +512,9 @@ function VehicleService.repair(player: Player): (boolean, string?)
 		if took < 1 then
 			return
 		end
-		local taken = math.max((p.shipDamage[shipId] or 0) - def.integrity * REPAIR_FRACTION * mult * took, 0)
+		-- Against the plated maximum, so a plate stays worth the same
+		-- *fraction* of the hull it is going into, upgraded or not.
+		local taken = math.max((p.shipDamage[shipId] or 0) - max * REPAIR_FRACTION * mult * took, 0)
 		mended = (p.shipDamage[shipId] or 0) - taken
 		if taken <= 0 then
 			p.shipDamage[shipId] = nil
@@ -973,6 +1003,12 @@ end
 
 function VehicleService.start()
 	for _, problem in Ships.validate() do
+		warn(`[VehicleService] {problem}`)
+	end
+	-- Beside `Ships.validate` because every failure it reports is a fact
+	-- about a hull: a slot that moves a field no ship has, or a frame too
+	-- thin to survive its own maxed top speed.
+	for _, problem in Upgrades.validate() do
 		warn(`[VehicleService] {problem}`)
 	end
 

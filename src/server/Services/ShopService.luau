@@ -34,6 +34,7 @@ local Items = require(Shared.Config.Items)
 local Races = require(Shared.Config.Races)
 local Shops = require(Shared.Config.Shops)
 local Ships = require(Shared.Config.Ships)
+local Upgrades = require(Shared.Config.Upgrades)
 local Weapons = require(Shared.Config.Weapons)
 local NPCArchetypes = require(Shared.Config.NPCArchetypes)
 local ServiceLoader = require(Shared.Core.ServiceLoader)
@@ -135,7 +136,7 @@ end
 --------------------------------------------------------------------------------
 
 export type ItemEntry = {
-	kind: string, -- "Outfit" | "Weapon" | "Vehicle" | "Furnishing" | "Crystal"
+	kind: string, -- "Outfit" | "Weapon" | "Vehicle" | "Furnishing" | "Crystal" | "Pass" | "Upgrade"
 	--[[
 		The stack this row is, not the catalogue entry it came from.
 
@@ -396,6 +397,38 @@ local function sellValue(stack: Inventory.ItemStack, shop: Shops.ShopDef?): numb
 	end
 	local each = cost * Affixes.rarityOf(stack.rolls).value * Shops.SELL_FRACTION / shop.priceMult
 	return math.max(1, math.floor(each)) * stack.count
+end
+
+--[[
+	The hull this vendor would bolt a part onto, if there is one.
+
+	Derived rather than declared. A counter that sells hulls of your ship's
+	class is a counter with the tools to modify one, so `ShopDef` gains no
+	`upgrades` field and a vendor's stock cannot drift out of step with its
+	services -- the same argument `Radiant` makes for composing missions out
+	of the district instead of listing them.
+
+	Nil, and so no parts anywhere, if the player has no ship equipped, does
+	not actually own the one they have equipped, or is standing at a counter
+	that deals in the other class. That last one is the interesting case: a
+	speeder lot cannot fit a starship engine, which is why the Ship Yard is
+	the only place a Dagger gets touched.
+]]
+local function fittableHull(profile: PlayerProfile, shop: Shops.ShopDef?): string?
+	local hull = profile.equipped.ship
+	if not shop or not hull or not Ships.exists(hull) then
+		return nil
+	end
+	if not table.find(profile.unlockedShips, hull) then
+		return nil
+	end
+	local class = Ships.get(hull).class
+	for _, id in shop.ships do
+		if Ships.exists(id) and Ships.get(id).class == class then
+			return hull
+		end
+	end
+	return nil
 end
 
 --[[
@@ -679,6 +712,78 @@ local function buildCatalogue(player: Player, profile: PlayerProfile, vendor: Ve
 		})
 	end
 
+	--[[
+		A part row is priced and described against one particular hull.
+
+		Which is what makes it different from every other row in this file:
+		"Engine Mk III" is not a thing with a price, it is a thing that costs
+		1,700 credits on a Swoop and 21,250 on a Dagger, and takes that
+		Swoop from 205 to 242. So the row is only built at all when there is
+		a hull to build it against, and it says the resulting number rather
+		than the percentage alone -- a percentage of a number the player
+		cannot see is not information.
+
+		All fifteen are listed rather than only the next grade up, because
+		the reason to show the ladder is so that somebody can decide to skip
+		four rungs and save for the top one.
+	]]
+	local function addUpgrades(hull: string)
+		local def = Ships.get(hull)
+		local fitted = profile.shipParts[hull]
+		for _, id in Upgrades.ids() do
+			if seen[id] then
+				continue
+			end
+			seen[id] = true
+			local part = Upgrades.get(id)
+			local from = (def :: any)[part.slot.field] :: number
+			local to = from * (1 + part.grade.gain)
+
+			local lines: { StatLine } = {
+				{ label = part.slot.displayName, value = `+{math.floor(part.grade.gain * 100 + 0.5)}%` },
+				{
+					label = def.displayName,
+					value = `{math.floor(from + 0.5)} → {math.floor(to + 0.5)}`,
+				},
+			}
+			-- The only warning the player gets that buying this throws away
+			-- what is in the slot, for nothing back. `Shops.EXTRACT_FRACTION`
+			-- makes the same call about crystals; undoing a decision costs.
+			local current = fitted and fitted[part.slot.id]
+			if current and Upgrades.exists(current) and current ~= id then
+				table.insert(lines, { label = "Replaces", value = Upgrades.get(current).displayName })
+			end
+
+			table.insert(entries, {
+				kind = "Upgrade",
+				uid = id,
+				id = id,
+				displayName = part.displayName,
+				description = part.description,
+				-- Grade stands in for tier, exactly as it does for crystals,
+				-- so the list runs Mk I to Mk V under each slot's name.
+				tier = part.rarity + 1,
+				-- The hull's own gate, which the player has already cleared by
+				-- owning it. A part has no level of its own and inventing one
+				-- would be a second number to keep in step with the first.
+				requiredLevel = def.requiredLevel,
+				price = progression().priceFor(player, Upgrades.cost(hull, id) * markup),
+				owned = current == id,
+				equipped = current == id,
+				forSale = true,
+				rarity = part.rarity,
+				affixes = {},
+				stats = lines,
+				carried = false,
+				sellValue = 0,
+				sockets = 0,
+				socketed = {},
+				slot = "",
+				extractCosts = {},
+			})
+		end
+	end
+
 	-- Owned first, so the list is stable as you walk in and out of range of a
 	-- vendor: the same things stay in the same order, with stock appended.
 	addOutfit(Outfits.DEFAULT, Outfits.DEFAULT)
@@ -706,6 +811,10 @@ local function buildCatalogue(player: Player, profile: PlayerProfile, vendor: Ve
 		end
 		for _, id in shop.furnishings do
 			addFurnishing(id)
+		end
+		local hull = fittableHull(profile, shop)
+		if hull then
+			addUpgrades(hull)
 		end
 	end
 
@@ -744,6 +853,56 @@ function ShopService.purchase(player: Player, kind: string, id: string): (boolea
 		return false, "No vendor nearby"
 	end
 	local shop = Shops.get(vendor.shopId)
+
+	--[[
+		Parts are stocked by a rule rather than by a list, so they leave
+		before the `list` check below rather than pretending to be in one.
+
+		Everything here has to be re-derived server-side: which hull is
+		equipped, whether this counter can touch that class, and what the
+		part costs on it. The client sends two strings and neither of them is
+		a price.
+	]]
+	if kind == "Upgrade" then
+		local hull = fittableHull(profile, shop)
+		if not hull then
+			return false, `{shop.displayName} does not work on your ship`
+		end
+		if not Upgrades.exists(id) then
+			return false, "Unknown item"
+		end
+		local part = Upgrades.get(id)
+		if (profile.shipParts[hull] or {})[part.slot.id] == id then
+			return false, "That is already fitted"
+		end
+
+		local price = progression().priceFor(player, Upgrades.cost(hull, id) * shop.priceMult)
+		if not progression().spendCredits(player, price) then
+			return false, "Not enough credits"
+		end
+
+		data().update(player, function(p: PlayerProfile)
+			local into = p.shipParts[hull]
+			if not into then
+				into = {}
+				p.shipParts[hull] = into
+			end
+			-- Replaces outright. There is no loose part and nothing comes
+			-- back; see Config/Upgrades.luau on why fitting is buying.
+			into[part.slot.id] = id
+		end)
+
+		local hullName = Ships.get(hull).displayName
+		notify(player, `Fitted {part.displayName} to your {hullName} for {price} cr`, "Success")
+		local fitTelemetry = analytics()
+		fitTelemetry.log(player, fitTelemetry.Kind.Purchase, {
+			kind = kind,
+			item = id,
+			price = price,
+			shop = shop.id,
+		})
+		return true, nil
+	end
 
 	-- Annotated because Luau types the if-expression as `{string} | {string}`
 	-- and then refuses to iterate the union.
@@ -1179,7 +1338,7 @@ function ShopService.init()
 	end, {
 		rateLimit = 4,
 		validate = Net.args(
-			Net.check.oneOf({ "Outfit", "Weapon", "Vehicle", "Furnishing" }),
+			Net.check.oneOf({ "Outfit", "Weapon", "Vehicle", "Furnishing", "Upgrade" }),
 			Net.check.string(64)
 		),
 	})
